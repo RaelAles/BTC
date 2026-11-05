@@ -823,6 +823,10 @@
     background-size: 11px 100%;
     background-repeat: repeat-x;
   }
+  /* Dentro da tela, o divisor também carrega .rule para o primeiro bloco
+     seguinte perder a margem própria; a regra do título (.screen > .rule)
+     zeraria o vão de cima, então o divisor retoma o par simétrico. */
+  .screen > .rule-dots { margin: var(--space-7) 0; }
   /* O primeiro bloco depois do divisor não pode trazer margem própria, senão
      o vão de baixo cresce só em algumas telas e o título deixa de ficar
      centrado no próprio espaço. */
@@ -2010,6 +2014,8 @@
             </div>
           </div>
 
+          <div class="rule rule-dots reveal-block" aria-hidden="true"></div>
+
           <div class="prose reveal-block app-block">
             <h3><span class="prompt" aria-hidden="true">##</span> chaves privadas</h3>
           </div>
@@ -2023,6 +2029,8 @@
             </table>
           </div>
           <p class="note app-gap reveal-block">Chave privada é posse: quem a lê controla os fundos. Use esta página offline e só com valor de teste.</p>
+
+          <div class="rule rule-dots reveal-block" aria-hidden="true"></div>
 
           <div class="prose reveal-block app-block">
             <h3><span class="prompt" aria-hidden="true">##</span> endereços</h3>
