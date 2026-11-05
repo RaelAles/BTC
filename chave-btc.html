@@ -1886,6 +1886,8 @@
     margin: 0 0 var(--space-7);
   }
   .bits-row .field-row { margin: 0 0 var(--space-2); }
+  /* A única ação do campo de bits fica centralizada sob a caixa do campo. */
+  .bits-actions { justify-content: center; }
   /* As legendas das chaves privadas ficam em caixa alta; as dos endereços
      seguem em caixa baixa. A caixa alta é só do desenho, então o texto do
      documento continua em minúsculas. */
@@ -1985,9 +1987,7 @@
                 <div class="edge" aria-hidden="true"></div>
               </div>
 
-              <div class="chips app-gap reveal-block" role="group" aria-label="Ações dos bits">
-                <button type="button" id="bits-random">bits aleatórios</button>
-                <span class="dot-sep" aria-hidden="true">·</span>
+              <div class="chips app-gap reveal-block bits-actions" role="group" aria-label="Ações dos bits">
                 <button type="button" id="bits-clear">limpar</button>
               </div>
 
@@ -2083,7 +2083,7 @@
 
             <h3>o que este arquivo não faz</h3>
             <ul>
-              <li>não gera a entropia dos 256 bits, exceto o botão <b>bits aleatórios</b>, que usa o gerador do navegador;</li>
+              <li>não gera a entropia dos 256 bits: eles vêm só do que você cola ou digita;</li>
               <li>não guarda a chave: recarregar a página apaga os 256 bits da memória;</li>
               <li>não calcula sighash de transação, não monta nem transmite transação;</li>
               <li>não substitui carteira de hardware, e 256 bits digitados à mão não têm a garantia de aleatoriedade de um gerador dedicado.</li>
@@ -2871,33 +2871,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }
   }
 
-  function randomBits() {
-    if (!window.crypto || !window.crypto.getRandomValues) throw new Error('este navegador não oferece gerador aleatório');
-    for (var attempt = 0; attempt < 64; attempt++) {
-      var bytes = new Uint8Array(32);
-      window.crypto.getRandomValues(bytes);
-      var bits = '';
-      for (var i = 0; i < bytes.length; i++) {
-        var b = bytes[i].toString(2);
-        while (b.length < 8) b = '0' + b;
-        bits += b;
-      }
-      var d = BigInt('0b' + bits);
-      if (d > 0n && d < BTC.N) return bits;
-    }
-    throw new Error('não foi possível sortear uma chave no intervalo');
-  }
-
-  $('#bits-random').addEventListener('click', function () {
-    try {
-      var bits = randomBits();
-      bitsEl.value = formatBits(bits);
-      onBitsInput();
-      bitsEl.focus();
-    } catch (e) {
-      setStatus(keyStatus, 'erro', e.message + '.');
-    }
-  });
   $('#bits-clear').addEventListener('click', function () {
     bitsEl.value = '';
     onBitsInput();
