@@ -1931,7 +1931,7 @@
                       placeholder="cole aqui os 256 bits: 0 e 1; espaço e quebra de linha são ignorados"></textarea>
             <div class="edge" aria-hidden="true"></div>
           </div>
-          <p class="note app-gap" id="bits-hint">O primeiro bit é o mais significativo do byte 0. Só 0 e 1 entram na conta; espaço, tabulação e quebra de linha servem de separador.</p>
+          <p class="note app-gap" id="bits-hint">O primeiro bit é o mais significativo do byte 0. O campo aceita só 0 e 1, agrupados de 8 em 8 automaticamente; espaço, tabulação, quebra de linha e qualquer outro caractere são descartados.</p>
 
           <div class="chips app-gap reveal-block" role="group" aria-label="Ações dos bits">
             <button type="button" id="bits-random">bits aleatórios</button>
@@ -2782,24 +2782,38 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* ---------------------------------------------------------- bits/entrada */
+  var BIT_GROUP = 8;
+
+  function formatBits(bits) {
+    var groups = [], i;
+    for (i = 0; i < bits.length; i += BIT_GROUP) groups.push(bits.slice(i, i + BIT_GROUP));
+    return groups.join(' ');
+  }
+
   function onBitsInput() {
     var raw = bitsEl.value;
-    var compact = raw.replace(/[\s_]/g, '');
-    var invalid = compact.replace(/[01]/g, '');
-    var bits = compact.replace(/[^01]/g, '');
+    var caret = bitsEl.selectionStart;
+    var typed = raw.slice(0, typeof caret === 'number' ? caret : raw.length).replace(/[^01]/g, '').length;
+    var bits = raw.replace(/[^01]/g, '');
+    var formatted = formatBits(bits);
     var tooMany = bits.length > 256;
-    var bad = invalid.length > 0;
+
+    /* Descarta o que não é bit e reagrupa de 8 em 8, mantendo o cursor. */
+    if (formatted !== raw) {
+      bitsEl.value = formatted;
+      var pos = 0, seen = 0;
+      while (pos < formatted.length && seen < typed) {
+        if (formatted.charAt(pos) !== ' ') seen++;
+        pos++;
+      }
+      bitsEl.setSelectionRange(pos, pos);
+    }
 
     bitsCount.textContent = bits.length + ' / 256 bits';
-    bitsEl.setAttribute('aria-invalid', bad || tooMany ? 'true' : 'false');
-    bitsBox.classList.toggle('is-invalid', bad || tooMany);
+    bitsEl.setAttribute('aria-invalid', tooMany ? 'true' : 'false');
+    bitsBox.classList.toggle('is-invalid', tooMany);
     renderBoard(bits);
 
-    if (bad) {
-      clearKey();
-      setStatus(keyStatus, 'erro', 'há ' + invalid.length + ' caractere(s) fora do alfabeto binário; use só 0 e 1.');
-      return;
-    }
     if (tooMany) {
       clearKey();
       setStatus(keyStatus, 'erro', 'são ' + bits.length + ' bits; a chave usa exatamente 256.');
@@ -2844,7 +2858,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   $('#bits-random').addEventListener('click', function () {
     try {
       var bits = randomBits();
-      bitsEl.value = bits.match(/.{8}/g).join(' ');
+      bitsEl.value = formatBits(bits);
       onBitsInput();
       bitsEl.focus();
     } catch (e) {
