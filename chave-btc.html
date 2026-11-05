@@ -1917,7 +1917,7 @@
           <pre class="rule" aria-hidden="true"></pre>
 
           <div class="prose reveal-block">
-            <p>Os 256 bits colados são lidos como um número inteiro, do primeiro ao último bit, e esse número vira a chave privada <b>d</b> — o segredo que controla os fundos. A curva secp256k1 converte <b>d</b> em <b>P = d·G</b>, a chave pública, e é dela que saem todas as chaves e os endereços logo abaixo. O tabuleiro repete os mesmos bits em 16 linhas de 16, dois bytes por linha, para você conferir a olho que o que chegou é exatamente o que foi colado. Nada sai do arquivo: o cálculo inteiro acontece no seu navegador.</p>
+            <p>Cole os 256 bits no campo abaixo, ou clique em <b>bits aleatórios</b>. O tabuleiro repete o que você colou, e logo depois aparecem a chave e os endereços que saem dela. Nada é enviado para lugar nenhum.</p>
           </div>
 
           <div class="field-row">
@@ -2036,7 +2036,7 @@
 
             <h3>segurança</h3>
             <p>Chave privada é posse: quem a lê controla os fundos daquele endereço. Use este arquivo offline, de preferência numa máquina dedicada, e desconfie de extensões, captura de tela e compartilhamento de tela. Para valor real, gere e guarde a chave numa carteira de hardware, com a semente criada no próprio dispositivo; aqui o uso é de estudo, conferência e teste.</p>
-            <p>Os 256 bits são a própria chave privada, e não uma semente BIP39: não há derivação de caminho BIP32 nem frase mnemônica. O mesmo número gera sempre a mesma chave e os mesmos endereços.</p>
+            <p>Os 256 bits são a própria chave privada, e não uma semente BIP39: entram como um número inteiro, na ordem em que foram colados (o primeiro bit é o mais significativo), e não há derivação de caminho BIP32 nem frase mnemônica. O mesmo número gera sempre a mesma chave e os mesmos endereços.</p>
             <p>A fonte é a Liberation Mono, sob SIL Open Font License 1.1; o texto da licença vai embutido no fim deste arquivo.</p>
           </div>
         </section>
