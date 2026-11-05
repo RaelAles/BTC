@@ -1054,6 +1054,14 @@
   }
   .data-table td.is-num { white-space: nowrap; }
   .data-table .is-empty { color: var(--dim); }
+  /* As linhas fora do conjunto moderno ficam em um grupo próprio: o hidden
+     tira o grupo do fluxo e o primeiro item revelado recupera o fio que o
+     seletor tr + tr não alcança entre tbodies. */
+  .data-table tbody[hidden] { display: none; }
+  .data-table tbody.more:not([hidden]) tr:first-child th,
+  .data-table tbody.more:not([hidden]) tr:first-child td {
+    border-top: 1px dotted var(--sep);
+  }
 
   /* Áudio e vídeo (VG-ABS-05): o desenho existe, mas nenhuma tela publica
      mídia ainda. O <figure class="media"> guarda um <video controls> ou um
@@ -1906,6 +1914,7 @@
   .bits-col .field-box textarea { flex: 1; }
   /* A única ação do campo de bits fica centralizada sob a caixa do campo. */
   .bits-actions { justify-content: center; }
+  .keys-actions { justify-content: center; }
   /* As legendas das duas tabelas seguem em caixa baixa: caixa alta é o sinal
      do que responde ao clique, e a tabela é conteúdo estático. */
   .board {
@@ -2020,14 +2029,19 @@
           <div class="reveal-block">
             <table class="data-table" id="keys-table" aria-label="chaves privadas">
               <tbody>
-                <tr><th scope="row">hex</th><td id="v-hex" class="is-empty">—</td></tr>
                 <tr><th scope="row">wif</th><td id="v-wif" class="is-empty">—</td></tr>
+              </tbody>
+              <tbody id="keys-more" class="more" hidden>
+                <tr><th scope="row">hex</th><td id="v-hex" class="is-empty">—</td></tr>
                 <tr><th scope="row">wif s/ comp.</th><td id="v-wif-un" class="is-empty">—</td></tr>
                 <tr><th scope="row">mnemonic</th><td id="v-mnemonic" class="is-empty">—</td></tr>
               </tbody>
             </table>
           </div>
-          <p class="note app-gap reveal-block">Chave privada é posse: quem a lê controla os fundos. Use esta página offline e só com valor de teste. A frase BIP39 de 24 palavras codifica os mesmos 256 bits, mas não deriva estas chaves: BIP39 + BIP32 produziria outra chave.</p>
+          <div class="chips app-gap reveal-block keys-actions">
+            <button type="button" id="more-toggle" aria-expanded="false" aria-controls="keys-more addr-more" aria-label="Mostrar outras chaves privadas e endereços">mostrar outras</button>
+          </div>
+          <p class="note app-gap reveal-block">Chave privada é posse: quem a lê controla os fundos. Use esta página offline e só com valor de teste. Quando revelada, a frase BIP39 de 24 palavras codifica os mesmos 256 bits, mas não deriva estas chaves: BIP39 + BIP32 produziria outra chave.</p>
 
           <div class="rule rule-dots reveal-block" aria-hidden="true"></div>
 
@@ -2037,11 +2051,13 @@
           <div class="reveal-block">
             <table class="data-table" id="addr-table" aria-label="endereços">
               <tbody>
+                <tr><th scope="row">bip86 · p2tr</th><td id="v-p2tr" class="is-empty">—</td></tr>
+              </tbody>
+              <tbody id="addr-more" class="more" hidden>
+                <tr><th scope="row">p2wpkh</th><td id="v-p2wpkh" class="is-empty">—</td></tr>
+                <tr><th scope="row">p2sh-p2wpkh</th><td id="v-p2sh" class="is-empty">—</td></tr>
                 <tr><th scope="row">p2pkh</th><td id="v-p2pkh" class="is-empty">—</td></tr>
                 <tr><th scope="row">p2pkh s/ comp.</th><td id="v-p2pkh-un" class="is-empty">—</td></tr>
-                <tr><th scope="row">p2sh-p2wpkh</th><td id="v-p2sh" class="is-empty">—</td></tr>
-                <tr><th scope="row">p2wpkh</th><td id="v-p2wpkh" class="is-empty">—</td></tr>
-                <tr><th scope="row">bip86 · p2tr</th><td id="v-p2tr" class="is-empty">—</td></tr>
               </tbody>
             </table>
           </div>
@@ -2981,6 +2997,27 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function invalidateSignature() {
     clearSignature();
     setStatus(signStatus, 'neutro', '');
+  }
+
+  /* Alterna as representações fora do conjunto moderno. O botão único
+     controla os dois grupos e anuncia o estado pelo aria-expanded. */
+  var moreToggle = $('#more-toggle');
+  var moreGroups = [$('#keys-more'), $('#addr-more')];
+  function setMore(open) {
+    if (!moreToggle) return;
+    moreToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    moreToggle.setAttribute('aria-label', open
+      ? 'Ocultar outras chaves privadas e endereços'
+      : 'Mostrar outras chaves privadas e endereços');
+    moreToggle.textContent = open ? 'ocultar outras' : 'mostrar outras';
+    moreGroups.forEach(function (group) {
+      if (group) group.hidden = !open;
+    });
+  }
+  if (moreToggle) {
+    moreToggle.addEventListener('click', function () {
+      setMore(moreToggle.getAttribute('aria-expanded') !== 'true');
+    });
   }
 
   /* ---------------------------------------------------------- bits/entrada */
