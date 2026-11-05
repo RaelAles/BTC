@@ -1988,7 +1988,7 @@
               </div>
 
               <div class="chips app-gap reveal-block bits-actions" role="group" aria-label="Ações dos bits">
-                <button type="button" id="bits-clear">limpar</button>
+                <button type="button" id="bits-clear" disabled>limpar</button>
               </div>
 
               <p class="status-msg is-reserved" id="key-status" role="status"></p>
@@ -2733,6 +2733,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   var bitsEl = $('#bits');
   var bitsCount = $('#bits-count');
+  var clearBtn = $('#bits-clear');
   var keyStatus = $('#key-status');
   var boardEl = $('#board');
   var txEl = $('#tx');
@@ -2850,11 +2851,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     bitsCount.textContent = bits.length + ' / ' + BIT_MAX + ' bits';
     /* No limite o texto ainda é válido: marca em --warning, não em --error. */
     bitsCount.classList.toggle('is-limit', bits.length >= BIT_MAX);
+    /* Sem bits não há o que limpar: o botão fica fora de alcance. */
+    clearBtn.disabled = bits.length === 0;
     renderBoard(bits);
 
     if (bits.length === 0) {
       clearKey();
-      setStatus(keyStatus, 'vazio', 'cole ou digite os 256 bits para derivar a chave.');
+      setStatus(keyStatus, 'neutro', '');
       return;
     }
     if (bits.length < BIT_MAX) {
