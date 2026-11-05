@@ -1917,7 +1917,7 @@
           <pre class="rule" aria-hidden="true"></pre>
 
           <div class="prose reveal-block">
-            <p>Os 256 bits entram como um número inteiro, em ordem de leitura, e viram a chave privada <b>d</b> da curva secp256k1, com <b>P = d·G</b>. O tabuleiro mostra os bits em 16 linhas de 16 — dois bytes por linha — para a conferência visual do que foi colado. Nada sai do arquivo.</p>
+            <p>Os 256 bits colados são lidos como um número inteiro, do primeiro ao último bit, e esse número vira a chave privada <b>d</b> — o segredo que controla os fundos. A curva secp256k1 converte <b>d</b> em <b>P = d·G</b>, a chave pública, e é dela que saem todas as chaves e os endereços logo abaixo. O tabuleiro repete os mesmos bits em 16 linhas de 16, dois bytes por linha, para você conferir a olho que o que chegou é exatamente o que foi colado. Nada sai do arquivo: o cálculo inteiro acontece no seu navegador.</p>
           </div>
 
           <div class="field-row">
