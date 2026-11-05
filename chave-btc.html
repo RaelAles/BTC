@@ -1877,15 +1877,29 @@
      célula (o avanço do "0" na monoespaçada) e o corpo sai da própria largura
      da coluna: 16 linhas de 1ch somam 9,6 em, então 100cqw / 9,6 preenche o
      quadrado sem medida fixa em pixel. A altura do quadrado é a largura da
-     coluna; a coluna do campo fecha perto dela com o rótulo, a caixa, a dica
-     e as ações. */
+     coluna; a coluna do campo estica até a altura do tabuleiro e a caixa do
+     campo cresce com ela, então a área do campo (com a ação embaixo) ocupa a
+     mesma faixa do tabuleiro. */
   .bits-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-7);
     margin: 0 0 var(--space-7);
   }
+  .bits-col {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+  }
   .bits-row .field-row { margin: 0 0 var(--space-2); }
+  /* A caixa do campo divide a coluna com o rótulo e a ação: ela fica com a
+     sobra da altura, e o textarea com a sobra da caixa. */
+  .bits-col .field-box {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+  .bits-col .field-box textarea { flex: 1; }
   /* A única ação do campo de bits fica centralizada sob a caixa do campo. */
   .bits-actions { justify-content: center; }
   /* As legendas das chaves privadas ficam em caixa alta; as dos endereços
@@ -1990,8 +2004,6 @@
               <div class="chips app-gap reveal-block bits-actions" role="group" aria-label="Ações dos bits">
                 <button type="button" id="bits-clear" disabled>limpar</button>
               </div>
-
-              <p class="status-msg is-reserved" id="key-status" role="status"></p>
             </div>
             <div class="key-board reveal-block" aria-hidden="true">
               <pre class="board" id="board"></pre>
@@ -2734,7 +2746,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var bitsEl = $('#bits');
   var bitsCount = $('#bits-count');
   var clearBtn = $('#bits-clear');
-  var keyStatus = $('#key-status');
   var boardEl = $('#board');
   var txEl = $('#tx');
   var txMeta = $('#tx-meta');
@@ -2855,22 +2866,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     clearBtn.disabled = bits.length === 0;
     renderBoard(bits);
 
-    if (bits.length === 0) {
-      clearKey();
-      setStatus(keyStatus, 'neutro', '');
-      return;
-    }
     if (bits.length < BIT_MAX) {
       clearKey();
-      setStatus(keyStatus, 'neutro', bits.length + ' de ' + BIT_MAX + ' bits; faltam ' + (BIT_MAX - bits.length) + '.');
       return;
     }
     try {
       applyKey(BTC.derive(bits));
-      setStatus(keyStatus, 'ok', 'chave derivada · d em [1, n−1] · P = d·G.');
     } catch (e) {
       clearKey();
-      setStatus(keyStatus, 'erro', e.message + '.');
     }
   }
 
