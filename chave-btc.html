@@ -2009,7 +2009,6 @@
               <pre class="board" id="board"></pre>
             </div>
           </div>
-          <p class="note reveal-block">● = 1 · ○ = 0 · o tabuleiro é um quadrado de 16 linhas, cada uma com 16 bits, na ordem em que foram colados: o primeiro bit fica no canto superior esquerdo. Ele completa com ○ até 256 bits e é só leitura.</p>
 
           <div class="prose reveal-block app-block">
             <h3>chaves privadas</h3>
@@ -2830,32 +2829,20 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* ---------------------------------------------------------- bits/entrada */
-  var BIT_GROUP = 8;
   var BIT_MAX = 256;
-
-  function formatBits(bits) {
-    var groups = [], i;
-    for (i = 0; i < bits.length; i += BIT_GROUP) groups.push(bits.slice(i, i + BIT_GROUP));
-    return groups.join(' ');
-  }
 
   function onBitsInput() {
     var raw = bitsEl.value;
     var caret = bitsEl.selectionStart;
     var typed = raw.slice(0, typeof caret === 'number' ? caret : raw.length).replace(/[^01]/g, '').length;
     var bits = raw.replace(/[^01]/g, '').slice(0, BIT_MAX);
-    var formatted = formatBits(bits);
 
-    /* Descarta o que não é bit, corta em 256 e reagrupa de 8 em 8,
-       mantendo o cursor. */
-    if (formatted !== raw) {
-      bitsEl.value = formatted;
-      var pos = 0, seen = 0;
-      typed = Math.min(typed, BIT_MAX);
-      while (pos < formatted.length && seen < typed) {
-        if (formatted.charAt(pos) !== ' ') seen++;
-        pos++;
-      }
+    /* Descarta o que não é bit, corta em 256 e mantém o cursor. Os bits entram
+       sem espaçamento automático: o campo mostra exatamente o que foi colado,
+       sem grupos de 8. */
+    if (bits !== raw) {
+      bitsEl.value = bits;
+      var pos = Math.min(typed, bits.length);
       bitsEl.setSelectionRange(pos, pos);
     }
 
