@@ -1906,10 +1906,8 @@
   .bits-col .field-box textarea { flex: 1; }
   /* A única ação do campo de bits fica centralizada sob a caixa do campo. */
   .bits-actions { justify-content: center; }
-  /* As legendas das chaves privadas ficam em caixa alta; as dos endereços
-     seguem em caixa baixa. A caixa alta é só do desenho, então o texto do
-     documento continua em minúsculas. */
-  #keys-table tbody th { text-transform: uppercase; }
+  /* As legendas das duas tabelas seguem em caixa baixa: caixa alta é o sinal
+     do que responde ao clique, e a tabela é conteúdo estático. */
   .board {
     width: max-content;
     margin: 0;
@@ -2025,7 +2023,7 @@
                 <tr><th scope="row">hex</th><td id="v-hex" class="is-empty">—</td></tr>
                 <tr><th scope="row">wif</th><td id="v-wif" class="is-empty">—</td></tr>
                 <tr><th scope="row">wif s/ comp.</th><td id="v-wif-un" class="is-empty">—</td></tr>
-                <tr><th scope="row">mnemonic · bip39</th><td id="v-mnemonic" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip39 · mnemonic</th><td id="v-mnemonic" class="is-empty">—</td></tr>
               </tbody>
             </table>
           </div>
