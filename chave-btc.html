@@ -1867,17 +1867,50 @@
   .app-gap { margin-top: var(--space-5); }
   .app-block { margin-top: var(--space-7); }
 
-  /* O tabuleiro desenha 256 bits em 16 linhas de 16 glifos. A entrelinha de
-     1ch é a própria largura da célula (avanço do "0" na monoespaçada), então
-     cada linha tem 16ch de largura por 1ch de altura e o bloco sai quadrado em
-     qualquer corpo de fonte. `width: max-content` impede que a caixa estique
-     até a coluna (o que a deixaria mais larga que alta) e o respiro simétrico
-     mantém a moldura quadrada; sem `pre-wrap`, a linha não quebra. */
+  /* Chaves privadas: o tabuleiro à esquerda e as chaves completas à direita.
+     Em tela estreita os dois empilham, e o tabuleiro fica no tamanho compacto
+     (16 glifos por linha, corpo --text-sm).
+
+     Da largura de 521 px em diante, as duas colunas dividem a coluna de
+     leitura ao meio e o tabuleiro ocupa a largura da sua coluna. A entrelinha
+     de 1ch é a largura da célula (o avanço do "0" na monoespaçada), e o corpo
+     sai da própria largura da coluna: 16 linhas de 1ch somam 9,6 em, então
+     100cqw / 9,6 preenche o quadrado sem medida fixa em pixel. O quadrado
+     (aspect-ratio 1) termina na mesma altura da tabela de chaves ao lado; a
+     diferença que sobra é só a quebra de linha dos valores completos. */
+  .key-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-7);
+    margin: 0 0 var(--space-7);
+  }
+  .key-layout .data-table { margin: 0; }
   .board {
     width: max-content;
+    margin: 0;
     padding: var(--space-6);
+    border: 1px solid var(--line);
+    font-size: var(--text-sm);
     line-height: 1ch;
     white-space: pre;
+  }
+  @media (min-width: 521px) {
+    .key-layout {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      align-items: start;
+    }
+    .key-board {
+      container-type: inline-size;
+      aspect-ratio: 1 / 1;
+      border: 1px solid var(--line);
+    }
+    .key-board .board {
+      width: 100%;
+      height: 100%;
+      padding: 0;
+      border: 0;
+      font-size: calc(100cqw / 9.6);
+    }
   }
 </style>
 <script>
@@ -1955,24 +1988,39 @@
           <p class="status-msg is-reserved" id="key-status" role="status"></p>
 
           <div class="prose reveal-block app-block">
-            <h3>tabuleiro</h3>
+            <h3>chaves privadas</h3>
           </div>
-          <pre class="code-block reveal-block board" id="board" aria-hidden="true"></pre>
+          <div class="key-layout">
+            <div class="key-board reveal-block" aria-hidden="true">
+              <pre class="board" id="board"></pre>
+            </div>
+            <div class="reveal-block">
+              <table class="data-table" id="keys-table">
+                <caption>mainnet</caption>
+                <thead>
+                  <tr><th scope="col">item</th><th scope="col">valor</th></tr>
+                </thead>
+                <tbody>
+                  <tr><th scope="row">hex</th><td id="v-hex" class="is-empty">—</td></tr>
+                  <tr><th scope="row">wif</th><td id="v-wif" class="is-empty">—</td></tr>
+                  <tr><th scope="row">wif s/ comp.</th><td id="v-wif-un" class="is-empty">—</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
           <p class="note reveal-block">● = 1 · ○ = 0 · o tabuleiro é um quadrado de 16 linhas, cada uma com 16 bits, na ordem em que foram colados: o primeiro bit fica no canto superior esquerdo. Ele completa com ○ até 256 bits e é só leitura.</p>
+          <p class="note app-gap reveal-block">Chave privada é posse: quem a lê controla os fundos. Use esta página offline e só com valor de teste.</p>
 
           <div class="prose reveal-block app-block">
-            <h3>chaves e endereços</h3>
+            <h3>endereços</h3>
           </div>
           <div class="reveal-block">
-            <table class="data-table" id="keys-table">
-              <caption id="keys-caption">mainnet · ofuscados</caption>
+            <table class="data-table" id="addr-table">
+              <caption>mainnet</caption>
               <thead>
                 <tr><th scope="col">item</th><th scope="col">valor</th></tr>
               </thead>
               <tbody>
-                <tr><th scope="row">hex</th><td id="v-hex" class="is-empty">—</td></tr>
-                <tr><th scope="row">wif</th><td id="v-wif" class="is-empty">—</td></tr>
-                <tr><th scope="row">wif s/ comp.</th><td id="v-wif-un" class="is-empty">—</td></tr>
                 <tr><th scope="row">p2pkh</th><td id="v-p2pkh" class="is-empty">—</td></tr>
                 <tr><th scope="row">p2pkh s/ comp.</th><td id="v-p2pkh-un" class="is-empty">—</td></tr>
                 <tr><th scope="row">p2sh-p2wpkh</th><td id="v-p2sh" class="is-empty">—</td></tr>
@@ -1980,11 +2028,7 @@
                 <tr><th scope="row">p2tr · bip86</th><td id="v-p2tr" class="is-empty">—</td></tr>
               </tbody>
             </table>
-            <div class="chips app-gap">
-              <button type="button" id="reveal-btn">revelar valores</button>
-            </div>
           </div>
-          <p class="note app-gap reveal-block">Chave privada é posse: quem a lê controla os fundos. Use esta página offline e só com valor de teste.</p>
           <p class="note app-gap reveal-block">hex é a chave privada em 32 bytes; WIF é a mesma chave em Base58Check, com e sem o marcador de compressão. Os endereços derivados da chave comprimida são o conjunto usual; as linhas “s/ comp.” mostram o par legado. O P2TR segue o BIP86: a chave interna é ajustada por <b>TapTweak</b> para a chave de saída.</p>
         </section>
 
@@ -2687,14 +2731,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var REDUCED = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
   function reduced() { return !!(REDUCED && REDUCED.matches); }
 
-  var state = { key: null, values: null, revealed: false, screen: 'chave' };
+  var state = { key: null, values: null, screen: 'chave' };
 
   var bitsEl = $('#bits');
   var bitsCount = $('#bits-count');
   var keyStatus = $('#key-status');
   var boardEl = $('#board');
-  var keysCaption = $('#keys-caption');
-  var revealBtn = $('#reveal-btn');
   var txEl = $('#tx');
   var txMeta = $('#tx-meta');
   var signStatus = $('#sign-status');
@@ -2733,11 +2775,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* ------------------------------------------------------------- chaves */
-  function maskValue(value) {
-    if (!value) return '—';
-    if (value.length <= 10) return value.charAt(0) + new Array(11).join('·') + value.slice(-1);
-    return value.slice(0, 4) + new Array(11).join('·') + value.slice(-4);
-  }
   function paintValues() {
     var ids = ['hex', 'wif', 'wif-un', 'p2pkh', 'p2pkh-un', 'p2sh', 'p2wpkh', 'p2tr'];
     ids.forEach(function (id) {
@@ -2748,12 +2785,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         cell.textContent = '—';
         cell.classList.add('is-empty');
       } else {
-        cell.textContent = state.revealed ? value : maskValue(value);
+        cell.textContent = value;
         cell.classList.remove('is-empty');
       }
     });
-    keysCaption.textContent = 'mainnet · ' + (state.revealed ? 'visíveis' : 'ofuscados');
-    revealBtn.textContent = state.revealed ? 'ofuscar valores' : 'revelar valores';
   }
   function clearKey() {
     state.key = null;
@@ -2871,10 +2906,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     bitsEl.focus();
   });
   bitsEl.addEventListener('input', onBitsInput);
-  revealBtn.addEventListener('click', function () {
-    state.revealed = !state.revealed;
-    paintValues();
-  });
 
   /* ------------------------------------------------------------- assinar */
   function parseLine(raw) {
