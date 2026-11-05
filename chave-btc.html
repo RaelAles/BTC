@@ -14,7 +14,7 @@
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="chave btc - oficina de chave privada">
 <meta name="twitter:description" content="256 bits entram, a chave privada, os endereços e a assinatura saem. Um arquivo, sem rede, no desenho ASCII.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Crect%20width='100'%20height='100'%20fill='%232e2d2b'/%3E%3Cpath%20transform='translate(2.78,96)%20scale(0.0769)'%20d='M640%20-1195Q640%20-1109%20711%20-1002.5Q782%20-896%20891%20-810Q1021%20-708%201073.5%20-632.5Q1126%20-557%201126%20-478Q1126%20-370%201058%20-305Q990%20-240%20891%20-240Q831%20-240%20765%20-268.5Q699%20-297%20662%20-340Q662%20-207%20749.5%20-131.5Q837%20-56%20982%20-56V0H246V-56Q391%20-56%20478.5%20-131.5Q566%20-207%20566%20-340Q528%20-297%20462%20-268.5Q396%20-240%20337%20-240Q237%20-240%20169.5%20-305Q102%20-370%20102%20-478Q102%20-555%20151.5%20-628Q201%20-701%20337%20-810Q446%20-895%20517%20-1002.5Q588%20-1110%20588%20-1195Z'%20fill='%23e8c07d'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" id="favicon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%22102%20-1195%201024%201195%22%3E%3Cstyle%3E.marca%7Bfill%3A%235d3d00%7D%40media%20(prefers-color-scheme%3Adark)%7B.marca%7Bfill%3A%23e8c07d%7D%7D%3C%2Fstyle%3E%3Cpath%20class%3D%22marca%22%20d%3D%22M640%20-1195Q640%20-1109%20711%20-1002.5Q782%20-896%20891%20-810Q1021%20-708%201073.5%20-632.5Q1126%20-557%201126%20-478Q1126%20-370%201058%20-305Q990%20-240%20891%20-240Q831%20-240%20765%20-268.5Q699%20-297%20662%20-340Q662%20-207%20749.5%20-131.5Q837%20-56%20982%20-56V0H246V-56Q391%20-56%20478.5%20-131.5Q566%20-207%20566%20-340Q528%20-297%20462%20-268.5Q396%20-240%20337%20-240Q237%20-240%20169.5%20-305Q102%20-370%20102%20-478Q102%20-555%20151.5%20-628Q201%20-701%20337%20-810Q446%20-895%20517%20-1002.5Q588%20-1110%20588%20-1195Z%22%2F%3E%3C%2Fsvg%3E">
 <style>
 /* Fonte embutida do projeto.
    O desenho do texto não depende da fonte monoespaçada de cada sistema: o
@@ -3050,6 +3050,23 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     var bg = getComputedStyle(root).getPropertyValue('--bg').trim();
     if (bg) meta.setAttribute('content', bg);
   }
+  // O ícone da aba é a marca (♠) sozinha, sem fundo, no --accent do tema em
+  // vigor (VG-MET-01/09): o path sai do mesmo #marca da marca-d'água e o tom
+  // sai do token, então o favicon não é uma segunda cópia do desenho nem um
+  // hex repetido. O arquivo estático do <link> só conhece o tema do sistema;
+  // aqui ele é reescrito no arranque e a cada troca de tema.
+  function syncFavicon() {
+    var link = document.getElementById('favicon');
+    var symbol = document.getElementById('marca');
+    if (!link || !symbol) return;
+    var path = symbol.querySelector('path');
+    var accent = getComputedStyle(root).getPropertyValue('--accent').trim();
+    if (!path || !accent) return;
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' +
+      symbol.getAttribute('viewBox') + '"><path fill="' + accent + '" d="' +
+      path.getAttribute('d') + '"/></svg>';
+    link.setAttribute('href', 'data:image/svg+xml,' + encodeURIComponent(svg));
+  }
   function updateThemeButton() {
     var button = $('#theme-toggle');
     if (!button) return;
@@ -3058,19 +3075,75 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       (light ? '●' : '<span class="glyph-ring">○</span>') + '</span>';
     button.setAttribute('aria-label', light ? 'Ativar tema escuro' : 'Ativar tema claro');
   }
+
+  // Durante o crossfade de --motion-theme o grão é redesenhado a cada quadro:
+  // a tinta é calculada a partir do --panel/--bg interpolados; trocá-la de uma
+  // vez faria a textura piscar no meio da transição.
+  var themeFx = { fadeTimer: 0, grainRaf: 0 };
+  function stopGrainFade() {
+    if (themeFx.grainRaf) {
+      window.cancelAnimationFrame(themeFx.grainRaf);
+      themeFx.grainRaf = 0;
+    }
+    if (grain.fx) {
+      grain.fx = false;
+      grain.theme = '';
+      drawGrain();
+    }
+  }
+  function fadeGrain(duration) {
+    if (!grain.ctx) return;
+    if (themeFx.grainRaf) {
+      window.cancelAnimationFrame(themeFx.grainRaf);
+      themeFx.grainRaf = 0;
+    }
+    var start = performance.now();
+    grain.fx = true;
+    function step(now) {
+      if (!grain.fx) return;
+      drawGrain();
+      if (now - start < duration) {
+        themeFx.grainRaf = window.requestAnimationFrame(step);
+      } else {
+        themeFx.grainRaf = 0;
+        grain.fx = false;
+        grain.theme = '';
+        drawGrain();
+      }
+    }
+    themeFx.grainRaf = window.requestAnimationFrame(step);
+  }
+
   function setTheme(theme) {
     var next = theme === 'light' ? 'light' : 'dark';
-    if (!reduced()) root.classList.add('theme-fx');
+    var duration = tokenMs('--motion-theme', 150);
+    if (themeFx.fadeTimer) {
+      window.clearTimeout(themeFx.fadeTimer);
+      themeFx.fadeTimer = 0;
+    }
+    if (reduced()) {
+      stopGrainFade();
+      root.classList.remove('theme-fx');
+      root.dataset.theme = next;
+      try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+      syncThemeColor();
+      syncFavicon();
+      updateThemeButton();
+      drawGrain();
+      return;
+    }
+    root.classList.add('theme-fx');
+    grain.fx = true;
     root.dataset.theme = next;
     try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
     syncThemeColor();
+    syncFavicon();
     updateThemeButton();
-    grainRecolor();
-    if (!reduced()) {
-      window.setTimeout(function () { root.classList.remove('theme-fx'); }, tokenMs('--motion-theme', 150));
-    } else {
+    fadeGrain(duration);
+    themeFx.fadeTimer = window.setTimeout(function () {
+      themeFx.fadeTimer = 0;
       root.classList.remove('theme-fx');
-    }
+    }, duration);
   }
   var themeButton = $('#theme-toggle');
   if (themeButton) {
@@ -3080,95 +3153,189 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* ----------------------------------------------- grão, rolagem e página */
-  var grain = { canvas: $('#grain'), ctx: null, cells: [], color: '', timer: 0 };
+  // Grão (VG-FND-05): a tinta não é --line. A cobertura média dos glifos e o
+  // alpha do --panel sobre o --bg definem um tom cujo glifo renderizado cai no
+  // tom do card; por isso a textura é sutil nos dois temas. A ocupação é fixa
+  // em 50% e o movimento troca glifos de células ocupadas para vazias.
+  var grain = {
+    canvas: $('#grain'), ctx: null, cols: 0, rows: 0, grid: null, cell: 14,
+    timer: 0, theme: '', color: '', dpr: 0, coverage: 1, coverageKey: '', fx: false
+  };
   var GLYPHS = ['.', ':', '-', '=', '+', '*'];
-  function readLineColor() {
-    var probe = document.createElement('span');
-    probe.style.color = 'var(--line)';
-    probe.style.position = 'absolute';
-    probe.style.pointerEvents = 'none';
-    document.body.appendChild(probe);
-    var color = getComputedStyle(probe).color;
-    probe.remove();
-    return color;
-  }
-  function drawGrainCell() {
+  var OCCUPANCY = 0.5;
+  var grainFont = '';
+
+  function randomGlyph() {
     return GLYPHS[(Math.random() * GLYPHS.length) | 0];
   }
-  function grainDrawAll() {
-    if (!grain.ctx) return;
-    grain.ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-    grain.ctx.fillStyle = grain.color;
-    grain.cells.forEach(function (cell) { grain.ctx.fillText(drawGrainCell(), cell[0], cell[1]); });
+  function parseColor(value) {
+    var text = String(value);
+    var parts = text.match(/[\d.]+/g);
+    if (!parts || parts.length < 3) return null;
+    var unit = /^color\(/i.test(text.trim()) ? 255 : 1;
+    return {
+      r: parseFloat(parts[0]) * unit,
+      g: parseFloat(parts[1]) * unit,
+      b: parseFloat(parts[2]) * unit,
+      a: parts.length > 3 ? parseFloat(parts[3]) : 1
+    };
   }
-  function grainBuild() {
-    if (!grain.canvas) return;
-    var width = window.innerWidth, height = window.innerHeight;
+  // Cobertura média dos glifos: quanto do traço o antisserrilhado deixa no tom
+  // cheio. É medida no mesmo tamanho de fonte e DPR do desenho real, porque a
+  // diluição muda com o rasterizador.
+  function glyphCoverage() {
+    var key = grainFont + '@' + grain.dpr;
+    if (grain.coverageKey === key) return grain.coverage;
+    var dpr = grain.dpr || 1;
+    var probe = document.createElement('canvas');
+    probe.width = Math.ceil(GLYPHS.length * 16 * dpr);
+    probe.height = Math.ceil(20 * dpr);
+    var pctx = probe.getContext('2d');
+    if (!pctx) return 1;
+    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    pctx.font = grainFont || '13px monospace';
+    pctx.textBaseline = 'top';
+    pctx.fillStyle = '#fff';
+    for (var i = 0; i < GLYPHS.length; i++) pctx.fillText(GLYPHS[i], i * 16, 0);
+    var data = pctx.getImageData(0, 0, probe.width, probe.height).data;
+    var sum = 0, count = 0;
+    for (var p = 3; p < data.length; p += 4) {
+      var a = data[p] / 255;
+      if (a <= 0) continue;
+      sum += a;
+      count++;
+    }
+    grain.coverageKey = key;
+    grain.coverage = count ? Math.min(1, sum / count) : 1;
+    return grain.coverage;
+  }
+  function readGrainColor() {
+    var style = getComputedStyle(root);
+    var win = $('.window');
+    var panel = (win && parseColor(getComputedStyle(win).backgroundColor)) ||
+      parseColor(style.getPropertyValue('--panel'));
+    var bg = parseColor(style.backgroundColor) || parseColor(style.getPropertyValue('--bg'));
+    if (!panel || !bg) return '0, 0, 0';
+    var alpha = panel.a;
+    var coverage = glyphCoverage();
+    function ink(card, base) {
+      return Math.max(0, Math.min(255, Math.round(base + (card - base) / coverage)));
+    }
+    return [
+      ink(panel.r * alpha + bg.r * (1 - alpha), bg.r),
+      ink(panel.g * alpha + bg.g * (1 - alpha), bg.g),
+      ink(panel.b * alpha + bg.b * (1 - alpha), bg.b)
+    ].join(', ');
+  }
+  function resizeGrain() {
+    if (!grain.canvas || !grain.ctx) return;
+    var width = window.innerWidth;
+    var height = window.innerHeight;
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
-    grain.canvas.width = Math.round(width * dpr);
-    grain.canvas.height = Math.round(height * dpr);
-    var ctx = grain.canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    var mono = getComputedStyle(root).getPropertyValue('--mono').replace(/\s+/g, ' ').trim();
-    ctx.font = '13px ' + (mono || 'monospace');
+    grain.dpr = dpr;
+    grain.canvas.width = Math.floor(width * dpr);
+    grain.canvas.height = Math.floor(height * dpr);
+    grain.canvas.style.width = width + 'px';
+    grain.canvas.style.height = height + 'px';
+    grain.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    grain.cols = Math.ceil(width / grain.cell);
+    grain.rows = Math.ceil(height / grain.cell);
+    grain.grid = [];
+    var total = grain.cols * grain.rows;
+    var filled = Math.round(total * OCCUPANCY);
+    var order = [];
+    for (var i = 0; i < total; i++) order.push(i);
+    for (var i = 0; i < filled; i++) {
+      var j = i + ((Math.random() * (total - i)) | 0);
+      var swap = order[i];
+      order[i] = order[j];
+      order[j] = swap;
+    }
+    for (var i = 0; i < total; i++) grain.grid.push(' ');
+    for (var i = 0; i < filled; i++) grain.grid[order[i]] = randomGlyph();
+    grain.theme = '';
+    drawGrain();
+  }
+  function drawGrain() {
+    if (!grain.ctx) return;
+    var ctx = grain.ctx;
+    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    var theme = root.dataset.theme || 'dark';
+    if (grain.theme !== theme || grain.fx) {
+      grain.color = readGrainColor();
+      grain.theme = theme;
+    }
+    ctx.font = grainFont || '13px monospace';
     ctx.textBaseline = 'top';
-    grain.ctx = ctx;
-    grain.color = readLineColor();
-    grain.cells = [];
-    for (var y = 0; y < height; y += 14) {
-      for (var x = 0; x < width; x += 14) {
-        if (Math.random() < 0.5) grain.cells.push([x, y]);
+    ctx.fillStyle = 'rgb(' + grain.color + ')';
+    for (var y = 0; y < grain.rows; y++) {
+      for (var x = 0; x < grain.cols; x++) {
+        var ch = grain.grid[y * grain.cols + x];
+        if (ch === ' ') continue;
+        ctx.fillText(ch, x * grain.cell, y * grain.cell);
       }
     }
-    grainDrawAll();
   }
-  function grainRecolor() {
+  // Cada passo tira glifos de células ocupadas e os repõe em células vazias:
+  // o total de caracteres não muda, então não há momentos com muitos ou poucos.
+  function tickGrain() {
+    if (!grain.grid) return;
+    var total = grain.grid.length;
+    var moves = Math.max(4, Math.round(total * 0.0035));
+    var occupied = [];
+    var empty = [];
+    for (var i = 0; i < total; i++) {
+      (grain.grid[i] === ' ' ? empty : occupied).push(i);
+    }
+    for (var k = 0; k < moves && occupied.length && empty.length; k++) {
+      var oi = (Math.random() * occupied.length) | 0;
+      var ei = (Math.random() * empty.length) | 0;
+      var from = occupied[oi];
+      var to = empty[ei];
+      occupied[oi] = occupied[occupied.length - 1];
+      occupied.pop();
+      empty[ei] = empty[empty.length - 1];
+      empty.pop();
+      grain.grid[from] = ' ';
+      grain.grid[to] = randomGlyph();
+      empty.push(from);
+      occupied.push(to);
+    }
+    drawGrain();
+  }
+  function startGrain() {
+    if (grain.timer || !grain.grid) return;
+    if (reduced()) return;
+    if (window.matchMedia('(forced-colors: active)').matches) return;
+    grain.timer = window.setInterval(tickGrain, tokenMs('--motion-grain', 75));
+  }
+  function stopGrain() {
+    if (!grain.timer) return;
+    window.clearInterval(grain.timer);
+    grain.timer = 0;
+  }
+  function syncGrain() {
+    if (document.hidden) stopGrain();
+    else startGrain();
+  }
+  function buildGrain() {
+    grain.canvas = $('#grain');
+    if (!grain.canvas) return;
+    grain.ctx = grain.canvas.getContext('2d');
     if (!grain.ctx) return;
-    grain.color = readLineColor();
-    grainDrawAll();
-  }
-  function grainTick() {
-    if (!grain.ctx || !grain.cells.length) return;
-    var count = Math.max(1, Math.round(grain.cells.length * 0.0035));
-    for (var i = 0; i < count; i++) {
-      var cell = grain.cells[(Math.random() * grain.cells.length) | 0];
-      grain.ctx.clearRect(cell[0], cell[1], 14, 14);
-      grain.ctx.fillStyle = grain.color;
-      grain.ctx.fillText(drawGrainCell(), cell[0], cell[1]);
-    }
-  }
-  function grainStart() {
-    if (grain.timer) return;
-    grain.timer = window.setInterval(grainTick, tokenMs('--motion-grain', 75));
-  }
-  function grainStop() {
-    if (grain.timer) { window.clearInterval(grain.timer); grain.timer = 0; }
-  }
-  function grainOff() {
-    grainStop();
-    if (grain.canvas) {
-      var ctx = grain.canvas.getContext('2d');
-      if (ctx) ctx.clearRect(0, 0, grain.canvas.width, grain.canvas.height);
-    }
-    grain.ctx = null;
-  }
-  function grainInit() {
-    if (reduced()) { grainOff(); return; }
-    grainBuild();
-    grainStart();
-  }
-  document.addEventListener('visibilitychange', function () {
-    if (document.hidden) grainStop();
-    else if (!reduced() && grain.ctx) grainStart();
-  });
-  if (REDUCED && REDUCED.addEventListener) {
-    REDUCED.addEventListener('change', function () {
-      if (reduced()) grainOff(); else grainInit();
-    });
+    var mono = getComputedStyle(root).getPropertyValue('--mono').replace(/\s+/g, ' ').trim();
+    grainFont = '13px ' + (mono || 'monospace');
+    resizeGrain();
+    document.addEventListener('visibilitychange', syncGrain);
+    if (REDUCED && REDUCED.addEventListener) REDUCED.addEventListener('change', syncGrain);
+    syncGrain();
   }
   if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(grainRecolor).catch(function () {});
+    document.fonts.ready.then(function () {
+      grain.coverageKey = '';
+      grain.theme = '';
+      drawGrain();
+    }).catch(function () {});
   }
 
   function updateScrollState() {
@@ -3203,22 +3370,19 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   window.addEventListener('resize', function () {
     syncPageMode();
     window.clearTimeout(resizeTimer);
-    resizeTimer = window.setTimeout(function () {
-      if (reduced()) { grainOff(); return; }
-      grainBuild();
-      grainStart();
-    }, 150);
+    resizeTimer = window.setTimeout(resizeGrain, 150);
   });
 
   /* ---------------------------------------------------------------- início */
   updateThemeButton();
   syncThemeColor();
+  syncFavicon();
   onBitsInput();
   updateTxMeta();
   paintValues();
   showScreen(screenName(location.hash.replace(/^#/, '')));
   syncPageMode();
-  grainInit();
+  buildGrain();
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(syncPageMode).catch(function () {});
   }
