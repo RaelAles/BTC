@@ -1867,24 +1867,29 @@
   .app-gap { margin-top: var(--space-5); }
   .app-block { margin-top: var(--space-7); }
 
-  /* Chaves privadas: o tabuleiro à esquerda e as chaves completas à direita.
-     Em tela estreita os dois empilham, e o tabuleiro fica no tamanho compacto
-     (16 glifos por linha, corpo --text-sm).
+  /* Bits de entrada: o campo fica à esquerda e o tabuleiro dos 256 bits, à
+     direita do campo, no mesmo par de colunas. Em tela estreita os dois
+     empilham e o tabuleiro fica no tamanho compacto (16 glifos por linha,
+     corpo --text-sm).
 
-     Da largura de 521 px em diante, as duas colunas dividem a coluna de
-     leitura ao meio e o tabuleiro ocupa a largura da sua coluna. A entrelinha
-     de 1ch é a largura da célula (o avanço do "0" na monoespaçada), e o corpo
-     sai da própria largura da coluna: 16 linhas de 1ch somam 9,6 em, então
-     100cqw / 9,6 preenche o quadrado sem medida fixa em pixel. O quadrado
-     (aspect-ratio 1) termina na mesma altura da tabela de chaves ao lado; a
-     diferença que sobra é só a quebra de linha dos valores completos. */
-  .key-layout {
+     Da largura de 521 px em diante, as duas colunas dividem a leitura ao meio
+     e o tabuleiro ocupa a largura da sua. A entrelinha de 1ch é a largura da
+     célula (o avanço do "0" na monoespaçada) e o corpo sai da própria largura
+     da coluna: 16 linhas de 1ch somam 9,6 em, então 100cqw / 9,6 preenche o
+     quadrado sem medida fixa em pixel. A altura do quadrado é a largura da
+     coluna; a coluna do campo fecha perto dela com o rótulo, a caixa, a dica
+     e as ações. */
+  .bits-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-7);
     margin: 0 0 var(--space-7);
   }
-  .key-layout .data-table { margin: 0; }
+  .bits-row .field-row { margin: 0 0 var(--space-2); }
+  /* As legendas das chaves privadas ficam em caixa alta; as dos endereços
+     seguem em caixa baixa. A caixa alta é só do desenho, então o texto do
+     documento continua em minúsculas. */
+  #keys-table tbody th { text-transform: uppercase; }
   .board {
     width: max-content;
     margin: 0;
@@ -1895,7 +1900,7 @@
     white-space: pre;
   }
   @media (min-width: 521px) {
-    .key-layout {
+    .bits-row {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       align-items: start;
     }
@@ -1966,60 +1971,54 @@
             <p>Insira 256 caracteres binários no campo abaixo para gerar as chaves e os endereços que derivam dela. Nada é enviado para lugar nenhum.</p>
           </div>
 
-          <div class="field-row">
-            <label class="field-label" for="bits">bits de entrada</label>
-            <span class="field-meta" id="bits-count">0 / 256 bits</span>
-          </div>
-          <div class="field-box reveal-block" id="bits-box">
-            <div class="edge" aria-hidden="true"></div>
-            <textarea id="bits" rows="4" spellcheck="false" autocomplete="off" autocapitalize="off"
-                      aria-describedby="bits-hint bits-count"
-                      placeholder="cole aqui os 256 bits: 0 e 1; espaço e quebra de linha são ignorados"></textarea>
-            <div class="edge" aria-hidden="true"></div>
-          </div>
-          <p class="note app-gap" id="bits-hint">Escreva só 0 e 1: até 256 bits, agrupados de 8 em 8 automaticamente. Espaço, quebra de linha e qualquer outro caractere são ignorados. O primeiro bit é o que mais pesa.</p>
+          <div class="bits-row">
+            <div class="bits-col">
+              <div class="field-row">
+                <label class="field-label" for="bits">bits de entrada</label>
+                <span class="field-meta" id="bits-count">0 / 256 bits</span>
+              </div>
+              <div class="field-box reveal-block" id="bits-box">
+                <div class="edge" aria-hidden="true"></div>
+                <textarea id="bits" rows="4" spellcheck="false" autocomplete="off" autocapitalize="off"
+                          aria-describedby="bits-hint bits-count"
+                          placeholder="cole aqui os 256 bits: 0 e 1; espaço e quebra de linha são ignorados"></textarea>
+                <div class="edge" aria-hidden="true"></div>
+              </div>
+              <p class="note app-gap" id="bits-hint">Escreva só 0 e 1: até 256 bits, agrupados de 8 em 8 automaticamente. Espaço, quebra de linha e qualquer outro caractere são ignorados. O primeiro bit é o que mais pesa.</p>
 
-          <div class="chips app-gap reveal-block" role="group" aria-label="Ações dos bits">
-            <button type="button" id="bits-random">bits aleatórios</button>
-            <span class="dot-sep" aria-hidden="true">·</span>
-            <button type="button" id="bits-clear">limpar</button>
-          </div>
+              <div class="chips app-gap reveal-block" role="group" aria-label="Ações dos bits">
+                <button type="button" id="bits-random">bits aleatórios</button>
+                <span class="dot-sep" aria-hidden="true">·</span>
+                <button type="button" id="bits-clear">limpar</button>
+              </div>
 
-          <p class="status-msg is-reserved" id="key-status" role="status"></p>
+              <p class="status-msg is-reserved" id="key-status" role="status"></p>
+            </div>
+            <div class="key-board reveal-block" aria-hidden="true">
+              <pre class="board" id="board"></pre>
+            </div>
+          </div>
+          <p class="note reveal-block">● = 1 · ○ = 0 · o tabuleiro é um quadrado de 16 linhas, cada uma com 16 bits, na ordem em que foram colados: o primeiro bit fica no canto superior esquerdo. Ele completa com ○ até 256 bits e é só leitura.</p>
 
           <div class="prose reveal-block app-block">
             <h3>chaves privadas</h3>
           </div>
-          <div class="key-layout">
-            <div class="key-board reveal-block" aria-hidden="true">
-              <pre class="board" id="board"></pre>
-            </div>
-            <div class="reveal-block">
-              <table class="data-table" id="keys-table">
-                <caption>mainnet</caption>
-                <thead>
-                  <tr><th scope="col">item</th><th scope="col">valor</th></tr>
-                </thead>
-                <tbody>
-                  <tr><th scope="row">hex</th><td id="v-hex" class="is-empty">—</td></tr>
-                  <tr><th scope="row">wif</th><td id="v-wif" class="is-empty">—</td></tr>
-                  <tr><th scope="row">wif s/ comp.</th><td id="v-wif-un" class="is-empty">—</td></tr>
-                </tbody>
-              </table>
-            </div>
+          <div class="reveal-block">
+            <table class="data-table" id="keys-table" aria-label="chaves privadas">
+              <tbody>
+                <tr><th scope="row">hex</th><td id="v-hex" class="is-empty">—</td></tr>
+                <tr><th scope="row">wif</th><td id="v-wif" class="is-empty">—</td></tr>
+                <tr><th scope="row">wif s/ comp.</th><td id="v-wif-un" class="is-empty">—</td></tr>
+              </tbody>
+            </table>
           </div>
-          <p class="note reveal-block">● = 1 · ○ = 0 · o tabuleiro é um quadrado de 16 linhas, cada uma com 16 bits, na ordem em que foram colados: o primeiro bit fica no canto superior esquerdo. Ele completa com ○ até 256 bits e é só leitura.</p>
           <p class="note app-gap reveal-block">Chave privada é posse: quem a lê controla os fundos. Use esta página offline e só com valor de teste.</p>
 
           <div class="prose reveal-block app-block">
             <h3>endereços</h3>
           </div>
           <div class="reveal-block">
-            <table class="data-table" id="addr-table">
-              <caption>mainnet</caption>
-              <thead>
-                <tr><th scope="col">item</th><th scope="col">valor</th></tr>
-              </thead>
+            <table class="data-table" id="addr-table" aria-label="endereços">
               <tbody>
                 <tr><th scope="row">p2pkh</th><td id="v-p2pkh" class="is-empty">—</td></tr>
                 <tr><th scope="row">p2pkh s/ comp.</th><td id="v-p2pkh-un" class="is-empty">—</td></tr>
