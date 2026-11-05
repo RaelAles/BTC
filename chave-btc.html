@@ -6,14 +6,14 @@
 <meta name="theme-color" content="#2e2d2b">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'">
 <title>chave btc - chave</title>
-<meta name="description" content="Deriva uma chave privada Bitcoin a partir de 256 bits, desenha os bits em tabuleiro, mostra as chaves e os endereços e assina uma linha de transação. Roda offline, em um arquivo só.">
+<meta name="description" content="Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 bits, mostra xprv/xpub e descriptors, o primeiro endereço de recebimento e assina um digest. Roda offline, em um arquivo só.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="chave btc - oficina de chave privada">
-<meta property="og:description" content="256 bits entram, a chave privada, os endereços e a assinatura saem. Um arquivo, sem rede, no desenho ASCII.">
+<meta property="og:title" content="chave btc - contas hd a partir de 256 bits">
+<meta property="og:description" content="256 bits entram como entropia BIP39; mnemonic, contas HD, xprv/xpub, descriptors e assinatura saem. Um arquivo, sem rede.">
 <meta property="og:locale" content="pt_BR">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="chave btc - oficina de chave privada">
-<meta name="twitter:description" content="256 bits entram, a chave privada, os endereços e a assinatura saem. Um arquivo, sem rede, no desenho ASCII.">
+<meta name="twitter:title" content="chave btc - contas hd a partir de 256 bits">
+<meta name="twitter:description" content="256 bits entram como entropia BIP39; mnemonic, contas HD, xprv/xpub, descriptors e assinatura saem. Um arquivo, sem rede.">
 <link rel="icon" type="image/svg+xml" id="favicon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%22102%20-1195%201024%201195%22%3E%3Cstyle%3E.marca%7Bfill%3A%235d3d00%7D%40media%20(prefers-color-scheme%3Adark)%7B.marca%7Bfill%3A%23e8c07d%7D%7D%3C%2Fstyle%3E%3Cpath%20class%3D%22marca%22%20d%3D%22M640%20-1195Q640%20-1109%20711%20-1002.5Q782%20-896%20891%20-810Q1021%20-708%201073.5%20-632.5Q1126%20-557%201126%20-478Q1126%20-370%201058%20-305Q990%20-240%20891%20-240Q831%20-240%20765%20-268.5Q699%20-297%20662%20-340Q662%20-207%20749.5%20-131.5Q837%20-56%20982%20-56V0H246V-56Q391%20-56%20478.5%20-131.5Q566%20-207%20566%20-340Q528%20-297%20462%20-268.5Q396%20-240%20337%20-240Q237%20-240%20169.5%20-305Q102%20-370%20102%20-478Q102%20-555%20151.5%20-628Q201%20-701%20337%20-810Q446%20-895%20517%20-1002.5Q588%20-1110%20588%20-1195Z%22%2F%3E%3C%2Fsvg%3E">
 <style>
 /* Fonte embutida do projeto.
@@ -1970,7 +1970,7 @@
 
 <div class="page">
   <main class="window">
-    <h1 class="sr-only">Chave BTC — chave privada a partir de 256 bits</h1>
+    <h1 class="sr-only">Chave BTC — contas HD a partir de 256 bits</h1>
     <div class="edge" aria-hidden="true"></div>
 
     <a class="skip-link" id="skip-link" href="#content">pular para o conteúdo</a>
@@ -1995,7 +1995,7 @@
           <pre class="rule" aria-hidden="true"></pre>
 
           <div class="prose reveal-block">
-            <p>Insira 256 caracteres binários no campo abaixo para gerar as chaves e os endereços que derivam dela. Nada é enviado para lugar nenhum.</p>
+            <p>Insira 256 caracteres binários no campo abaixo. Eles entram como entropia BIP39 e geram o mnemonic, as contas HD (BIP44/49/84/86) e o primeiro endereço de recebimento. Nada é enviado para lugar nenhum.</p>
           </div>
 
           <div class="bits-row">
@@ -2029,19 +2029,20 @@
           <div class="reveal-block">
             <table class="data-table" id="keys-table" aria-label="chaves privadas">
               <tbody>
-                <tr><th scope="row">wif</th><td id="v-wif" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip86 · xprv</th><td id="v-xprv" class="is-empty">—</td></tr>
               </tbody>
               <tbody id="keys-more" class="more" hidden>
-                <tr><th scope="row">hex</th><td id="v-hex" class="is-empty">—</td></tr>
-                <tr><th scope="row">wif s/ comp.</th><td id="v-wif-un" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip84 · zprv</th><td id="v-bip84-prv" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip49 · yprv</th><td id="v-bip49-prv" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip44 · xprv</th><td id="v-bip44-prv" class="is-empty">—</td></tr>
                 <tr><th scope="row">mnemonic</th><td id="v-mnemonic" class="is-empty">—</td></tr>
               </tbody>
             </table>
           </div>
           <div class="chips app-gap reveal-block keys-actions">
-            <button type="button" id="more-toggle" aria-expanded="false" aria-controls="keys-more addr-more" aria-label="Mostrar outras chaves privadas e endereços">mostrar outras</button>
+            <button type="button" id="more-toggle" aria-expanded="false" aria-controls="keys-more addr-more" aria-label="Mostrar outras chaves e contas">mostrar outras</button>
           </div>
-          <p class="note app-gap reveal-block">Chave privada é posse: quem a lê controla os fundos. Use esta página offline e só com valor de teste. Quando revelada, a frase BIP39 de 24 palavras codifica os mesmos 256 bits, mas não deriva estas chaves: BIP39 + BIP32 produziria outra chave.</p>
+          <p class="note app-gap reveal-block">Chave privada é posse: quem lê o xprv controla a conta inteira; o mnemonic é o backup. Use esta página offline e só com valor de teste. O xprv da conta BIP86 deriva a primeira recepção e todas as demais; o P2TR usa a chave ajustada por TapTweak.</p>
 
           <div class="rule rule-dots reveal-block" aria-hidden="true"></div>
 
@@ -2049,19 +2050,27 @@
             <h3><span class="prompt" aria-hidden="true">##</span> públicas</h3>
           </div>
           <div class="reveal-block">
-            <table class="data-table" id="addr-table" aria-label="endereços">
+            <table class="data-table" id="addr-table" aria-label="chaves públicas estendidas e endereços">
               <tbody>
-                <tr><th scope="row">bip86 · p2tr</th><td id="v-p2tr" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip86 · xpub</th><td id="v-xpub" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip86 · descriptor</th><td id="v-descriptor" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip86 · receive #0</th><td id="v-receive" class="is-empty">—</td></tr>
               </tbody>
               <tbody id="addr-more" class="more" hidden>
-                <tr><th scope="row">p2wpkh</th><td id="v-p2wpkh" class="is-empty">—</td></tr>
-                <tr><th scope="row">p2sh-p2wpkh</th><td id="v-p2sh" class="is-empty">—</td></tr>
-                <tr><th scope="row">p2pkh</th><td id="v-p2pkh" class="is-empty">—</td></tr>
-                <tr><th scope="row">p2pkh s/ comp.</th><td id="v-p2pkh-un" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip84 · zpub</th><td id="v-bip84-pub" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip84 · descriptor</th><td id="v-bip84-desc" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip84 · receive #0</th><td id="v-bip84-recv" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip49 · ypub</th><td id="v-bip49-pub" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip49 · descriptor</th><td id="v-bip49-desc" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip49 · receive #0</th><td id="v-bip49-recv" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip44 · xpub</th><td id="v-bip44-pub" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip44 · descriptor</th><td id="v-bip44-desc" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip44 · receive #0</th><td id="v-bip44-recv" class="is-empty">—</td></tr>
               </tbody>
             </table>
           </div>
-          <p class="note app-gap reveal-block">hex é a chave privada em 32 bytes; WIF é a mesma chave em Base58Check, com e sem o marcador de compressão. Os endereços derivados da chave comprimida são o conjunto usual; as linhas “s/ comp.” mostram o par legado. O P2TR segue o BIP86: a chave interna é ajustada por <b>TapTweak</b> para a chave de saída.</p>
+          <p class="note app-gap reveal-block">O xpub é a chave pública estendida da conta BIP86; o descriptor é multipath (BIP389): /0/* recebimento e /1/* troco. Importe um dos dois numa carteira watch-only para ver o saldo e gerar endereços; este arquivo é offline e não consulta a rede.</p>
+          <p class="note app-gap reveal-block">As demais contas (BIP84, BIP49 e BIP44) ficam no botão acima. O P2TR da primeira recepção segue o BIP86: a chave interna é ajustada por <b>TapTweak</b> para a chave de saída.</p>
         </section>
 
         <section class="screen" id="screen-assinar" aria-labelledby="head-assinar" hidden>
@@ -2069,7 +2078,7 @@
           <pre class="rule" aria-hidden="true"></pre>
 
           <div class="prose reveal-block">
-            <p>Cole a linha da transação. Se ela for hexadecimal, os bytes entram como estão; uma linha de exatamente 32 bytes é usada como o digest, e as demais são resumidas por SHA-256. Texto entra em UTF-8 e também passa pelo SHA-256. A assinatura é ECDSA determinística (RFC 6979), com S baixo, em DER e no formato compacto.</p>
+            <p>Cole a linha da transação. Se ela for hexadecimal, os bytes entram como estão; uma linha de exatamente 32 bytes é usada como o digest, e as demais são resumidas por SHA-256. Texto entra em UTF-8 e também passa pelo SHA-256. A assinatura é ECDSA determinística (RFC 6979), com S baixo, em DER e no formato compacto. A chave usada é a primeira chave de recebimento BIP86 (m/86'/0'/0'/0/0).</p>
           </div>
 
           <div class="field-row">
@@ -2093,7 +2102,7 @@
               <h3>resultado</h3>
             </div>
             <pre class="code-block" id="sign-code"></pre>
-            <p class="note">A verificação usa a mesma chave pública derivada dos 256 bits. <b>compact</b> é r + s + recid, em 65 bytes, e o recid 0–3 serve à recuperação da chave.</p>
+            <p class="note">A verificação usa a chave interna da primeira recepção BIP86 (m/86'/0'/0'/0/0), em ECDSA. O P2TR exibido usa a chave ajustada por TapTweak; assinaturas Schnorr/Taproot não são feitas aqui. <b>compact</b> é r + s + recid, em 65 bytes, e o recid 0–3 serve à recuperação da chave.</p>
           </div>
 
           <div class="prose reveal-block app-block">
@@ -2109,25 +2118,26 @@
           <div class="prose reveal-block">
             <h3>o que este arquivo faz</h3>
             <ul>
-              <li>lê 256 bits, valida 1 ≤ d &lt; n e calcula P = d·G na secp256k1;</li>
-              <li>deriva WIF com e sem compressão, P2PKH, P2SH-P2WPKH, P2WPKH (bech32) e P2TR (bech32m, BIP86);</li>
-              <li>codifica os mesmos 256 bits como frase mnemônica BIP39 de 24 palavras;</li>
-              <li>assina um digest SHA-256 com ECDSA RFC 6979, S baixo, DER e compacta;</li>
-              <li>faz tudo no próprio arquivo: sem biblioteca, sem build e sem requisição de rede — a política de segurança da página bloqueia qualquer conexão.</li>
+              <li>lê 256 bits como entropia BIP39 e gera a frase mnemônica de 24 palavras;</li>
+              <li>deriva a seed BIP39 (passphrase vazia) e as contas BIP44/49/84/86 no mainnet;</li>
+              <li>mostra xprv/xpub, descriptors e primeiro endereço de recebimento da conta BIP86;</li>
+              <li>assina um digest SHA-256 com ECDSA RFC 6979, S baixo, DER e compacta, usando a primeira chave de recebimento BIP86;</li>
+              <li>faz tudo no próprio arquivo: sem biblioteca externa, sem build e sem requisição de rede — a política de segurança da página bloqueia qualquer conexão.</li>
             </ul>
 
             <h3>o que este arquivo não faz</h3>
             <ul>
               <li>não gera a entropia dos 256 bits: eles vêm só do que você cola ou digita;</li>
               <li>não guarda a chave: recarregar a página apaga os 256 bits da memória;</li>
-              <li>não deriva chaves da frase mnemônica: as chaves vêm diretamente dos 256 bits, sem BIP39/BIP32;</li>
-              <li>não calcula sighash de transação, não monta nem transmite transação;</li>
+              <li>não consulta saldo nem rede: o xpub/descriptor é para uma carteira watch-only;</li>
+              <li>não usa passphrase BIP39: a passphrase é vazia;</li>
+              <li>não assina Schnorr/Taproot: a assinatura é ECDSA e não monta nem transmite transação;</li>
               <li>não substitui carteira de hardware, e 256 bits digitados à mão não têm a garantia de aleatoriedade de um gerador dedicado.</li>
             </ul>
 
             <h3>segurança</h3>
-            <p>Chave privada é posse: quem a lê controla os fundos daquele endereço. Use este arquivo offline, de preferência numa máquina dedicada, e desconfie de extensões, captura de tela e compartilhamento de tela. Para valor real, gere e guarde a chave numa carteira de hardware, com a semente criada no próprio dispositivo; aqui o uso é de estudo, conferência e teste.</p>
-            <p>Os 256 bits são a própria chave privada, e não uma semente BIP39: entram como um número inteiro, na ordem em que foram colados (o primeiro bit é o mais significativo), e não há derivação de caminho BIP32. A frase mnemônica é só uma codificação dos mesmos 256 bits e não deriva estas chaves. O mesmo número gera sempre a mesma chave e os mesmos endereços.</p>
+            <p>Chave privada é posse: quem lê o xprv ou o mnemonic controla a conta inteira; o xpub/descriptor é watch-only e não gasta. Use este arquivo offline, de preferência numa máquina dedicada, e desconfie de extensões, captura de tela e compartilhamento de tela. Para valor real, gere e guarde a semente numa carteira de hardware, com a semente criada no próprio dispositivo; aqui o uso é de estudo, conferência e teste.</p>
+            <p>Os 256 bits são a entropia BIP39, não a chave privada final: o mnemonic de 24 palavras (passphrase vazia) regenera a seed e as contas BIP44/49/84/86. O xprv é a chave estendida da conta BIP86; o primeiro endereço e as demais chaves são derivados dele. O mesmo número gera sempre o mesmo mnemonic, as mesmas contas e os mesmos endereços.</p>
             <p>A fonte é a Liberation Mono, sob SIL Open Font License 1.1; o texto da licença vai embutido no fim deste arquivo.</p>
           </div>
         </section>
@@ -2857,6 +2867,125 @@ var BTC = (function () {
     return words.join(' ');
   }
 
+  /* ------------------------------------------------ BIP32 / contas HD */
+  function nfkd(s) {
+    s = String(s);
+    return s.normalize ? s.normalize('NFKD') : s;
+  }
+  function subtle() {
+    if (typeof crypto === 'undefined' || !crypto.subtle) throw new Error('Web Crypto indisponível');
+    return crypto.subtle;
+  }
+  async function hmacSha512(key, msg) {
+    var k = await subtle().importKey('raw', key, { name: 'HMAC', hash: 'SHA-512' }, false, ['sign']);
+    var sig = await subtle().sign('HMAC', k, msg);
+    return new Uint8Array(sig);
+  }
+  async function bip39Seed(mnemonic) {
+    var pass = '';
+    var key = await subtle().importKey('raw', utf8(nfkd(mnemonic)), 'PBKDF2', false, ['deriveBits']);
+    var salt = utf8(nfkd('mnemonic' + pass));
+    var bits = await subtle().deriveBits(
+      { name: 'PBKDF2', salt: salt, iterations: 2048, hash: 'SHA-512' }, key, 512
+    );
+    return new Uint8Array(bits);
+  }
+  async function masterFromSeed(seed) {
+    var I = await hmacSha512(utf8('Bitcoin seed'), seed);
+    var d = BigInt('0x' + bytesToHex(I.subarray(0, 32)));
+    if (d <= 0n || d >= N) throw new Error('seed BIP32 fora do intervalo');
+    return {
+      d: d, chain: I.subarray(32), depth: 0,
+      parentFingerprint: new Uint8Array(4), childNumber: 0
+    };
+  }
+  function fingerprintOf(node) {
+    return hash160(pubCompressed(pointFromD(node.d))).subarray(0, 4);
+  }
+  async function ckdPriv(node, index) {
+    var data = index >= 0x80000000
+      ? concatBytes(new Uint8Array([0]), pad32(node.d), be32(index))
+      : concatBytes(pubCompressed(pointFromD(node.d)), be32(index));
+    var I = await hmacSha512(node.chain, data);
+    var il = BigInt('0x' + bytesToHex(I.subarray(0, 32)));
+    var child = mod(il + node.d, N);
+    if (il >= N || child === 0n) throw new Error('derivação BIP32 inválida');
+    return {
+      d: child, chain: I.subarray(32), depth: node.depth + 1,
+      parentFingerprint: fingerprintOf(node), childNumber: index
+    };
+  }
+  async function derivePath(node, path) {
+    var parts = path.split('/');
+    if (parts[0] !== 'm') throw new Error('caminho BIP32 inválido');
+    for (var i = 1; i < parts.length; i++) {
+      var part = parts[i];
+      if (!part) continue;
+      var hardened = part.charAt(part.length - 1) === "'";
+      var index = parseInt(hardened ? part.slice(0, -1) : part, 10);
+      if (!(index >= 0 && index < 0x80000000)) throw new Error('índice BIP32 inválido');
+      node = await ckdPriv(node, hardened ? index + 0x80000000 : index);
+    }
+    return node;
+  }
+  function extendedKey(version, node, isPrivate) {
+    var key = isPrivate
+      ? concatBytes(new Uint8Array([0]), pad32(node.d))
+      : pubCompressed(pointFromD(node.d));
+    return base58check(concatBytes(
+      be32(version), new Uint8Array([node.depth]), node.parentFingerprint,
+      be32(node.childNumber), node.chain, key
+    ));
+  }
+  var HD_ACCOUNTS = [
+    { id: 'bip86', path: "m/86'/0'/0'", xprv: 0x0488ADE4, xpub: 0x0488B21E, kind: 'p2tr' },
+    { id: 'bip84', path: "m/84'/0'/0'", xprv: 0x04B2430C, xpub: 0x04B24746, kind: 'p2wpkh' },
+    { id: 'bip49', path: "m/49'/0'/0'", xprv: 0x049D7878, xpub: 0x049D7CB2, kind: 'p2sh-p2wpkh' },
+    { id: 'bip44', path: "m/44'/0'/0'", xprv: 0x0488ADE4, xpub: 0x0488B21E, kind: 'p2pkh' }
+  ];
+  function descriptorFor(kind, xpub) {
+    if (kind === 'p2pkh') return 'pkh(' + xpub + '/<0;1>/*)';
+    if (kind === 'p2sh-p2wpkh') return 'sh(wpkh(' + xpub + '/<0;1>/*))';
+    if (kind === 'p2wpkh') return 'wpkh(' + xpub + '/<0;1>/*)';
+    return 'tr(' + xpub + '/<0;1>/*)';
+  }
+  function addressFor(kind, Q) {
+    var pub = pubCompressed(Q);
+    if (kind === 'p2pkh') return p2pkh(pub);
+    if (kind === 'p2sh-p2wpkh') return p2shP2wpkh(pub);
+    if (kind === 'p2wpkh') return p2wpkh(pub);
+    return p2tr(taprootOutputKey(pad32(Q.x)));
+  }
+  async function accountFor(master, def) {
+    var node = await derivePath(master, def.path);
+    var child = await ckdPriv(node, 0);
+    child = await ckdPriv(child, 0);
+    var Q = pointFromD(child.d);
+    var xprv = extendedKey(def.xprv, node, true);
+    var xpub = extendedKey(def.xpub, node, false);
+    return {
+      id: def.id, kind: def.kind,
+      xprv: xprv, xpub: xpub, descriptor: descriptorFor(def.kind, xpub),
+      receiveAddress: addressFor(def.kind, Q), receiveWif: wif(child.d, true),
+      key: { d: child.d, Q: Q, hex: bytesToHex(pad32(child.d)), wifCompressed: wif(child.d, true) }
+    };
+  }
+  async function deriveHD(bits) {
+    if (bits.length !== 256) throw new Error('são necessários exatamente 256 bits');
+    var mnemonic = bip39Mnemonic(bits);
+    var seed = await bip39Seed(mnemonic);
+    var master = await masterFromSeed(seed);
+    var accounts = {};
+    for (var i = 0; i < HD_ACCOUNTS.length; i++) {
+      var acc = await accountFor(master, HD_ACCOUNTS[i]);
+      accounts[acc.id] = acc;
+    }
+    return {
+      bits: bits, mnemonic: mnemonic, seed: seed, master: master,
+      accounts: accounts, primary: accounts.bip86, signingKey: accounts.bip86.key
+    };
+  }
+
   /* -------------------------------------------------------------- derivar */
   function derive(bits) {
     if (bits.length !== 256) throw new Error('são necessários exatamente 256 bits');
@@ -2894,7 +3023,10 @@ var BTC = (function () {
     pad32: pad32, pointFromD: pointFromD, pubCompressed: pubCompressed, pubUncompressed: pubUncompressed,
     taprootOutputKey: taprootOutputKey, taggedHash: taggedHash,
     signDigest: signDigest, verifyDigest: verifyDigest, encodeDer: encodeDer,
-    derive: derive, N: N, P: P
+    derive: derive, deriveHD: deriveHD, bip39Seed: bip39Seed,
+    masterFromSeed: masterFromSeed, derivePath: derivePath, ckdPriv: ckdPriv,
+    extendedKey: extendedKey, addressFor: addressFor, HD_ACCOUNTS: HD_ACCOUNTS,
+    N: N, P: P
   };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
@@ -2911,6 +3043,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function reduced() { return !!(REDUCED && REDUCED.matches); }
 
   var state = { key: null, values: null, screen: 'chave' };
+  var deriveSeq = 0;
 
   var bitsEl = $('#bits');
   var bitsCount = $('#bits-count');
@@ -2955,7 +3088,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   /* ------------------------------------------------------------- chaves */
   function paintValues() {
-    var ids = ['hex', 'wif', 'wif-un', 'mnemonic', 'p2pkh', 'p2pkh-un', 'p2sh', 'p2wpkh', 'p2tr'];
+    var ids = [
+      'xprv', 'bip84-prv', 'bip49-prv', 'bip44-prv', 'mnemonic',
+      'xpub', 'descriptor', 'receive',
+      'bip84-pub', 'bip84-desc', 'bip84-recv',
+      'bip49-pub', 'bip49-desc', 'bip49-recv',
+      'bip44-pub', 'bip44-desc', 'bip44-recv'
+    ];
     ids.forEach(function (id) {
       var cell = document.getElementById('v-' + id);
       if (!cell) return;
@@ -2970,22 +3109,32 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     });
   }
   function clearKey() {
+    deriveSeq++;
     state.key = null;
     state.values = null;
     paintValues();
   }
-  function applyKey(key) {
-    state.key = key;
+  function applyKey(hd) {
+    var a = hd.accounts;
+    state.key = hd.signingKey;
     state.values = {
-      hex: key.hex,
-      wif: key.wifCompressed,
-      'wif-un': key.wifUncompressed,
-      mnemonic: key.mnemonic,
-      p2pkh: key.addresses.p2pkh,
-      'p2pkh-un': key.addresses.p2pkhUncompressed,
-      p2sh: key.addresses.p2shP2wpkh,
-      p2wpkh: key.addresses.p2wpkh,
-      p2tr: key.addresses.p2tr
+      xprv: a.bip86.xprv,
+      'bip84-prv': a.bip84.xprv,
+      'bip49-prv': a.bip49.xprv,
+      'bip44-prv': a.bip44.xprv,
+      mnemonic: hd.mnemonic,
+      xpub: a.bip86.xpub,
+      descriptor: a.bip86.descriptor,
+      receive: a.bip86.receiveAddress,
+      'bip84-pub': a.bip84.xpub,
+      'bip84-desc': a.bip84.descriptor,
+      'bip84-recv': a.bip84.receiveAddress,
+      'bip49-pub': a.bip49.xpub,
+      'bip49-desc': a.bip49.descriptor,
+      'bip49-recv': a.bip49.receiveAddress,
+      'bip44-pub': a.bip44.xpub,
+      'bip44-desc': a.bip44.descriptor,
+      'bip44-recv': a.bip44.receiveAddress
     };
     paintValues();
     invalidateSignature();
@@ -3007,8 +3156,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (!moreToggle) return;
     moreToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     moreToggle.setAttribute('aria-label', open
-      ? 'Ocultar outras chaves privadas e endereços'
-      : 'Mostrar outras chaves privadas e endereços');
+      ? 'Ocultar outras chaves e contas'
+      : 'Mostrar outras chaves e contas');
     moreToggle.textContent = open ? 'ocultar outras' : 'mostrar outras';
     moreGroups.forEach(function (group) {
       if (group) group.hidden = !open;
@@ -3023,7 +3172,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   /* ---------------------------------------------------------- bits/entrada */
   var BIT_MAX = 256;
 
-  function onBitsInput() {
+  async function onBitsInput() {
     var raw = bitsEl.value;
     var caret = bitsEl.selectionStart;
     var typed = raw.slice(0, typeof caret === 'number' ? caret : raw.length).replace(/[^01]/g, '').length;
@@ -3049,10 +3198,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       clearKey();
       return;
     }
+    var seq = ++deriveSeq;
     try {
-      applyKey(BTC.derive(bits));
+      var hd = await BTC.deriveHD(bits);
+      if (seq !== deriveSeq) return;
+      applyKey(hd);
     } catch (e) {
-      clearKey();
+      if (seq === deriveSeq) clearKey();
     }
   }
 
@@ -3139,7 +3291,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         fieldBlock('verificação', ok ? 'ok' : 'falhou')
       ].join('\n\n');
       setStatus(signStatus, ok ? 'ok' : 'erro',
-        ok ? 'assinatura ECDSA gerada e verificada com a chave derivada.'
+        ok ? 'assinatura ECDSA gerada e verificada com a primeira chave BIP86.'
            : 'a verificação interna falhou; não use esta assinatura.');
       requestAnimationFrame(updateScrollState);
     } catch (e) {
