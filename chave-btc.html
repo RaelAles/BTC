@@ -2810,7 +2810,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       bitsEl.setSelectionRange(pos, pos);
     }
 
-    bitsCount.textContent = bits.length + ' / 256 bits';
+    bitsCount.textContent = bits.length + ' / ' + BIT_MAX + ' bits';
+    /* No limite o texto ainda é válido: marca em --warning, não em --error. */
+    bitsCount.classList.toggle('is-limit', bits.length >= BIT_MAX);
     renderBoard(bits);
 
     if (bits.length === 0) {
@@ -2818,9 +2820,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       setStatus(keyStatus, 'vazio', 'cole ou digite os 256 bits para derivar a chave.');
       return;
     }
-    if (bits.length < 256) {
+    if (bits.length < BIT_MAX) {
       clearKey();
-      setStatus(keyStatus, 'neutro', bits.length + ' de 256 bits; faltam ' + (256 - bits.length) + '.');
+      setStatus(keyStatus, 'neutro', bits.length + ' de ' + BIT_MAX + ' bits; faltam ' + (BIT_MAX - bits.length) + '.');
       return;
     }
     try {
