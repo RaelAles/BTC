@@ -1866,6 +1866,19 @@
      sistema; o tabuleiro é um .code-block com glifos ● e ○. */
   .app-gap { margin-top: var(--space-5); }
   .app-block { margin-top: var(--space-7); }
+
+  /* O tabuleiro desenha 256 bits em 16 linhas de 16 glifos. A entrelinha de
+     1ch é a própria largura da célula (avanço do "0" na monoespaçada), então
+     cada linha tem 16ch de largura por 1ch de altura e o bloco sai quadrado em
+     qualquer corpo de fonte. `width: max-content` impede que a caixa estique
+     até a coluna (o que a deixaria mais larga que alta) e o respiro simétrico
+     mantém a moldura quadrada; sem `pre-wrap`, a linha não quebra. */
+  .board {
+    width: max-content;
+    padding: var(--space-6);
+    line-height: 1ch;
+    white-space: pre;
+  }
 </style>
 <script>
   /* Tema antes da pintura: evita o clarão do tema escuro padrão. */
@@ -1944,8 +1957,8 @@
           <div class="prose reveal-block app-block">
             <h3>tabuleiro</h3>
           </div>
-          <pre class="code-block reveal-block" id="board" aria-hidden="true"></pre>
-          <p class="note reveal-block">● = 1 · ○ = 0 · à esquerda, o deslocamento do byte em hexadecimal; à direita, os dois bytes da linha. O tabuleiro completa com ○ até 256 bits e é só leitura.</p>
+          <pre class="code-block reveal-block board" id="board" aria-hidden="true"></pre>
+          <p class="note reveal-block">● = 1 · ○ = 0 · o tabuleiro é um quadrado de 16 linhas, cada uma com 16 bits, na ordem em que foram colados: o primeiro bit fica no canto superior esquerdo. Ele completa com ○ até 256 bits e é só leitura.</p>
 
           <div class="prose reveal-block app-block">
             <h3>chaves e endereços</h3>
@@ -2713,17 +2726,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function renderBoard(bits) {
     var padded = (bits + new Array(257).join('0')).slice(0, 256);
     var lines = [];
-    for (var byte = 0; byte < 32; byte += 2) {
-      var off = byte * 8;
-      var row = padded.substr(off, 16);
-      if (!row) break;
-      var left = row.substr(0, 8).replace(/0/g, '○').replace(/1/g, '●');
-      var right = row.substr(8, 8).replace(/0/g, '○').replace(/1/g, '●');
-      var h1 = parseInt(row.substr(0, 8), 2).toString(16);
-      var h2 = parseInt(row.substr(8, 8), 2).toString(16);
-      while (h1.length < 2) h1 = '0' + h1;
-      while (h2.length < 2) h2 = '0' + h2;
-      lines.push((byte < 16 ? '0' : '') + byte.toString(16) + '  ' + left + ' ' + right + '  ' + h1 + ' ' + h2);
+    for (var row = 0; row < 16; row++) {
+      lines.push(padded.substr(row * 16, 16).replace(/0/g, '○').replace(/1/g, '●'));
     }
     boardEl.textContent = lines.join('\n');
   }
