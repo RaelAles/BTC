@@ -1915,6 +1915,27 @@
   /* A única ação do campo de bits fica centralizada sob a caixa do campo. */
   .bits-actions { justify-content: center; }
   .keys-actions { justify-content: center; }
+  /* Segredo ofuscado: a chave só é escrita no DOM quando a própria linha
+     pede, e o botão discreto revela uma chave por vez. */
+  .secret-value { display: block; }
+  .secret-toggle {
+    margin-top: var(--space-3);
+    color: var(--dim);
+    font-size: var(--text-sm);
+    letter-spacing: .08em;
+  }
+  .secret-toggle:hover,
+  .secret-toggle:focus-visible { color: var(--accent); }
+  .secret-toggle[hidden] { display: none; }
+  /* Fio sutil entre as chaves privadas e as públicas da lista completa: mais
+     leve que o divisor de seção, para separar sem abrir outro bloco. */
+  .keys-sep {
+    margin: 0 0 var(--space-7);
+    height: 1px;
+    background-image: radial-gradient(circle at center, var(--line) 1px, transparent 1.2px);
+    background-size: 11px 100%;
+    background-repeat: repeat-x;
+  }
   /* As legendas das duas tabelas seguem em caixa baixa: caixa alta é o sinal
      do que responde ao clique, e a tabela é conteúdo estático. */
   .board {
@@ -2070,6 +2091,7 @@
                 </tbody>
               </table>
             </div>
+            <div class="keys-sep" aria-hidden="true"></div>
             <div class="reveal-block">
               <table class="data-table" id="addr-table-all" aria-label="todas as chaves públicas estendidas">
                 <tbody>
@@ -3091,24 +3113,74 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* ------------------------------------------------------------- chaves */
+  var SECRET_IDS = [
+    'xprv', 'all-xprv', 'bip84-prv', 'bip49-prv', 'bip44-prv', 'mnemonic',
+    'xpub', 'all-xpub', 'bip84-pub', 'bip49-pub', 'bip44-pub'
+  ];
+  function maskSecret(value) {
+    var text = String(value).replace(/\s+/g, ' ').trim();
+    var words = text.split(' ');
+    if (words.length > 1) return words[0] + '..........' + words[words.length - 1];
+    return text.slice(0, 5) + '..........' + text.slice(-5);
+  }
+  function buildSecretCells() {
+    SECRET_IDS.forEach(function (id) {
+      var cell = document.getElementById('v-' + id);
+      if (!cell || cell.querySelector('.secret-value')) return;
+      var out = document.createElement('span');
+      out.className = 'secret-value';
+      out.id = 'secret-' + id;
+      var toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'secret-toggle';
+      toggle.hidden = true;
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.setAttribute('aria-controls', out.id);
+      toggle.textContent = 'mostrar';
+      cell.textContent = '';
+      cell.classList.add('secret');
+      cell.setAttribute('data-revealed', 'false');
+      cell.appendChild(out);
+      cell.appendChild(toggle);
+    });
+  }
   function paintValues() {
-    var ids = [
-      'xprv', 'all-xprv', 'bip84-prv', 'bip49-prv', 'bip44-prv', 'mnemonic',
-      'xpub', 'all-xpub', 'bip84-pub', 'bip49-pub', 'bip44-pub'
-    ];
-    ids.forEach(function (id) {
+    SECRET_IDS.forEach(function (id) {
       var cell = document.getElementById('v-' + id);
       if (!cell) return;
       var value = state.values ? state.values[id] : '';
+      var out = cell.querySelector('.secret-value');
+      var toggle = cell.querySelector('.secret-toggle');
+      if (!out || !toggle) return;
+      cell.setAttribute('data-revealed', 'false');
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.textContent = 'mostrar';
       if (!value) {
-        cell.textContent = '—';
+        out.textContent = '—';
+        toggle.hidden = true;
         cell.classList.add('is-empty');
       } else {
-        cell.textContent = value;
+        out.textContent = maskSecret(value);
+        toggle.hidden = false;
         cell.classList.remove('is-empty');
       }
     });
   }
+  document.addEventListener('click', function (ev) {
+    var toggle = ev.target && ev.target.closest ? ev.target.closest('.secret-toggle') : null;
+    if (!toggle) return;
+    var cell = toggle.closest('.secret');
+    if (!cell) return;
+    var value = state.values ? state.values[cell.id.replace(/^v-/, '')] : '';
+    if (!value) return;
+    var out = cell.querySelector('.secret-value');
+    if (!out) return;
+    var open = cell.getAttribute('data-revealed') !== 'true';
+    cell.setAttribute('data-revealed', open ? 'true' : 'false');
+    out.textContent = open ? value : maskSecret(value);
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    toggle.textContent = open ? 'ocultar' : 'mostrar';
+  });
   function clearKey() {
     deriveSeq++;
     state.key = null;
@@ -3725,6 +3797,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   syncFavicon();
   onBitsInput();
   updateTxMeta();
+  buildSecretCells();
   paintValues();
   showScreen(screenName(location.hash.replace(/^#/, '')));
   syncPageMode();
