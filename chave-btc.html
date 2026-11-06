@@ -1889,14 +1889,17 @@
     display: flex;
     flex-direction: column;
   }
-  /* O mnemonic ocupa o mesmo quadrado do tabuleiro: 3 colunas por 8 linhas. */
+  /* O mnemonic ocupa o mesmo quadrado do tabuleiro: 3 colunas por 8 linhas.
+     O space-evenly reparte a sobra igualmente acima da primeira linha, entre
+     todas e abaixo da última, para os campos 01–03 terem o mesmo respiro
+     vertical que os demais. */
   .mnemonic-grid {
     display: grid;
     width: 100%;
     height: 100%;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     grid-template-rows: repeat(8, auto);
-    align-content: space-between;
+    align-content: space-evenly;
     gap: 0 var(--space-4);
   }
   .mnemonic-word {
