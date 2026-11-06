@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#2e2d2b">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'">
 <title>chave btc - chave</title>
-<meta name="description" content="Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 bits, exporta descriptors e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.">
+<meta name="description" content="Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 bits, mostra xprv/xpub e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="chave btc - contas hd a partir de 256 bits">
 <meta property="og:description" content="256 bits entram como entropia BIP39; mnemonic, contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
@@ -929,7 +929,6 @@
     hyphens: none;
     tab-size: 2;
   }
-  .code-block.is-empty { color: var(--dim); }
   /* O PSBT e a transação final passam de 2 KB: o bloco rola por dentro para
      não empurrar os botões de copiar e o resumo para fora da tela. */
   .code-block.is-scroll { max-height: 15em; overflow-y: auto; }
@@ -2086,36 +2085,6 @@
               </tbody>
             </table>
           </div>
-
-          <div class="rule rule-dots reveal-block" aria-hidden="true"></div>
-
-          <div class="prose reveal-block app-block">
-            <h3><span class="prompt" aria-hidden="true">##</span> exportar</h3>
-          </div>
-
-          <div class="field-row">
-            <span class="field-label" id="desc-label">descriptor da conta</span>
-            <span class="field-meta" id="desc-meta">—</span>
-          </div>
-
-          <div class="chips app-gap reveal-block desc-actions" role="group" aria-labelledby="desc-label">
-            <button type="button" data-desc="bip86" aria-pressed="true">tr</button>
-            <button type="button" data-desc="bip84" aria-pressed="false">wpkh</button>
-            <button type="button" data-desc="bip49" aria-pressed="false">sh(wpkh)</button>
-            <button type="button" data-desc="bip44" aria-pressed="false">pkh</button>
-          </div>
-
-          <div class="reveal-block">
-            <pre class="code-block" id="desc-out">—</pre>
-          </div>
-
-          <div class="chips app-gap reveal-block keys-actions" role="group" aria-label="Copiar descriptors">
-            <button type="button" id="desc-copy">copiar descriptor</button>
-            <button type="button" id="desc-copy-all">copiar os quatro</button>
-          </div>
-
-          <p class="note app-gap reveal-block">O descriptor leva o fingerprint, o caminho e o tipo de script numa string com checksum (BIP380), no formato multipath <b>&lt;0;1&gt;</b> do BIP389: <b>/0/*</b> é recebimento e <b>/1/*</b> é troco. Entregue só o descriptor ao projeto 2 — nunca o xprv.</p>
-
           <div class="chips app-gap reveal-block keys-actions">
             <button type="button" id="more-toggle" aria-expanded="false" aria-controls="all-keys" aria-label="Mostrar todas as chaves privadas e públicas">mostrar todas as chaves</button>
           </div>
@@ -2221,7 +2190,7 @@
             <ul>
               <li>lê 256 bits como entropia BIP39 e gera a frase mnemônica de 24 palavras;</li>
               <li>deriva a seed BIP39 (passphrase vazia), a raiz BIP32 e as contas BIP44/49/84/86 no mainnet;</li>
-              <li>mostra a chave privada, a xpub e o descriptor com checksum (BIP380/389) de cada conta, com os caminhos de recebimento (/0/*) e troco (/1/*);</li>
+              <li>mostra a chave privada e a xpub de cada conta, com os caminhos de recebimento (/0/*) e troco (/1/*);</li>
               <li>assina PSBT (BIP174) criado em outro app: ECDSA RFC 6979 no p2pkh, no BIP49 e no BIP84 (sighash BIP143), e Schnorr BIP340 no P2TR do BIP86 (sighash BIP341);</li>
               <li>faz tudo no próprio arquivo: sem biblioteca externa, sem build e sem requisição de rede — a política de segurança da página bloqueia qualquer conexão.</li>
             </ul>
@@ -2240,7 +2209,7 @@
             <h3>segurança</h3>
             <p>Chave privada é posse: quem lê o xprv ou o mnemonic controla a conta inteira; o xpub é watch-only e não gasta. Use este arquivo offline, de preferência numa máquina dedicada, e desconfie de extensões, captura de tela e compartilhamento de tela. Para valor real, gere e guarde a semente numa carteira de hardware, com a semente criada no próprio dispositivo; aqui o uso é de estudo, conferência e teste.</p>
             <p>Os 256 bits são a entropia BIP39, não a chave privada final: o mnemonic de 24 palavras (passphrase vazia) regenera a seed, a raiz BIP32 e as contas BIP44/49/84/86. O xprv é a chave estendida da conta BIP86; o primeiro endereço e as demais chaves são derivados dele. O mesmo número gera sempre o mesmo mnemonic, as mesmas contas e os mesmos endereços.</p>
-            <p>Os endereços seguem o BIP141 (witness v0) com bech32 no BIP173, e o BIP341 com bech32m no BIP350 no Taproot; o BIP143 rege o sighash do segwit v0 e o BIP341 o do Taproot. O xpub vai para o projeto 2 num descriptor: ele deriva os endereços de recebimento e troco, monta o PSBT e publica a transação; o xprv nunca sai deste arquivo.</p>
+            <p>Os endereços seguem o BIP141 (witness v0) com bech32 no BIP173, e o BIP341 com bech32m no BIP350 no Taproot; o BIP143 rege o sighash do segwit v0 e o BIP341 o do Taproot. O xpub da conta BIP86 é o que vai para o projeto 2: ele deriva os endereços de recebimento (/0/*) e de troco (/1/*) e monta a transação; o xprv nunca sai deste arquivo.</p>
             <p>A fonte é a Liberation Mono, sob SIL Open Font License 1.1; o texto da licença vai embutido no fim deste arquivo.</p>
           </div>
         </section>
@@ -3041,10 +3010,10 @@ var BTC = (function () {
     ));
   }
   var HD_ACCOUNTS = [
-    { id: 'bip86', path: "m/86'/0'/0'", xprv: 0x0488ADE4, xpub: 0x0488B21E, kind: 'p2tr', descPrefix: 'tr(', descSuffix: ')' },
-    { id: 'bip84', path: "m/84'/0'/0'", xprv: 0x04B2430C, xpub: 0x04B24746, kind: 'p2wpkh', descPrefix: 'wpkh(', descSuffix: ')' },
-    { id: 'bip49', path: "m/49'/0'/0'", xprv: 0x049D7878, xpub: 0x049D7CB2, kind: 'p2sh-p2wpkh', descPrefix: 'sh(wpkh(', descSuffix: '))' },
-    { id: 'bip44', path: "m/44'/0'/0'", xprv: 0x0488ADE4, xpub: 0x0488B21E, kind: 'p2pkh', descPrefix: 'pkh(', descSuffix: ')' }
+    { id: 'bip86', path: "m/86'/0'/0'", xprv: 0x0488ADE4, xpub: 0x0488B21E, kind: 'p2tr' },
+    { id: 'bip84', path: "m/84'/0'/0'", xprv: 0x04B2430C, xpub: 0x04B24746, kind: 'p2wpkh' },
+    { id: 'bip49', path: "m/49'/0'/0'", xprv: 0x049D7878, xpub: 0x049D7CB2, kind: 'p2sh-p2wpkh' },
+    { id: 'bip44', path: "m/44'/0'/0'", xprv: 0x0488ADE4, xpub: 0x0488B21E, kind: 'p2pkh' }
   ];
   function addressFor(kind, Q) {
     var pub = pubCompressed(Q);
@@ -3053,22 +3022,16 @@ var BTC = (function () {
     if (kind === 'p2wpkh') return p2wpkh(pub);
     return p2tr(taprootOutputKey(pad32(Q.x)));
   }
-  async function accountFor(master, def, fingerprint) {
+  async function accountFor(master, def) {
     var node = await derivePath(master, def.path);
     var child = await ckdPriv(node, 0);
     child = await ckdPriv(child, 0);
     var Q = pointFromD(child.d);
-    var xprv = extendedKey(def.xprv, node, true);
-    var xpub = extendedKey(def.xpub, node, false);
-    /* O descriptor usa sempre o version byte xpub neutro: o tipo de script já
-       está no prefixo (tr/wpkh/sh/pkh), e ypub/zpub confundem os parsers. */
-    var descPath = def.path.slice(1).replace(/'/g, 'h');
-    var descriptor = def.descPrefix + '[' + fingerprint + descPath + ']' +
-      extendedKey(0x0488B21E, node, false) + '/<0;1>/*' + def.descSuffix;
     return {
       id: def.id, kind: def.kind, path: def.path,
-      xprv: xprv, xpub: xpub, node: node,
-      descriptor: descriptorChecksum(descriptor),
+      xprv: extendedKey(def.xprv, node, true),
+      xpub: extendedKey(def.xpub, node, false),
+      node: node,
       receiveAddress: addressFor(def.kind, Q), receiveWif: wif(child.d, true),
       key: { d: child.d, Q: Q, hex: bytesToHex(pad32(child.d)), wifCompressed: wif(child.d, true) }
     };
@@ -3081,7 +3044,7 @@ var BTC = (function () {
     var fingerprint = bytesToHex(fingerprintOf(master));
     var accounts = {};
     for (var i = 0; i < HD_ACCOUNTS.length; i++) {
-      var acc = await accountFor(master, HD_ACCOUNTS[i], fingerprint);
+      var acc = await accountFor(master, HD_ACCOUNTS[i]);
       accounts[acc.id] = acc;
     }
     return {
@@ -3275,44 +3238,6 @@ var BTC = (function () {
     var parts = [];
     indices.forEach(function (v) { parts.push(le32(v >>> 0)); });
     return concatBytes.apply(null, parts);
-  }
-
-  /* ------------------------------------------ checksum de descriptor (BIP380) */
-  var DESC_CHARSET = "0123456789()[],'/*abcdefgh@:$%{}IJKLMNOPQRSTUVWXYZ&+-.;<=>?!^_|~ijklmnopqrstuvwxyzABCDEFGH`#\"\\ ";
-  var DESC_CHECK = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
-  var DESC_GEN = [0xf5dee51989n, 0xa9fdca3312n, 0x1bab10e32dn, 0x3706b1677an, 0x644d626ffdn];
-  function descPolymod(symbols) {
-    var chk = 1n;
-    for (var i = 0; i < symbols.length; i++) {
-      var top = chk >> 35n;
-      chk = ((chk & 0x7ffffffffn) << 5n) ^ BigInt(symbols[i]);
-      for (var j = 0; j < 5; j++) if ((top >> BigInt(j)) & 1n) chk ^= DESC_GEN[j];
-    }
-    return chk;
-  }
-  function descExpand(text) {
-    var groups = [], symbols = [];
-    for (var i = 0; i < text.length; i++) {
-      var v = DESC_CHARSET.indexOf(text.charAt(i));
-      if (v < 0) throw new Error('caractere inválido no descriptor');
-      symbols.push(v & 31);
-      groups.push(v >> 5);
-      if (groups.length === 3) {
-        symbols.push(groups[0] * 9 + groups[1] * 3 + groups[2]);
-        groups = [];
-      }
-    }
-    if (groups.length === 1) symbols.push(groups[0]);
-    else if (groups.length === 2) symbols.push(groups[0] * 3 + groups[1]);
-    return symbols;
-  }
-  function descriptorChecksum(text) {
-    if (text.indexOf('#') >= 0) throw new Error('descriptor já tem checksum');
-    var symbols = descExpand(text).concat([0, 0, 0, 0, 0, 0, 0, 0]);
-    var checksum = descPolymod(symbols) ^ 1n;
-    var out = '';
-    for (var i = 0; i < 8; i++) out += DESC_CHECK.charAt(Number((checksum >> BigInt(5 * (7 - i))) & 31n));
-    return text + '#' + out;
   }
 
   /* ------------------------------------------------ base64 (PSBT em texto) */
@@ -3718,7 +3643,7 @@ var BTC = (function () {
         throw new Error('entrada ' + i + ' exige time lock; este signer não confere travas de tempo');
       }
       var key = await findKeyForScript(session, prev.script, map);
-      if (!key) throw new Error('entrada ' + i + ' não pertence a este descritor');
+      if (!key) throw new Error('entrada ' + i + ' não pertence às contas derivadas dos 256 bits');
       if (bytesToHex(scriptForKind(key.kind, key.Q)) !== bytesToHex(prev.script)) {
         throw new Error('entrada ' + i + ': chave derivada não corresponde ao script');
       }
@@ -3921,7 +3846,7 @@ var BTC = (function () {
     extendedKey: extendedKey, addressFor: addressFor, HD_ACCOUNTS: HD_ACCOUNTS,
     readTx: readTx, writeTx: writeTx, txidOf: txidOf, readTxOut: readTxOut,
     scriptForKind: scriptForKind, scriptKind: scriptKind, addressFromScript: addressFromScript,
-    descriptorChecksum: descriptorChecksum, b64encode: b64encode, b64decode: b64decode,
+    b64encode: b64encode, b64decode: b64decode,
     parsePsbt: parsePsbt, writePsbt: writePsbt, psbtParseInput: psbtParseInput,
     sighashLegacy: sighashLegacy, sighashV0: sighashV0, sighashTaproot: sighashTaproot,
     bip340Sign: bip340Sign, bip340Verify: bip340Verify, tweakPrivate: tweakPrivate,
@@ -3943,7 +3868,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var REDUCED = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
   function reduced() { return !!(REDUCED && REDUCED.matches); }
 
-  var state = { hd: null, key: null, values: null, screen: 'chave', desc: 'bip86', analysis: null };
+  var state = { hd: null, key: null, values: null, screen: 'chave', analysis: null };
   var deriveSeq = 0;
   var analyzeSeq = 0;
 
@@ -3961,8 +3886,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var signedPsbt = $('#signed-psbt');
   var signedTx = $('#signed-tx');
   var signedMeta = $('#signed-meta');
-  var descOut = $('#desc-out');
-  var descMeta = $('#desc-meta');
   var contentEl = $('#content');
   var scrollEl = $('#content-scroll');
   var pageEl = $('.page');
@@ -4163,7 +4086,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     state.values = null;
     state.analysis = null;
     paintValues();
-    paintDescriptor();
     invalidateSignature();
   }
   function applyKey(hd) {
@@ -4184,7 +4106,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       'bip44-pub': a.bip44.xpub
     };
     paintValues();
-    paintDescriptor();
     invalidateSignature();
     /* Se já há um PSBT colado, ele é reavaliado contra a chave nova. */
     if (psbtEl && psbtEl.value.trim()) scheduleAnalyze();
@@ -4205,31 +4126,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     setStatus(signStatus, 'neutro', '');
   }
 
-  /* ------------------------------------------------------- descriptor */
-  var DESC_KINDS = ['bip86', 'bip84', 'bip49', 'bip44'];
-  function paintDescriptor() {
-    if (!descOut) return;
-    var acc = state.hd ? state.hd.accounts[state.desc] : null;
-    var copy = $('#desc-copy');
-    var copyAll = $('#desc-copy-all');
-    if (copy) copy.disabled = !acc;
-    if (copyAll) copyAll.disabled = !acc;
-    if (!acc) {
-      descOut.textContent = '—';
-      descOut.classList.add('is-empty');
-      descMeta.textContent = '—';
-      return;
-    }
-    descOut.classList.remove('is-empty');
-    descOut.textContent = acc.descriptor;
-    descMeta.textContent = state.hd.fingerprint + ' · ' + acc.path;
-  }
-  function allDescriptors() {
-    if (!state.hd) return '';
-    return DESC_KINDS.map(function (id) {
-      return state.hd.accounts[id].descriptor;
-    }).join('\n');
-  }
   function copyFeedback(button, value) {
     if (!button || !value) return;
     copyText(value);
@@ -4242,28 +4138,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       button._copyTimer = 0;
     }, 1400);
   }
-  $$('[data-desc]').forEach(function (button) {
-    button.addEventListener('click', function () {
-      state.desc = button.getAttribute('data-desc');
-      $$('[data-desc]').forEach(function (other) {
-        other.setAttribute('aria-pressed', other === button ? 'true' : 'false');
-      });
-      paintDescriptor();
-    });
-  });
-  var descCopy = $('#desc-copy');
-  var descCopyAll = $('#desc-copy-all');
-  if (descCopy) {
-    descCopy.addEventListener('click', function () {
-      copyFeedback(descCopy, state.hd ? state.hd.accounts[state.desc].descriptor : '');
-    });
-  }
-  if (descCopyAll) {
-    descCopyAll.addEventListener('click', function () {
-      copyFeedback(descCopyAll, allDescriptors());
-    });
-  }
-
   /* O terceiro subtítulo (todas as chaves) nasce oculto. O botão único o
      revela por inteiro e anuncia o estado pelo aria-expanded. */
   var moreToggle = $('#more-toggle');
@@ -4913,7 +4787,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   syncFavicon();
   onBitsInput();
   updatePsbtMeta();
-  paintDescriptor();
   buildKeyCells();
   paintValues();
   showScreen(screenName(location.hash.replace(/^#/, '')));
