@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#2e2d2b">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'">
 <title>chave btc - chave</title>
-<meta name="description" content="Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 bits, mostra a chave privada e a xpub da conta mais recente e assina um digest. Roda offline, em um arquivo só.">
+<meta name="description" content="Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 bits, exporta descriptors e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="chave btc - contas hd a partir de 256 bits">
 <meta property="og:description" content="256 bits entram como entropia BIP39; mnemonic, contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
@@ -929,6 +929,10 @@
     hyphens: none;
     tab-size: 2;
   }
+  .code-block.is-empty { color: var(--dim); }
+  /* O PSBT e a transação final passam de 2 KB: o bloco rola por dentro para
+     não empurrar os botões de copiar e o resumo para fora da tela. */
+  .code-block.is-scroll { max-height: 15em; overflow-y: auto; }
   .code-block code {
     padding: 0;
     border: 0;
@@ -2082,6 +2086,36 @@
               </tbody>
             </table>
           </div>
+
+          <div class="rule rule-dots reveal-block" aria-hidden="true"></div>
+
+          <div class="prose reveal-block app-block">
+            <h3><span class="prompt" aria-hidden="true">##</span> exportar</h3>
+          </div>
+
+          <div class="field-row">
+            <span class="field-label" id="desc-label">descriptor da conta</span>
+            <span class="field-meta" id="desc-meta">—</span>
+          </div>
+
+          <div class="chips app-gap reveal-block desc-actions" role="group" aria-labelledby="desc-label">
+            <button type="button" data-desc="bip86" aria-pressed="true">tr</button>
+            <button type="button" data-desc="bip84" aria-pressed="false">wpkh</button>
+            <button type="button" data-desc="bip49" aria-pressed="false">sh(wpkh)</button>
+            <button type="button" data-desc="bip44" aria-pressed="false">pkh</button>
+          </div>
+
+          <div class="reveal-block">
+            <pre class="code-block" id="desc-out">—</pre>
+          </div>
+
+          <div class="chips app-gap reveal-block keys-actions" role="group" aria-label="Copiar descriptors">
+            <button type="button" id="desc-copy">copiar descriptor</button>
+            <button type="button" id="desc-copy-all">copiar os quatro</button>
+          </div>
+
+          <p class="note app-gap reveal-block">O descriptor leva o fingerprint, o caminho e o tipo de script numa string com checksum (BIP380), no formato multipath <b>&lt;0;1&gt;</b> do BIP389: <b>/0/*</b> é recebimento e <b>/1/*</b> é troco. Entregue só o descriptor ao projeto 2 — nunca o xprv.</p>
+
           <div class="chips app-gap reveal-block keys-actions">
             <button type="button" id="more-toggle" aria-expanded="false" aria-controls="all-keys" aria-label="Mostrar todas as chaves privadas e públicas">mostrar todas as chaves</button>
           </div>
@@ -2122,36 +2156,59 @@
           <pre class="rule" aria-hidden="true"></pre>
 
           <div class="prose reveal-block">
-            <p>Cole a linha da transação. Se ela for hexadecimal, os bytes entram como estão; uma linha de exatamente 32 bytes é usada como o digest, e as demais são resumidas por SHA-256. Texto entra em UTF-8 e também passa pelo SHA-256. A assinatura é ECDSA determinística (RFC 6979), com S baixo, em DER e no formato compacto. A chave usada é a primeira chave de recebimento BIP86 (m/86'/0'/0'/0/0).</p>
+            <p>Cole o PSBT criado pelo projeto 2, em base64 ou hexadecimal. O arquivo confere cada entrada contra as contas BIP44/49/84/86 derivadas dos 256 bits, mostra valores, endereços, troco e taxa, e só então assina. Só <b>SIGHASH_ALL</b> (e o default do Taproot) é aceito; PSBT v2 e scripts que não sejam p2pkh, p2sh-p2wpkh, p2wpkh e p2tr são recusados.</p>
           </div>
 
           <div class="field-row">
-            <label class="field-label" for="tx">linha da transação</label>
-            <span class="field-meta" id="tx-meta">0 bytes</span>
+            <label class="field-label" for="psbt">psbt</label>
+            <span class="field-meta" id="psbt-meta">0 bytes</span>
           </div>
-          <div class="field-box reveal-block" id="tx-box">
+          <div class="field-box reveal-block" id="psbt-box">
             <div class="edge" aria-hidden="true"></div>
-            <textarea id="tx" rows="6" spellcheck="false" autocomplete="off" autocapitalize="off"
-                      aria-describedby="tx-hint tx-meta"
-                      placeholder="cole a linha hexadecimal da transação, ou o texto a assinar"></textarea>
+            <textarea id="psbt" rows="6" spellcheck="false" autocomplete="off" autocapitalize="off"
+                      aria-describedby="psbt-hint psbt-meta"
+                      placeholder="cHNidP8... (base64) ou 70736274ff... (hex)"></textarea>
             <div class="edge" aria-hidden="true"></div>
           </div>
-          <p class="note app-gap" id="tx-hint">Espaços e quebras de linha são ignorados só na leitura hexadecimal. Para o texto, os bytes são os da linha inteira, com os espaços. O digest é informado quando a linha hex tem 32 bytes; nos outros casos é SHA-256.</p>
+          <p class="note app-gap" id="psbt-hint">Espaços e quebras de linha são ignorados. O PSBT precisa trazer a transação não assinada (v0) e, em cada entrada, o <b>witness_utxo</b> — e o <b>non_witness_utxo</b> nas entradas p2pkh — com o valor e o script do UTXO gasto. A derivação BIP32 na entrada é opcional: sem ela, a chave é procurada nas duas cadeias de cada conta até o índice 99.</p>
 
-          <button type="button" class="form-submit" id="sign-btn">assinar</button>
           <p class="status-msg is-reserved" id="sign-status" role="status"></p>
 
           <div id="sign-out" class="app-block" hidden>
             <div class="prose">
-              <h3>resultado</h3>
+              <h3>revisão</h3>
             </div>
             <pre class="code-block" id="sign-code"></pre>
-            <p class="note">A verificação usa a chave interna da primeira recepção BIP86 (m/86'/0'/0'/0/0), em ECDSA. O P2TR exibido usa a chave ajustada por TapTweak; assinaturas Schnorr/Taproot não são feitas aqui. <b>compact</b> é r + s + recid, em 65 bytes, e o recid 0–3 serve à recuperação da chave.</p>
+          </div>
+
+          <button type="button" class="form-submit" id="sign-btn" disabled>assinar psbt</button>
+          <div class="chips app-gap reveal-block keys-actions" role="group" aria-label="Limpar o PSBT">
+            <button type="button" id="psbt-clear">limpar psbt</button>
+          </div>
+
+          <div id="signed-out" hidden>
+            <div class="prose app-block">
+              <h3>psbt assinado</h3>
+            </div>
+            <pre class="code-block is-scroll" id="signed-psbt"></pre>
+            <div class="chips app-gap reveal-block keys-actions" role="group" aria-label="Copiar PSBT assinado">
+              <button type="button" id="copy-signed-psbt">copiar psbt</button>
+            </div>
+
+            <div class="prose app-block">
+              <h3>transação final</h3>
+            </div>
+            <pre class="code-block is-scroll" id="signed-tx"></pre>
+            <div class="chips app-gap reveal-block keys-actions" role="group" aria-label="Copiar transação final">
+              <button type="button" id="copy-signed-tx">copiar transação</button>
+            </div>
+            <p class="note app-gap" id="signed-meta"></p>
           </div>
 
           <div class="prose reveal-block app-block">
-            <h3>o que a linha precisa ser</h3>
-            <p>Uma assinatura que a rede aceita cobre o <b>sighash</b> da transação: no BIP143 e no BIP341 ele inclui os UTXOs gastos, o scriptPubKey e o valor de cada entrada, dados que não estão na linha crua. Este arquivo assina exatamente o digest dos bytes que você fornece — ele não monta transação, não busca UTXOs, não valida regras de consenso e não transmite nada.</p>
+            <h3>como a revisão funciona</h3>
+            <p>O <b>sighash</b> é calculado aqui: BIP143 no segwit v0, BIP341 no Taproot (chave ajustada por TapTweak) e o formato legado no p2pkh. As assinaturas são ECDSA determinística (RFC 6979, S baixo) e Schnorr BIP340, e cada uma é verificada antes de entrar no PSBT.</p>
+            <p>Saídas para <b>/1/*</b> são marcadas como troco e saídas para <b>/0/*</b> como recebimento; qualquer outro destino aparece como externo e vira aviso. O app não monta transação, não busca UTXOs, não valida consenso e não transmite nada: a transação final sai daqui para o projeto 2 publicar.</p>
           </div>
         </section>
 
@@ -2163,9 +2220,9 @@
             <h3>o que este arquivo faz</h3>
             <ul>
               <li>lê 256 bits como entropia BIP39 e gera a frase mnemônica de 24 palavras;</li>
-              <li>deriva a seed BIP39 (passphrase vazia) e as contas BIP44/49/84/86 no mainnet;</li>
-              <li>mostra a chave privada e a xpub da conta mais recente (BIP86), com as demais contas sob demanda;</li>
-              <li>assina um digest SHA-256 com ECDSA RFC 6979, S baixo, DER e compacta, usando a primeira chave de recebimento BIP86;</li>
+              <li>deriva a seed BIP39 (passphrase vazia), a raiz BIP32 e as contas BIP44/49/84/86 no mainnet;</li>
+              <li>mostra a chave privada, a xpub e o descriptor com checksum (BIP380/389) de cada conta, com os caminhos de recebimento (/0/*) e troco (/1/*);</li>
+              <li>assina PSBT (BIP174) criado em outro app: ECDSA RFC 6979 no p2pkh, no BIP49 e no BIP84 (sighash BIP143), e Schnorr BIP340 no P2TR do BIP86 (sighash BIP341);</li>
               <li>faz tudo no próprio arquivo: sem biblioteca externa, sem build e sem requisição de rede — a política de segurança da página bloqueia qualquer conexão.</li>
             </ul>
 
@@ -2175,13 +2232,15 @@
               <li>não guarda a chave: recarregar a página apaga os 256 bits da memória;</li>
               <li>não consulta saldo nem rede: o xpub é para uma carteira watch-only;</li>
               <li>não usa passphrase BIP39: a passphrase é vazia;</li>
-              <li>não assina Schnorr/Taproot: a assinatura é ECDSA e não monta nem transmite transação;</li>
+              <li>não monta transação, não busca UTXOs e não transmite nada: só revisa e assina o PSBT que você colar;</li>
+              <li>não assina PSBT v2, P2WSH, multisig nem <b>SIGHASH_SINGLE/NONE/ANYONECANPAY</b>;</li>
               <li>não substitui carteira de hardware, e 256 bits digitados à mão não têm a garantia de aleatoriedade de um gerador dedicado.</li>
             </ul>
 
             <h3>segurança</h3>
             <p>Chave privada é posse: quem lê o xprv ou o mnemonic controla a conta inteira; o xpub é watch-only e não gasta. Use este arquivo offline, de preferência numa máquina dedicada, e desconfie de extensões, captura de tela e compartilhamento de tela. Para valor real, gere e guarde a semente numa carteira de hardware, com a semente criada no próprio dispositivo; aqui o uso é de estudo, conferência e teste.</p>
-            <p>Os 256 bits são a entropia BIP39, não a chave privada final: o mnemonic de 24 palavras (passphrase vazia) regenera a seed e as contas BIP44/49/84/86. O xprv é a chave estendida da conta BIP86; o primeiro endereço e as demais chaves são derivados dele. O mesmo número gera sempre o mesmo mnemonic, as mesmas contas e os mesmos endereços.</p>
+            <p>Os 256 bits são a entropia BIP39, não a chave privada final: o mnemonic de 24 palavras (passphrase vazia) regenera a seed, a raiz BIP32 e as contas BIP44/49/84/86. O xprv é a chave estendida da conta BIP86; o primeiro endereço e as demais chaves são derivados dele. O mesmo número gera sempre o mesmo mnemonic, as mesmas contas e os mesmos endereços.</p>
+            <p>Os endereços seguem o BIP141 (witness v0) com bech32 no BIP173, e o BIP341 com bech32m no BIP350 no Taproot; o BIP143 rege o sighash do segwit v0 e o BIP341 o do Taproot. O xpub vai para o projeto 2 num descriptor: ele deriva os endereços de recebimento e troco, monta o PSBT e publica a transação; o xprv nunca sai deste arquivo.</p>
             <p>A fonte é a Liberation Mono, sob SIL Open Font License 1.1; o texto da licença vai embutido no fim deste arquivo.</p>
           </div>
         </section>
@@ -2982,10 +3041,10 @@ var BTC = (function () {
     ));
   }
   var HD_ACCOUNTS = [
-    { id: 'bip86', path: "m/86'/0'/0'", xprv: 0x0488ADE4, xpub: 0x0488B21E, kind: 'p2tr' },
-    { id: 'bip84', path: "m/84'/0'/0'", xprv: 0x04B2430C, xpub: 0x04B24746, kind: 'p2wpkh' },
-    { id: 'bip49', path: "m/49'/0'/0'", xprv: 0x049D7878, xpub: 0x049D7CB2, kind: 'p2sh-p2wpkh' },
-    { id: 'bip44', path: "m/44'/0'/0'", xprv: 0x0488ADE4, xpub: 0x0488B21E, kind: 'p2pkh' }
+    { id: 'bip86', path: "m/86'/0'/0'", xprv: 0x0488ADE4, xpub: 0x0488B21E, kind: 'p2tr', descPrefix: 'tr(', descSuffix: ')' },
+    { id: 'bip84', path: "m/84'/0'/0'", xprv: 0x04B2430C, xpub: 0x04B24746, kind: 'p2wpkh', descPrefix: 'wpkh(', descSuffix: ')' },
+    { id: 'bip49', path: "m/49'/0'/0'", xprv: 0x049D7878, xpub: 0x049D7CB2, kind: 'p2sh-p2wpkh', descPrefix: 'sh(wpkh(', descSuffix: '))' },
+    { id: 'bip44', path: "m/44'/0'/0'", xprv: 0x0488ADE4, xpub: 0x0488B21E, kind: 'p2pkh', descPrefix: 'pkh(', descSuffix: ')' }
   ];
   function addressFor(kind, Q) {
     var pub = pubCompressed(Q);
@@ -2994,16 +3053,22 @@ var BTC = (function () {
     if (kind === 'p2wpkh') return p2wpkh(pub);
     return p2tr(taprootOutputKey(pad32(Q.x)));
   }
-  async function accountFor(master, def) {
+  async function accountFor(master, def, fingerprint) {
     var node = await derivePath(master, def.path);
     var child = await ckdPriv(node, 0);
     child = await ckdPriv(child, 0);
     var Q = pointFromD(child.d);
     var xprv = extendedKey(def.xprv, node, true);
     var xpub = extendedKey(def.xpub, node, false);
+    /* O descriptor usa sempre o version byte xpub neutro: o tipo de script já
+       está no prefixo (tr/wpkh/sh/pkh), e ypub/zpub confundem os parsers. */
+    var descPath = def.path.slice(1).replace(/'/g, 'h');
+    var descriptor = def.descPrefix + '[' + fingerprint + descPath + ']' +
+      extendedKey(0x0488B21E, node, false) + '/<0;1>/*' + def.descSuffix;
     return {
-      id: def.id, kind: def.kind,
-      xprv: xprv, xpub: xpub,
+      id: def.id, kind: def.kind, path: def.path,
+      xprv: xprv, xpub: xpub, node: node,
+      descriptor: descriptorChecksum(descriptor),
       receiveAddress: addressFor(def.kind, Q), receiveWif: wif(child.d, true),
       key: { d: child.d, Q: Q, hex: bytesToHex(pad32(child.d)), wifCompressed: wif(child.d, true) }
     };
@@ -3013,15 +3078,805 @@ var BTC = (function () {
     var mnemonic = bip39Mnemonic(bits);
     var seed = await bip39Seed(mnemonic);
     var master = await masterFromSeed(seed);
+    var fingerprint = bytesToHex(fingerprintOf(master));
     var accounts = {};
     for (var i = 0; i < HD_ACCOUNTS.length; i++) {
-      var acc = await accountFor(master, HD_ACCOUNTS[i]);
+      var acc = await accountFor(master, HD_ACCOUNTS[i], fingerprint);
       accounts[acc.id] = acc;
     }
     return {
       bits: bits, mnemonic: mnemonic, seed: seed, master: master,
+      fingerprint: fingerprint,
       accounts: accounts, primary: accounts.bip86, signingKey: accounts.bip86.key
     };
+  }
+
+  /* --------------------------------------------- leitura/escrita binária */
+  function le16(v) { return new Uint8Array([v & 255, (v >>> 8) & 255]); }
+  function reverseBytes(b) { return new Uint8Array(b).reverse(); }
+  function readLE16(b, o) { return b[o] | (b[o + 1] << 8); }
+  function readLE32(b, o) {
+    return (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0;
+  }
+  function readLE64(b, o) {
+    var v = 0n;
+    for (var i = 7; i >= 0; i--) v = (v << 8n) | BigInt(b[o + i]);
+    return v;
+  }
+  function le64(v) {
+    var out = new Uint8Array(8);
+    for (var i = 0; i < 8; i++) { out[i] = Number(v & 0xffn); v >>= 8n; }
+    return out;
+  }
+  function writeVarInt(n) {
+    if (n < 0xfd) return new Uint8Array([n]);
+    if (n <= 0xffff) return concatBytes(new Uint8Array([0xfd]), le16(n));
+    if (n <= 0xffffffff) return concatBytes(new Uint8Array([0xfe]), le32(n));
+    throw new Error('varint grande demais');
+  }
+  function readVarInt(b, o) {
+    if (o >= b.length) throw new Error('varint fora do buffer');
+    var c = b[o];
+    if (c < 0xfd) return { value: c, size: 1 };
+    if (c === 0xfd) return { value: readLE16(b, o + 1), size: 3 };
+    if (c === 0xfe) return { value: readLE32(b, o + 1), size: 5 };
+    return { value: Number(readLE64(b, o + 1)), size: 9 };
+  }
+  function dsha256(b) { return sha256(sha256(b)); }
+
+  /* ------------------------------------------------------- transações */
+  function readTxOut(b, o) {
+    var p = o || 0;
+    if (p + 8 > b.length) throw new Error('saída truncada');
+    var value = readLE64(b, p); p += 8;
+    var vi = readVarInt(b, p); p += vi.size;
+    if (p + vi.value > b.length) throw new Error('script da saída truncado');
+    var script = b.subarray(p, p + vi.value); p += vi.value;
+    return { value: value, script: script, size: p - (o || 0) };
+  }
+  function readTx(b) {
+    var p = 0;
+    function u32() {
+      if (p + 4 > b.length) throw new Error('transação truncada');
+      var v = readLE32(b, p); p += 4; return v;
+    }
+    function take(n) {
+      if (n < 0 || p + n > b.length) throw new Error('transação truncada');
+      var out = b.subarray(p, p + n);
+      p += n;
+      return out;
+    }
+    function varint() {
+      var vi = readVarInt(b, p);
+      p += vi.size;
+      return vi.value;
+    }
+    var tx = { version: u32(), inputs: [], outputs: [], witnesses: [], locktime: 0, segwit: false };
+    if (b[p] === 0 && b[p + 1] === 1) { tx.segwit = true; p += 2; }
+    var nIn = varint();
+    for (var i = 0; i < nIn; i++) {
+      var txid = bytesToHex(reverseBytes(take(32)));
+      var vout = u32();
+      var scriptSig = take(varint());
+      var sequence = u32();
+      tx.inputs.push({ txid: txid, vout: vout, scriptSig: scriptSig, sequence: sequence });
+    }
+    var nOut = varint();
+    for (var j = 0; j < nOut; j++) {
+      var value = readLE64(take(8), 0);
+      var script = take(varint());
+      tx.outputs.push({ value: value, script: script });
+    }
+    if (tx.segwit) {
+      for (var k = 0; k < tx.inputs.length; k++) {
+        var count = varint();
+        var stack = [];
+        for (var w = 0; w < count; w++) stack.push(take(varint()));
+        tx.witnesses.push(stack);
+      }
+    }
+    tx.locktime = u32();
+    if (p !== b.length) throw new Error('bytes sobrando no fim da transação');
+    return tx;
+  }
+  function writeTx(tx, withWitness) {
+    var parts = [le32(tx.version >>> 0)];
+    var useWitness = !!withWitness && tx.witnesses.some(function (stack) {
+      return stack && stack.length;
+    });
+    if (useWitness) parts.push(new Uint8Array([0, 1]));
+    parts.push(writeVarInt(tx.inputs.length));
+    tx.inputs.forEach(function (inp) {
+      parts.push(reverseBytes(hexToBytes(inp.txid)));
+      parts.push(le32(inp.vout >>> 0));
+      var script = inp.scriptSig || new Uint8Array(0);
+      parts.push(writeVarInt(script.length), script);
+      parts.push(le32(inp.sequence >>> 0));
+    });
+    parts.push(writeVarInt(tx.outputs.length));
+    tx.outputs.forEach(function (out) {
+      parts.push(le64(out.value), writeVarInt(out.script.length), out.script);
+    });
+    if (useWitness) {
+      tx.inputs.forEach(function (inp, i) {
+        var stack = (tx.witnesses[i] || []);
+        parts.push(writeVarInt(stack.length));
+        stack.forEach(function (item) { parts.push(writeVarInt(item.length), item); });
+      });
+    }
+    parts.push(le32(tx.locktime >>> 0));
+    return concatBytes.apply(null, parts);
+  }
+  function txidOf(tx) { return bytesToHex(reverseBytes(dsha256(writeTx(tx, false)))); }
+
+  /* -------------------------------------------------------- endereços */
+  function p2pkhScript(pub) {
+    return concatBytes(new Uint8Array([0x76, 0xa9, 0x14]), hash160(pub), new Uint8Array([0x88, 0xac]));
+  }
+  function p2shScriptOfRedeem(redeem) {
+    return concatBytes(new Uint8Array([0xa9, 0x14]), hash160(redeem), new Uint8Array([0x87]));
+  }
+  function p2wpkhScript(pub) {
+    return concatBytes(new Uint8Array([0x00, 0x14]), hash160(pub));
+  }
+  function p2trScript(xonly) {
+    return concatBytes(new Uint8Array([0x51, 0x20]), xonly);
+  }
+  function scriptForKind(kind, Q) {
+    var pub = pubCompressed(Q);
+    if (kind === 'p2pkh') return p2pkhScript(pub);
+    if (kind === 'p2sh-p2wpkh') return p2shScriptOfRedeem(p2wpkhScript(pub));
+    if (kind === 'p2wpkh') return p2wpkhScript(pub);
+    return p2trScript(taprootOutputKey(pad32(Q.x)));
+  }
+  function scriptKind(script) {
+    var h = bytesToHex(script);
+    if (script.length === 25 && h.slice(0, 6) === '76a914' && h.slice(-4) === '88ac') return 'p2pkh';
+    if (script.length === 23 && h.slice(0, 4) === 'a914' && h.slice(-2) === '87') return 'p2sh';
+    if (script.length === 22 && h.slice(0, 4) === '0014') return 'p2wpkh';
+    if (script.length === 34 && h.slice(0, 4) === '0020') return 'p2wsh';
+    if (script.length === 34 && h.slice(0, 4) === '5120') return 'p2tr';
+    if (script.length >= 4 && script.length <= 42 && (script[0] === 0 || (script[0] >= 0x51 && script[0] <= 0x60)) &&
+        script[1] === script.length - 2) return 'witness';
+    return 'outro';
+  }
+  /* O script P2SH não diz qual é o redeem; neste cofre só existe P2SH-P2WPKH. */
+  function normalizeKind(kind) { return kind === 'p2sh' ? 'p2sh-p2wpkh' : kind; }
+  function addressFromScript(script) {
+    var kind = scriptKind(script);
+    if (kind === 'p2pkh') return base58check(concatBytes(new Uint8Array([0x00]), script.subarray(3, 23)));
+    if (kind === 'p2sh') return base58check(concatBytes(new Uint8Array([0x05]), script.subarray(2, 22)));
+    if (kind === 'p2wpkh' || kind === 'p2wsh' || kind === 'p2tr' || kind === 'witness') {
+      var version = script[0] === 0 ? 0 : script[0] - 0x50;
+      return segwitAddress('bc', version, script.subarray(2));
+    }
+    return bytesToHex(script);
+  }
+  function parsePath(text) {
+    var parts = String(text).split('/');
+    if (parts[0] !== 'm') throw new Error('caminho inválido');
+    var out = [];
+    for (var i = 1; i < parts.length; i++) {
+      var part = parts[i];
+      if (!part) continue;
+      var hard = part.slice(-1) === "'" || part.slice(-1) === 'h' || part.slice(-1) === 'H';
+      var num = parseInt(hard ? part.slice(0, -1) : part, 10);
+      if (!(num >= 0 && num < 0x80000000)) throw new Error('índice inválido no caminho');
+      out.push(hard ? num + 0x80000000 : num);
+    }
+    return out;
+  }
+  function pathText(indices) {
+    return 'm/' + indices.map(function (v) {
+      return v >= 0x80000000 ? (v - 0x80000000) + "'" : String(v);
+    }).join('/');
+  }
+  function pathBytes(indices) {
+    var parts = [];
+    indices.forEach(function (v) { parts.push(le32(v >>> 0)); });
+    return concatBytes.apply(null, parts);
+  }
+
+  /* ------------------------------------------ checksum de descriptor (BIP380) */
+  var DESC_CHARSET = "0123456789()[],'/*abcdefgh@:$%{}IJKLMNOPQRSTUVWXYZ&+-.;<=>?!^_|~ijklmnopqrstuvwxyzABCDEFGH`#\"\\ ";
+  var DESC_CHECK = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+  var DESC_GEN = [0xf5dee51989n, 0xa9fdca3312n, 0x1bab10e32dn, 0x3706b1677an, 0x644d626ffdn];
+  function descPolymod(symbols) {
+    var chk = 1n;
+    for (var i = 0; i < symbols.length; i++) {
+      var top = chk >> 35n;
+      chk = ((chk & 0x7ffffffffn) << 5n) ^ BigInt(symbols[i]);
+      for (var j = 0; j < 5; j++) if ((top >> BigInt(j)) & 1n) chk ^= DESC_GEN[j];
+    }
+    return chk;
+  }
+  function descExpand(text) {
+    var groups = [], symbols = [];
+    for (var i = 0; i < text.length; i++) {
+      var v = DESC_CHARSET.indexOf(text.charAt(i));
+      if (v < 0) throw new Error('caractere inválido no descriptor');
+      symbols.push(v & 31);
+      groups.push(v >> 5);
+      if (groups.length === 3) {
+        symbols.push(groups[0] * 9 + groups[1] * 3 + groups[2]);
+        groups = [];
+      }
+    }
+    if (groups.length === 1) symbols.push(groups[0]);
+    else if (groups.length === 2) symbols.push(groups[0] * 3 + groups[1]);
+    return symbols;
+  }
+  function descriptorChecksum(text) {
+    if (text.indexOf('#') >= 0) throw new Error('descriptor já tem checksum');
+    var symbols = descExpand(text).concat([0, 0, 0, 0, 0, 0, 0, 0]);
+    var checksum = descPolymod(symbols) ^ 1n;
+    var out = '';
+    for (var i = 0; i < 8; i++) out += DESC_CHECK.charAt(Number((checksum >> BigInt(5 * (7 - i))) & 31n));
+    return text + '#' + out;
+  }
+
+  /* ------------------------------------------------ base64 (PSBT em texto) */
+  var B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  function b64encode(bytes) {
+    var out = '';
+    for (var i = 0; i < bytes.length; i += 3) {
+      var a = bytes[i], b = i + 1 < bytes.length ? bytes[i + 1] : 0;
+      var c = i + 2 < bytes.length ? bytes[i + 2] : 0;
+      var n = (a << 16) | (b << 8) | c;
+      out += B64.charAt((n >> 18) & 63) + B64.charAt((n >> 12) & 63) +
+        (i + 1 < bytes.length ? B64.charAt((n >> 6) & 63) : '=') +
+        (i + 2 < bytes.length ? B64.charAt(n & 63) : '=');
+    }
+    return out;
+  }
+  function b64decode(text) {
+    var clean = String(text).replace(/[\s=]+/g, '');
+    if (!/^[A-Za-z0-9+/]*$/.test(clean)) throw new Error('base64 inválido');
+    var out = new Uint8Array(Math.floor(clean.length * 3 / 4));
+    var acc = 0, bits = 0, p = 0;
+    for (var i = 0; i < clean.length; i++) {
+      acc = (acc << 6) | B64.indexOf(clean.charAt(i));
+      bits += 6;
+      if (bits >= 8) { bits -= 8; out[p++] = (acc >> bits) & 255; }
+    }
+    return out.subarray(0, p);
+  }
+
+  /* --------------------------------------------------- mapa de PSBT */
+  function mapFind(map, type) {
+    for (var i = 0; i < map.length; i++) {
+      if (map[i].key.length === 1 && map[i].key[0] === type) return map[i];
+    }
+    return null;
+  }
+  function mapFindAll(map, type) {
+    return map.filter(function (e) { return e.key.length > 0 && e.key[0] === type; });
+  }
+  function mapSet(map, type, keydata, value) {
+    var key = concatBytes(new Uint8Array([type]), keydata || new Uint8Array(0));
+    for (var i = 0; i < map.length; i++) {
+      var k = map[i].key;
+      if (k.length === key.length && bytesToHex(k) === bytesToHex(key)) {
+        map[i].value = value;
+        return;
+      }
+    }
+    map.push({ key: key, value: value });
+  }
+  function readMap(b, p) {
+    var map = [];
+    for (;;) {
+      if (p >= b.length) throw new Error('PSBT truncado');
+      var vi = readVarInt(b, p); p += vi.size;
+      if (vi.value === 0) return { map: map, pos: p };
+      var klen = vi.value;
+      if (p + klen > b.length) throw new Error('chave do PSBT truncada');
+      var key = b.subarray(p, p + klen); p += klen;
+      if (key.length === 0) throw new Error('chave vazia no PSBT');
+      var vv = readVarInt(b, p); p += vv.size;
+      if (p + vv.value > b.length) throw new Error('valor do PSBT truncado');
+      map.push({ key: key, value: b.subarray(p, p + vv.value) });
+      p += vv.value;
+    }
+  }
+  function writeMap(map) {
+    var parts = [];
+    map.forEach(function (e) {
+      parts.push(writeVarInt(e.key.length), e.key, writeVarInt(e.value.length), e.value);
+    });
+    parts.push(new Uint8Array([0x00]));
+    return concatBytes.apply(null, parts);
+  }
+  function parsePsbt(b) {
+    if (b.length < 5 || b[0] !== 0x70 || b[1] !== 0x73 || b[2] !== 0x62 || b[3] !== 0x74 || b[4] !== 0xff) {
+      throw new Error('não começa com a marca psbt');
+    }
+    var g = readMap(b, 5);
+    var psbt = { global: g.map, inputs: [], outputs: [], tx: null, version: 0 };
+    var ver = mapFind(g.map, 0xfb);
+    if (ver && ver.value.length === 4) psbt.version = readLE32(ver.value, 0);
+    if (psbt.version > 1) throw new Error('PSBT v2 não é suportado; exporte em PSBT v0');
+    var utx = mapFind(g.map, 0x00);
+    if (!utx) throw new Error('PSBT sem transação não assinada (v0)');
+    psbt.tx = readTx(utx.value);
+    var p = g.pos;
+    for (var i = 0; i < psbt.tx.inputs.length; i++) {
+      var mi = readMap(b, p);
+      psbt.inputs.push(mi.map);
+      p = mi.pos;
+    }
+    for (var j = 0; j < psbt.tx.outputs.length; j++) {
+      var mo = readMap(b, p);
+      psbt.outputs.push(mo.map);
+      p = mo.pos;
+    }
+    if (p !== b.length) throw new Error('bytes sobrando depois do PSBT');
+    return psbt;
+  }
+  function writePsbt(psbt) {
+    var parts = [new Uint8Array([0x70, 0x73, 0x62, 0x74, 0xff]), writeMap(psbt.global)];
+    psbt.inputs.forEach(function (m) { parts.push(writeMap(m)); });
+    psbt.outputs.forEach(function (m) { parts.push(writeMap(m)); });
+    return concatBytes.apply(null, parts);
+  }
+  function psbtParseInput(text) {
+    var compact = String(text).replace(/\s+/g, '');
+    if (!compact) throw new Error('PSBT vazio');
+    /* A marca psbt\xff em base64 começa sempre por "cHNidP8", então uma
+       sequência puramente hexadecimal só pode ser a forma hex. */
+    if (/^[0-9a-fA-F]+$/.test(compact) && compact.length % 2 === 0) return hexToBytes(compact);
+    return b64decode(compact);
+  }
+
+  /* ------------------------------------------------ desvios de chave */
+  function createSession(hd) {
+    var cache = { chain: {}, at: {} };
+    function account(id) {
+      var acc = hd.accounts[id];
+      if (!acc || !acc.node) throw new Error('conta ' + id + ' indisponível');
+      return acc;
+    }
+    async function chainNode(id, chain) {
+      var key = id + ':' + chain;
+      if (!cache.chain[key]) cache.chain[key] = await ckdPriv(account(id).node, chain);
+      return cache.chain[key];
+    }
+    async function at(id, chain, index) {
+      var key = id + ':' + chain + ':' + index;
+      if (!cache.at[key]) {
+        var node = await ckdPriv(await chainNode(id, chain), index);
+        var Q = pointFromD(node.d);
+        cache.at[key] = {
+          d: node.d, Q: Q, pub: pubCompressed(Q),
+          kind: account(id).kind, accountId: id, chain: chain, index: index,
+          indices: parsePath(account(id).path).concat([chain, index])
+        };
+      }
+      return cache.at[key];
+    }
+    return { at: at, account: account, hd: hd };
+  }
+
+  async function findKeyForScript(session, script, map, limit, isOutput) {
+    var kind = normalizeKind(scriptKind(script));
+    if (kind === 'p2wsh' || kind === 'outro' || kind === 'witness') {
+      throw new Error('tipo de script não suportado (' + kind + ')');
+    }
+    var wanted = bytesToHex(script);
+    var i, j;
+
+    /* 1. Informação de derivação que o PSBT já carrega. BIP174 usa 0x06
+       (bip32) e 0x16 (tap_bip32) nas entradas; nas saídas são 0x02 e 0x07. */
+    var bip32Type = isOutput ? 0x02 : 0x06;
+    var tapType = isOutput ? 0x07 : 0x16;
+    var derivs = mapFindAll(map, kind === 'p2tr' ? tapType : bip32Type).map(function (e) {
+      return { key: e.key.subarray(1), value: e.value };
+    });
+    for (i = 0; i < derivs.length; i++) {
+      var d = derivs[i];
+      /* BIP371: em tap_bip32_derivation o valor começa pelo compact size da
+         quantidade de hashes (0 no key path); o fingerprint vem depois. */
+      var offset = kind === 'p2tr' ? 1 : 0;
+      if (kind === 'p2tr' && d.value[0] !== 0) continue;
+      if (d.value.length < 4 + offset + 4) continue;
+      var fp = bytesToHex(d.value.subarray(offset, offset + 4));
+      if (fp !== session.hd.fingerprint) continue;
+      var num = (d.value.length - 4 - offset) / 4;
+      if (num < 1 || num % 1 !== 0) continue;
+      var idxs = [];
+      for (j = 0; j < num; j++) idxs.push(readLE32(d.value, 4 + offset + j * 4));
+      var node = await derivePath(session.hd.master, pathText(idxs));
+      var Q = pointFromD(node.d);
+      var pub = pubCompressed(Q);
+      if (kind === 'p2tr' && bytesToHex(pad32(Q.x)) !== bytesToHex(d.key)) continue;
+      if (kind !== 'p2tr' && bytesToHex(pub) !== bytesToHex(d.key)) continue;
+      if (bytesToHex(scriptForKind(kind, Q)) !== wanted) continue;
+      return {
+        d: node.d, Q: Q, pub: pub, kind: kind,
+        accountId: kind === 'p2pkh' ? 'bip44' : kind === 'p2sh-p2wpkh' ? 'bip49' : kind === 'p2wpkh' ? 'bip84' : 'bip86',
+        chain: idxs[idxs.length - 2], index: idxs[idxs.length - 1], indices: idxs
+      };
+    }
+
+    /* 2. Varredura das contas: só a conta do tipo do script, 0/1 e o gap. */
+    var accountId = kind === 'p2pkh' ? 'bip44' : kind === 'p2sh-p2wpkh' ? 'bip49' : kind === 'p2wpkh' ? 'bip84' : 'bip86';
+    if (!session.hd.accounts[accountId]) throw new Error('conta ' + accountId + ' indisponível');
+    var max = limit || 100;
+    for (var chain = 0; chain < 2; chain++) {
+      for (var index = 0; index < max; index++) {
+        var key = await session.at(accountId, chain, index);
+        if (bytesToHex(scriptForKind(key.kind, key.Q)) === wanted) return key;
+      }
+    }
+    return null;
+  }
+
+  function redeemFor(key) {
+    if (key.kind !== 'p2sh-p2wpkh') return null;
+    return p2wpkhScript(key.pub);
+  }
+
+  /* ------------------------------------------------------------- sighash */
+  function outpointBytes(inp) {
+    return concatBytes(reverseBytes(hexToBytes(inp.txid)), le32(inp.vout >>> 0));
+  }
+  function pushData(data) {
+    if (data.length < 0x4c) return concatBytes(new Uint8Array([data.length]), data);
+    if (data.length <= 0xff) return concatBytes(new Uint8Array([0x4c, data.length]), data);
+    return concatBytes(new Uint8Array([0x4d]), le16(data.length), data);
+  }
+
+  function sighashLegacy(tx, index, scriptCode, hashType) {
+    if ((hashType & 0x1f) !== 1) throw new Error('só SIGHASH_ALL é assinado');
+    var parts = [le32(tx.version >>> 0), writeVarInt(tx.inputs.length)];
+    tx.inputs.forEach(function (inp, i) {
+      parts.push(outpointBytes(inp));
+      var script = i === index ? scriptCode : new Uint8Array(0);
+      parts.push(writeVarInt(script.length), script);
+      parts.push(le32(inp.sequence >>> 0));
+    });
+    parts.push(writeVarInt(tx.outputs.length));
+    tx.outputs.forEach(function (out) {
+      parts.push(le64(out.value), writeVarInt(out.script.length), out.script);
+    });
+    parts.push(le32(tx.locktime >>> 0), le32(hashType >>> 0));
+    return dsha256(concatBytes.apply(null, parts));
+  }
+
+  function sighashV0(tx, index, scriptCode, amount, hashType) {
+    if ((hashType & 0x1f) !== 1) throw new Error('só SIGHASH_ALL é assinado');
+    var prevouts = [], sequences = [], outputs = [];
+    tx.inputs.forEach(function (inp) {
+      prevouts.push(outpointBytes(inp));
+      sequences.push(le32(inp.sequence >>> 0));
+    });
+    tx.outputs.forEach(function (out) {
+      outputs.push(concatBytes(le64(out.value), writeVarInt(out.script.length), out.script));
+    });
+    var pre = concatBytes(
+      le32(tx.version >>> 0),
+      dsha256(concatBytes.apply(null, prevouts)),
+      dsha256(concatBytes.apply(null, sequences)),
+      outpointBytes(tx.inputs[index]),
+      writeVarInt(scriptCode.length), scriptCode,
+      le64(amount),
+      le32(tx.inputs[index].sequence >>> 0),
+      dsha256(concatBytes.apply(null, outputs)),
+      le32(tx.locktime >>> 0),
+      le32(hashType >>> 0)
+    );
+    return dsha256(pre);
+  }
+
+  function sighashTaproot(tx, index, prevouts, hashType) {
+    if (hashType !== 0x00 && hashType !== 0x01) throw new Error('só SIGHASH_DEFAULT/ALL é assinado');
+    var prev = [], amounts = [], scripts = [], seqs = [], outs = [];
+    tx.inputs.forEach(function (inp) {
+      prev.push(outpointBytes(inp));
+      seqs.push(le32(inp.sequence >>> 0));
+    });
+    prevouts.forEach(function (p) {
+      amounts.push(le64(p.value));
+      scripts.push(concatBytes(writeVarInt(p.script.length), p.script));
+    });
+    tx.outputs.forEach(function (out) {
+      outs.push(concatBytes(le64(out.value), writeVarInt(out.script.length), out.script));
+    });
+    var msg = concatBytes(
+      new Uint8Array([hashType]),
+      le32(tx.version >>> 0),
+      le32(tx.locktime >>> 0),
+      sha256(concatBytes.apply(null, prev)),
+      sha256(concatBytes.apply(null, amounts)),
+      sha256(concatBytes.apply(null, scripts)),
+      sha256(concatBytes.apply(null, seqs)),
+      sha256(concatBytes.apply(null, outs)),
+      new Uint8Array([0x00]),        /* spend_type: key path, sem annex */
+      le32(index >>> 0)
+    );
+    return taggedHash('TapSighash', concatBytes(new Uint8Array([0x00]), msg));
+  }
+
+  /* ---------------------------------------------------- Schnorr (BIP340) */
+  function xonlyOf(Q) { return pad32(Q.x); }
+  function hasEvenY(Q) { return (Q.y & 1n) === 0n; }
+  function bip340Sign(d, msg, aux) {
+    var dd = mod(d, N);
+    var Q = pointFromD(dd);
+    if (!hasEvenY(Q)) dd = mod(N - dd, N);
+    var Px = xonlyOf(pointFromD(dd));
+    var auxRand = aux && aux.length === 32 ? aux : new Uint8Array(32);
+    var t = new Uint8Array(32);
+    for (var i = 0; i < 32; i++) t[i] = pad32(dd)[i] ^ taggedHash('BIP0340/aux', auxRand)[i];
+    var k0 = BigInt('0x' + bytesToHex(taggedHash('BIP0340/nonce', concatBytes(t, Px, msg)))) % N;
+    if (k0 === 0n) throw new Error('nonce Schnorr nulo');
+    var R = pointFromD(k0);
+    var k = hasEvenY(R) ? k0 : mod(N - k0, N);
+    var Rx = xonlyOf(pointFromD(k));
+    var e = BigInt('0x' + bytesToHex(taggedHash('BIP0340/challenge', concatBytes(Rx, Px, msg)))) % N;
+    var s = mod(k + e * dd, N);
+    var sig = concatBytes(Rx, pad32(s));
+    if (!bip340Verify(Px, msg, sig)) throw new Error('assinatura Schnorr não verificou');
+    return sig;
+  }
+  function bip340Verify(xonly, msg, sig) {
+    if (sig.length !== 64 || xonly.length !== 32) return false;
+    var Ppt = liftX(BigInt('0x' + bytesToHex(xonly)));
+    if (!Ppt) return false;
+    var r = BigInt('0x' + bytesToHex(sig.subarray(0, 32)));
+    var s = BigInt('0x' + bytesToHex(sig.subarray(32)));
+    if (r >= P || s >= N) return false;
+    var e = BigInt('0x' + bytesToHex(taggedHash('BIP0340/challenge', concatBytes(sig.subarray(0, 32), xonly, msg)))) % N;
+    var R = toAffine(jAdd(jMul(s), jMul(mod(N - e, N), { x: Ppt.x, y: Ppt.y })));
+    if (!R) return false;
+    if (R.y & 1n) return false;
+    return mod(R.x) === r;
+  }
+
+  /* BIP341: o ponto interno é lift_x(x(P)), sempre de ordenada par. Se a
+     chave derivada tem ordenada ímpar, o escalar correspondente é n - d —
+     sem isso o tweak gera a chave de saída errada e a assinatura não vale. */
+  function tweakPrivate(d, merkleRoot) {
+    var Q = pointFromD(d);
+    var xonly = pad32(Q.x);
+    var base = (Q.y & 1n) ? mod(N - d, N) : d;
+    var t = BigInt('0x' + bytesToHex(taggedHash('TapTweak', concatBytes(xonly, merkleRoot || new Uint8Array(0))))) % N;
+    var out = mod(base + t, N);
+    if (out === 0n) throw new Error('chave ajustada inválida');
+    return out;
+  }
+
+  /* -------------------------------------------------- formatação e taxa */
+  function formatSats(v) {
+    var neg = v < 0n;
+    var s = neg ? -v : v;
+    var whole = s / 100000000n;
+    var frac = (s % 100000000n).toString();
+    while (frac.length < 8) frac = '0' + frac;
+    return (neg ? '-' : '') + whole.toString() + '.' + frac;
+  }
+  function estimateVsize(inputKinds, scripts) {
+    var weight = 4 * (4 + 4) + 4 * 2; /* versão, locktime, contagens (aprox.) */
+    inputKinds.forEach(function (kind) {
+      weight += kind === 'p2pkh' ? 592 : kind === 'p2sh-p2wpkh' ? 364 : kind === 'p2wpkh' ? 272 : 230;
+    });
+    scripts.forEach(function (script) {
+      weight += 4 * (8 + (script.length < 0xfd ? 1 : 3) + script.length);
+    });
+    return Math.ceil(weight / 4);
+  }
+  function vsizeOf(tx) {
+    var base = writeTx(tx, false).length;
+    var full = writeTx(tx, true).length;
+    return Math.ceil((base * 4 + (full - base)) / 4);
+  }
+
+  /* ------------------------------------------------ prevouts do PSBT */
+  function prevoutOf(map, outpoint) {
+    var wu = mapFind(map, 0x01);
+    var nwu = mapFind(map, 0x00);
+    var fromW = null;
+    if (wu) {
+      fromW = readTxOut(wu.value, 0);
+      if (fromW.size !== wu.value.length) throw new Error('witness_utxo com bytes sobrando');
+    }
+    var fromN = null;
+    if (nwu) {
+      var full = readTx(nwu.value);
+      if (txidOf(full) !== outpoint.txid) throw new Error('non_witness_utxo não corresponde ao txid da entrada');
+      if (outpoint.vout >= full.outputs.length) throw new Error('vout fora do non_witness_utxo');
+      fromN = full.outputs[outpoint.vout];
+    }
+    if (fromW && fromN) {
+      if (fromW.value !== fromN.value || bytesToHex(fromW.script) !== bytesToHex(fromN.script)) {
+        throw new Error('witness_utxo contradiz o non_witness_utxo');
+      }
+    }
+    var prev = fromW || fromN;
+    if (!prev) throw new Error('entrada sem witness_utxo nem non_witness_utxo');
+    return prev;
+  }
+
+  /* ---------------------------------------------- análise de um PSBT */
+  async function analyzePsbt(bytes, hd) {
+    var psbt = parsePsbt(bytes);
+    var tx = psbt.tx;
+    var session = createSession(hd);
+    var inputs = [], warnings = [];
+    var totalIn = 0n;
+    for (var i = 0; i < tx.inputs.length; i++) {
+      var map = psbt.inputs[i];
+      var prev = prevoutOf(map, tx.inputs[i]);
+      var kind = normalizeKind(scriptKind(prev.script));
+      if (kind === 'p2wsh') throw new Error('entrada ' + i + ' é P2WSH, não suportada');
+      if (kind === 'outro' || kind === 'witness') throw new Error('entrada ' + i + ' tem script não suportado');
+      if (mapFind(map, 0x05)) throw new Error('entrada ' + i + ' tem witness_script, não suportada');
+      if (mapFind(map, 0x14) || mapFind(map, 0x15) || mapFind(map, 0x18)) {
+        throw new Error('entrada ' + i + ' tem dados de script no Taproot, não suportados');
+      }
+      if (mapFind(map, 0x11) || mapFind(map, 0x12)) {
+        throw new Error('entrada ' + i + ' exige time lock; este signer não confere travas de tempo');
+      }
+      var key = await findKeyForScript(session, prev.script, map);
+      if (!key) throw new Error('entrada ' + i + ' não pertence a este descritor');
+      if (bytesToHex(scriptForKind(key.kind, key.Q)) !== bytesToHex(prev.script)) {
+        throw new Error('entrada ' + i + ': chave derivada não corresponde ao script');
+      }
+      if (tx.inputs[i].scriptSig && tx.inputs[i].scriptSig.length) {
+        throw new Error('entrada ' + i + ' já tem scriptSig na transação não assinada');
+      }
+      var sigTypeField = mapFind(map, 0x03);
+      var hashType = sigTypeField ? readLE32(sigTypeField.value, 0) : (kind === 'p2tr' ? 0x00 : 0x01);
+      if (kind === 'p2tr' ? (hashType !== 0x00 && hashType !== 0x01) : hashType !== 0x01) {
+        throw new Error('entrada ' + i + ': só SIGHASH_ALL é suportado (hash type ' + hashType + ')');
+      }
+      totalIn += prev.value;
+      inputs.push({
+        index: i, outpoint: tx.inputs[i].txid + ':' + tx.inputs[i].vout,
+        value: prev.value, script: prev.script, kind: kind, key: key,
+        address: addressFromScript(prev.script),
+        path: pathText(key.indices)
+      });
+    }
+    var outputs = [], totalOut = 0n;
+    for (var j = 0; j < tx.outputs.length; j++) {
+      var out = tx.outputs[j];
+      totalOut += out.value;
+      var outKind = scriptKind(out.script);
+      var own = null;
+      /* Saída de troco fica no começo da cadeia /1/*; limita a varredura e
+         aproveita a derivação que o próprio PSBT trouxer. */
+      try { own = await findKeyForScript(session, out.script, psbt.outputs[j], 25, true); } catch (e) { own = null; }
+      outputs.push({
+        index: j, value: out.value, script: out.script, kind: outKind,
+        address: addressFromScript(out.script),
+        own: (outKind === 'outro' || outKind === 'witness') ? 'outro'
+          : own ? (own.chain === 1 ? 'troco' : 'recebimento') : 'externo',
+        path: own ? pathText(own.indices) : ''
+      });
+    }
+    if (totalIn < totalOut) throw new Error('as saídas somam mais que as entradas');
+    var fee = totalIn - totalOut;
+    var vsize = estimateVsize(inputs.map(function (x) { return x.kind; }), tx.outputs.map(function (x) { return x.script; }));
+    var feerate = vsize > 0 ? Number(fee) / vsize : 0;
+    if (feerate < 1) warnings.push('taxa abaixo de 1 sat/vB: a transação pode demorar a confirmar');
+    if (feerate > 500) warnings.push('taxa acima de 500 sat/vB: confira o valor da taxa');
+    if (fee === 0n) warnings.push('taxa zero: a rede pode recusar a transação');
+    /* No p2pkh o valor não entra no sighash: aceitar só o witness_utxo
+       deixaria o coordenador mentir sobre a taxa. Exigimos a transação
+       anterior inteira e conferimos o txid em prevoutOf. */
+    inputs.forEach(function (inp) {
+      if (inp.kind === 'p2pkh' && !mapFind(psbt.inputs[inp.index], 0x00)) {
+        throw new Error('entrada ' + inp.index + ' é p2pkh e veio sem non_witness_utxo; o valor da entrada não pode ser conferido');
+      }
+    });
+    outputs.forEach(function (out) {
+      if (out.own === 'externo') warnings.push('saída ' + out.index + ' paga um endereço externo: ' + out.address);
+      if (out.own === 'outro') warnings.push('saída ' + out.index + ' tem script não padronizado; confira no coordenador');
+    });
+    if (tx.inputs.length === 0) throw new Error('a transação não tem entradas');
+    if (tx.outputs.length === 0) throw new Error('a transação não tem saídas');
+    return {
+      psbt: psbt, tx: tx, session: session,
+      inputs: inputs, outputs: outputs,
+      totalIn: totalIn, totalOut: totalOut, fee: fee,
+      vsize: vsize, feerate: feerate, warnings: warnings
+    };
+  }
+
+  /* ------------------------------------------------ assinatura do PSBT */
+  async function signPsbt(bytes, hd, auxRand) {
+    var a = await analyzePsbt(bytes, hd);
+    var psbt = a.psbt, tx = a.tx;
+    a.inputs.forEach(function (inp) {
+      var map = psbt.inputs[inp.index];
+      var sigType = mapFind(map, 0x03);
+      var hashType = sigType ? readLE32(sigType.value, 0) : (inp.kind === 'p2tr' ? 0x00 : 0x01);
+      if (inp.kind === 'p2tr') {
+        if (hashType !== 0x00 && hashType !== 0x01) throw new Error('entrada ' + inp.index + ': hash type taproot não suportado');
+        var prevouts = a.inputs.map(function (x) { return { value: x.value, script: x.script }; });
+        var digest = sighashTaproot(tx, inp.index, prevouts, hashType);
+        var tweaked = tweakPrivate(inp.key.d, null);
+        var check = taprootOutputKey(pad32(inp.key.Q.x));
+        if (bytesToHex(check) !== bytesToHex(inp.script.subarray(2))) {
+          throw new Error('entrada ' + inp.index + ': a chave ajustada não é a do script');
+        }
+        var ssig = bip340Sign(tweaked, digest, auxRand);
+        mapSet(map, 0x13, new Uint8Array(0), hashType === 0x00 ? ssig : concatBytes(ssig, new Uint8Array([hashType])));
+        mapSet(map, 0x17, new Uint8Array(0), pad32(inp.key.Q.x));
+        var tapPath = concatBytes(new Uint8Array([0x00]), hexToBytes(hd.fingerprint), pathBytes(inp.key.indices));
+        mapSet(map, 0x16, pad32(inp.key.Q.x), tapPath);
+        mapSet(map, 0x07, new Uint8Array(0), new Uint8Array(0));
+        mapSet(map, 0x08, new Uint8Array(0), concatBytes(writeVarInt(1), writeVarInt(ssig.length), ssig));
+      } else {
+        if (hashType !== 0x01) throw new Error('entrada ' + inp.index + ': só SIGHASH_ALL é suportado');
+        var code = inp.kind === 'p2pkh' ? inp.script : p2pkhScript(inp.key.pub);
+        var dg = inp.kind === 'p2pkh'
+          ? sighashLegacy(tx, inp.index, code, hashType)
+          : sighashV0(tx, inp.index, code, inp.value, hashType);
+        var sig = signDigest(inp.key.d, dg);
+        if (!verifyDigest(inp.key.Q, dg, sig.r, sig.s)) {
+          throw new Error('entrada ' + inp.index + ': a assinatura ECDSA não verificou');
+        }
+        var sigWithType = concatBytes(sig.der, new Uint8Array([hashType]));
+        mapSet(map, 0x02, inp.key.pub, sigWithType);
+        mapSet(map, 0x06, inp.key.pub, concatBytes(hexToBytes(hd.fingerprint), pathBytes(inp.key.indices)));
+        if (inp.kind === 'p2pkh') {
+          mapSet(map, 0x07, new Uint8Array(0), concatBytes(pushData(sigWithType), pushData(inp.key.pub)));
+        } else if (inp.kind === 'p2sh-p2wpkh') {
+          var redeem = redeemFor(inp.key);
+          mapSet(map, 0x04, new Uint8Array(0), redeem);
+          mapSet(map, 0x07, new Uint8Array(0), pushData(redeem));
+          mapSet(map, 0x08, new Uint8Array(0), concatBytes(writeVarInt(2),
+            writeVarInt(sigWithType.length), sigWithType, writeVarInt(inp.key.pub.length), inp.key.pub));
+        } else {
+          mapSet(map, 0x07, new Uint8Array(0), new Uint8Array(0));
+          mapSet(map, 0x08, new Uint8Array(0), concatBytes(writeVarInt(2),
+            writeVarInt(sigWithType.length), sigWithType, writeVarInt(inp.key.pub.length), inp.key.pub));
+        }
+      }
+    });
+
+    /* Extrai a transação final a partir dos campos finais do PSBT. */
+    var final = {
+      version: tx.version, inputs: [], outputs: tx.outputs, locktime: tx.locktime, witnesses: []
+    };
+    a.inputs.forEach(function (inp) {
+      var map = psbt.inputs[inp.index];
+      var fs = mapFind(map, 0x07);
+      var fw = mapFind(map, 0x08);
+      if (!fs) throw new Error('entrada ' + inp.index + ' não foi finalizada');
+      final.inputs.push({
+        txid: tx.inputs[inp.index].txid, vout: tx.inputs[inp.index].vout,
+        scriptSig: fs.value, sequence: tx.inputs[inp.index].sequence
+      });
+      final.witnesses.push(fw ? readWitness(fw.value) : []);
+    });
+    if (final.inputs.length !== tx.inputs.length) throw new Error('nem todas as entradas foram finalizadas');
+    var hex = bytesToHex(writeTx(final, true));
+    var size = vsizeOf(final);
+    var feerate = size > 0 ? Number(a.fee) / size : 0;
+    var signedBytes = writePsbt(psbt);
+    return {
+      psbt: signedBytes,
+      psbtBase64: b64encode(signedBytes),
+      txHex: hex,
+      txid: txidOf(final),
+      fee: a.fee, vsize: size, feerate: feerate,
+      inputs: a.inputs, outputs: a.outputs,
+      totalIn: a.totalIn, totalOut: a.totalOut,
+      warnings: a.warnings
+    };
+  }
+  function readWitness(bytes) {
+    var p = 0, out = [];
+    var count = readVarInt(bytes, p); p += count.size;
+    for (var i = 0; i < count.value; i++) {
+      var len = readVarInt(bytes, p); p += len.size;
+      out.push(bytes.subarray(p, p + len.value)); p += len.value;
+    }
+    if (p !== bytes.length) throw new Error('witness final truncado');
+    return out;
   }
 
   /* -------------------------------------------------------------- derivar */
@@ -3064,6 +3919,14 @@ var BTC = (function () {
     derive: derive, deriveHD: deriveHD, bip39Seed: bip39Seed,
     masterFromSeed: masterFromSeed, derivePath: derivePath, ckdPriv: ckdPriv,
     extendedKey: extendedKey, addressFor: addressFor, HD_ACCOUNTS: HD_ACCOUNTS,
+    readTx: readTx, writeTx: writeTx, txidOf: txidOf, readTxOut: readTxOut,
+    scriptForKind: scriptForKind, scriptKind: scriptKind, addressFromScript: addressFromScript,
+    descriptorChecksum: descriptorChecksum, b64encode: b64encode, b64decode: b64decode,
+    parsePsbt: parsePsbt, writePsbt: writePsbt, psbtParseInput: psbtParseInput,
+    sighashLegacy: sighashLegacy, sighashV0: sighashV0, sighashTaproot: sighashTaproot,
+    bip340Sign: bip340Sign, bip340Verify: bip340Verify, tweakPrivate: tweakPrivate,
+    analyzePsbt: analyzePsbt, signPsbt: signPsbt, formatSats: formatSats,
+    pathText: pathText, pathBytes: pathBytes, parsePath: parsePath,
     N: N, P: P
   };
 })();
@@ -3080,18 +3943,26 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var REDUCED = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
   function reduced() { return !!(REDUCED && REDUCED.matches); }
 
-  var state = { key: null, values: null, screen: 'chave' };
+  var state = { hd: null, key: null, values: null, screen: 'chave', desc: 'bip86', analysis: null };
   var deriveSeq = 0;
+  var analyzeSeq = 0;
 
   var bitsEl = $('#bits');
   var bitsCount = $('#bits-count');
   var clearBtn = $('#bits-clear');
   var boardEl = $('#board');
-  var txEl = $('#tx');
-  var txMeta = $('#tx-meta');
+  var psbtEl = $('#psbt');
+  var psbtMeta = $('#psbt-meta');
+  var signBtn = $('#sign-btn');
   var signStatus = $('#sign-status');
   var signOut = $('#sign-out');
   var signCode = $('#sign-code');
+  var signedOut = $('#signed-out');
+  var signedPsbt = $('#signed-psbt');
+  var signedTx = $('#signed-tx');
+  var signedMeta = $('#signed-meta');
+  var descOut = $('#desc-out');
+  var descMeta = $('#desc-meta');
   var contentEl = $('#content');
   var scrollEl = $('#content-scroll');
   var pageEl = $('.page');
@@ -3286,12 +4157,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   });
   function clearKey() {
     deriveSeq++;
+    analyzeSeq++;
+    state.hd = null;
     state.key = null;
     state.values = null;
+    state.analysis = null;
     paintValues();
+    paintDescriptor();
+    invalidateSignature();
   }
   function applyKey(hd) {
     var a = hd.accounts;
+    state.hd = hd;
     state.key = hd.signingKey;
     state.values = {
       xprv: a.bip86.xprv,
@@ -3307,15 +4184,84 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       'bip44-pub': a.bip44.xpub
     };
     paintValues();
+    paintDescriptor();
     invalidateSignature();
+    /* Se já há um PSBT colado, ele é reavaliado contra a chave nova. */
+    if (psbtEl && psbtEl.value.trim()) scheduleAnalyze();
   }
   function clearSignature() {
-    signOut.hidden = true;
-    signCode.textContent = '';
+    if (signOut) signOut.hidden = true;
+    if (signCode) signCode.textContent = '';
+    if (signedOut) signedOut.hidden = true;
+    if (signedPsbt) signedPsbt.textContent = '';
+    if (signedTx) signedTx.textContent = '';
+    if (signedMeta) signedMeta.textContent = '';
   }
   function invalidateSignature() {
+    analyzeSeq++;
+    state.analysis = null;
     clearSignature();
+    if (signBtn) signBtn.disabled = true;
     setStatus(signStatus, 'neutro', '');
+  }
+
+  /* ------------------------------------------------------- descriptor */
+  var DESC_KINDS = ['bip86', 'bip84', 'bip49', 'bip44'];
+  function paintDescriptor() {
+    if (!descOut) return;
+    var acc = state.hd ? state.hd.accounts[state.desc] : null;
+    var copy = $('#desc-copy');
+    var copyAll = $('#desc-copy-all');
+    if (copy) copy.disabled = !acc;
+    if (copyAll) copyAll.disabled = !acc;
+    if (!acc) {
+      descOut.textContent = '—';
+      descOut.classList.add('is-empty');
+      descMeta.textContent = '—';
+      return;
+    }
+    descOut.classList.remove('is-empty');
+    descOut.textContent = acc.descriptor;
+    descMeta.textContent = state.hd.fingerprint + ' · ' + acc.path;
+  }
+  function allDescriptors() {
+    if (!state.hd) return '';
+    return DESC_KINDS.map(function (id) {
+      return state.hd.accounts[id].descriptor;
+    }).join('\n');
+  }
+  function copyFeedback(button, value) {
+    if (!button || !value) return;
+    copyText(value);
+    if (!button.getAttribute('data-label')) button.setAttribute('data-label', button.textContent);
+    var label = button.getAttribute('data-label');
+    button.textContent = 'copiado';
+    if (button._copyTimer) window.clearTimeout(button._copyTimer);
+    button._copyTimer = window.setTimeout(function () {
+      button.textContent = label;
+      button._copyTimer = 0;
+    }, 1400);
+  }
+  $$('[data-desc]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      state.desc = button.getAttribute('data-desc');
+      $$('[data-desc]').forEach(function (other) {
+        other.setAttribute('aria-pressed', other === button ? 'true' : 'false');
+      });
+      paintDescriptor();
+    });
+  });
+  var descCopy = $('#desc-copy');
+  var descCopyAll = $('#desc-copy-all');
+  if (descCopy) {
+    descCopy.addEventListener('click', function () {
+      copyFeedback(descCopy, state.hd ? state.hd.accounts[state.desc].descriptor : '');
+    });
+  }
+  if (descCopyAll) {
+    descCopyAll.addEventListener('click', function () {
+      copyFeedback(descCopyAll, allDescriptors());
+    });
   }
 
   /* O terceiro subtítulo (todas as chaves) nasce oculto. O botão único o
@@ -3384,89 +4330,156 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   bitsEl.addEventListener('input', onBitsInput);
 
   /* ------------------------------------------------------------- assinar */
-  function parseLine(raw) {
-    var compact = raw.replace(/\s+/g, '');
-    if (compact && /^[0-9a-fA-F]+$/.test(compact) && compact.length % 2 === 0) {
-      return { kind: 'hex', bytes: BTC.hexToBytes(compact) };
+  var KIND_LABEL = { p2pkh: 'pkh', 'p2sh-p2wpkh': 'sh(wpkh)', p2wpkh: 'wpkh', p2tr: 'tr' };
+  function satLine(v) { return BTC.formatSats(v) + ' BTC'; }
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+  function reviewLines(a) {
+    var lines = [];
+    lines.push('psbt v0 · ' + plural(a.inputs.length, 'entrada', 'entradas') + ' · ' +
+      plural(a.outputs.length, 'saída', 'saídas'));
+    a.inputs.forEach(function (inp) {
+      lines.push('');
+      lines.push('entrada ' + inp.index + ' · ' + (KIND_LABEL[inp.kind] || inp.kind) + ' · ' + inp.path);
+      lines.push('  ' + satLine(inp.value));
+      lines.push('  ' + inp.address);
+      lines.push('  ← ' + inp.outpoint);
+    });
+    a.outputs.forEach(function (out) {
+      var label = 'saída ' + out.index + ' · ' + out.own;
+      if (KIND_LABEL[out.kind]) label += ' · ' + KIND_LABEL[out.kind];
+      if (out.path) label += ' · ' + out.path;
+      lines.push('');
+      lines.push(label);
+      lines.push('  ' + satLine(out.value));
+      lines.push('  ' + out.address);
+    });
+    lines.push('');
+    lines.push('taxa ' + satLine(a.fee) + ' ≈ ' + a.feerate.toFixed(2) + ' sat/vB' +
+      ' · vsize estimado ' + a.vsize + ' vB');
+    if (a.warnings.length) {
+      lines.push('');
+      lines.push('avisos');
+      a.warnings.forEach(function (w) { lines.push('  - ' + w); });
     }
-    return { kind: 'texto', bytes: BTC.utf8(raw) };
+    return lines;
   }
-  function codeLimit() {
-    if (!signCode || !signCode.clientWidth) return 64;
-    var probe = document.createElement('span');
-    probe.textContent = '0000000000';
-    probe.style.visibility = 'hidden';
-    probe.style.position = 'absolute';
-    signCode.appendChild(probe);
-    var charWidth = probe.getBoundingClientRect().width / 10;
-    probe.remove();
-    if (!charWidth) return 64;
-    var cs = getComputedStyle(signCode);
-    var inner = signCode.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-    return Math.max(8, Math.floor(inner / charWidth) - 2);
-  }
-  function fieldBlock(label, value) {
-    var text = String(value), out = [label], limit = codeLimit();
-    while (text.length > limit) {
-      out.push('  ' + text.slice(0, limit));
-      text = text.slice(limit);
+  function updatePsbtMeta() {
+    if (!psbtEl || !psbtMeta) return;
+    var text = psbtEl.value.trim();
+    if (!text) { psbtMeta.textContent = '0 bytes'; return; }
+    try {
+      psbtMeta.textContent = BTC.psbtParseInput(text).length + ' bytes';
+    } catch (e) {
+      psbtMeta.textContent = text.length + ' caracteres';
     }
-    out.push('  ' + text);
-    return out.join('\n');
   }
-  function updateTxMeta() {
-    var parsed = parseLine(txEl.value);
-    txMeta.textContent = txEl.value.trim()
-      ? parsed.kind + ' · ' + parsed.bytes.length + ' bytes' +
-        (parsed.kind === 'hex' && parsed.bytes.length === 32 ? ' · digest' : '')
-      : '0 bytes';
+  function auxRandom() {
+    try {
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        return crypto.getRandomValues(new Uint8Array(32));
+      }
+    } catch (e) {}
+    return new Uint8Array(32);
   }
-  txEl.addEventListener('input', function () {
-    updateTxMeta();
-    invalidateSignature();
-  });
-
-  $('#sign-btn').addEventListener('click', function () {
-    if (!state.key) {
-      setStatus(signStatus, 'erro', 'gere a chave de 256 bits na tela chave antes de assinar.');
+  async function analyzeNow() {
+    var seq = ++analyzeSeq;
+    state.analysis = null;
+    if (signBtn) signBtn.disabled = true;
+    if (signOut) signOut.hidden = true;
+    if (signedOut) signedOut.hidden = true;
+    if (!state.hd) {
+      setStatus(signStatus, 'erro', 'gere a chave de 256 bits na tela chave antes de analisar o psbt.');
       return;
     }
-    var raw = txEl.value;
-    if (!raw.trim()) {
-      setStatus(signStatus, 'erro', 'cole a linha da transação, ou o digest a assinar.');
-      return;
-    }
-    if (raw.length > 100000) {
-      setStatus(signStatus, 'erro', 'a linha passa de 100.000 caracteres; use um digest de 32 bytes.');
+    var text = psbtEl.value.trim();
+    if (!text) {
+      setStatus(signStatus, 'neutro', '');
       return;
     }
     try {
-      var parsed = parseLine(raw);
-      var given = parsed.kind === 'hex' && parsed.bytes.length === 32;
-      var digest = given ? parsed.bytes : BTC.sha256(parsed.bytes);
-      var digestKind = given ? 'informado' : 'sha256';
-      var sig = BTC.signDigest(state.key.d, digest);
-      var ok = BTC.verifyDigest(state.key.Q, digest, sig.r, sig.s);
+      var bytes = BTC.psbtParseInput(text);
+      var a = await BTC.analyzePsbt(bytes, state.hd);
+      if (seq !== analyzeSeq) return;
+      state.analysis = { bytes: bytes, summary: a };
+      signCode.textContent = reviewLines(a).join('\n');
       signOut.hidden = false;
-      signCode.textContent = [
-        fieldBlock('linha', parsed.kind + ' · ' + parsed.bytes.length + ' bytes' + (given ? ' · digest' : '')),
-        fieldBlock('digest · ' + digestKind, BTC.bytesToHex(digest)),
-        fieldBlock('r', BTC.bytesToHex(BTC.pad32(sig.r))),
-        fieldBlock('s', BTC.bytesToHex(BTC.pad32(sig.s))),
-        fieldBlock('recid', String(sig.recid)),
-        fieldBlock('der', BTC.bytesToHex(sig.der)),
-        fieldBlock('compact', BTC.bytesToHex(sig.compact)),
-        fieldBlock('verificação', ok ? 'ok' : 'falhou')
-      ].join('\n\n');
-      setStatus(signStatus, ok ? 'ok' : 'erro',
-        ok ? 'assinatura ECDSA gerada e verificada com a primeira chave BIP86.'
-           : 'a verificação interna falhou; não use esta assinatura.');
+      signBtn.disabled = false;
+      setStatus(signStatus, a.warnings.length ? 'neutro' : 'ok', a.warnings.length
+        ? 'revise os avisos antes de assinar.'
+        : 'psbt confere com as chaves e os scripts deste arquivo.');
       requestAnimationFrame(updateScrollState);
     } catch (e) {
-      clearSignature();
+      if (seq !== analyzeSeq) return;
+      if (signOut) signOut.hidden = true;
       setStatus(signStatus, 'erro', e.message + '.');
     }
-  });
+  }
+  var analyzeTimer = 0;
+  function scheduleAnalyze() {
+    updatePsbtMeta();
+    invalidateSignature();
+    if (analyzeTimer) window.clearTimeout(analyzeTimer);
+    analyzeTimer = 0;
+    if (!psbtEl.value.trim()) return;
+    if (!state.hd) {
+      setStatus(signStatus, 'erro', 'gere a chave de 256 bits na tela chave antes de analisar o psbt.');
+      return;
+    }
+    setStatus(signStatus, 'neutro', 'analisando...');
+    analyzeTimer = window.setTimeout(function () {
+      analyzeTimer = 0;
+      analyzeNow();
+    }, 250);
+  }
+  if (psbtEl) {
+    psbtEl.addEventListener('input', scheduleAnalyze);
+    psbtEl.addEventListener('paste', function () {
+      window.setTimeout(scheduleAnalyze, 0);
+    });
+  }
+  var psbtClear = $('#psbt-clear');
+  if (psbtClear) {
+    psbtClear.addEventListener('click', function () {
+      if (psbtEl) psbtEl.value = '';
+      updatePsbtMeta();
+      invalidateSignature();
+      if (psbtEl) psbtEl.focus();
+    });
+  }
+  if (signBtn) {
+    signBtn.addEventListener('click', async function () {
+      if (!state.analysis || !state.hd) return;
+      signBtn.disabled = true;
+      setStatus(signStatus, 'neutro', 'assinando...');
+      try {
+        var res = await BTC.signPsbt(state.analysis.bytes, state.hd, auxRandom());
+        signedPsbt.textContent = res.psbtBase64;
+        signedTx.textContent = res.txHex;
+        signedMeta.textContent = 'txid ' + res.txid + ' · ' + res.vsize + ' vB · ' +
+          res.feerate.toFixed(2) + ' sat/vB';
+        signedOut.hidden = false;
+        setStatus(signStatus, 'ok', 'psbt assinado, finalizado e verificado.');
+        requestAnimationFrame(updateScrollState);
+      } catch (e) {
+        clearSignature();
+        setStatus(signStatus, 'erro', e.message + '.');
+      } finally {
+        signBtn.disabled = false;
+      }
+    });
+  }
+  var copySignedPsbt = $('#copy-signed-psbt');
+  var copySignedTx = $('#copy-signed-tx');
+  if (copySignedPsbt) {
+    copySignedPsbt.addEventListener('click', function () {
+      copyFeedback(copySignedPsbt, signedPsbt ? signedPsbt.textContent : '');
+    });
+  }
+  if (copySignedTx) {
+    copySignedTx.addEventListener('click', function () {
+      copyFeedback(copySignedTx, signedTx ? signedTx.textContent : '');
+    });
+  }
 
   /* --------------------------------------------------------------- telas */
   var menuButtons = $$('.menu button');
@@ -3899,7 +4912,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   syncThemeColor();
   syncFavicon();
   onBitsInput();
-  updateTxMeta();
+  updatePsbtMeta();
+  paintDescriptor();
   buildKeyCells();
   paintValues();
   showScreen(screenName(location.hash.replace(/^#/, '')));
