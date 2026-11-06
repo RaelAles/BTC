@@ -1889,48 +1889,28 @@
     display: flex;
     flex-direction: column;
   }
-  /* O painel das coordenadas usa o quadrado inteiro: rótulo e contador no
-     topo, o texto no meio e a regra do que entra no pé. O foco acende a
-     moldura e o cabeçalho, como nos campos do formulário. */
+  /* O campo das coordenadas ocupa o mesmo quadrado do tabuleiro e segue o
+     desenho de campo do formulário (VG-FRM-02): a caixa com as réguas em
+     cima e embaixo e o fio de 1 px nos lados, sem rótulo visível. O texto
+     preenche a caixa inteira. */
   .coords-panel {
+    width: min(100%, 28rem);
+    aspect-ratio: 1 / 1;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
   }
-  .coords-panel:focus-within { border-color: var(--accent); }
-  .coords-head {
+  .coords-panel[hidden] { display: none; }
+  .coords-box {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--space-2) var(--space-4);
-  }
-  .coords-head .field-label,
-  .coords-head .field-meta { margin: 0; }
-  .coords-panel:focus-within .field-label,
-  .coords-panel:focus-within .field-meta { color: var(--accent); }
-  .coords-input {
+    flex-direction: column;
     flex: 1 1 auto;
     width: 100%;
+    min-width: 0;
+  }
+  .coords-box textarea {
+    flex: 1 1 auto;
     min-height: 0;
-    padding: 0;
-    background: none;
-    border: 0;
-    color: var(--fg);
-    font: inherit;
-    line-height: 1.6;
-    resize: none;
-  }
-  .coords-input:focus { outline: none; }
-  .coords-input::placeholder {
-    color: var(--dim);
-    opacity: 1;
-  }
-  .coords-hint {
-    margin: 0;
-    color: var(--dim);
-    font-size: var(--text-xs);
-    line-height: 1.6;
   }
   .bits-actions { justify-content: center; }
   .keys-actions { justify-content: center; }
@@ -2067,16 +2047,15 @@
 
           <div class="bits-row">
             <div class="bits-col">
-              <div class="key-board reveal-block coords-panel" id="coords-panel" hidden>
-                <div class="coords-head">
-                  <label class="field-label" for="coords">coordenadas</label>
-                  <span class="field-meta" id="coords-meta">0 de 256</span>
+              <div class="coords-panel reveal-block" id="coords-panel" hidden>
+                <label class="sr-only" for="coords">coordenadas</label>
+                <div class="field-box coords-box">
+                  <div class="edge" aria-hidden="true"></div>
+                  <textarea id="coords" spellcheck="false"
+                            autocomplete="off" autocapitalize="characters"
+                            placeholder="Insira as coordenadas da sua chave..."></textarea>
+                  <div class="edge" aria-hidden="true"></div>
                 </div>
-                <textarea id="coords" class="coords-input" rows="4" spellcheck="false"
-                          autocomplete="off" autocapitalize="characters"
-                          aria-describedby="coords-hint coords-meta"
-                          placeholder="A1 B2 C3"></textarea>
-                <p class="coords-hint" id="coords-hint">letras A–Z, dígitos 0–9, Z até 6</p>
               </div>
 
               <div class="key-board reveal-block" id="board-panel">
@@ -3906,7 +3885,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var analyzeSeq = 0;
 
   var coordsInput = $('#coords');
-  var coordsMeta = $('#coords-meta');
   var coordsPanel = $('#coords-panel');
   var modeBtn = $('#bits-mode');
   var boardOn = true;
@@ -4053,19 +4031,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return { path: path, text: tokens.join(' ') };
   }
 
-  function syncCoordsMeta() {
-    if (!coordsMeta) return;
-    coordsMeta.textContent = boardPath.length + ' de ' + BOARD_BITS;
-  }
-
   /* O clique e a digitação passam por aqui: o campo mostra a sequência na
-     ordem dos cliques e o contador acompanha. */
+     ordem dos cliques. */
   function syncCoords() {
-    if (coordsInput) {
-      var text = boardPath.map(function (index) { return boardName(index); }).join(' ');
-      if (coordsInput.value !== text) coordsInput.value = text;
-    }
-    syncCoordsMeta();
+    if (!coordsInput) return;
+    var text = boardPath.map(function (index) { return boardName(index); }).join(' ');
+    if (coordsInput.value !== text) coordsInput.value = text;
   }
 
   function toggleBoardBit(index) {
@@ -4124,7 +4095,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         coordsInput.setSelectionRange(parsed.text.length, parsed.text.length);
       } catch (e) {}
     }
-    syncCoordsMeta();
     if (bitsValue !== before) applyBits(bitsValue);
   }
 
