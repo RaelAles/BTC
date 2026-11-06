@@ -1960,16 +1960,25 @@
     grid-template-rows: repeat(16, minmax(0, 1fr));
     gap: var(--space-1);
   }
-  /* A célula é quadrada e a coordenada fica dentro dela. O tamanho sai do
-     quadrado do tabuleiro, sem medida fixa por célula. */
+  /* A célula é quadrada e a coordenada fica dentro dela. O repouso usa o
+     mesmo --accent dos botões de link; o bit em 1 (coordenada selecionada)
+     fica preenchido com o --support, o tom do estado em vigor, e o texto
+     passa para o --bg. O hover sobe para o --fg, como nos demais botões. */
   .board-cell {
     padding: 0;
-    border: 1px solid currentColor;
-    color: var(--dim);
+    border: 1px solid var(--line);
+    color: var(--accent);
     font-size: inherit;
     line-height: 1;
     text-align: center;
   }
+  .board-cell[aria-pressed="true"],
+  .board-cell[aria-pressed="true"]:hover {
+    background-color: var(--support);
+    border-color: var(--support);
+    color: var(--bg);
+  }
+  button.board-cell[aria-pressed="true"]:active { color: var(--bg); }
   @media (min-width: 521px) {
     .key-board { font-size: var(--text-sm); }
   }
