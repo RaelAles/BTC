@@ -1932,6 +1932,18 @@
     font: inherit;
   }
   .mnemonic-word input:focus { outline: none; }
+  /* A sequência das coordenadas marcadas fica logo abaixo do tabuleiro, na
+     mesma largura dele, com o · entre as coordenadas. A ordem é a dos
+     cliques; desmarcar tira a coordenada da lista. */
+  .board-seq {
+    width: min(100%, 28rem);
+    margin: var(--space-3) auto 0;
+    color: var(--dim);
+    font-size: var(--text-xs);
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+  .board-seq[hidden] { display: none; }
   /* O recado do mnemonic fica logo abaixo do quadrado; o botão de modo vem
      depois dele. */
   .bits-status { margin-top: var(--space-4); }
@@ -2079,6 +2091,7 @@
                      aria-label="tabuleiro de 256 bits" aria-describedby="board-help"></div>
                 <p class="sr-only" id="board-help">Use as setas para navegar; espaço ou enter alternam o bit.</p>
               </div>
+              <p class="board-seq" id="board-seq" hidden><span class="sr-only">coordenadas selecionadas: </span><span id="board-seq-list"></span></p>
 
               <p class="status-msg bits-status" id="bits-status" role="status" hidden></p>
 
@@ -3947,6 +3960,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var boardOn = true;
   var boardPanel = $('#board-panel');
   var boardGrid = $('#board-grid');
+  var boardSeq = $('#board-seq');
+  var boardSeqList = $('#board-seq-list');
+  var boardPath = [];
   var bitsValue = '';
   var bitsSnapshot = '';
   var psbtEl = $('#psbt');
@@ -4083,11 +4099,36 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     setBoardActive(next, true);
   });
 
+  /* A sequência guarda a ordem em que as coordenadas foram marcadas: o
+     clique acrescenta no fim e o desmarque sai da lista. Bits que chegam de
+     fora (mnemonic ou colagem) entram na ordem do tabuleiro, sem perder a
+     ordem dos que já estavam marcados. */
+  function renderBoardSeq(padded) {
+    var on = [];
+    var marked = {};
+    for (var i = 0; i < BOARD_BITS; i++) {
+      if (padded.charAt(i) === '1') {
+        on.push(i);
+        marked[i] = true;
+      }
+    }
+    boardPath = boardPath.filter(function (index) { return marked[index]; });
+    var listed = {};
+    boardPath.forEach(function (index) { listed[index] = true; });
+    on.forEach(function (index) {
+      if (!listed[index]) boardPath.push(index);
+    });
+    if (!boardSeq || !boardSeqList) return;
+    boardSeqList.textContent = boardPath.map(function (index) { return boardName(index); }).join(' · ');
+    boardSeq.hidden = !boardOn || !boardPath.length;
+  }
+
   function renderBoard(bits) {
     var padded = (String(bits || '').replace(/[^01]/g, '') + new Array(BOARD_BITS + 1).join('0')).slice(0, BOARD_BITS);
     for (var i = 0; i < boardCells.length; i++) {
       boardCells[i].setAttribute('aria-pressed', padded.charAt(i) === '1' ? 'true' : 'false');
     }
+    renderBoardSeq(padded);
   }
 
   /* ------------------------------------------------------------- chaves */
