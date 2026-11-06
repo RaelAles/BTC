@@ -2071,8 +2071,10 @@
                 <p class="sr-only" id="board-help">Use as setas para navegar; espaço ou enter alternam o bit.</p>
               </div>
 
-              <div class="chips app-gap reveal-block bits-actions" role="group" aria-label="Modo de entrada">
+              <div class="chips app-gap reveal-block bits-actions chips-dots" role="group" aria-label="Entrada de bits">
                 <button type="button" id="bits-mode" aria-label="Mostrar a entrada por coordenadas">coordenadas</button>
+                <span class="dot-sep" aria-hidden="true">·</span>
+                <button type="button" id="bits-random" aria-label="Gerar 256 bits aleatórios e preencher o tabuleiro">gerar bits</button>
               </div>
             </div>
           </div>
@@ -2203,7 +2205,7 @@
           <div class="prose reveal-block">
             <h3>o que este arquivo faz</h3>
             <ul>
-              <li>lê 256 bits marcados no tabuleiro ou digitados como coordenadas A1–Z6;</li>
+              <li>lê 256 bits marcados no tabuleiro, digitados como coordenadas A1–Z6 ou gerados pelo botão de bits aleatórios;</li>
               <li>deriva a seed BIP39 (passphrase vazia), a raiz BIP32 e as contas BIP44/49/84/86 no mainnet;</li>
               <li>mostra a chave privada e a xpub de cada conta, com os caminhos de recebimento (/0/*) e troco (/1/*);</li>
               <li>assina PSBT (BIP174) criado em outro app: ECDSA RFC 6979 no p2pkh, no BIP49 e no BIP84 (sighash BIP143), e Schnorr BIP340 no P2TR do BIP86 (sighash BIP341);</li>
@@ -2212,13 +2214,12 @@
 
             <h3>o que este arquivo não faz</h3>
             <ul>
-              <li>não gera a entropia: os 256 bits vêm só do que você digita no campo de coordenadas ou marca no tabuleiro;</li>
               <li>não guarda a chave: recarregar a página apaga os 256 bits da memória;</li>
               <li>não consulta saldo nem rede: o xpub é para uma carteira watch-only;</li>
               <li>não usa passphrase BIP39: a passphrase é vazia;</li>
               <li>não monta transação, não busca UTXOs e não transmite nada: só revisa e assina o PSBT que você colar;</li>
               <li>não assina PSBT v2, P2WSH, multisig nem <b>SIGHASH_SINGLE/NONE/ANYONECANPAY</b>;</li>
-              <li>não substitui carteira de hardware, e 256 bits digitados à mão não têm a garantia de aleatoriedade de um gerador dedicado.</li>
+              <li>não substitui carteira de hardware, e a entropia gerada no navegador não tem a garantia de um gerador dedicado.</li>
             </ul>
 
             <h3>segurança</h3>
@@ -3894,6 +3895,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var coordsInput = $('#coords');
   var coordsPanel = $('#coords-panel');
   var modeBtn = $('#bits-mode');
+  var randomBtn = $('#bits-random');
   var boardOn = true;
   var boardPanel = $('#board-panel');
   var boardGrid = $('#board-grid');
@@ -4054,6 +4056,36 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     syncCoords();
     setBoardActive(index, true);
     applyBits(bitsValue);
+  }
+
+  /* O botão aleatório pede 256 bits ao gerador do navegador. Cada bit 1 vira
+     uma coordenada marcada, que é como o tabuleiro e o campo guardam o
+     conjunto; o campo de coordenadas acompanha a nova sequência. O foco não
+     é movido, para gerar de novo ou voltar ao tabuleiro sem perder o lugar. */
+  function randomizeBits() {
+    if (!window.crypto || !window.crypto.getRandomValues) return;
+    var bytes = new Uint8Array(BOARD_BITS / 8);
+    window.crypto.getRandomValues(bytes);
+    var bits = '';
+    for (var i = 0; i < bytes.length; i++) {
+      bits += ('00000000' + bytes[i].toString(2)).slice(-8);
+    }
+    boardPath = [];
+    for (var j = 0; j < bits.length; j++) {
+      if (bits.charAt(j) === '1') boardPath.push(j);
+    }
+    bitsValue = bits;
+    syncCoords();
+    applyBits(bitsValue);
+  }
+
+  if (randomBtn) {
+    if (!window.crypto || !window.crypto.getRandomValues) {
+      randomBtn.disabled = true;
+      randomBtn.setAttribute('aria-label', 'Gerador aleatório indisponível neste navegador');
+    } else {
+      randomBtn.addEventListener('click', randomizeBits);
+    }
   }
 
   boardGrid.addEventListener('click', function (ev) {
