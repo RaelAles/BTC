@@ -1938,45 +1938,40 @@
     background-size: 11px 100%;
     background-repeat: repeat-x;
   }
-  /* Tabuleiro de 256 bits: 26 linhas (A–Z) × 10 colunas (1–9, 0), com a
-     coordenada dentro de cada botão. A grade para no 256º bit, então a
-     última linha (Z1–Z6) fica pela metade e as coordenadas restantes não
-     são desenhadas. O estado vem do aria-pressed: 0 no --dim, 1 no
-     --support; a borda acompanha a cor do texto. A linha acima da grade
-     repete a coordenada e o índice do bit em foco. */
+  /* Tabuleiro de 256 bits em um quadrado de 16 × 16. As coordenadas
+     continuam na sequência A1–A9, A0, B1–B9, B0, … até Z6, agora corrida
+     pela ordem de leitura (a letra avança a cada 10 células). O estado vem
+     do aria-pressed: 0 no --dim, 1 no --support; a borda acompanha a cor
+     do texto. */
   .key-board {
-    margin-top: var(--space-5);
+    width: min(100%, 28rem);
+    aspect-ratio: 1 / 1;
+    margin: var(--space-5) auto 0;
     border: 1px solid var(--line);
-    padding: var(--space-4) var(--space-5) var(--space-5);
-    font-size: var(--text-sm);
+    padding: var(--space-4);
+    font-size: var(--text-xs);
   }
   .key-board[hidden] { display: none; }
-  .board-coord {
-    margin: 0 0 var(--space-3);
-    color: var(--dim);
-    font-size: var(--text-xs);
-    line-height: 1.65;
-  }
   .board-grid {
     display: grid;
-    grid-template-columns: repeat(10, minmax(0, 1fr));
+    width: 100%;
+    height: 100%;
+    grid-template-columns: repeat(16, minmax(0, 1fr));
+    grid-template-rows: repeat(16, minmax(0, 1fr));
     gap: var(--space-1);
   }
-  /* A célula é a área de clique: no mínimo 24 px de altura (VG-ACR-05) e a
-     largura que sobra da coluna. O glifo é a própria coordenada; o estado
-     fica na cor do texto e da borda, sem desenhar outro sinal. */
+  /* A célula é quadrada e a coordenada fica dentro dela. O tamanho sai do
+     quadrado do tabuleiro, sem medida fixa por célula. */
   .board-cell {
-    min-height: var(--target-size);
-    padding: var(--space-1);
+    padding: 0;
     border: 1px solid currentColor;
     color: var(--dim);
-    font-size: var(--text-sm);
-    line-height: 1.2;
+    font-size: inherit;
+    line-height: 1;
     text-align: center;
   }
   @media (min-width: 521px) {
-    .key-board { font-size: var(--text-md); }
-    .board-cell { font-size: inherit; }
+    .key-board { font-size: var(--text-sm); }
   }
 </style>
 <script>
@@ -2047,7 +2042,6 @@
               </div>
 
               <div class="key-board reveal-block" id="board-panel" hidden>
-                <p class="board-coord" id="board-coord" aria-hidden="true"></p>
                 <div class="board-grid" id="board-grid" role="group"
                      aria-labelledby="bits-label" aria-describedby="board-help"></div>
                 <p class="sr-only" id="board-help">Use as setas para navegar; espaço ou enter alternam o bit.</p>
@@ -3914,7 +3908,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var boardOn = false;
   var boardPanel = $('#board-panel');
   var boardGrid = $('#board-grid');
-  var boardCoord = $('#board-coord');
   var psbtEl = $('#psbt');
   var psbtMeta = $('#psbt-meta');
   var signBtn = $('#sign-btn');
@@ -3948,10 +3941,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* --------------------------------------------------------- tabuleiro */
-  var BOARD_COLS = 10;
+  var BOARD_COLS = 16;
   var BOARD_BITS = 256;
   var boardCells = [];
-  var boardBits = '';
   var boardActive = 0;
 
   function padDigits(value, size) {
@@ -3960,12 +3952,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return text;
   }
 
-  /* Coordenada do bit: letra da linha (A–Z) e dígito da coluna (1–9, 0).
-     A primeira é A1 e a 256ª é Z6; Z7–Z0 não existem no tabuleiro. */
+  /* Coordenada do bit: letra (A–Z) e dígito (1–9, 0), na ordem de leitura:
+     A1–A9, A0, B1–B9, B0, … até Z6. A letra avança a cada 10 células, então
+     o quadrado de 16 colunas não alinha uma letra por linha. */
   function boardName(index) {
-    var row = Math.floor(index / BOARD_COLS);
-    var col = index % BOARD_COLS;
-    return String.fromCharCode(65 + row) + (col === BOARD_COLS - 1 ? 0 : col + 1);
+    var row = Math.floor(index / 10);
+    var col = index % 10;
+    return String.fromCharCode(65 + row) + (col === 9 ? 0 : col + 1);
   }
 
   function boardLabel(index) {
@@ -3994,13 +3987,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return target && target.closest ? target.closest('.board-cell') : null;
   }
 
-  function updateBoardCoord(index) {
-    if (!boardCoord) return;
-    var on = boardBits.charAt(index) === '1';
-    boardCoord.textContent = '[ ' + boardName(index) +
-      ' · bit ' + padDigits(index + 1, 3) + ' · ' + (on ? '1' : '0') + ' ]';
-  }
-
   function setBoardActive(index, focus) {
     if (!boardCells.length) return;
     if (index < 0) index = 0;
@@ -4009,7 +3995,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     boardActive = index;
     boardCells[index].tabIndex = 0;
     if (focus) boardCells[index].focus();
-    updateBoardCoord(index);
   }
 
   /* O tabuleiro representa o campo completo de 256 bits: o primeiro clique
@@ -4033,14 +4018,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (!cell) return;
     toggleBoardBit(Number(cell.dataset.index));
   });
-
-  /* A coordenada mostrada segue o mouse e, quando ele sai da grade, volta à
-     célula em foco (a última clicada ou alcançada pelas setas). */
-  boardGrid.addEventListener('mouseover', function (ev) {
-    var cell = boardCellOf(ev.target);
-    if (cell) updateBoardCoord(Number(cell.dataset.index));
-  });
-  boardGrid.addEventListener('mouseleave', function () { updateBoardCoord(boardActive); });
   boardGrid.addEventListener('focusin', function (ev) {
     var cell = boardCellOf(ev.target);
     if (cell) setBoardActive(Number(cell.dataset.index), false);
@@ -4069,11 +4046,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   function renderBoard(bits) {
     var padded = (String(bits || '').replace(/[^01]/g, '') + new Array(BOARD_BITS + 1).join('0')).slice(0, BOARD_BITS);
-    boardBits = padded;
     for (var i = 0; i < boardCells.length; i++) {
       boardCells[i].setAttribute('aria-pressed', padded.charAt(i) === '1' ? 'true' : 'false');
     }
-    updateBoardCoord(boardActive);
   }
 
   /* ------------------------------------------------------------- chaves */
