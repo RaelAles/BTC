@@ -1908,6 +1908,13 @@
     width: 100%;
     min-width: 0;
   }
+  /* No quadrado das coordenadas as réguas de cima e de baixo correm na borda
+     da caixa, não no meio delas: assim o contorno visível mede o mesmo que a
+     moldura do tabuleiro. Os fios laterais acompanham de ponta a ponta. */
+  .coords-box .edge:first-of-type { background-position: 0 0; }
+  .coords-box .edge:last-of-type { background-position: 0 100%; }
+  .coords-box::before,
+  .coords-box::after { top: 0; bottom: 0; }
   .coords-box textarea {
     flex: 1 1 auto;
     min-height: 0;
