@@ -1881,26 +1881,58 @@
   .app-gap { margin-top: var(--space-5); }
   .app-block { margin-top: var(--space-7); }
 
-  /* Entrada por coordenadas: o tabuleiro e o campo abaixo dele editam o
-     mesmo conjunto de bits. */
+  /* Entrada por coordenadas: o tabuleiro e o campo de coordenadas editam o
+     mesmo conjunto de bits e ocupam o mesmo quadrado, um por vez, como as
+     antigas 24 palavras. O botão abaixo alterna qual aparece. */
   .bits-row { margin: var(--space-5) 0 var(--space-7); }
   .bits-col {
     display: flex;
     flex-direction: column;
   }
-  /* O campo das coordenadas fica logo abaixo do tabuleiro, na mesma largura
-     dele. O valor é a sequência das coordenadas marcadas, na ordem dos
-     cliques; digitar uma coordenada marca o bit e clicar no tabuleiro
-     reescreve o campo. */
-  .board-coords {
-    width: min(100%, 28rem);
-    margin: var(--space-4) auto 0;
+  /* O painel das coordenadas usa o quadrado inteiro: rótulo e contador no
+     topo, o texto no meio e a regra do que entra no pé. O foco acende a
+     moldura e o cabeçalho, como nos campos do formulário. */
+  .coords-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
   }
-  .board-coords .field-row { margin: 0 0 var(--space-2); }
-  .board-coords .note {
-    margin: var(--space-3) 0 0;
-    text-align: left;
+  .coords-panel:focus-within { border-color: var(--accent); }
+  .coords-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
   }
+  .coords-head .field-label,
+  .coords-head .field-meta { margin: 0; }
+  .coords-panel:focus-within .field-label,
+  .coords-panel:focus-within .field-meta { color: var(--accent); }
+  .coords-input {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    padding: 0;
+    background: none;
+    border: 0;
+    color: var(--fg);
+    font: inherit;
+    line-height: 1.6;
+    resize: none;
+  }
+  .coords-input:focus { outline: none; }
+  .coords-input::placeholder {
+    color: var(--dim);
+    opacity: 1;
+  }
+  .coords-hint {
+    margin: 0;
+    color: var(--dim);
+    font-size: var(--text-xs);
+    line-height: 1.6;
+  }
+  .bits-actions { justify-content: center; }
   .keys-actions { justify-content: center; }
   /* Chave privada ofuscada: as pontas ficam visíveis e a linha de pontos
      ocupa toda a largura que sobra da célula. As públicas ficam inteiras,
@@ -2035,24 +2067,26 @@
 
           <div class="bits-row">
             <div class="bits-col">
+              <div class="key-board reveal-block coords-panel" id="coords-panel" hidden>
+                <div class="coords-head">
+                  <label class="field-label" for="coords">coordenadas</label>
+                  <span class="field-meta" id="coords-meta">0 de 256</span>
+                </div>
+                <textarea id="coords" class="coords-input" rows="4" spellcheck="false"
+                          autocomplete="off" autocapitalize="characters"
+                          aria-describedby="coords-hint coords-meta"
+                          placeholder="A1 B2 C3"></textarea>
+                <p class="coords-hint" id="coords-hint">letras A–Z, dígitos 0–9, Z até 6</p>
+              </div>
+
               <div class="key-board reveal-block" id="board-panel">
                 <div class="board-grid" id="board-grid" role="group"
                      aria-label="tabuleiro de 256 bits" aria-describedby="board-help"></div>
                 <p class="sr-only" id="board-help">Use as setas para navegar; espaço ou enter alternam o bit.</p>
               </div>
-              <div class="board-coords">
-                <div class="field-row">
-                  <label class="field-label" for="coords">coordenadas</label>
-                  <span class="field-meta" id="coords-meta">0 de 256</span>
-                </div>
-                <div class="field-box reveal-block" id="coords-box">
-                  <div class="edge" aria-hidden="true"></div>
-                  <input id="coords" type="text" autocomplete="off" autocapitalize="characters"
-                         spellcheck="false" aria-describedby="coords-hint coords-meta"
-                         placeholder="A1 B2 C3">
-                  <div class="edge" aria-hidden="true"></div>
-                </div>
-                <p class="note" id="coords-hint">Só entram letras de A a Z e dígitos de 0 a 9, com o Z até 6; espaço e vírgula separam as coordenadas.</p>
+
+              <div class="chips app-gap reveal-block bits-actions" role="group" aria-label="Modo de entrada">
+                <button type="button" id="bits-mode" aria-label="Mostrar a entrada por coordenadas">coordenadas</button>
               </div>
             </div>
           </div>
@@ -3873,6 +3907,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   var coordsInput = $('#coords');
   var coordsMeta = $('#coords-meta');
+  var coordsPanel = $('#coords-panel');
+  var modeBtn = $('#bits-mode');
+  var boardOn = true;
+  var boardPanel = $('#board-panel');
   var boardGrid = $('#board-grid');
   var boardPath = [];
   var bitsValue = '';
@@ -4091,6 +4129,36 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   if (coordsInput) coordsInput.addEventListener('input', onCoordsInput);
+
+  /* O botão alterna as duas entradas, como nas 24 palavras: o tabuleiro e o
+     campo de coordenadas ocupam o mesmo quadrado. Ao abrir as coordenadas, o
+     campo mostra a sequência atual e recebe o foco no fim; ao voltar, o foco
+     vai para a célula ativa do tabuleiro. */
+  function setBoardOn(on) {
+    boardOn = on;
+    coordsPanel.hidden = on;
+    boardPanel.hidden = !on;
+    syncCoords();
+    if (on) {
+      modeBtn.textContent = 'coordenadas';
+      modeBtn.setAttribute('aria-label', 'Mostrar a entrada por coordenadas');
+      setBoardActive(boardActive, true);
+    } else {
+      modeBtn.textContent = 'tabuleiro';
+      modeBtn.setAttribute('aria-label', 'Mostrar o tabuleiro de bits');
+      if (coordsInput) {
+        coordsInput.focus();
+        var end = coordsInput.value.length;
+        try {
+          coordsInput.setSelectionRange(end, end);
+          coordsInput.scrollTop = coordsInput.scrollHeight;
+        } catch (e) {}
+      }
+    }
+    updateScrollState();
+  }
+
+  modeBtn.addEventListener('click', function () { setBoardOn(!boardOn); });
 
   function renderBoard(bits) {
     var padded = (String(bits || '').replace(/[^01]/g, '') + new Array(BOARD_BITS + 1).join('0')).slice(0, BOARD_BITS);
