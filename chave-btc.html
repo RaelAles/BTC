@@ -1884,7 +1884,7 @@
   /* Entrada em dois modos: as 24 palavras e o tabuleiro ocupam o mesmo
      quadrado, um por vez. O botão abaixo alterna qual aparece, e as duas
      entradas têm exatamente a largura e a altura uma da outra. */
-  .bits-row { margin: 0 0 var(--space-7); }
+  .bits-row { margin: var(--space-5) 0 var(--space-7); }
   .bits-col {
     display: flex;
     flex-direction: column;
@@ -1895,8 +1895,9 @@
     width: 100%;
     height: 100%;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: repeat(8, minmax(0, 1fr));
-    gap: var(--space-2) var(--space-4);
+    grid-template-rows: repeat(8, auto);
+    align-content: space-between;
+    gap: 0 var(--space-4);
   }
   .mnemonic-word {
     display: flex;
@@ -1978,7 +1979,7 @@
   .key-board {
     width: min(100%, 28rem);
     aspect-ratio: 1 / 1;
-    margin: var(--space-5) auto 0;
+    margin: 0 auto;
     border: 1px solid var(--line);
     padding: var(--space-4);
     font-size: var(--text-xs);
@@ -2066,11 +2067,11 @@
 
           <div class="bits-row">
             <div class="bits-col">
-              <div class="key-board reveal-block" id="mnemonic-panel">
+              <div class="key-board reveal-block" id="mnemonic-panel" hidden>
                 <div class="mnemonic-grid" id="mnemonic-grid" role="group" aria-label="24 palavras de entrada"></div>
               </div>
 
-              <div class="key-board reveal-block" id="board-panel" hidden>
+              <div class="key-board reveal-block" id="board-panel">
                 <div class="board-grid" id="board-grid" role="group"
                      aria-label="tabuleiro de 256 bits" aria-describedby="board-help"></div>
                 <p class="sr-only" id="board-help">Use as setas para navegar; espaço ou enter alternam o bit.</p>
@@ -2079,7 +2080,7 @@
               <p class="status-msg bits-status" id="bits-status" role="status" hidden></p>
 
               <div class="chips app-gap reveal-block bits-actions" role="group" aria-label="Modo de entrada">
-                <button type="button" id="bits-mode" aria-label="Mostrar o tabuleiro de bits">tabuleiro</button>
+                <button type="button" id="bits-mode" aria-label="Voltar à entrada por 24 palavras">mnemonic</button>
               </div>
             </div>
           </div>
@@ -3940,7 +3941,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var mnemonicPanel = $('#mnemonic-panel');
   var mnemonicGrid = $('#mnemonic-grid');
   var wordInputs = [];
-  var boardOn = false;
+  var boardOn = true;
   var boardPanel = $('#board-panel');
   var boardGrid = $('#board-grid');
   var bitsValue = '';
@@ -5139,7 +5140,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   updateThemeButton();
   syncThemeColor();
   syncFavicon();
-  refreshMnemonic(false);
+  applyBits(bitsValue);
   updatePsbtMeta();
   buildKeyCells();
   paintValues();
