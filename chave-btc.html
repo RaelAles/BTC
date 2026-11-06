@@ -3990,9 +3990,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (focus) boardCells[index].focus();
   }
 
-  /* O conjunto selecionado é a lista boardPath, na ordem em que as
-     coordenadas foram marcadas. Os 256 bits saem dela; sem coordenada não há
-     entropia e a chave antiga cai. */
+  /* O conjunto selecionado é a lista boardPath. A ordem não entra nos bits:
+     os 256 saem do conjunto marcado. Sem coordenada não há entropia e a
+     chave antiga cai. */
   function bitsFromPath() {
     if (!boardPath.length) return '';
     var bits = new Array(BOARD_BITS + 1).join('0').split('');
@@ -4040,12 +4040,32 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return { path: path, text: tokens.join(' ') };
   }
 
-  /* O clique e a digitação passam por aqui: o campo mostra a sequência na
-     ordem dos cliques. */
+  /* O campo mostra a sequência de boardPath, na ordem em que ela está. */
   function syncCoords() {
     if (!coordsInput) return;
     var text = boardPath.map(function (index) { return boardName(index); }).join(' ');
     if (coordsInput.value !== text) coordsInput.value = text;
+  }
+
+  /* Embaralha boardPath no lugar, para o campo não seguir a ordem dos
+     cliques. O conjunto de bits não muda, porque bitsFromPath o lê como
+     conjunto. Fisher–Yates com o gerador do navegador; sem ele, Math.random
+     serve, já que a ordem exibida não é segredo. */
+  function shuffleBoardPath() {
+    var random = Math.random;
+    if (window.crypto && window.crypto.getRandomValues) {
+      var buffer = new Uint32Array(1);
+      random = function () {
+        window.crypto.getRandomValues(buffer);
+        return buffer[0] / 4294967296;
+      };
+    }
+    for (var i = boardPath.length - 1; i > 0; i--) {
+      var j = Math.floor(random() * (i + 1));
+      var swap = boardPath[i];
+      boardPath[i] = boardPath[j];
+      boardPath[j] = swap;
+    }
   }
 
   function toggleBoardBit(index) {
@@ -4053,6 +4073,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (at < 0) boardPath.push(index);
     else boardPath.splice(at, 1);
     bitsValue = bitsFromPath();
+    shuffleBoardPath();
     syncCoords();
     setBoardActive(index, true);
     applyBits(bitsValue);
