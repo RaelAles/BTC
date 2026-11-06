@@ -6,14 +6,14 @@
 <meta name="theme-color" content="#2e2d2b">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'">
 <title>chave btc - chave</title>
-<meta name="description" content="Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 bits, mostra xprv/xpub e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.">
+<meta name="description" content="Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 bits ou de 24 palavras, mostra xprv/xpub e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="chave btc - contas hd a partir de 256 bits">
-<meta property="og:description" content="256 bits entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
+<meta property="og:description" content="256 bits ou 24 palavras entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
 <meta property="og:locale" content="pt_BR">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="chave btc - contas hd a partir de 256 bits">
-<meta name="twitter:description" content="256 bits entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
+<meta name="twitter:description" content="256 bits ou 24 palavras entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
 <link rel="icon" type="image/svg+xml" id="favicon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%22102%20-1195%201024%201195%22%3E%3Cstyle%3E.marca%7Bfill%3A%235d3d00%7D%40media%20(prefers-color-scheme%3Adark)%7B.marca%7Bfill%3A%23e8c07d%7D%7D%3C%2Fstyle%3E%3Cpath%20class%3D%22marca%22%20d%3D%22M640%20-1195Q640%20-1109%20711%20-1002.5Q782%20-896%20891%20-810Q1021%20-708%201073.5%20-632.5Q1126%20-557%201126%20-478Q1126%20-370%201058%20-305Q990%20-240%20891%20-240Q831%20-240%20765%20-268.5Q699%20-297%20662%20-340Q662%20-207%20749.5%20-131.5Q837%20-56%20982%20-56V0H246V-56Q391%20-56%20478.5%20-131.5Q566%20-207%20566%20-340Q528%20-297%20462%20-268.5Q396%20-240%20337%20-240Q237%20-240%20169.5%20-305Q102%20-370%20102%20-478Q102%20-555%20151.5%20-628Q201%20-701%20337%20-810Q446%20-895%20517%20-1002.5Q588%20-1110%20588%20-1195Z%22%2F%3E%3C%2Fsvg%3E">
 <style>
 /* Fonte embutida do projeto.
@@ -1881,24 +1881,57 @@
   .app-gap { margin-top: var(--space-5); }
   .app-block { margin-top: var(--space-7); }
 
-  /* Bits de entrada em dois modos: o campo de texto e o tabuleiro ocupam a
-     mesma coluna, um por vez. O botão entre os dois alterna qual aparece e
-     fica logo depois da entrada em uso, para continuar visível acima do
-     tabuleiro. */
+  /* Entrada em dois modos: as 24 palavras e o tabuleiro ocupam o mesmo
+     quadrado, um por vez. O botão abaixo alterna qual aparece, e as duas
+     entradas têm exatamente a largura e a altura uma da outra. */
   .bits-row { margin: 0 0 var(--space-7); }
   .bits-col {
     display: flex;
     flex-direction: column;
   }
   .bits-row .field-row { margin: 0 0 var(--space-2); }
-  .bits-col .field-box {
-    display: flex;
-    flex-direction: column;
+  /* O mnemonic ocupa o mesmo quadrado do tabuleiro: 3 colunas por 8 linhas. */
+  .mnemonic-grid {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(8, minmax(0, 1fr));
+    gap: var(--space-2) var(--space-4);
   }
-  .bits-col .field-box[hidden] { display: none; }
-  .bits-col .field-box textarea { flex: 1; }
-  /* A única ação alterna bits e tabuleiro; fica centralizada entre os dois
-     e visível logo depois do que está na tela. */
+  .mnemonic-word {
+    display: flex;
+    align-items: flex-end;
+    gap: .8ch;
+    min-width: 0;
+    padding-bottom: var(--space-1);
+    border-bottom: 1px solid currentColor;
+    color: var(--field-line);
+    font-size: var(--text-sm);
+  }
+  .mnemonic-word:focus-within { color: var(--accent); }
+  .mnemonic-word.is-invalid,
+  .mnemonic-word.is-invalid:focus-within { color: var(--error); }
+  .mnemonic-word-index {
+    flex: 0 0 auto;
+    color: var(--dim);
+    font-size: var(--text-xs);
+  }
+  .mnemonic-word:focus-within .mnemonic-word-index { color: var(--accent); }
+  .mnemonic-word.is-invalid .mnemonic-word-index { color: var(--error); }
+  .mnemonic-word input {
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    background: none;
+    border: 0;
+    color: var(--fg);
+    font: inherit;
+  }
+  .mnemonic-word input:focus { outline: none; }
+  /* O recado do mnemonic fica logo abaixo do quadrado; o botão de modo vem
+     depois dele. */
+  .bits-status { margin-top: var(--space-4); }
   .bits-actions { justify-content: center; }
   .keys-actions { justify-content: center; }
   /* Chave privada ofuscada: as pontas ficam visíveis e a linha de pontos
@@ -2035,15 +2068,12 @@
           <div class="bits-row">
             <div class="bits-col">
               <div class="field-row">
-                <label class="field-label" id="bits-label" for="bits">bits de entrada</label>
-                <span class="field-meta" id="bits-count">0 / 256 bits</span>
+                <label class="field-label" id="bits-label" for="mn-word-1">palavras de entrada</label>
+                <span class="field-meta" id="bits-count">0 / 24 palavras</span>
               </div>
-              <div class="field-box reveal-block" id="bits-box">
-                <div class="edge" aria-hidden="true"></div>
-                <textarea id="bits" rows="4" spellcheck="false" autocomplete="off" autocapitalize="off"
-                          aria-describedby="bits-count"
-                          placeholder="cole aqui os 256 bits: 0 e 1; espaço e quebra de linha são ignorados"></textarea>
-                <div class="edge" aria-hidden="true"></div>
+
+              <div class="key-board reveal-block" id="mnemonic-panel">
+                <div class="mnemonic-grid" id="mnemonic-grid" role="group" aria-labelledby="bits-label"></div>
               </div>
 
               <div class="key-board reveal-block" id="board-panel" hidden>
@@ -2051,6 +2081,8 @@
                      aria-labelledby="bits-label" aria-describedby="board-help"></div>
                 <p class="sr-only" id="board-help">Use as setas para navegar; espaço ou enter alternam o bit.</p>
               </div>
+
+              <p class="status-msg bits-status" id="bits-status" role="status" hidden></p>
 
               <div class="chips app-gap reveal-block bits-actions" role="group" aria-label="Modo de entrada">
                 <button type="button" id="bits-mode" aria-label="Mostrar o tabuleiro de bits">tabuleiro</button>
@@ -2184,7 +2216,7 @@
           <div class="prose reveal-block">
             <h3>o que este arquivo faz</h3>
             <ul>
-              <li>lê 256 bits como entropia BIP39;</li>
+              <li>lê 256 bits ou 24 palavras como entropia BIP39;</li>
               <li>deriva a seed BIP39 (passphrase vazia), a raiz BIP32 e as contas BIP44/49/84/86 no mainnet;</li>
               <li>mostra a chave privada e a xpub de cada conta, com os caminhos de recebimento (/0/*) e troco (/1/*);</li>
               <li>assina PSBT (BIP174) criado em outro app: ECDSA RFC 6979 no p2pkh, no BIP49 e no BIP84 (sighash BIP143), e Schnorr BIP340 no P2TR do BIP86 (sighash BIP341);</li>
@@ -2193,8 +2225,8 @@
 
             <h3>o que este arquivo não faz</h3>
             <ul>
-              <li>não gera a entropia: os 256 bits vêm só do que você cola ou digita, ou marca no tabuleiro;</li>
-              <li>não guarda a chave: recarregar a página apaga os 256 bits da memória;</li>
+              <li>não gera a entropia: os 256 bits ou as 24 palavras vêm só do que você cola, digita ou marca no tabuleiro;</li>
+              <li>não guarda a chave: recarregar a página apaga os 256 bits e as 24 palavras da memória;</li>
               <li>não consulta saldo nem rede: o xpub é para uma carteira watch-only;</li>
               <li>não usa passphrase BIP39: a passphrase é vazia;</li>
               <li>não monta transação, não busca UTXOs e não transmite nada: só revisa e assina o PSBT que você colar;</li>
@@ -3909,14 +3941,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var deriveSeq = 0;
   var analyzeSeq = 0;
 
-  var bitsEl = $('#bits');
-  var bitsBox = $('#bits-box');
   var bitsCount = $('#bits-count');
   var bitsLabel = $('#bits-label');
+  var bitsStatus = $('#bits-status');
   var modeBtn = $('#bits-mode');
+  var mnemonicPanel = $('#mnemonic-panel');
+  var mnemonicGrid = $('#mnemonic-grid');
+  var wordInputs = [];
   var boardOn = false;
   var boardPanel = $('#board-panel');
   var boardGrid = $('#board-grid');
+  var bitsValue = '';
+  var bitsSnapshot = '';
   var psbtEl = $('#psbt');
   var psbtMeta = $('#psbt-meta');
   var signBtn = $('#sign-btn');
@@ -4010,13 +4046,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      completa com zeros o que estiver no textarea e, daí em diante, cada
      célula alterna o próprio bit. */
   function toggleBoardBit(index) {
-    var bits = bitsEl.value.replace(/[^01]/g, '').slice(0, BOARD_BITS);
+    var bits = bitsValue.replace(/[^01]/g, '').slice(0, BOARD_BITS);
     if (bits.length < BOARD_BITS) {
       bits += new Array(BOARD_BITS - bits.length + 1).join('0');
     }
     bits = bits.slice(0, index) + (bits.charAt(index) === '1' ? '0' : '1') + bits.slice(index + 1);
-    bitsEl.value = bits;
-    bitsEl.setSelectionRange(bits.length, bits.length);
+    bitsValue = bits;
     setBoardActive(index, true);
     updateBitsMeta();
     applyBits(bits);
@@ -4299,12 +4334,67 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   /* ---------------------------------------------------------- bits/entrada */
   var BIT_MAX = 256;
+  var WORD_MAX = 24;
+
+  /* Os 24 campos do mnemonic nascem aqui, um por palavra, e ocupam o mesmo
+     quadrado do tabuleiro. O índice visível (01…24) é decoração; cada campo
+     leva o próprio nome acessível. */
+  (function buildWordInputs() {
+    for (var i = 0; i < WORD_MAX; i++) {
+      var cell = document.createElement('span');
+      cell.className = 'mnemonic-word';
+      var num = document.createElement('span');
+      num.className = 'mnemonic-word-index';
+      num.setAttribute('aria-hidden', 'true');
+      num.textContent = (i < 9 ? '0' : '') + (i + 1);
+      var input = document.createElement('input');
+      input.id = 'mn-word-' + (i + 1);
+      input.type = 'text';
+      input.autocomplete = 'off';
+      input.autocapitalize = 'off';
+      input.spellcheck = false;
+      input.setAttribute('aria-label', 'palavra ' + (i + 1) + ' de ' + WORD_MAX);
+      input.setAttribute('aria-describedby', 'bits-count bits-status');
+      cell.appendChild(num);
+      cell.appendChild(input);
+      mnemonicGrid.appendChild(cell);
+      wordInputs.push(input);
+    }
+  })();
+
+  function setBitsStatus(kind, text) {
+    if (!bitsStatus) return;
+    bitsStatus.hidden = !text;
+    setStatus(bitsStatus, kind, text);
+  }
+
+  function clearWordMarks() {
+    wordInputs.forEach(function (input) {
+      input.removeAttribute('aria-invalid');
+      input.parentNode.classList.remove('is-invalid');
+    });
+  }
+
+  function clearWords() {
+    wordInputs.forEach(function (input) { input.value = ''; });
+    clearWordMarks();
+  }
+
+  function readWords() {
+    return wordInputs.map(function (input) {
+      return input.value.trim().toLowerCase();
+    });
+  }
 
   function updateBitsMeta() {
-    var bits = bitsEl.value.replace(/[^01]/g, '');
-    bitsCount.textContent = bits.length + ' / ' + BIT_MAX + ' bits';
-    /* No limite o texto ainda é válido: marca em --warning, não em --error. */
-    bitsCount.classList.toggle('is-limit', bits.length >= BIT_MAX);
+    if (boardOn) {
+      bitsCount.textContent = bitsValue.length + ' / ' + BIT_MAX + ' bits';
+      bitsCount.classList.toggle('is-limit', bitsValue.length >= BIT_MAX);
+      return;
+    }
+    var filled = readWords().filter(function (word) { return word !== ''; }).length;
+    bitsCount.textContent = filled + ' / ' + WORD_MAX + ' palavras';
+    bitsCount.classList.remove('is-limit');
   }
 
   /* A derivação é a mesma nos dois modos: recebe os 256 bits e pinta o
@@ -4325,53 +4415,173 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }
   }
 
-  async function onBitsInput() {
-    var raw = bitsEl.value;
-    var caret = bitsEl.selectionStart;
-    var typed = raw.slice(0, typeof caret === 'number' ? caret : raw.length).replace(/[^01]/g, '').length;
-    var bits = raw.replace(/[^01]/g, '').slice(0, BIT_MAX);
-
-    /* Descarta o que não é bit, corta em 256 e mantém o cursor. Os bits entram
-       sem espaçamento automático: o campo mostra exatamente o que foi colado,
-       sem grupos de 8. */
-    if (bits !== raw) {
-      bitsEl.value = bits;
-      var pos = Math.min(typed, bits.length);
-      bitsEl.setSelectionRange(pos, pos);
-    }
-
+  /* Confere as 24 palavras e, quando fecham, devolve os 256 bits ao mesmo
+     caminho do tabuleiro. Enquanto faltam palavras, o recado fica vazio e o
+     tabuleiro zera. Com 24, a palavra fora da lista é marcada em --error;
+     enquanto ela ainda é prefixo de uma palavra válida, o erro espera o
+     campo perder o foco (strict). */
+  function refreshMnemonic(strict) {
+    clearWordMarks();
     updateBitsMeta();
-    await applyBits(bits);
+    var words = readWords();
+    var filled = words.filter(function (word) { return word !== ''; }).length;
+    if (filled < WORD_MAX) {
+      setBitsStatus('neutro', '');
+      bitsValue = '';
+      applyBits('');
+      return;
+    }
+    try {
+      var bits = BTC.bip39BitsFromWords(words);
+      setBitsStatus('neutro', '');
+      bitsValue = bits;
+      applyBits(bits);
+    } catch (e) {
+      if (e.prefix && !strict) {
+        setBitsStatus('neutro', '');
+        bitsValue = '';
+        applyBits('');
+        return;
+      }
+      setBitsStatus('erro', e.message);
+      if (typeof e.word === 'number' && wordInputs[e.word]) {
+        wordInputs[e.word].setAttribute('aria-invalid', 'true');
+        wordInputs[e.word].parentNode.classList.add('is-invalid');
+      }
+      bitsValue = '';
+      applyBits('');
+    }
   }
 
-  /* O botão alterna o campo de texto e o tabuleiro. O que já foi digitado
-     passa de um para o outro: o textarea é a fonte dos bits, e o tabuleiro
-     edita o mesmo valor de 256 bits. A ação fica logo depois da entrada em
-     uso, para continuar visível acima do tabuleiro. */
+  function wordIndex(input) { return wordInputs.indexOf(input); }
+
+  function fillWords(list, start) {
+    var at = start;
+    for (var i = 0; i < list.length && at < WORD_MAX; i++, at++) {
+      wordInputs[at].value = list[i];
+    }
+    return at;
+  }
+
+  function focusWord(index) {
+    var at = Math.max(0, Math.min(WORD_MAX - 1, index));
+    wordInputs[at].focus();
+  }
+
+  function firstEmptyWord() {
+    for (var i = 0; i < WORD_MAX; i++) {
+      if (wordInputs[i].value === '') return i;
+    }
+    return 0;
+  }
+
+  /* Digitar espaço (ou colar a frase) distribui as palavras pelos campos
+     seguintes; a palavra em digitação perde o que não for letra. */
+  function onWordInput(ev) {
+    var input = ev.target;
+    if (!input || input.tagName !== 'INPUT') return;
+    var value = input.value;
+    var lower = value.toLowerCase();
+    if (/\s/.test(lower)) {
+      var parts = lower.split(/\s+/).filter(Boolean).map(function (word) {
+        return word.replace(/[^a-z]/g, '');
+      }).filter(Boolean);
+      var at = wordIndex(input);
+      input.value = parts[0] || '';
+      if (parts.length > 1) fillWords(parts.slice(1), at + 1);
+      focusWord(at + (parts.length > 1 ? parts.length : 1));
+    } else {
+      var clean = lower.replace(/[^a-z]/g, '');
+      if (clean !== value) input.value = clean;
+    }
+    refreshMnemonic();
+  }
+
+  function onWordKeydown(ev) {
+    var input = ev.target;
+    if (!input || input.tagName !== 'INPUT') return;
+    var at = wordIndex(input);
+    if (ev.key === ' ' || ev.key === 'Enter') {
+      ev.preventDefault();
+      focusWord(at + 1);
+      return;
+    }
+    /* Backspace no campo vazio volta para o anterior, como numa frase. */
+    if (ev.key === 'Backspace' && input.value === '' && at > 0) {
+      ev.preventDefault();
+      var prev = wordInputs[at - 1];
+      prev.focus();
+      prev.setSelectionRange(prev.value.length, prev.value.length);
+    }
+  }
+
+  function onWordPaste(ev) {
+    var input = ev.target;
+    if (!input || input.tagName !== 'INPUT') return;
+    var text = ev.clipboardData ? ev.clipboardData.getData('text') : '';
+    var parts = String(text).toLowerCase().split(/\s+/).filter(Boolean).map(function (word) {
+      return word.replace(/[^a-z]/g, '');
+    }).filter(Boolean);
+    if (parts.length < 2) return;
+    ev.preventDefault();
+    var at = wordIndex(input);
+    if (parts.length >= WORD_MAX) at = 0;
+    if (at < 0) at = 0;
+    focusWord(fillWords(parts, at));
+    refreshMnemonic();
+  }
+
+  /* O botão alterna as 24 palavras e o tabuleiro. As duas entradas ocupam o
+     mesmo quadrado; o que vale é o bitsValue, que o tabuleiro edita e que o
+     mnemonic válido devolve. Ao voltar para as palavras, um valor que mudou
+     no tabuleiro refaz a frase a partir dos bits. */
   function setBoardOn(on) {
     boardOn = on;
-    bitsBox.hidden = on;
+    mnemonicPanel.hidden = on;
     boardPanel.hidden = !on;
+    bitsStatus.hidden = true;
     if (on) {
+      bitsLabel.textContent = 'bits de entrada';
       bitsLabel.removeAttribute('for');
-      modeBtn.textContent = 'bits';
-      modeBtn.setAttribute('aria-label', 'Voltar à entrada de 256 bits');
+      modeBtn.textContent = 'mnemonic';
+      modeBtn.setAttribute('aria-label', 'Voltar à entrada por 24 palavras');
+      bitsSnapshot = bitsValue;
       updateBitsMeta();
-      applyBits(bitsEl.value.replace(/[^01]/g, ''));
+      applyBits(bitsValue);
       setBoardActive(boardActive, true);
       updateScrollState();
       return;
     }
-    bitsLabel.setAttribute('for', 'bits');
+    bitsLabel.textContent = 'palavras de entrada';
+    bitsLabel.setAttribute('for', 'mn-word-1');
     modeBtn.textContent = 'tabuleiro';
     modeBtn.setAttribute('aria-label', 'Mostrar o tabuleiro de bits');
-    onBitsInput();
-    bitsEl.focus();
+    var current = bitsValue.replace(/[^01]/g, '');
+    if (current !== bitsSnapshot) {
+      clearWords();
+      bitsSnapshot = current;
+    }
+    var empty = readWords().every(function (word) { return word === ''; });
+    if (empty && current.length === BIT_MAX) {
+      var words = BTC.bip39Mnemonic(current).split(' ');
+      for (var i = 0; i < WORD_MAX; i++) wordInputs[i].value = words[i];
+    }
+    refreshMnemonic(false);
+    focusWord(firstEmptyWord());
     updateScrollState();
   }
 
   modeBtn.addEventListener('click', function () { setBoardOn(!boardOn); });
-  bitsEl.addEventListener('input', onBitsInput);
+  mnemonicGrid.addEventListener('input', onWordInput);
+  mnemonicGrid.addEventListener('keydown', onWordKeydown);
+  mnemonicGrid.addEventListener('paste', onWordPaste);
+  /* Ao sair da grade, uma palavra que era só prefixo é conferida por
+     inteiro; dentro da grade, o foco que anda não interrompe a digitação. */
+  mnemonicGrid.addEventListener('focusout', function (ev) {
+    if (boardOn) return;
+    if (ev.relatedTarget && mnemonicGrid.contains(ev.relatedTarget)) return;
+    refreshMnemonic(true);
+  });
 
   /* ------------------------------------------------------------- assinar */
   var KIND_LABEL = { p2pkh: 'pkh', 'p2sh-p2wpkh': 'sh(wpkh)', p2wpkh: 'wpkh', p2tr: 'tr' };
@@ -4955,7 +5165,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   updateThemeButton();
   syncThemeColor();
   syncFavicon();
-  onBitsInput();
+  refreshMnemonic(false);
   updatePsbtMeta();
   buildKeyCells();
   paintValues();
