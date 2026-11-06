@@ -1889,7 +1889,6 @@
     display: flex;
     flex-direction: column;
   }
-  .bits-row .field-row { margin: 0 0 var(--space-2); }
   /* O mnemonic ocupa o mesmo quadrado do tabuleiro: 3 colunas por 8 linhas. */
   .mnemonic-grid {
     display: grid;
@@ -2067,18 +2066,13 @@
 
           <div class="bits-row">
             <div class="bits-col">
-              <div class="field-row">
-                <label class="field-label" id="bits-label" for="mn-word-1">palavras de entrada</label>
-                <span class="field-meta" id="bits-count">0 / 24 palavras</span>
-              </div>
-
               <div class="key-board reveal-block" id="mnemonic-panel">
-                <div class="mnemonic-grid" id="mnemonic-grid" role="group" aria-labelledby="bits-label"></div>
+                <div class="mnemonic-grid" id="mnemonic-grid" role="group" aria-label="24 palavras de entrada"></div>
               </div>
 
               <div class="key-board reveal-block" id="board-panel" hidden>
                 <div class="board-grid" id="board-grid" role="group"
-                     aria-labelledby="bits-label" aria-describedby="board-help"></div>
+                     aria-label="tabuleiro de 256 bits" aria-describedby="board-help"></div>
                 <p class="sr-only" id="board-help">Use as setas para navegar; espaço ou enter alternam o bit.</p>
               </div>
 
@@ -3941,8 +3935,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var deriveSeq = 0;
   var analyzeSeq = 0;
 
-  var bitsCount = $('#bits-count');
-  var bitsLabel = $('#bits-label');
   var bitsStatus = $('#bits-status');
   var modeBtn = $('#bits-mode');
   var mnemonicPanel = $('#mnemonic-panel');
@@ -4053,7 +4045,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     bits = bits.slice(0, index) + (bits.charAt(index) === '1' ? '0' : '1') + bits.slice(index + 1);
     bitsValue = bits;
     setBoardActive(index, true);
-    updateBitsMeta();
     applyBits(bits);
   }
 
@@ -4354,7 +4345,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       input.autocapitalize = 'off';
       input.spellcheck = false;
       input.setAttribute('aria-label', 'palavra ' + (i + 1) + ' de ' + WORD_MAX);
-      input.setAttribute('aria-describedby', 'bits-count bits-status');
+      input.setAttribute('aria-describedby', 'bits-status');
       cell.appendChild(num);
       cell.appendChild(input);
       mnemonicGrid.appendChild(cell);
@@ -4386,17 +4377,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     });
   }
 
-  function updateBitsMeta() {
-    if (boardOn) {
-      bitsCount.textContent = bitsValue.length + ' / ' + BIT_MAX + ' bits';
-      bitsCount.classList.toggle('is-limit', bitsValue.length >= BIT_MAX);
-      return;
-    }
-    var filled = readWords().filter(function (word) { return word !== ''; }).length;
-    bitsCount.textContent = filled + ' / ' + WORD_MAX + ' palavras';
-    bitsCount.classList.remove('is-limit');
-  }
-
   /* A derivação é a mesma nos dois modos: recebe os 256 bits e pinta o
      tabuleiro. Com menos de 256 bits não há chave, e o estado antigo cai. */
   async function applyBits(bits) {
@@ -4422,7 +4402,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      campo perder o foco (strict). */
   function refreshMnemonic(strict) {
     clearWordMarks();
-    updateBitsMeta();
     var words = readWords();
     var filled = words.filter(function (word) { return word !== ''; }).length;
     if (filled < WORD_MAX) {
@@ -4541,19 +4520,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     boardPanel.hidden = !on;
     bitsStatus.hidden = true;
     if (on) {
-      bitsLabel.textContent = 'bits de entrada';
-      bitsLabel.removeAttribute('for');
       modeBtn.textContent = 'mnemonic';
       modeBtn.setAttribute('aria-label', 'Voltar à entrada por 24 palavras');
       bitsSnapshot = bitsValue;
-      updateBitsMeta();
       applyBits(bitsValue);
       setBoardActive(boardActive, true);
       updateScrollState();
       return;
     }
-    bitsLabel.textContent = 'palavras de entrada';
-    bitsLabel.setAttribute('for', 'mn-word-1');
     modeBtn.textContent = 'tabuleiro';
     modeBtn.setAttribute('aria-label', 'Mostrar o tabuleiro de bits');
     var current = bitsValue.replace(/[^01]/g, '');
