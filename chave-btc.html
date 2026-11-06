@@ -1939,7 +1939,10 @@
   .key-mask[hidden],
   .key-full[hidden],
   .key-action[hidden] { display: none; }
-  .key-action { margin-top: var(--space-3); }
+  .key-action {
+    display: block;
+    margin: var(--space-3) 0 0 auto;
+  }
   /* Fio sutil entre as chaves privadas e as públicas da lista completa: mais
      leve que o divisor de seção, para separar sem abrir outro bloco. */
   .keys-sep {
