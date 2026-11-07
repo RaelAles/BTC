@@ -182,7 +182,7 @@
       body.appendChild(tr);
     });
     $('#receive-table').hidden = types.length === 0;
-    $('#receive-note').hidden = types.length === 0;
+    $('#receive-heading').hidden = types.length === 0;
   }
 
   function render(d) {
@@ -250,8 +250,8 @@
     if (receiveBody) receiveBody.innerHTML = '';
     var receiveTable = $('#receive-table');
     if (receiveTable) receiveTable.hidden = true;
-    var receiveNote = $('#receive-note');
-    if (receiveNote) receiveNote.hidden = true;
+    var receiveHeading = $('#receive-heading');
+    if (receiveHeading) receiveHeading.hidden = true;
     var body = $('#addresses-table tbody');
     if (body) body.innerHTML = '';
     var table = $('#addresses-table');

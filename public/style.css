@@ -1058,10 +1058,6 @@
      meio da palavra; o curto aparece no lugar, com o nome acessível no
      aria-label do th. */
   #addresses-table .th-short { display: none; }
-  /* A tabela de recebimento tem duas colunas: o tipo precisa só do mais
-     longo dos rótulos ("bip86") e o resto fica com o endereço, que é a única
-     coluna variável. */
-  #receive-table th:first-child { width: calc(6ch + 2 * var(--space-4)); }
   .data-table td.is-num { white-space: nowrap; }
   .data-table .is-empty { color: var(--dim); }
   /* As linhas fora do conjunto moderno ficam em um grupo próprio: o hidden
@@ -2021,16 +2017,12 @@
      sob o valor. */
   .key-value { display: block; }
   /* Endereços de recebimento da carteira: o mesmo desenho de leitura das
-     chaves públicas (rótulo em --dim à esquerda, valor sem moldura), mas
-     ocupando a coluna inteira e com o botão de copiar ao lado do endereço,
-     e não embaixo dele. A coluna do rótulo cabe o mais longo dos quatro
-     ("bip49 / p2sh-p2wpkh"); o endereço é a parte elástica, quebra dentro da
-     própria coluna e não empurra o botão para fora da tela. */
+     chaves públicas do gerador — rótulo só com o BIP, em --dim à esquerda,
+     na mesma coluna de 7ch do key-readout —, mas ocupando a coluna inteira e
+     com o botão de copiar ao lado do endereço, e não embaixo dele. O
+     endereço é a parte elástica, quebra dentro da própria coluna e não
+     empurra o botão para fora da tela. */
   #receive-table.key-readout { width: 100%; }
-  #receive-table.key-readout tbody th {
-    width: 21ch;
-    white-space: normal;
-  }
   .receive-line {
     display: flex;
     flex-wrap: wrap;
@@ -2045,9 +2037,6 @@
   .receive-line .key-action {
     flex: 0 0 auto;
     margin: 0;
-  }
-  @media (max-width: 520px) {
-    #receive-table.key-readout tbody th { width: 12ch; }
   }
   .key-action[hidden] { display: none; }
   .key-action {
