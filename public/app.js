@@ -286,7 +286,7 @@
     }
     if (state.busy) return;
     state.busy = true;
-    if (!quiet) setStatus('', 'consultando o Worker…');
+    if (!quiet) setStatus('', 'consultando saldo...');
     try {
       // A xpub vai no corpo a cada consulta: o servidor não guarda nada,
       // então ela nunca fica armazenada. O session só reaproveita a conexão
