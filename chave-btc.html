@@ -1642,7 +1642,11 @@
     gap: var(--space-3) var(--space-6);
     margin-top: var(--space-5);
   }
+  .psbt-actions button { font-size: var(--text-md); }
   .psbt-actions .form-submit { margin: 0; }
+  /* O label do anexo tem display: flex próprio, então o [hidden] nativo
+     precisa vencer essa regra para o "cancelar" tomar o lugar dele. */
+  .psbt-actions [hidden] { display: none !important; }
   /* O envio em andamento (VG-FRM-08) veste o estado geral de fora de alcance
      (VG-BOT-09): o botão fica em --dim, sem hover e sem ponteiro, e só o
      JavaScript segura o clique repetido. O recado neutro logo abaixo diz o
@@ -2211,11 +2215,12 @@
             <div class="edge" aria-hidden="true"></div>
           </div>
           <div class="psbt-actions reveal-block">
-            <label class="field-upload">
+            <label class="field-upload" id="psbt-import">
               <input type="file" id="psbt-file" aria-label="importar arquivo psbt"
                      accept=".psbt,.txt,.hex,text/plain,application/octet-stream">
               <span class="field-upload-pick">importar arquivo</span>
             </label>
+            <button type="button" id="psbt-clear" aria-label="cancelar o psbt importado" hidden>cancelar</button>
             <button type="button" class="form-submit" id="sign-btn" disabled>assinar psbt</button>
           </div>
 
@@ -2226,10 +2231,6 @@
               <h3><span class="prompt" aria-hidden="true">##</span> revisão</h3>
             </div>
             <pre class="code-block" id="sign-code"></pre>
-          </div>
-
-          <div class="chips app-gap reveal-block keys-actions" role="group" aria-label="Limpar o PSBT">
-            <button type="button" id="psbt-clear">limpar psbt</button>
           </div>
 
           <div id="signed-out" hidden>
@@ -3958,6 +3959,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var bitsValue = '';
   var psbtEl = $('#psbt');
   var psbtMeta = $('#psbt-meta');
+  var psbtImport = $('#psbt-import');
+  var psbtClear = $('#psbt-clear');
   var signBtn = $('#sign-btn');
   var signStatus = $('#sign-status');
   var signOut = $('#sign-out');
@@ -4429,6 +4432,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (signBtn) signBtn.disabled = true;
     setStatus(signStatus, 'neutro', '');
   }
+  /* Sem arquivo importado, a linha mostra "importar arquivo"; com o PSBT
+     carregado, o mesmo lugar passa a mostrar "cancelar". */
+  function setPsbtLoaded(loaded) {
+    if (psbtImport) psbtImport.hidden = !!loaded;
+    if (psbtClear) psbtClear.hidden = !loaded;
+  }
 
   function copyFeedback(button, value) {
     if (!button || !value) return;
@@ -4571,14 +4580,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       window.setTimeout(scheduleAnalyze, 0);
     });
   }
-  var psbtClear = $('#psbt-clear');
   if (psbtClear) {
     psbtClear.addEventListener('click', function () {
       if (psbtEl) psbtEl.value = '';
       resetPsbtFile();
+      setPsbtLoaded(false);
       updatePsbtMeta();
       invalidateSignature();
-      if (psbtEl) psbtEl.focus();
+      if (psbtFile) psbtFile.focus();
+      else if (psbtEl) psbtEl.focus();
     });
   }
   /* Importar o PSBT de um arquivo preenche a caixa somente leitura e dispara
@@ -4596,6 +4606,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         if (psbtEl) psbtEl.value = String(reader.result || '').trim();
         /* Zera o input para o mesmo arquivo poder ser escolhido de novo. */
         psbtFile.value = '';
+        setPsbtLoaded(true);
         scheduleAnalyze();
       };
       reader.onerror = function () {
