@@ -1609,9 +1609,6 @@
     color: var(--fg);
   }
   .field-upload-name.is-empty { color: var(--dim); }
-  /* Anexo centralizado: o label estreito (width: fit-content) fica no meio da
-     coluna, sem esticar como um campo. */
-  .field-upload.is-centered { margin-inline: auto; }
   /* Campo com máscara: a máscara é comportamento (o JS formata e o
      placeholder já desenha os espaços em --dim); o que o CSS decide é a
      largura. Dado de tamanho fixo (telefone, data, documento) não estica a
@@ -1634,6 +1631,18 @@
     padding: 0;
     font-size: var(--text-md);
   }
+  /* Ações do PSBT: importar e assinar na mesma linha, centradas. O rótulo do
+     anexo fica com a largura do próprio conteúdo e o envio perde a margem
+     própria, que aqui pertence ao grupo. */
+  .psbt-actions {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: var(--space-3) var(--space-6);
+    margin-top: var(--space-5);
+  }
+  .psbt-actions .form-submit { margin: 0; }
   /* O envio em andamento (VG-FRM-08) veste o estado geral de fora de alcance
      (VG-BOT-09): o botão fica em --dim, sem hover e sem ponteiro, e só o
      JavaScript segura o clique repetido. O recado neutro logo abaixo diz o
@@ -2201,12 +2210,14 @@
                       placeholder="importe um arquivo .psbt"></textarea>
             <div class="edge" aria-hidden="true"></div>
           </div>
-          <label class="field-upload is-centered app-gap">
-            <input type="file" id="psbt-file" aria-label="importar arquivo psbt"
-                   accept=".psbt,.txt,.hex,text/plain,application/octet-stream">
-            <span class="field-upload-pick">importar arquivo</span>
-            <span class="field-upload-name is-empty" id="psbt-file-name" aria-live="polite">nenhum arquivo</span>
-          </label>
+          <div class="psbt-actions reveal-block">
+            <label class="field-upload">
+              <input type="file" id="psbt-file" aria-label="importar arquivo psbt"
+                     accept=".psbt,.txt,.hex,text/plain,application/octet-stream">
+              <span class="field-upload-pick">importar arquivo</span>
+            </label>
+            <button type="button" class="form-submit" id="sign-btn" disabled>assinar psbt</button>
+          </div>
 
           <p class="status-msg is-reserved" id="sign-status" role="status"></p>
 
@@ -2217,7 +2228,6 @@
             <pre class="code-block" id="sign-code"></pre>
           </div>
 
-          <button type="button" class="form-submit" id="sign-btn" disabled>assinar psbt</button>
           <div class="chips app-gap reveal-block keys-actions" role="group" aria-label="Limpar o PSBT">
             <button type="button" id="psbt-clear">limpar psbt</button>
           </div>
@@ -4571,25 +4581,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       if (psbtEl) psbtEl.focus();
     });
   }
-  /* Importar o PSBT de um arquivo é o mesmo caminho de digitar: o texto vai
-     para a caixa e a revisão roda em seguida, contra a chave já derivada. */
+  /* Importar o PSBT de um arquivo preenche a caixa somente leitura e dispara
+     a revisão em seguida, contra a chave já derivada. */
   var psbtFile = $('#psbt-file');
-  var psbtFileName = $('#psbt-file-name');
   function resetPsbtFile() {
     if (psbtFile) psbtFile.value = '';
-    if (psbtFileName) {
-      psbtFileName.textContent = 'nenhum arquivo';
-      psbtFileName.classList.add('is-empty');
-    }
   }
   if (psbtFile) {
     psbtFile.addEventListener('change', function () {
       var file = psbtFile.files && psbtFile.files[0];
       if (!file) { resetPsbtFile(); return; }
-      if (psbtFileName) {
-        psbtFileName.textContent = file.name;
-        psbtFileName.classList.remove('is-empty');
-      }
       var reader = new FileReader();
       reader.onload = function () {
         if (psbtEl) psbtEl.value = String(reader.result || '').trim();
