@@ -1686,6 +1686,24 @@
      empurrar o rodapé quando aparece; o recado de apoio segue com uma. */
   .status-msg.is-reserved { min-height: 3.3em; }
 
+  /* Saldo da carteira: fica logo abaixo do campo, centralizado e no
+     --success do recado positivo, porque é o resultado da consulta que deu
+     certo. O horário da última atualização acompanha na nota logo abaixo,
+     em --dim e no mesmo eixo. */
+  .wallet-balance {
+    margin: var(--space-5) 0 0;
+    color: var(--success);
+    font-size: var(--text-lg);
+    line-height: 1.65;
+    text-align: center;
+  }
+  .wallet-updated {
+    margin: 0;
+    text-align: center;
+  }
+  .wallet-balance[hidden],
+  .wallet-updated[hidden] { display: none; }
+
   /* O texto de apoio segue a cadência do manifesto; o vão até a ação fica com
      a margem do próprio botão, como no formulário de contato. */
   .support-text { margin: 0; }
@@ -1825,8 +1843,7 @@
     /* Na tabela de tipos, o saldo perde a largura fixa (o endereço ficaria
        com uma coluna apertada) e o tipo quebra em duas linhas. */
     #types-table .is-num { width: auto; white-space: normal; }
-    #types-table th:first-child,
-    #receive-table th:first-child { width: calc(12ch + 2 * var(--space-2)); }
+    #types-table th:first-child { width: calc(12ch + 2 * var(--space-2)); }
     #types-table th,
     #types-table td,
     #receive-table th,
@@ -2015,6 +2032,35 @@
   /* Todas as chaves ficam inteiras; as públicas levam o botão de copiar
      sob o valor. */
   .key-value { display: block; }
+  /* Endereços de recebimento da carteira: o mesmo desenho de leitura das
+     chaves públicas (rótulo em --dim à esquerda, valor sem moldura), mas
+     ocupando a coluna inteira e com o botão de copiar ao lado do endereço,
+     e não embaixo dele. A coluna do rótulo cabe o mais longo dos quatro
+     ("bip49 / p2sh-p2wpkh"); o endereço é a parte elástica, quebra dentro da
+     própria coluna e não empurra o botão para fora da tela. */
+  #receive-table.key-readout { width: 100%; }
+  #receive-table.key-readout tbody th {
+    width: 21ch;
+    white-space: normal;
+  }
+  .receive-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    align-items: baseline;
+  }
+  .receive-line code {
+    flex: 1 1 20ch;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .receive-line .key-action {
+    flex: 0 0 auto;
+    margin: 0;
+  }
+  @media (max-width: 520px) {
+    #receive-table.key-readout tbody th { width: 12ch; }
+  }
   .key-action[hidden] { display: none; }
   .key-action {
     display: block;

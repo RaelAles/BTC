@@ -7,11 +7,6 @@
   <meta name="description" content="Projeto 2 — Fase 1: xpub como credencial, endereços derivados na hora e saldo consultado em fontes públicas. Nada é guardado: nem a xpub, nem endereços. Sem chave privada.">
   <title>Projeto 2 — carteira</title>
   <link rel="stylesheet" href="/style.css">
-  <style>
-    /* Ajuste desta tela: os rótulos do key-readout são mais longos que os
-       do campo de xpub. */
-    .key-readout tbody th { width: 12ch; }
-  </style>
 </head>
 <body>
 <canvas id="grain" aria-hidden="true"></canvas>
@@ -55,18 +50,19 @@
                      pattern="^(xpub|zpub|ypub)[1-9A-HJ-NP-Za-km-z]+$" placeholder="xpub / zpub / ypub">
               <div class="edge" aria-hidden="true"></div>
             </div>
+            <p class="wallet-balance" id="v-total" hidden>—</p>
+            <p class="note wallet-updated" id="v-updated" hidden></p>
             <p class="status-msg is-reserved" id="status" role="status"></p>
           </form>
 
           <div id="out" hidden>
             <div class="rule rule-dots" aria-hidden="true"></div>
 
-            <table class="data-table key-readout" aria-label="saldo total da carteira">
-              <tbody>
-                <tr><th scope="row">saldo total</th><td id="v-total">—</td></tr>
-                <tr><th scope="row">atualizado</th><td id="v-updated">—</td></tr>
-              </tbody>
+            <table class="data-table key-readout" id="receive-table" aria-label="endereço de recebimento nunca usado, por tipo de conta">
+              <caption>receber</caption>
+              <tbody></tbody>
             </table>
+            <p class="note" id="receive-note">endereço nunca usado de cada tipo. <code>bc1q</code> é o mais aceito, <code>bc1p</code> exige pagador com taproot.</p>
 
             <table class="data-table" id="types-table" aria-label="tipo de conta, saldo e próximo endereço de recebimento">
               <thead>
@@ -78,18 +74,6 @@
               </thead>
               <tbody></tbody>
             </table>
-
-            <table class="data-table" id="receive-table" aria-label="endereço de recebimento nunca usado, por tipo de conta">
-              <caption>receber</caption>
-              <thead>
-                <tr>
-                  <th scope="col">tipo</th>
-                  <th scope="col">endereço</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-            <p class="note" id="receive-note">endereço nunca usado de cada tipo; clique para copiar. <code>bc1q</code> é o mais aceito, <code>bc1p</code> exige pagador com taproot.</p>
 
             <p class="note" id="v-warnings"></p>
           </div>
