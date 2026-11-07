@@ -1673,6 +1673,11 @@
      e-mail e mensagem numa frase. Ele reserva duas linhas para o texto não
      empurrar o rodapé quando aparece; o recado de apoio segue com uma. */
   .status-msg.is-reserved { min-height: 3.3em; }
+  /* Aqui o recado de sucesso não existe: quando a consulta dá certo, quem
+     confirma é o próprio saldo na tela. Por isso a reserva só vale quando
+     há texto; vazia, ela virava uma folga entre o campo e o separador da
+     seção, e o separador volta ao ritmo normal dos tokens. */
+  .status-msg.is-reserved:empty { min-height: 0; margin-top: 0; }
 
   /* Saldo da carteira: fica logo abaixo do campo, centralizado. Usa o
      --success do recado positivo, porque é o resultado da consulta que deu
