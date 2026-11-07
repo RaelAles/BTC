@@ -1921,6 +1921,37 @@
   }
   .bits-actions { justify-content: center; }
   .keys-actions { justify-content: center; }
+  /* Chaves no mesmo desenho dos binários: o rótulo no --dim à esquerda, o
+     valor no --fg à direita, na mesma largura de 28rem do tabuleiro, sem
+     moldura nem fio entre as linhas. A coluna do rótulo cabe os 12
+     caracteres de "bip86 · xprv" mais o vão; a chave privada segue
+     ofuscada, com o botão de mostrar/copiar sob o valor. */
+  .data-table.key-readout {
+    width: min(100%, 28rem);
+    margin: 0 auto var(--space-7);
+    table-layout: fixed;
+    font-size: var(--text-sm);
+  }
+  .key-readout th,
+  .key-readout td {
+    padding: 0;
+    border: 0;
+    vertical-align: top;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+  .key-readout tbody th {
+    width: 14ch;
+    padding-right: var(--space-3);
+    color: var(--dim);
+    font-weight: 400;
+    white-space: nowrap;
+  }
+  .key-readout tbody tr + tr th,
+  .key-readout tbody tr + tr td {
+    padding-top: var(--space-3);
+    border-top: 0;
+  }
   /* Chave privada ofuscada: as pontas ficam visíveis e a linha de pontos
      ocupa toda a largura que sobra da célula. As públicas ficam inteiras,
      com o botão de copiar. O botão das duas segue o padrão da página. */
@@ -2153,7 +2184,7 @@
             <h3><span class="prompt" aria-hidden="true">##</span> privadas</h3>
           </div>
           <div class="reveal-block">
-            <table class="data-table" id="keys-table" aria-label="chave privada">
+            <table class="data-table key-readout" id="keys-table" aria-label="chave privada">
               <tbody>
                 <tr><th scope="row">bip86 · xprv</th><td id="v-xprv" class="is-empty">—</td></tr>
               </tbody>
@@ -2165,7 +2196,7 @@
             <h3><span class="prompt" aria-hidden="true">##</span> públicas</h3>
           </div>
           <div class="reveal-block">
-            <table class="data-table" id="addr-table" aria-label="chave pública estendida">
+            <table class="data-table key-readout" id="addr-table" aria-label="chave pública estendida">
               <tbody>
                 <tr><th scope="row">bip86 · xpub</th><td id="v-xpub" class="is-empty">—</td></tr>
               </tbody>
@@ -2182,7 +2213,7 @@
               <h3><span class="prompt" aria-hidden="true">##</span> todas as chaves</h3>
             </div>
             <div class="reveal-block">
-              <table class="data-table" id="keys-table-all" aria-label="todas as chaves privadas">
+              <table class="data-table key-readout" id="keys-table-all" aria-label="todas as chaves privadas">
                 <tbody>
                   <tr><th scope="row">bip86 · xprv</th><td id="v-all-xprv" class="is-empty">—</td></tr>
                   <tr><th scope="row">bip84 · zprv</th><td id="v-bip84-prv" class="is-empty">—</td></tr>
@@ -2193,7 +2224,7 @@
             </div>
             <div class="keys-sep" aria-hidden="true"></div>
             <div class="reveal-block">
-              <table class="data-table" id="addr-table-all" aria-label="todas as chaves públicas estendidas">
+              <table class="data-table key-readout" id="addr-table-all" aria-label="todas as chaves públicas estendidas">
                 <tbody>
                   <tr><th scope="row">bip86 · xpub</th><td id="v-all-xpub" class="is-empty">—</td></tr>
                   <tr><th scope="row">bip84 · zpub</th><td id="v-bip84-pub" class="is-empty">—</td></tr>
