@@ -2185,7 +2185,6 @@
 
           <div class="prose reveal-block app-block">
             <h3><span class="prompt" aria-hidden="true">##</span> assinar psbt</h3>
-            <p>Cole o PSBT criado pelo projeto 2, ou importe o arquivo, em base64 ou hexadecimal. O arquivo confere cada entrada contra as contas BIP44/49/84/86 derivadas dos 256 bits, mostra valores, endereços, troco e taxa, e só então assina. Só <b>SIGHASH_ALL</b> (e o default do Taproot) é aceito; PSBT v2 e scripts que não sejam p2pkh, p2sh-p2wpkh, p2wpkh e p2tr são recusados.</p>
           </div>
 
           <div class="field-row">
@@ -2195,7 +2194,7 @@
           <div class="field-box reveal-block" id="psbt-box">
             <div class="edge" aria-hidden="true"></div>
             <textarea id="psbt" rows="6" spellcheck="false" autocomplete="off" autocapitalize="off"
-                      aria-describedby="psbt-hint psbt-meta"
+                      aria-describedby="psbt-meta"
                       placeholder="cHNidP8... (base64) ou 70736274ff... (hex)"></textarea>
             <div class="edge" aria-hidden="true"></div>
           </div>
@@ -2205,7 +2204,6 @@
             <span class="field-upload-pick">importar arquivo</span>
             <span class="field-upload-name is-empty" id="psbt-file-name" aria-live="polite">nenhum arquivo</span>
           </label>
-          <p class="note app-gap" id="psbt-hint">Espaços e quebras de linha são ignorados. O PSBT precisa trazer a transação não assinada (v0) e, em cada entrada, o <b>witness_utxo</b> — e o <b>non_witness_utxo</b> nas entradas p2pkh — com o valor e o script do UTXO gasto. A derivação BIP32 na entrada é opcional: sem ela, a chave é procurada nas duas cadeias de cada conta até o índice 99.</p>
 
           <p class="status-msg is-reserved" id="sign-status" role="status"></p>
 
@@ -2238,12 +2236,6 @@
               <button type="button" id="copy-signed-tx">copiar transação</button>
             </div>
             <p class="note app-gap" id="signed-meta"></p>
-          </div>
-
-          <div class="prose reveal-block app-block">
-            <h3><span class="prompt" aria-hidden="true">##</span> como a revisão funciona</h3>
-            <p>O <b>sighash</b> é calculado aqui: BIP143 no segwit v0, BIP341 no Taproot (chave ajustada por TapTweak) e o formato legado no p2pkh. As assinaturas são ECDSA determinística (RFC 6979, S baixo) e Schnorr BIP340, e cada uma é verificada antes de entrar no PSBT.</p>
-            <p>Saídas para <b>/1/*</b> são marcadas como troco e saídas para <b>/0/*</b> como recebimento; qualquer outro destino aparece como externo e vira aviso. O app não monta transação, não busca UTXOs, não valida consenso e não transmite nada: a transação final sai daqui para o projeto 2 publicar.</p>
           </div>
         </section>
 
