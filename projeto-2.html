@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2e2d2b">
-<meta name="description" content="Esboço do projeto 2: deriva endereços Taproot da xpub da conta bip86, consulta o histórico no Blockstream Esplora (com fallback para mempool.space), monta PSBT v0 e confere/transmite o PSBT assinado. Sem rede privada, sem estado.">
+<meta name="description" content="Esboço do projeto 2: deriva endereços Taproot da xpub da conta bip86, detecta o tipo da conta (bip44/p2pkh via blockchain.info ou bip86/p2tr via Blockstream Esplora), mostra saldo total, histórico, monta PSBT v0 e confere/transmite o PSBT assinado. Sem rede privada, sem estado.">
 <title>Transação BTC - esboço</title>
 <style>
 /* Fonte embutida do projeto.
@@ -2123,6 +2123,8 @@
       <button type="button" data-screen="enviar">enviar</button>
       <span class="dot-sep" aria-hidden="true">·</span>
       <button type="button" data-screen="assinar">assinar</button>
+      <span class="dot-sep" aria-hidden="true">·</span>
+      <button type="button" data-screen="historico">histórico</button>
     </nav>
 
     <div class="edge" aria-hidden="true"></div>
@@ -2137,15 +2139,27 @@
           <pre class="rule" aria-hidden="true"></pre>
 
           <div class="prose app-block">
-            <p>Este esboço deriva endereços Taproot da xpub da conta <b>bip86</b> exibida pela ferramenta 1, consulta o histórico no Blockstream Esplora (com fallback para o mempool.space) e monta o PSBT. Nada é salvo: cada abertura começa vazia.</p>
+            <p>Este esboço deriva endereços da xpub, detecta o tipo da conta e mostra saldo e histórico. Para <b>bip44 (p2pkh)</b> usa o blockchain.info; para <b>bip86 (p2tr)</b> usa o Blockstream Esplora (com fallback para o mempool.space). Nada é salvo: cada abertura começa vazia.</p>
             <p class="note">Se o navegador bloquear a consulta por CORS ao abrir o arquivo direto, sirva a pasta com <code>python3 -m http.server</code> e abra <code>http://localhost:8000/projeto-2.html</code>.</p>
           </div>
 
           <form id="wallet-form" class="app-block">
-            <label class="field-label" for="xpub">xpub da conta bip86</label>
+            <label class="field-label" for="xpub">xpub da conta</label>
             <div class="field-box">
               <div class="edge" aria-hidden="true"></div>
               <input id="xpub" name="xpub" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="xpub...">
+              <div class="edge" aria-hidden="true"></div>
+            </div>
+            <div class="field-row">
+              <label class="field-label" for="account-type">tipo de conta</label>
+            </div>
+            <div class="field-box">
+              <div class="edge" aria-hidden="true"></div>
+              <select id="account-type">
+                <option value="auto" selected>automático (detecta)</option>
+                <option value="bip44">bip44 · legacy (p2pkh)</option>
+                <option value="bip86">bip86 · taproot (p2tr)</option>
+              </select>
               <div class="edge" aria-hidden="true"></div>
             </div>
             <div class="field-row">
@@ -2175,6 +2189,9 @@
               </tbody>
             </table>
             <p class="note" id="wallet-note"></p>
+            <div class="chips app-gap">
+              <button type="button" id="open-history">ver histórico completo</button>
+            </div>
 
             <div id="used-wrap" hidden>
               <div class="prose app-block">
@@ -2299,6 +2316,19 @@
             <p class="status-msg is-reserved" id="broadcast-status" role="status"></p>
             <p><a id="tx-link" hidden href="#">ver no mempool</a></p>
           </div>
+        </section>
+
+        <section class="screen" id="screen-historico" hidden aria-labelledby="head-historico">
+          <h2 id="head-historico" tabindex="-1">HISTÓRICO</h2>
+          <pre class="rule" aria-hidden="true"></pre>
+
+          <p class="note" id="history-summary">carregue a carteira para ver o histórico.</p>
+
+          <table class="data-table" id="history-table" aria-label="endereços usados e saldos">
+            <thead><tr><th scope="col">caminho</th><th scope="col">endereço</th><th scope="col" class="is-num">saldo</th><th scope="col" class="is-num">receb.</th><th scope="col" class="is-num">txs</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <p class="list-empty" id="history-empty" hidden>[ vazio ] nenhum endereço usado.</p>
         </section>
 
       </div>
@@ -2984,20 +3014,11 @@ var BTC = (function () {
   }
   async function accountFor(master, def) {
     var node = await derivePath(master, def.path);
-    var child = await ckdPriv(node, 0);
-    child = await ckdPriv(child, 0);
-    var Q = pointFromD(child.d);
-    var changeChild = await ckdPriv(node, 1);
-    changeChild = await ckdPriv(changeChild, 0);
-    var changeQ = pointFromD(changeChild.d);
     return {
       id: def.id, kind: def.kind, path: def.path,
       xprv: extendedKey(def.xprv, node, true),
       xpub: extendedKey(def.xpub, node, false),
-      node: node,
-      receiveAddress: addressFor(def.kind, Q), receiveWif: wif(child.d, true),
-      changeAddress: addressFor(def.kind, changeQ),
-      key: { d: child.d, Q: Q, hex: bytesToHex(pad32(child.d)), wifCompressed: wif(child.d, true) }
+      node: node
     };
   }
   async function deriveHD(bits) {
@@ -3014,7 +3035,7 @@ var BTC = (function () {
     return {
       bits: bits, mnemonic: mnemonic, seed: seed, master: master,
       fingerprint: fingerprint,
-      accounts: accounts, primary: accounts.bip86, signingKey: accounts.bip86.key
+      accounts: accounts, primary: accounts.bip86
     };
   }
 
@@ -3845,6 +3866,9 @@ var BTC = (function () {
   var state = {
     busy: false,
     providerIndex: 0,
+    accountType: 'auto',
+    detectedType: null,
+    bip44: null,
     xpub: null,
     account: null,
     chainNodes: null,
@@ -3994,6 +4018,9 @@ var BTC = (function () {
   function p2trAddress(node) {
     var out = BTC.taprootOutputKey(node.pub.subarray(1));
     return BTC.segwitAddress('bc', 1, out);
+  }
+  function p2pkhAddress(node) {
+    return BTC.base58check(BTC.concatBytes(Uint8Array.of(0x00), BTC.hash160(node.pub)));
   }
 
   /* ------------------------------------------------------------- endereços */
@@ -4205,7 +4232,8 @@ var BTC = (function () {
       if (txCount > 0) {
         lastUsed = i;
         consecutive = 0;
-        used.push({ chain: chain, index: i, node: node, address: addr, txCount: txCount, balance: balance });
+        used.push({ chain: chain, index: i, node: node, address: addr, txCount: txCount, balance: balance,
+          received: BigInt(s.chain_stats.funded_txo_sum) + BigInt(s.mempool_stats.funded_txo_sum) });
       } else {
         consecutive++;
       }
@@ -4267,6 +4295,8 @@ var BTC = (function () {
     state.childCache = null;
     state.scan = null;
     state.utxos = [];
+    state.detectedType = null;
+    state.bip44 = null;
     state.rehearsal = false;
     state.draft = null;
     state.signed = null;
@@ -4278,7 +4308,7 @@ var BTC = (function () {
     if (sign) sign.hidden = true;
   }
 
-  async function loadWallet(xpubText, rehearsal, feeOverride) {
+  async function loadWallet(xpubText, rehearsal, feeOverride, forceType) {
     if (state.busy) return;
     state.busy = true;
     try {
@@ -4299,6 +4329,26 @@ var BTC = (function () {
         loadFees().then(function (f) { state.fees = f; renderFeeOptions(); }).catch(function () {});
       }
 
+      state.accountType = state.rehearsal ? 'bip86' : (forceType || 'auto');
+      if (!state.rehearsal && state.accountType !== 'bip86') {
+        var b44 = null;
+        try {
+          b44 = await fetchBip44(String(xpubText).trim());
+        } catch (e) {
+          if (state.accountType === 'bip44') throw e;
+        }
+        if (b44 && (state.accountType === 'bip44' || (Number(b44.n_tx) || 0) > 0 || (Number(b44.final_balance) || 0) > 0)) {
+          state.detectedType = 'bip44';
+          state.bip44 = parseBip44(b44, String(xpubText).trim());
+          await renderBip44Wallet();
+          return;
+        }
+        if (state.accountType === 'bip44') {
+          throw new Error('não foi possível consultar a conta bip44 no blockchain.info');
+        }
+      }
+      state.detectedType = 'bip86';
+
       await renderBaseWallet();
 
       if (state.rehearsal) {
@@ -4313,7 +4363,11 @@ var BTC = (function () {
         };
         var raw = BTC.writeTx(fund, false);
         var txid = BTC.txidOf(fund);
-        state.scan = { 0: { used: [], next: 0, queries: 0 }, 1: { used: [], next: 0, queries: 0 } };
+        state.scan = {
+          0: { used: [{ chain: 0, index: 0, node: node, address: p2trAddress(node), txCount: 1,
+            balance: 100000n, received: 100000n }], next: 1, queries: 0 },
+          1: { used: [], next: 0, queries: 0 }
+        };
         state.utxos = [{
           txid: txid, vout: 0, value: 100000n, script: script, node: node,
           chain: 0, index: 0, address: p2trAddress(node), fake: true
@@ -4351,6 +4405,136 @@ var BTC = (function () {
     }
   }
 
+  async function fetchBip44(xpubText) {
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, 20000);
+    try {
+      var url = 'https://blockchain.info/xpub/' + encodeURIComponent(xpubText) + '?format=json';
+      var r = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
+      if (!r.ok) throw new Error('blockchain.info: HTTP ' + r.status);
+      var j = await r.json();
+      if (!j || typeof j.final_balance !== 'number') throw new Error('blockchain.info: resposta inesperada');
+      return j;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function parseBip44(j, xpubText) {
+    var by = {};
+    (j.txs || []).forEach(function (tx) {
+      (tx.out || []).forEach(function (o) {
+        var x = o.xpub;
+        if (!x || x.m !== xpubText || !x.path) return;
+        var m = /^M\/(\d+)\/(\d+)$/.exec(x.path);
+        if (!m) return;
+        var chain = Number(m[1]), index = Number(m[2]);
+        var key = chain + ':' + index;
+        var e = by[key] || {
+          chain: chain, index: index, address: o.addr,
+          balance: 0n, received: 0n, hashes: {}
+        };
+        e.received += BigInt(o.value || 0);
+        if (!o.spent) e.balance += BigInt(o.value || 0);
+        e.hashes[tx.hash] = 1;
+        by[key] = e;
+      });
+    });
+    var list = Object.keys(by).map(function (k) {
+      var e = by[k];
+      e.txCount = Object.keys(e.hashes).length;
+      delete e.hashes;
+      return e;
+    });
+    list.sort(function (a, b) { return a.chain - b.chain || a.index - b.index; });
+    var max0 = -1, max1 = -1, sum = 0n;
+    list.forEach(function (e) {
+      sum += e.balance;
+      if (e.chain === 0) max0 = Math.max(max0, e.index);
+      else max1 = Math.max(max1, e.index);
+    });
+    return {
+      finalBalance: BigInt(j.final_balance),
+      totalReceived: BigInt(j.total_received || 0),
+      nTx: Number(j.n_tx) || 0,
+      addresses: list,
+      usedReceive: list.filter(function (e) { return e.chain === 0; }).length,
+      usedChange: list.filter(function (e) { return e.chain === 1; }).length,
+      nextReceive: max0 + 1,
+      nextChange: max1 + 1,
+      sumBalances: sum,
+      source: 'blockchain.info'
+    };
+  }
+
+  async function renderBip44Wallet() {
+    var b = state.bip44;
+    if (!b) return;
+    var recvNode = await getChild(0, b.nextReceive);
+    var changeNode = await getChild(1, b.nextChange);
+    $('#wallet-out').hidden = false;
+    $('#receive-address').textContent = p2pkhAddress(recvNode);
+    $('#wallet-balance').textContent = fmtBtc(b.finalBalance) + ' BTC · ' + fmtInt(b.finalBalance) + ' sats';
+    $('#wallet-used').textContent = b.usedReceive + ' recebimento · ' + b.usedChange + ' troco';
+    $('#wallet-change').textContent = "m/44'/0'/0'/1/" + b.nextChange + ' · ' + p2pkhAddress(changeNode);
+    $('#wallet-note').textContent = 'tipo detectado: bip44 (p2pkh) · fonte blockchain.info · ' +
+      b.addresses.length + ' endereços usados · ' + b.nTx + ' transações.';
+    $('#send-balance').textContent = 'disponível: ' + fmtBtc(b.finalBalance) +
+      ' BTC · o envio de conta bip44 ainda não está implementado neste esboço.';
+    setStatus($('#wallet-status'), 'ok', 'conta bip44 carregada: ' + fmtBtc(b.finalBalance) +
+      ' BTC · ' + b.addresses.length + ' endereços usados · fonte blockchain.info.');
+    var wrap = $('#used-wrap');
+    if (wrap) wrap.hidden = true;
+    renderHistory();
+    updateScrollState();
+  }
+
+  function renderHistory() {
+    var rows = [], summary = '';
+    if (state.detectedType === 'bip44' && state.bip44) {
+      var b = state.bip44;
+      summary = 'tipo: bip44 (p2pkh) · total ' + fmtBtc(b.finalBalance) + ' BTC · ' +
+        b.addresses.length + ' endereços usados · fonte blockchain.info';
+      if (b.sumBalances !== b.finalBalance) {
+        summary += ' · soma dos endereços: ' + fmtBtc(b.sumBalances) + ' BTC';
+      }
+      b.addresses.forEach(function (e) {
+        rows.push({ chain: e.chain, index: e.index, address: e.address, balance: e.balance,
+          received: e.received, txCount: e.txCount });
+      });
+    } else if (state.scan) {
+      var all = state.scan[0].used.concat(state.scan[1].used);
+      var total = 0n;
+      all.forEach(function (e) { total += e.balance; });
+      summary = 'tipo: bip86 (p2tr) · saldo ' + fmtBtc(total) + ' BTC · ' +
+        all.length + ' endereços usados · fonte ' + providerAt(0).name + ' · gap de ' + GAP;
+      all.forEach(function (e) {
+        rows.push({ chain: e.chain, index: e.index, address: e.address, balance: e.balance,
+          received: e.received || 0n, txCount: e.txCount });
+      });
+    }
+    var sum = $('#history-summary');
+    if (sum) sum.textContent = summary || 'carregue a carteira para ver o histórico.';
+    var body = $('#history-table tbody');
+    if (!body) return;
+    body.innerHTML = '';
+    var empty = $('#history-empty');
+    if (!rows.length) {
+      if (empty) empty.hidden = false;
+      return;
+    }
+    if (empty) empty.hidden = true;
+    rows.forEach(function (r) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + (r.chain === 1 ? 'troco ' : '') + '/' + r.chain + '/' + r.index + '</td>' +
+        '<td><code>' + esc(r.address) + '</code></td>' +
+        '<td class="is-num">' + fmtInt(r.balance) + '</td>' +
+        '<td class="is-num">' + fmtInt(r.received) + '</td>' +
+        '<td class="is-num">' + r.txCount + '</td>';
+      body.appendChild(tr);
+    });
+  }
+
   async function renderBaseWallet() {
     if (!state.account || !state.childCache) return;
     var recvNode = await getChild(0, 0);
@@ -4382,7 +4566,7 @@ var BTC = (function () {
     $('#wallet-balance').textContent = fmtBtc(total) + ' BTC · ' + fmtInt(total) + ' sats';
     $('#wallet-used').textContent = state.scan[0].used.length + ' recebimento · ' + state.scan[1].used.length + ' troco';
     $('#wallet-change').textContent = "m/86'/0'/0'/1/" + state.scan[1].next + ' · ' + change;
-    var note = 'varredura: ' + (state.scan[0].queries + state.scan[1].queries) +
+    var note = 'tipo: bip86 (p2tr) · varredura: ' + (state.scan[0].queries + state.scan[1].queries) +
       ' consultas · gap de ' + GAP + ' endereços';
     if (!state.rehearsal) note += ' · fonte: ' + providerAt(0).name;
     note += '.';
@@ -4412,6 +4596,7 @@ var BTC = (function () {
     } else {
       wrap.hidden = true;
     }
+    renderHistory();
     updateSendHint();
     updateScrollState();
   }
@@ -4494,6 +4679,7 @@ var BTC = (function () {
   }
 
   async function buildDraft(opts) {
+    if (state.detectedType === 'bip44') throw new Error('o envio de conta bip44 ainda não está implementado neste esboço');
     if (!state.account) throw new Error('carregue a carteira primeiro');
     if (!state.scan) throw new Error('o saldo ainda não foi consultado; recarregue a carteira');
     var address = String(opts.address || '').trim();
@@ -4824,7 +5010,7 @@ var BTC = (function () {
 
   /* ------------------------------------------------------------------ UI */
   function showScreen(name) {
-    var names = ['carteira', 'enviar', 'assinar'];
+    var names = ['carteira', 'enviar', 'assinar', 'historico'];
     if (names.indexOf(name) < 0) name = 'carteira';
     names.forEach(function (n) {
       var sec = $('#screen-' + n);
@@ -4919,7 +5105,7 @@ var BTC = (function () {
     $('#wallet-form').addEventListener('submit', function (ev) {
       ev.preventDefault();
       setStatus($('#wallet-status'), '', 'carregando carteira…');
-      loadWallet($('#xpub').value, $('#rehearsal').checked).catch(function () {});
+      loadWallet($('#xpub').value, $('#rehearsal').checked, null, $('#account-type').value).catch(function () {});
     });
     $('#rehearsal').addEventListener('change', function () {
       setStatus($('#wallet-status'), '', $('#rehearsal').checked
@@ -4986,6 +5172,8 @@ var BTC = (function () {
       });
     });
 
+    var openHistory = $('#open-history');
+    if (openHistory) openHistory.addEventListener('click', function () { showScreen('historico'); });
     $('#copy-receive').addEventListener('click', function () {
       copyFrom('receive-address', $('#wallet-status'));
     });
@@ -5018,6 +5206,7 @@ var BTC = (function () {
     });
     showScreen('carteira');
     renderFeeOptions();
+    renderHistory();
   }
 
   window.D2 = {
