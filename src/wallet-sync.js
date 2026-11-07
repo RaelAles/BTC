@@ -10,7 +10,7 @@ import { historiesMany, transactionsMany } from './electrum.js';
 import { totalsForScripts } from './address-totals.js';
 import BTC from './btc-core.js';
 
-export const GAP = 20;
+export const DEFAULT_GAP = 20;
 export const TYPES = ['bip86', 'bip84', 'bip49', 'bip44'];
 
 const TX_CACHE_CHUNK = 80;
@@ -127,13 +127,14 @@ async function saveTxs(env, hash, items) {
 /* ---------- scanner ---------- */
 
 export class WalletScanner {
-  constructor({ env, xpub, account, hash, client, maxScan }) {
+  constructor({ env, xpub, account, hash, client, maxScan, gap }) {
     this.env = env;
     this.xpub = xpub;
     this.account = account;
     this.hash = hash;
     this.client = client;
-    this.maxScan = Math.max(GAP, Number(maxScan) || 400);
+    this.gap = Math.max(1, Number(gap) || DEFAULT_GAP);
+    this.maxScan = Math.max(this.gap, Number(maxScan) || 400);
     this.rows = new Map();
     this.chainNodes = new Map();
     this.byScript = new Map();
@@ -221,7 +222,7 @@ export class WalletScanner {
   }
 
   /* Consulta o que já está no D1 (quando `requery`) e estende cada ramo até
-     GAP endereços sem uso, com as extensões de todos os ramos numa rodada.
+     `gap` endereços sem uso, com as extensões de todos os ramos numa rodada.
      Devolve as linhas novas (para o DO assinar). */
   async ensureGap(requery) {
     if (requery) await this.queryRows([...this.byScript.values()]);
@@ -232,9 +233,9 @@ export class WalletScanner {
         for (const chain of [0, 1]) {
           const rows = this.rows.get(rowKey(type, chain));
           const { lastUsed, maxIdx } = this.lastUsedOf(rows);
-          if (maxIdx - lastUsed >= GAP) continue;
+          if (maxIdx - lastUsed >= this.gap) continue;
           const from = maxIdx + 1;
-          const to = Math.min(lastUsed + GAP, this.maxScan - 1);
+          const to = Math.min(lastUsed + this.gap, this.maxScan - 1);
           if (from > to) {
             const msg = 'ramo ' + type + '/' + chain + ' parou no teto de ' +
               this.maxScan + ' endereços (último usado: ' + lastUsed + ')';

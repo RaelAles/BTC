@@ -66,6 +66,7 @@ export class WalletWatcher {
     this.client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
     this.client.onNotification = (method, params) => this.onNotify(method, params);
     this.subs.clear(); // conexão nova: precisa reassinar
+    this.gap = cfg.gap;
     this.maxScan = cfg.maxScan;
     return this.client;
   }
@@ -90,6 +91,7 @@ export class WalletWatcher {
       account: this.account,
       hash: this.hash,
       client,
+      gap: this.gap,
       maxScan: this.maxScan
     }).init();
     return this.scanner;

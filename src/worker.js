@@ -17,13 +17,29 @@ import { WalletWatcher } from './watcher.js';
 
    Sem chave privada em lugar nenhum. */
 
+/* Mensagem melhor para o que costuma ser colado no lugar da xpub. */
+function xpubHint(value) {
+  const s = String(value || '').trim();
+  if (/^(xprv|yprv|zprv)/.test(s)) {
+    return 'isso é uma chave privada (xprv/yprv/zprv). Nunca cole a privada aqui: o projeto é watch-only.';
+  }
+  if (/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{20,}$/.test(s)) {
+    return 'isso é um endereço Bitcoin, não uma xpub. Use a chave estendida pública da conta (xpub/zpub/ypub).';
+  }
+  if (!/^(xpub|ypub|zpub)/.test(s)) {
+    return 'a chave precisa começar com xpub, zpub ou ypub (chave estendida pública da conta).';
+  }
+  return null;
+}
+
 async function handleWallet(request, env) {
   let body;
   try { body = await request.json(); } catch (e) { return fail('json inválido'); }
   const xpub = String(body.xpub || '').trim();
   if (!xpub) return fail('informe a xpub');
   let account;
-  try { account = parseXpub(xpub); } catch (e) { return fail(e.message); }
+  try { account = parseXpub(xpub); }
+  catch (e) { return fail(xpubHint(xpub) || e.message); }
   const hash = await sha256Hex(xpub);
 
   if (env.WATCH) {
@@ -49,7 +65,7 @@ async function handleWallet(request, env) {
   }
   try {
     const scanner = await new WalletScanner({
-      env, xpub, account, hash, client, maxScan: cfg.maxScan
+      env, xpub, account, hash, client, gap: cfg.gap, maxScan: cfg.maxScan
     }).init();
     const payload = await scanner.fullSync();
     return json(Object.assign({}, payload, { watch: false }));

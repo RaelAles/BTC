@@ -28,13 +28,17 @@ por WebSocket, sem polling.
 
 ## O que o Worker faz
 
-- `POST /api/wallet` com `{ "xpub": "xpub..." }`.
+- `POST /api/wallet` com `{ "xpub": "xpub..." }` — só chave estendida
+  pública da conta (`xpub`, `zpub` ou `ypub`). Endereço Bitcoin, chave
+  privada (`xprv`/`yprv`/`zprv`) ou texto solto são recusados com mensagem
+  específica, no navegador e no Worker, antes de qualquer consulta.
 - Detecta o tipo da conta sem depender de outra fonte: `zpub` → bip84,
   `ypub` → bip49; `xpub` → varre os quatro tipos e escolhe o primeiro com
   histórico (bip44, bip86, bip84, bip49, nessa ordem).
-- **Varredura com gap de 20**: deriva `/0/i` e `/1/i`, consulta o histórico
-  de cada endereço e só para depois de 20 endereços seguidos sem uso (teto
-  configurável em `SCAN_MAX`). O próximo endereço é `último usado + 1`.
+- **Varredura com gap** (`SCAN_GAP`, padrão 20): deriva `/0/i` e `/1/i`,
+  consulta o histórico de cada endereço e só para depois de N endereços
+  seguidos sem uso (teto por ramo em `SCAN_MAX`). O próximo endereço é
+  `último usado + 1`.
 - **Saldo por UTXO**: baixa as transações cruas dos endereços usados, faz o
   parse local e soma saídas que pagam a carteira menos as saídas já gastas.
   `recebido` é a soma das saídas, `enviado` a soma das gastas; mempool entra
@@ -71,6 +75,7 @@ Variáveis (`wrangler.jsonc` → `vars`, ou pelo dashboard):
 | --- | --- | --- |
 | `ELECTRUM_SERVERS` | `electrum.blockstream.info:50002:tls, blockstream.info:700:tls, electrum.diynodes.com:50022:tls` | lista `host:porta[:tls\|:tcp]`; `off` desliga (a API responde 503) |
 | `ELECTRUM_TIMEOUT_MS` | `8000` | timeout por pedido |
+| `SCAN_GAP` | `20` | **faixa de gap**: endereços seguidos sem uso que encerram a varredura de um ramo (1..500) |
 | `SCAN_MAX` | `400` | teto de endereços por ramo; ao bater, a varredura para e avisa |
 
 Os três servidores do padrão foram testados com `server.version`,
@@ -80,6 +85,38 @@ certificado auto-assinado (bitcoin.lu.ke, electrum.emzy.de, …) não servem via
 TLS aqui.
 
 `GET /api/health` mostra a configuração efetiva.
+
+## Faixa de gap
+
+Vale **por ramo** (tipo de conta × cadeia: 4 tipos × recebimento/troco = 8
+ramos). Em cada ramo a varredura começa no índice 0 e só para depois de
+`SCAN_GAP` endereços consecutivos sem uso — "usado" é ter alguma entrada em
+`get_history`/`get_mempool`, então um endereço que recebeu e gastou tudo
+continua contando.
+
+- os 8 ramos são estendidos na mesma rodada, em um lote de requisições;
+- endereço já derivado não é derivado de novo: a extensão cria só os índices
+  novos (a cauda de gap e os usados ficam gravados no D1);
+- o próximo endereço de cada ramo é `último usado + 1`;
+- ao encostar em `SCAN_MAX`, o ramo para e devolve aviso em `warnings`.
+
+Custo por varredura completa (8 ramos × gap × 2 pedidos: `get_history` +
+`get_mempool`):
+
+| `SCAN_GAP` | endereços consultados | pedidos | tempo medido/típico |
+| --- | --- | --- | --- |
+| 20 | ~160 | ~320 | 2–4 s |
+| 50 | ~400 | ~800 | 5–8 s |
+| 100 | ~800 | ~1.600 | 10–15 s |
+
+A faixa maior serve para um caso específico: a mesma xpub já foi usada em
+outro aplicativo que distribuiu endereços além da faixa conhecida. O preço é
+linear no tempo de varredura e no número de assinaturas em tempo real. O
+padrão desta implantação está em `SCAN_GAP` no `wrangler.jsonc` (hoje 50);
+o padrão do código, se a variável não existir, é 20 (convenção BIP/Electrum).
+Aviso: endereço **fora** da faixa continua invisível — com `SCAN_GAP` menor
+isso acontece mais cedo (um pagamento no índice 7 de um ramo com gap 5 e
+nenhum uso anterior não aparece).
 
 ## Tempo real (Durable Object)
 
@@ -143,10 +180,12 @@ backend de Durable Object disponível no plano free).
   de todos os endereços conhecidos (usados + cauda de gap). Com tempo real, a
   atualização por aviso consulta só o endereço avisado; a varredura completa
   acontece ao abrir a tela ou ao pedir atualizar.
-- **Custo medido** (xpub de teste, 29 endereços usados, 34 transações):
-  3,9 s na primeira consulta e ~1,5–2,3 s nas seguintes no `wrangler dev`,
-  já com o cache do D1 (nessa xpub a varredura chega ao índice 131 do bip44).
-  O aviso de mudança custa 2 pedidos + as transações novas.
+- **Custo medido** (xpub de teste, 29 endereços usados, 34 transações,
+  `wrangler dev` + Electrum real): com `SCAN_GAP=20`, 3,9 s na primeira
+  consulta e ~1,5–2,3 s nas seguintes; com `SCAN_GAP=50` (o valor deployado),
+  5,8 s para estender a faixa e 2,3 s nas seguintes — 561 endereços gravados,
+  cauda de 50 em todos os ramos. O aviso de mudança custa 2 pedidos + as
+  transações novas.
 - **CPU**: a primeira varredura deriva algumas centenas de endereços. Cabe
   nos 30 s de CPU do plano pago (US$ 5/mês); no free (10 ms) não cabe.
   Depois do primeiro scan, as atualizações praticamente não derivam.
@@ -336,8 +375,10 @@ fecha.
 O `worker.test.mjs` monta transações com o próprio `btc-core` e cobre:
 endereço que recebeu e gastou (`recebido 10000 / enviado 10000 / saldo 0`),
 endereço que só recebeu, próximo índice, mempool no saldo, união dos tipos,
-reuso do cache de transações (nenhum `transaction.get` repetido) e ausência
-de fallback quando o Electrum não responde.
+reuso do cache de transações (nenhum `transaction.get` repetido), ausência
+de fallback quando o Electrum não responde, recusa de endereço/xprv/texto
+solto antes de consultar e a faixa de gap vinda de `SCAN_GAP` (padrão 20,
+40 linhas com gap 5 numa carteira vazia).
 
 ## Verificado no runtime de verdade
 

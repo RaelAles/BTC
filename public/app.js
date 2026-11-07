@@ -33,6 +33,25 @@
   function fmtInt(v) {
     return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   }
+  /* Só chave estendida pública da conta (xpub/zpub/ypub). Endereço, chave
+     privada, seed ou fragmento erram antes de sair da tela. */
+  var EXT_PUBLIC = /^(xpub|ypub|zpub)[1-9A-HJ-NP-Za-km-z]{100,120}$/;
+  var EXT_PRIVATE = /^(xprv|yprv|zprv)/;
+  function xpubProblem(value) {
+    var s = String(value || '').trim();
+    if (!s) return 'cole a xpub da conta.';
+    if (EXT_PRIVATE.test(s)) {
+      return 'isso é uma chave privada (xprv/yprv/zprv). Nunca cole a privada aqui: o projeto só consulta.';
+    }
+    if (/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{20,}$/.test(s)) {
+      return 'isso é um endereço Bitcoin, não uma xpub. Use a chave que a carteira exporta como xpub/zpub/ypub.';
+    }
+    if (!EXT_PUBLIC.test(s)) {
+      return 'a xpub começa com xpub, zpub ou ypub e tem ~111 caracteres. Confira se copiou a chave da conta (não a raiz).';
+    }
+    return '';
+  }
+
   function fmtBtc(sats) {
     var n = Number(sats) || 0;
     var neg = n < 0;
@@ -114,8 +133,9 @@
 
   async function load(quiet) {
     var xpub = $('#xpub').value.trim();
-    if (!xpub) {
-      setStatus('error', 'cole a xpub da conta.');
+    var problem = xpubProblem(xpub);
+    if (problem) {
+      setStatus('error', problem);
       return;
     }
     if (state.busy) return;

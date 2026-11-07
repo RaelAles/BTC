@@ -158,4 +158,59 @@ setConnectOverride(nodeConnect);
   console.log('ok   sem Electrum a resposta é erro claro (nenhum fallback)');
 }
 
+/* ---------------- 4. entrada recusada: endereço, xprv, lixo ---------------- */
+{
+  const db = new DB();
+  const address = await run('1BER6NT4aokSqpPXeWookR9z95huQ2qHwy', db);
+  assert.equal(address.status, 400);
+  assert.match(address.j.error, /endereço Bitcoin, não uma xpub/);
+
+  const xprv = 'xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi';
+  const priv = await run(xprv, db);
+  assert.equal(priv.status, 400);
+  assert.match(priv.j.error, /chave privada/);
+
+  const junk = await run('minha chave 123', db);
+  assert.equal(junk.status, 400);
+  assert.match(junk.j.error, /xpub, zpub ou ypub/);
+
+  assert.equal(db.addresses.length, 0, 'nada é gravado antes de validar');
+  console.log('ok   entrada recusada antes de consultar (endereço, xprv, texto solto)');
+}
+
+/* ---------------- 5. faixa de gap configurável ---------------- */
+{
+  const fake = await startFakeElectrum({});
+  const env5 = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000', SCAN_GAP: '5' };
+  const db = new DB();
+  const r = await run(USER, db, env5);
+  assert.equal(r.status, 200);
+  assert.equal(db.addresses.length, 40, 'carteira vazia: 8 ramos × gap 5');
+  assert.equal(r.j.receive.path, "m/86'/0'/0'/0/0");
+
+  // atividade no índice 2 de bip84/0 (dentro da faixa): ramo vai até 2 + gap 5
+  const a2 = await addr('bip84', 0, 2);
+  const tx = makeTx([{ txid: '04'.repeat(32), vout: 0 }], [{ value: 1234, script: a2.script }]);
+  const fake2 = await startFakeElectrum({
+    histories: { [scripthash(a2.script)]: [{ height: 700000, tx_hash: tx.txid }] },
+    txs: { [tx.txid]: tx.raw }
+  });
+  const db2 = new DB();
+  const r2 = await run(USER, db2, {
+    ELECTRUM_SERVERS: '127.0.0.1:' + fake2.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000', SCAN_GAP: '5'
+  });
+  const branch = db2.addresses.filter(a => a.account_type === 'bip84' && a.chain === 0);
+  assert.equal(branch.length, 8, 'índice 2 usado + 5 de cauda = 0..7');
+  assert.equal(branch.find(a => a.idx === 2).balance, 1234);
+  assert.equal(r2.j.receive.address, (await addr('bip84', 0, 3)).address);
+
+  const env20 = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
+  const db3 = new DB();
+  await run(USER, db3, env20);
+  assert.equal(db3.addresses.length, 160, 'padrão continua 20 por ramo');
+  console.log('ok   faixa de gap vem do ambiente (SCAN_GAP), com padrão 20');
+  await fake.close();
+  await fake2.close();
+}
+
 console.log('\ntestes do worker passaram');
