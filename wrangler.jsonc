@@ -11,6 +11,8 @@
     {
       "binding": "DB",
       "database_name": "btc-projeto-2",
+      // Troque pelo UUID do D1 criado no painel (Storage & Databases → D1 →
+      // btc-projeto-2). Com o placeholder o deploy falha com o erro 10021.
       "database_id": "COLE_O_ID_DA_D1_AQUI"
     }
   ],
