@@ -91,10 +91,36 @@ const watcher = new WalletWatcher(fakeState(), env);
   assert.equal(payload.balance.detected, 10000);
   assert.equal(payload.xpub_hash, undefined, 'nem o hash da xpub é devolvido');
   const subs = fake.count('blockchain.scripthash.subscribe');
-  assert.ok(subs >= 160, 'assina todos os endereços conhecidos (' + subs + ')');
+  assert.ok(subs >= 400, 'assina usados + cauda de gap (' + subs + ')');
   assert.equal(fake.count('blockchain.transaction.get'), 1);
   assert.ok(watcher.idleTimer, 'sem tela aberta agenda o descarte por inatividade (timer em memória)');
-  console.log('ok   sync inicial e assinatura de todos os scripthashes (' + subs + ')');
+  console.log('ok   sync inicial e assinatura de usados + cauda de gap (' + subs + ')');
+}
+
+/* 1b. varredura em passos: progresso no primeiro passo, payload no último */
+{
+  const fakeStep = await startFakeElectrum({});
+  const envStep = {
+    ELECTRUM_SERVERS: '127.0.0.1:' + fakeStep.port + ':tcp',
+    ELECTRUM_TIMEOUT_MS: '5000'
+  };
+  const w = new WalletWatcher(fakeState(), envStep);
+  const step = (body) => w.fetch(new Request('https://watch/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }));
+  const p1 = await (await step({ xpub: USER, scan: 'step' })).json();
+  assert.equal(p1.scanning, true, 'primeiro passo devolve progresso');
+  assert.equal(p1.has_more, true);
+  assert.ok(p1.progress.scanned > 0);
+  const p2 = await (await step({ xpub: USER, scan: 'step' })).json();
+  assert.equal(p2.scanning, false, 'último passo devolve o payload');
+  assert.equal(p2.has_more, false);
+  assert.equal(p2.balance.total, 0);
+  await w.stopSession();
+  await fakeStep.close();
+  console.log('ok   varredura em passos devolve progresso e só o último passo traz o saldo');
 }
 
 /* 2. WebSocket recebe o estado atual na abertura */
@@ -137,7 +163,7 @@ assert.equal(watcher.idleTimer, null, 'tela aberta cancela o descarte');
   assert.equal(fake.count('blockchain.transaction.get'), 2, 'só a transação nova foi baixada');
 
   /* a sessão guarda endereços e transações só em memória */
-  assert.ok(watcher.scanner.byScript.size > 160, 'endereços derivados continuam na memória da sessão');
+  assert.ok(watcher.scanner.byScript.size >= 400, 'endereços derivados continuam na memória da sessão');
   assert.equal(watcher.scanner.txCache.size, 2, 'cache de transações só na memória');
   console.log('ok   notificação atualiza só o endereço afetado, avança o índice e empurra pelo WebSocket');
 }

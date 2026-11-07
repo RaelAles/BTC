@@ -12,8 +12,8 @@
      para as telas abertas;
    - sem tela aberta, fecha a conexão e esquece tudo; um objeto sem timers,
      sem socket e sem storage é despejado pelo runtime.
-   - como não há cache durável, cada abertura de tela refaz a varredura com
-     gap; é o preço de não guardar nada. */
+   - como não há cache durável, cada abertura de tela refaz a varredura
+     com margem de 50; é o preço de não guardar nada. */
 import { parseXpub } from './derivation.js';
 import { openElectrum } from './electrum.js';
 import { WalletScanner } from './wallet-sync.js';
@@ -44,8 +44,9 @@ export class WalletWatcher {
     this.dirty = new Set();
     this.lastPayload = null;
     this.lastError = null;
-    this.gap = 0;
-    this.maxScan = 0;
+    this.scanning = false;
+    this.scanRequery = true;
+    this.progress = null;
     this.generation = 0;   // detecta reativação durante o encerramento
     this.debounceTimer = null;
     this.keepaliveTimer = null;
@@ -60,7 +61,9 @@ export class WalletWatcher {
         try { body = await request.json(); } catch (e) {}
         const xpub = String(body.xpub || '').trim();
         if (!xpub) return json({ error: 'informe a xpub' }, 400);
-        const payload = await this.sync(xpub, true);
+        const payload = body.scan === 'step'
+          ? await this.syncStep(xpub, true)
+          : await this.sync(xpub, true);
         // sem tela aberta, dá um tempo curto para o WebSocket chegar; o
         // timer é só memória e fecha a conexão se ninguém aparecer
         if (!this.sockets.size) this.armIdleClose();
@@ -68,6 +71,7 @@ export class WalletWatcher {
       }
       if (url.pathname === '/events' || url.pathname === '/api/events') return await this.events(request);
       if (url.pathname === '/state') {
+        if (this.scanning) return json({ scanning: true, has_more: true, progress: this.progress });
         if (!this.lastPayload) {
           if (!this.xpub) return json({ error: 'sessão sem estado; envie a xpub em /sync' }, 409);
           await this.sync(null, true);
@@ -90,8 +94,6 @@ export class WalletWatcher {
     this.client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
     this.client.onNotification = (method, params) => this.onNotify(method, params);
     this.subs.clear(); // conexão nova: precisa reassinar
-    this.gap = cfg.gap;
-    this.maxScan = cfg.maxScan;
     return this.client;
   }
 
@@ -113,19 +115,23 @@ export class WalletWatcher {
     const client = await this.ensureClient();
     this.xpub = key;
     this.account = parseXpub(key);
+    this.scanning = false;
+    this.scanRequery = true;
+    this.progress = null;
     this.scanner = await new WalletScanner({
       env: this.env,
       xpub: key,
       account: this.account,
-      client,
-      gap: this.gap || undefined,
-      maxScan: this.maxScan || undefined
+      client
     }).init();
     return this.scanner;
   }
 
   async sync(xpub, watch) {
     this.generation++;
+    this.scanning = false;
+    this.scanRequery = true;
+    this.progress = null;
     const scanner = await this.ensureScanner(xpub);
     const payload = await scanner.fullSync();
     this.lastPayload = payload;
@@ -134,9 +140,36 @@ export class WalletWatcher {
     return payload;
   }
 
+  /* Um passo da varredura. A tela chama de novo enquanto `has_more` vier
+     verdadeiro; o saldo final só é devolvido no último passo. */
+  async syncStep(xpub, watch) {
+    this.generation++;
+    const scanner = await this.ensureScanner(xpub);
+    if (!this.scanning) {
+      this.scanning = true;
+      this.scanRequery = true;
+      this.lastPayload = null;
+    }
+    const step = await scanner.scanStep(this.scanRequery);
+    this.scanRequery = false;
+    this.progress = scanner.progress();
+    if (step.more) {
+      this.lastPayload = null;
+      return { scanning: true, has_more: true, progress: this.progress };
+    }
+    await scanner.recompute();
+    const payload = await scanner.payload();
+    this.scanning = false;
+    this.progress = null;
+    this.lastPayload = payload;
+    await this.subscribeAll();
+    if (watch && this.sockets.size) this.startKeepalive();
+    return Object.assign({}, payload, { scanning: false, has_more: false });
+  }
+
   async subscribeAll() {
     if (!this.scanner || !this.client || this.client.dead) return;
-    const wanted = this.scanner.scripts();
+    const wanted = this.scanner.scriptsForWatch();
     const missing = wanted.filter(sh => !this.subs.has(sh));
     if (!missing.length) return;
     const items = missing.map(sh => ({ method: 'blockchain.scripthash.subscribe', params: [sh] }));
@@ -238,6 +271,9 @@ export class WalletWatcher {
     this.scanner = null;
     this.lastPayload = null;
     this.lastError = null;
+    this.scanning = false;
+    this.scanRequery = true;
+    this.progress = null;
     this.dirty.clear();
   }
 
@@ -260,8 +296,14 @@ export class WalletWatcher {
     // precisa reenviar a xpub em /api/wallet, que é o único lugar onde ela
     // pode aparecer
     if (!this.xpub) return json({ error: 'sessão expirada; envie a xpub de novo' }, 409);
-    if (!this.lastPayload || !this.scanner || !this.client || this.client.dead) await this.sync(null, true);
-    else await this.subscribeAll();
+    if (this.scanning) {
+      // a varredura em passos está em andamento: o primeiro passo já criou
+      // a conexão e o scanner; não bloqueia o WebSocket com um sync completo
+    } else if (!this.lastPayload || !this.scanner || !this.client || this.client.dead) {
+      await this.sync(null, true);
+    } else {
+      await this.subscribeAll();
+    }
     const { client } = await this.openSocket();
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -282,6 +324,7 @@ export class WalletWatcher {
     server.addEventListener('close', drop);
     server.addEventListener('error', drop);
     if (this.lastPayload) this.send(server, { type: 'payload', payload: this.lastPayload });
+    else if (this.scanning) this.send(server, { type: 'progress', progress: this.progress });
     this.startKeepalive();
     return { client, server };
   }

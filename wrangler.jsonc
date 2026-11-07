@@ -33,9 +33,6 @@
   "vars": {
     // Fonte única de saldo/histórico: servidor Electrum (Sparrow usa os mesmos).
     "ELECTRUM_SERVERS": "electrum.blockstream.info:50002:tls,blockstream.info:700:tls,electrum.diynodes.com:50022:tls",
-    "ELECTRUM_TIMEOUT_MS": "8000",
-    // faixa de gap por ramo (padrão BIP/Electrum = 20)
-    "SCAN_GAP": "50",
-    "SCAN_MAX": "400"
+    "ELECTRUM_TIMEOUT_MS": "8000"
   }
 }

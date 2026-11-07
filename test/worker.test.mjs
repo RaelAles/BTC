@@ -1,6 +1,6 @@
 /* Teste de ponta a ponta do Worker sem rede: servidor Electrum falso.
    Verifica a conta de saldo/recebido/enviado por endereço, o próximo
-   endereço, a faixa de gap e a ausência de outra fonte. Não existe D1:
+   endereço, a margem fixa de 50 e a ausência de outra fonte. Não existe D1:
    o env dos testes é só Electrum, então qualquer tentativa de gravar
    quebraria o teste.
 
@@ -8,7 +8,8 @@
 import assert from 'node:assert/strict';
 import worker from '../src/worker.js';
 import { deriveAddress, parseXpub } from '../src/derivation.js';
-import { scripthash, setConnectOverride } from '../src/electrum.js';
+import { scripthash, setConnectOverride, openElectrum } from '../src/electrum.js';
+import { WalletScanner } from '../src/wallet-sync.js';
 import { startFakeElectrum, nodeConnect, deadPort } from './fake-electrum.mjs';
 import { makeTx } from './tx-fixture.mjs';
 
@@ -182,16 +183,16 @@ setConnectOverride(nodeConnect);
   console.log('ok   entrada recusada antes de consultar (endereço, xprv, texto solto)');
 }
 
-/* ---------------- 5. faixa de gap configurável ---------------- */
+/* ---------------- 5. margem fixa de 50, sem teto de carteira ---------------- */
 {
   const fake = await startFakeElectrum({});
-  const env5 = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000', SCAN_GAP: '5' };
+  const env5 = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const r = await run(USER, env5);
   assert.equal(r.status, 200);
-  assert.equal(fake.count('blockchain.scripthash.get_history'), 40, 'carteira vazia: 8 ramos × gap 5');
+  assert.equal(fake.count('blockchain.scripthash.get_history'), 400, 'carteira vazia: 8 ramos × 50');
   assert.equal(r.j.receive.path, "m/86'/0'/0'/0/0");
 
-  // atividade no índice 2 de bip84/0 (dentro da faixa): ramo vai até 2 + gap 5
+  // atividade no índice 2 de bip84/0: ramo vai até 2 + 50 = 52
   const a2 = await addr('bip84', 0, 2);
   const tx = makeTx([{ txid: '04'.repeat(32), vout: 0 }], [{ value: 1234, script: a2.script }]);
   const fake2 = await startFakeElectrum({
@@ -199,20 +200,54 @@ setConnectOverride(nodeConnect);
     txs: { [tx.txid]: tx.raw }
   });
   const r2 = await run(USER, {
-    ELECTRUM_SERVERS: '127.0.0.1:' + fake2.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000', SCAN_GAP: '5'
+    ELECTRUM_SERVERS: '127.0.0.1:' + fake2.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000'
   });
-  // 8 ramos × 5 + 3 da extensão do ramo usado (índices 5..7)
-  assert.equal(fake2.count('blockchain.scripthash.get_history'), 43, 'índice 2 usado + 5 de cauda = 0..7');
+  // 8 ramos × 50 + 3 da extensão do ramo usado (índices 50..52)
+  assert.equal(fake2.count('blockchain.scripthash.get_history'), 403, 'índice 2 usado + 50 de cauda = 0..52');
   const used = r2.j.addresses.find(a => a.address === a2.address);
   assert.equal(used.balance, 1234);
   assert.equal(r2.j.receive.address, (await addr('bip84', 0, 3)).address);
 
-  const env20 = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
-  await run(USER, env20);
-  assert.equal(fake.count('blockchain.scripthash.get_history'), 40 + 160, 'padrão continua 20 por ramo');
-  console.log('ok   faixa de gap vem do ambiente (SCAN_GAP), com padrão 20');
+  /* scripthashes observados: usados + cauda de gap. Com gap 5, o ramo
+     bip84/0 derivou 0..7 e o índice 2 é o único usado; 0 e 1 ficam de fora. */
+  const client = await openElectrum({
+    servers: [{ host: '127.0.0.1', port: fake2.port, secure: false }], timeoutMs: 5000
+  });
+  const scanner = await new WalletScanner({ env: {}, xpub: USER, account: ua, client, gap: 5 }).init();
+  await scanner.fullSync();
+  assert.equal(scanner.byScript.size, 43, 'gap 5: 8 ramos × 5 + 3 da extensão');
+  assert.equal(scanner.scriptsForWatch().length, 41, 'não assina 0 e 1, vazios fora da cauda');
+  await client.close();
+
+  console.log('ok   margem fixa de 50 por ramo, sem teto de 400');
   await fake.close();
   await fake2.close();
+}
+
+/* ---------------- 6. uso além do antigo teto de 400 ---------------- */
+{
+  /* Uso a cada 50 endereços até o 500: a margem nunca fecha antes e a
+     varredura precisa passar do antigo teto de 400 para achar o saldo. */
+  const usedIdx = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500];
+  const addrs = [];
+  for (const i of usedIdx) addrs.push(await addr('bip84', 0, i));
+  const tx = makeTx([{ txid: '05'.repeat(32), vout: 0 }],
+    addrs.map(a => ({ value: 1000, script: a.script })));
+  const histories = {};
+  for (const a of addrs) histories[scripthash(a.script)] = [{ height: 700000, tx_hash: tx.txid }];
+  const fake6 = await startFakeElectrum({ histories, txs: { [tx.txid]: tx.raw } });
+  const r = await run(USER, {
+    ELECTRUM_SERVERS: '127.0.0.1:' + fake6.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000'
+  });
+  assert.equal(r.status, 200);
+  assert.equal(r.j.balance.total, 11000, 'soma os 11 endereços usados');
+  assert.ok(r.j.addresses.some(a => a.address === addrs[addrs.length - 1].address),
+    'o endereço 500 aparece');
+  assert.equal(r.j.receive.path, "m/84'/0'/0'/0/501");
+  assert.ok(fake6.count('blockchain.scripthash.get_history') > 400,
+    'a varredura passa do antigo teto de 400');
+  console.log('ok   varredura passa do antigo teto de 400 e encontra o índice 500');
+  await fake6.close();
 }
 
 console.log('\ntestes do worker passaram');

@@ -2,8 +2,8 @@
 import { DEFAULT_SERVERS, parseServerList } from './electrum.js';
 
 /* ELECTRUM_SERVERS="host:porta[:tls|:tcp],..." (off desliga),
-   ELECTRUM_TIMEOUT_MS, SCAN_GAP (faixa de gap por ramo, 1..500),
-   SCAN_MAX (teto de endereços por ramo). */
+   ELECTRUM_TIMEOUT_MS. A margem de vazios e o lote da varredura são fixos
+   em wallet-sync.js (DEFAULT_GAP e SCAN_BATCH), não vêm do ambiente. */
 export function electrumConfig(env) {
   const raw = env && env.ELECTRUM_SERVERS;
   const text = raw == null ? '' : String(raw).trim();
@@ -11,12 +11,9 @@ export function electrumConfig(env) {
   let servers;
   try { servers = text ? parseServerList(text) : DEFAULT_SERVERS; }
   catch (e) { return null; }
-  const gap = Math.min(500, Math.max(1, Number((env && env.SCAN_GAP) || 20) || 20));
   return {
     servers,
-    timeoutMs: Number((env && env.ELECTRUM_TIMEOUT_MS) || 8000),
-    gap,
-    maxScan: Math.max(gap, Number((env && env.SCAN_MAX) || 400))
+    timeoutMs: Number((env && env.ELECTRUM_TIMEOUT_MS) || 8000)
   };
 }
 

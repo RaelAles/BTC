@@ -39,7 +39,7 @@ blockchain.info, nem chave privada em lugar nenhum.
 ## O que o Worker faz
 
 - `POST /api/wallet` com `{ "xpub": "xpub..." }` (e, opcionalmente,
-  `"session"`). **O campo da tela só aceita chave estendida pública de
+  `"session"` e `"scan": "step"`). **O campo da tela só aceita chave estendida pública de
   conta (`xpub`, `zpub` ou `ypub`)**: o filtro bloqueia a digitação/colagem
   que não case com um dos três prefixos e descarta caractere fora do
   alfabeto base58, então endereço, chave privada (`xprv`/`yprv`/`zprv`) e
@@ -51,10 +51,13 @@ blockchain.info, nem chave privada em lugar nenhum.
 - Detecta o tipo da conta sem depender de outra fonte: `zpub` → bip84,
   `ypub` → bip49; `xpub` → varre os quatro tipos e escolhe o primeiro com
   histórico (bip44, bip86, bip84, bip49, nessa ordem).
-- **Varredura com gap** (`SCAN_GAP`, padrão 20): deriva `/0/i` e `/1/i`,
-  consulta o histórico de cada endereço e só para depois de N endereços
-  seguidos sem uso (teto por ramo em `SCAN_MAX`). O próximo endereço é
-  `último usado + 1`.
+- **Varredura com margem fixa de 50**: deriva `/0/i` e `/1/i`, consulta o
+  histórico de cada endereço e só para depois de 50 endereços seguidos sem
+  uso em cada ramo. Não há teto de endereços: a varredura segue enquanto
+  houver atividade. O próximo endereço é `último usado + 1`.
+- **Varredura em passos**: cada requisição deriva no máximo 200 endereços
+  novos e devolve o progresso; a tela pede o próximo passo. Só o último
+  passo devolve o saldo final.
 - **Saldo por UTXO**: baixa as transações cruas dos endereços usados, faz o
   parse local e soma saídas que pagam a carteira menos as saídas já gastas.
   `recebido` é a soma das saídas, `enviado` a soma das gastas; mempool entra
@@ -66,8 +69,9 @@ blockchain.info, nem chave privada em lugar nenhum.
   já derivados e o cache de transações ficam em memória; na consulta seguinte
   só o que mudou é baixado.
 - **Tempo real**: um Durable Object por sessão de tela segura a conexão com o
-  servidor, assina os scripthashes e empurra o estado novo por WebSocket
-  quando algo muda (detalhes em “Tempo real”).
+  servidor, assina os endereços usados e a cauda de 50 de cada ramo e
+  empurra o estado novo por WebSocket quando algo muda (detalhes em “Tempo
+  real”).
 - Sem senha: a xpub é a credencial. Ela só existe no campo da tela e na
   memória do Durable Object durante a sessão. O navegador **não** guarda a
   xpub (nada de `localStorage`); a única coisa salva ali é o tema claro/escuro.
@@ -95,8 +99,9 @@ Variáveis (`wrangler.jsonc` → `vars`, ou pelo dashboard):
 | --- | --- | --- |
 | `ELECTRUM_SERVERS` | `electrum.blockstream.info:50002:tls, blockstream.info:700:tls, electrum.diynodes.com:50022:tls` | lista `host:porta[:tls\|:tcp]`; `off` desliga (a API responde 503) |
 | `ELECTRUM_TIMEOUT_MS` | `8000` | timeout por pedido |
-| `SCAN_GAP` | `20` | **faixa de gap**: endereços seguidos sem uso que encerram a varredura de um ramo (1..500) |
-| `SCAN_MAX` | `400` | teto de endereços por ramo; ao bater, a varredura para e avisa |
+
+A margem de 50 endereços vazios e o lote de 200 endereços por passo são
+fixos no código (`src/wallet-sync.js`); não vêm do ambiente.
 
 Os três servidores do padrão foram testados com `server.version`,
 `scripthash.get_history`, `scripthash.get_mempool` e `transaction.get` (hex):
@@ -106,36 +111,34 @@ TLS aqui.
 
 `GET /api/health` mostra a configuração efetiva.
 
-## Faixa de gap
+## Margem de vazios (fixa em 50)
 
 Vale **por ramo** (tipo de conta × cadeia: 4 tipos × recebimento/troco = 8
-ramos). Em cada ramo a varredura começa no índice 0 e só para depois de
-`SCAN_GAP` endereços consecutivos sem uso — "usado" é ter alguma entrada em
+ramos). Em cada ramo a varredura começa no índice 0 e só para depois de 50
+endereços consecutivos sem uso — "usado" é ter alguma entrada em
 `get_history`/`get_mempool`, então um endereço que recebeu e gastou tudo
 continua contando.
 
 - os 8 ramos são estendidos na mesma rodada, em um lote de requisições;
 - endereço já derivado nesta sessão não é derivado de novo;
 - o próximo endereço de cada ramo é `último usado + 1`;
-- ao encostar em `SCAN_MAX`, o ramo para e devolve aviso em `warnings`.
+- **não há teto de carteira**: o ramo só termina quando tem 50 vazios
+  seguidos;
+- cada passo deriva no máximo 200 endereços novos e devolve `scanning`,
+  `has_more` e `progress`; a tela continua até o último passo.
 
-Custo por varredura completa (8 ramos × gap × 2 pedidos: `get_history` +
-`get_mempool`):
+Custo de uma varredura completa (8 ramos × 50 × 2 pedidos: `get_history` +
+`get_mempool`): ~400 endereços consultados, ~800 pedidos, 5–8 s medidos. A
+primeira consulta é dividida em passos de 200 endereços (uma carteira vazia
+usa dois; com atividade, mais); o tempo total é o mesmo, mas a tela mostra
+progresso e não fica parada numa resposta só.
 
-| `SCAN_GAP` | endereços consultados | pedidos | tempo medido/típico |
-| --- | --- | --- | --- |
-| 20 | ~160 | ~320 | 2–4 s |
-| 50 | ~400 | ~800 | 5–8 s |
-| 100 | ~800 | ~1.600 | 10–15 s |
-
-A faixa maior serve para um caso específico: a mesma xpub já foi usada em
-outro aplicativo que distribuiu endereços além da faixa conhecida. O preço é
-linear no tempo de varredura e no número de assinaturas em tempo real. O
-padrão desta implantação está em `SCAN_GAP` no `wrangler.jsonc` (hoje 50);
-o padrão do código, se a variável não existir, é 20 (convenção BIP/Electrum).
-Aviso: endereço **fora** da faixa continua invisível — com `SCAN_GAP` menor
-isso acontece mais cedo (um pagamento no índice 7 de um ramo com gap 5 e
-nenhum uso anterior não aparece).
+50 é o dobro e meio do padrão do Electrum/Sparrow (20) e cobre buracos
+usuais. Aumentar para 100 dobra os pedidos (~1.600) e o tempo (10–15 s), sem
+garantia extra para a maioria das carteiras; por isso a margem fica fixa.
+Aviso: um endereço isolado depois de 50 vazios continua invisível; se a
+varredura for interrompida, a tela mostra "busca incompleta" em vez de
+apresentar o saldo como final.
 
 ## Tempo real (Durable Object)
 
@@ -154,8 +157,9 @@ Sparrow (aviso empurrado pelo servidor).
   `newUniqueId()` e devolve em `session` na resposta do `POST /api/wallet`. O
   id não é derivado da xpub e o nome do objeto não é gravado.
 - `POST /api/wallet` é encaminhado para o objeto (`/sync`), que faz a
-  varredura com gap e mantém tudo em memória. O `xpub` chega no corpo do POST
-  e só existe na memória do objeto; não é parâmetro de URL.
+  varredura em passos com margem fixa de 50 e mantém tudo em memória. O
+  `xpub` chega no corpo do POST e só existe na memória do objeto; não é
+  parâmetro de URL.
 - `GET /api/events?session=…` faz o upgrade de WebSocket. Ao abrir, o objeto
   manda o estado atual; a cada aviso do servidor ele reconsulta **só aquele
   scripthash** (`get_history` + `get_mempool` + as transações novas), refaz a
@@ -205,24 +209,32 @@ backend de Durable Object disponível no plano free).
 ## Limites conhecidos
 
 - **Varredura completa a cada abertura de tela**: sem cache durável, cada
-  abertura refaz a varredura com gap e baixa de novo as transações dos
-  endereços usados. É o preço de não guardar nada. Enquanto a sessão está
-  viva, as consultas seguintes e os avisos reaproveitam o que já está em
-  memória.
+  abertura refaz a varredura com a margem fixa de 50 e baixa de novo as
+  transações dos endereços usados. É o preço de não guardar nada. Enquanto a
+  sessão está viva, as consultas seguintes e os avisos reaproveitam o que já
+  está em memória.
 - **Custo medido** (xpub de teste, 29 endereços usados, 34 transações,
-  `wrangler dev` + Electrum real, `SCAN_GAP=50`): **7,0 s** para a primeira
-  consulta de uma sessão nova; com a sessão viva, `POST` seguinte na mesma
-  sessão fica em **2,2 s**, e o aviso de mudança custa 2 pedidos + as
-  transações novas.
-- **CPU**: cada abertura de tela deriva algumas centenas de endereços. Cabe
-  nos 30 s de CPU do plano pago (US$ 5/mês); no free (10 ms) não cabe.
-- `SCAN_MAX` é teto de segurança: uma carteira com uso além disso para a
-  varredura e avisa em `warnings` (não estoura erro).
+  `wrangler dev` + Electrum real, margem 50): **7,0 s** para a primeira
+  consulta de uma sessão nova, dividida em passos de 200 endereços; com a
+  sessão viva, `POST` seguinte na mesma sessão fica em **2,2 s**, e o aviso
+  de mudança custa 2 pedidos + as transações novas.
+- **CPU**: cada abertura de tela deriva cerca de 400 endereços (8 ramos ×
+  50). Cabe nos 30 s de CPU do plano pago (US$ 5/mês); no free (10 ms) não
+  cabe.
+- **Assinaturas**: só os endereços usados e a cauda de 50 de cada ramo são
+  observados; endereços vazios fora da cauda não são assinados. Com o tempo
+  real aberto, um pagamento para um endereço além da cauda só aparece numa
+  nova varredura (é o mesmo limite da margem).
+- **Sem teto de quantidade**: uma carteira com uso a cada 50 endereços ou
+  menos não para por número; a busca segue até o último uso e pode ficar
+  longa. A tela mostra o progresso e continua até o fim.
 - Sem heartbeat da tela: quando a aba fecha, o `close` do WebSocket encerra a
   sessão na hora. Se a rede cair sem `close`, quem percebe é o runtime
   (socket morto); até lá o objeto continua com o keepalive do Electrum.
-- Endereços usados além da faixa de gap não aparecem: a varredura procura do
-  índice 0 até `SCAN_GAP` endereços seguidos sem uso em cada ramo.
+- Endereços usados depois de 50 vazios seguidos não aparecem: a varredura
+  procura do índice 0 até a margem de 50 em cada ramo. Se a busca for
+  interrompida (erro de rede/Electrum), a tela avisa que o saldo pode estar
+  incompleto e oferece continuar.
 - O servidor Electrum vê os scripthashes consultados (com TLS o caminho da
   rede não vê). Privacidade, não custódia: a xpub não gasta nada.
 - Um vazamento da xpub é perda de privacidade, não de fundos.
@@ -240,9 +252,9 @@ src/
   derivation.js       CKDpub, xpub, endereços dos 4 tipos
   electrum.js         cliente Electrum (JSON-RPC 1.4) sobre cloudflare:sockets
   address-totals.js   conta de UTXO: recebido/enviado/saldo por script
-  wallet-sync.js      varredura com gap e payload da carteira (só memória)
+  wallet-sync.js      varredura por margem de 50, em passos, e payload (só memória)
   watcher.js          Durable Object: socket + assinaturas + WebSocket, sem storage
-  config.js           env (servidores, timeout, SCAN_MAX) e helpers
+  config.js           env (servidores, timeout) e helpers
   worker.js           rotas: /api/wallet, /api/events, /api/health
 public/
   index.html          UI ASCII (página publicada)
@@ -310,8 +322,22 @@ temporariamente se precisar depurar.
 ### `POST /api/wallet`
 
 ```json
-{ "xpub": "xpub...", "session": "opcional, devolvido pelo próprio endpoint" }
+{ "xpub": "xpub...", "session": "opcional, devolvido pelo próprio endpoint",
+  "scan": "step" }
 ```
+
+`scan: "step"` faz um passo da varredura (até 200 endereços novos) e devolve
+progresso; a tela repete a chamada até receber o payload final. Sem `scan`, a
+resposta é a varredura completa, como antes. Enquanto a varredura não termina,
+a resposta é resumida:
+
+```json
+{ "scanning": true, "has_more": true,
+  "progress": { "scanned": 200, "used": 3, "gap": 50 },
+  "watch": true, "session": "0740457f..." }
+```
+
+O payload final acrescenta `"scanning": false, "has_more": false`.
 
 Resposta (resumida):
 
@@ -379,9 +405,11 @@ reaproveitar a sessão enquanto a tela estiver aberta. Se ele não existir mais
 ### `GET /api/events?session=<id da sessão>`
 
 Upgrade para WebSocket no Durable Object. Mensagens: `{ "type": "payload",
-"payload": { ...mesma resposta do POST } }` a cada mudança, e
-`{ "type": "error", "error": "..." }` quando a conexão com o Electrum cai.
-Sessão sem xpub responde 409 (a tela reenvia a xpub em `/api/wallet`).
+"payload": { ...mesma resposta do POST } }` a cada mudança,
+`{ "type": "progress", "progress": { ... } }` se a varredura ainda estiver
+em andamento, e `{ "type": "error", "error": "..." }` quando a conexão com
+o Electrum cai. Sessão sem xpub responde 409 (a tela reenvia a xpub em
+`/api/wallet`).
 
 ### `GET /api/health`
 
@@ -429,8 +457,9 @@ endereço que recebeu e gastou (`recebido 10000 / enviado 10000 / saldo 0`),
 endereço que só recebeu, próximo índice, mempool no saldo, união dos tipos,
 ausência de cache entre consultas (o Electrum é consultado de novo),
 ausência de fallback quando o Electrum não responde, recusa de
-endereço/xprv/texto solto antes de consultar e a faixa de gap vinda de
-`SCAN_GAP` (padrão 20; 40 consultas com gap 5 numa carteira vazia).
+endereço/xprv/texto solto antes de consultar, a margem fixa de 50 (400
+consultas numa carteira vazia, 403 quando há uso no índice 2), a varredura
+em passos e a assinatura só de usados + cauda.
 
 ## Verificado no runtime de verdade
 

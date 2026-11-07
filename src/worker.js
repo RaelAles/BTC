@@ -55,7 +55,7 @@ async function handleWallet(request, env) {
     const res = await stub.fetch('https://watch/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ xpub })
+      body: JSON.stringify({ xpub, scan: body.scan === 'step' ? 'step' : '' })
     });
     const payload = await res.json();
     if (res.status !== 200) return json(payload, res.status);
@@ -73,7 +73,7 @@ async function handleWallet(request, env) {
   }
   try {
     const scanner = await new WalletScanner({
-      env, xpub, account, client, gap: cfg.gap, maxScan: cfg.maxScan
+      env, xpub, account, client
     }).init();
     const payload = await scanner.fullSync();
     return json(Object.assign({}, payload, { watch: false }));

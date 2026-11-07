@@ -11,9 +11,13 @@ import { historiesMany, transactionsMany } from './electrum.js';
 import { totalsForScripts } from './address-totals.js';
 import BTC from './btc-core.js';
 
-export const DEFAULT_GAP = 20;
+export const DEFAULT_GAP = 50;
 export const TYPES = ['bip86', 'bip84', 'bip49', 'bip44'];
 
+/* A varredura não tem teto de endereços: o fim de cada ramo é a margem de
+   `gap` endereços vazios. O lote limita só quanto trabalho uma requisição
+   faz por vez, para a tela mostrar progresso e continuar depois. */
+const SCAN_BATCH = 200;
 const HIST_CONCURRENCY = 100;
 const TX_CONCURRENCY = 20;
 
@@ -40,13 +44,12 @@ function activityOf(row) {
 /* ---------- scanner ---------- */
 
 export class WalletScanner {
-  constructor({ env, xpub, account, client, maxScan, gap }) {
+  constructor({ env, xpub, account, client, gap }) {
     this.env = env;
     this.xpub = xpub;
     this.account = account;
     this.client = client;
     this.gap = Math.max(1, Number(gap) || DEFAULT_GAP);
-    this.maxScan = Math.max(this.gap, Number(maxScan) || 400);
     this.rows = new Map();
     this.txCache = new Map();   // txid -> hex cru, só nesta sessão
     this.chainNodes = new Map();
@@ -85,10 +88,17 @@ export class WalletScanner {
     return sh;
   }
 
-  /* Todos os scripthashes já consultados (usados + cauda de gap). */
-  scripts() {
+  /* Scripthashes que precisam ser observados: os usados (para detectar
+     gastos) e a cauda de gap de cada ramo (para detectar novos
+     recebimentos). Endereços vazios fora da cauda não são assinados. */
+  scriptsForWatch() {
     const out = [];
-    for (const script of this.byScript.keys()) out.push(this.sh(script));
+    for (const rows of this.rows.values()) {
+      const { lastUsed, maxIdx } = this.lastUsedOf(rows);
+      for (const r of rows.values()) {
+        if (r.used || (r.idx > lastUsed && r.idx <= maxIdx)) out.push(this.sh(r.script));
+      }
+    }
     return out;
   }
 
@@ -129,43 +139,6 @@ export class WalletScanner {
       if (r.used && r.idx > lastUsed) lastUsed = r.idx;
     }
     return { lastUsed, maxIdx };
-  }
-
-  /* Consulta de novo o que já está na memória (quando `requery`) e estende
-     cada ramo até `gap` endereços sem uso, com as extensões de todos os
-     ramos numa rodada. Devolve as linhas novas (para o DO assinar). */
-  async ensureGap(requery) {
-    if (requery) await this.queryRows([...this.byScript.values()]);
-    const added = [];
-    for (let round = 0; round < 64; round++) {
-      const fresh = [];
-      for (const type of TYPES) {
-        for (const chain of [0, 1]) {
-          const rows = this.rows.get(rowKey(type, chain));
-          const { lastUsed, maxIdx } = this.lastUsedOf(rows);
-          if (maxIdx - lastUsed >= this.gap) continue;
-          const from = maxIdx + 1;
-          const to = Math.min(lastUsed + this.gap, this.maxScan - 1);
-          if (from > to) {
-            const msg = 'ramo ' + type + '/' + chain + ' parou no teto de ' +
-              this.maxScan + ' endereços (último usado: ' + lastUsed + ')';
-            if (!this.warnings.includes(msg)) this.warnings.push(msg);
-            continue;
-          }
-          for (let i = from; i <= to; i++) {
-            const row = await this.makeRow(type, chain, i);
-            rows.set(i, row);
-            this.byScript.set(row.script, row);
-            this.bySh.set(this.sh(row.script), row);
-            fresh.push(row);
-          }
-        }
-      }
-      if (!fresh.length) break;
-      await this.queryRows(fresh);
-      added.push(...fresh);
-    }
-    return added;
   }
 
   /* Conta de UTXO a partir das transações cruas (cache em memória). */
@@ -228,8 +201,66 @@ export class WalletScanner {
     return totals;
   }
 
+  /* Caminha a varredura em um lote de no máximo SCAN_BATCH endereços novos.
+     Não existe teto de carteira: cada ramo só termina quando já tem `gap`
+     endereços seguidos sem uso. `requery` reconsulta o que já existe (o
+     primeiro passo de uma sessão nova). */
+  async scanStep(requery) {
+    if (requery) await this.queryRows([...this.byScript.values()]);
+    const added = [];
+    let budget = SCAN_BATCH;
+    let extended = true;
+    while (budget > 0 && extended) {
+      extended = false;
+      for (const type of TYPES) {
+        for (const chain of [0, 1]) {
+          if (budget <= 0) break;
+          const rows = this.rows.get(rowKey(type, chain));
+          const { lastUsed, maxIdx } = this.lastUsedOf(rows);
+          if (maxIdx - lastUsed >= this.gap) continue;
+          const from = maxIdx + 1;
+          const to = Math.min(lastUsed + this.gap, from + budget - 1);
+          if (from > to) continue;
+          const fresh = [];
+          for (let i = from; i <= to; i++) {
+            const row = await this.makeRow(type, chain, i);
+            rows.set(i, row);
+            this.byScript.set(row.script, row);
+            this.bySh.set(this.sh(row.script), row);
+            fresh.push(row);
+          }
+          budget -= fresh.length;
+          await this.queryRows(fresh);
+          added.push(...fresh);
+          extended = true;
+        }
+      }
+    }
+    return { added, more: this.scanPending() };
+  }
+
+  /* Ainda falta derivar/consultar algum endereço para fechar a margem? */
+  scanPending() {
+    for (const type of TYPES) {
+      for (const chain of [0, 1]) {
+        const rows = this.rows.get(rowKey(type, chain));
+        const { lastUsed, maxIdx } = this.lastUsedOf(rows);
+        if (maxIdx - lastUsed < this.gap) return true;
+      }
+    }
+    return false;
+  }
+
+  progress() {
+    let used = 0;
+    for (const r of this.byScript.values()) if (r.used) used++;
+    return { scanned: this.byScript.size, used, gap: this.gap };
+  }
+
   async fullSync() {
-    await this.ensureGap(true);
+    let requery = true;
+    let step;
+    do { step = await this.scanStep(requery); requery = false; } while (step.more);
     await this.recompute();
     return this.payload();
   }
@@ -243,7 +274,12 @@ export class WalletScanner {
     }
     if (!rows.length) return { payload: await this.payload(), added: [] };
     await this.queryRows(rows);
-    const added = await this.ensureGap(false);
+    let step = await this.scanStep(false);
+    const added = [...step.added];
+    while (step.more) {
+      step = await this.scanStep(false);
+      added.push(...step.added);
+    }
     await this.recompute();
     return { payload: await this.payload(), added };
   }

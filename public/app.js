@@ -27,6 +27,7 @@
     watchRetry: 0,
     watchTimer: 0,      // timeout do handshake do WebSocket
     autoTimer: 0,       // debounce da consulta automática
+    scanning: false,    // varredura em passos em andamento
     page: 1             // página da lista do histórico
   };
 
@@ -307,6 +308,7 @@
   }
 
   function render(d) {
+    stopScan();
     state.data = d;
     var b = d.balance || {};
     var total = $('#v-total');
@@ -366,6 +368,7 @@
     var body = $('#history-list');
     if (body) { body.innerHTML = ''; body.hidden = true; }
     state.page = 1;
+    stopScan();
     var empty = $('#addresses-empty');
     if (empty) empty.hidden = true;
     var summary = $('#history-summary');
@@ -380,6 +383,49 @@
     if ($('#xpub').value.trim() !== state.xpub) clearView();
   }
 
+  /* A varredura longa é feita em passos: a tela mostra o progresso e pede
+     o próximo passo, em vez de esperar tudo numa resposta só. */
+  function scanText(progress) {
+    var p = progress || {};
+    return 'verificando endereços: ' + fmtInt(p.scanned || 0) + ' · ' +
+      fmtInt(p.used || 0) + ' com atividade';
+  }
+
+  function showScan(progress) {
+    state.scanning = true;
+    var el = $('#scan-status');
+    if (el) { el.hidden = false; el.textContent = scanText(progress); }
+    var btn = $('#scan-continue');
+    if (btn) btn.hidden = true;
+    // durante a busca o saldo anterior não é apresentado como final
+    var total = $('#v-total');
+    if (total) total.hidden = true;
+    var updated = $('#v-updated');
+    if (updated) updated.hidden = true;
+    var out = $('#out');
+    if (out) out.hidden = true;
+    var summary = $('#history-summary');
+    if (summary) summary.textContent = 'verificando endereços... o saldo aparece ao terminar.';
+  }
+
+  function stopScan() {
+    state.scanning = false;
+    var el = $('#scan-status');
+    if (el) { el.hidden = true; el.textContent = ''; }
+    var btn = $('#scan-continue');
+    if (btn) btn.hidden = true;
+  }
+
+  function scanIncomplete(message) {
+    state.scanning = false;
+    var el = $('#scan-status');
+    if (el) { el.hidden = false; el.textContent = message; }
+    var btn = $('#scan-continue');
+    if (btn) btn.hidden = false;
+    var summary = $('#history-summary');
+    if (summary) summary.textContent = 'busca incompleta: ainda podem existir valores não contabilizados.';
+  }
+
   async function load(quiet) {
     var xpub = $('#xpub').value.trim();
     // nunca mostra o estado de uma xpub que não está mais no campo
@@ -391,33 +437,49 @@
     }
     if (state.busy) return;
     state.busy = true;
+    stopScan();
+    closeWatch();
     if (!quiet) setStatus('', 'consultando saldo...');
     try {
       // A xpub vai no corpo a cada consulta: o servidor não guarda nada,
       // então ela nunca fica armazenada. O session só reaproveita a conexão
       // do Durable Object enquanto esta tela estiver aberta.
-      var body = { xpub: xpub };
-      if (state.session) body.session = state.session;
-      var r = await fetch('/api/wallet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      var j = await r.json();
-      if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
-      // a xpub pode ter mudado enquanto a consulta corria: descarta a resposta
-      if ($('#xpub').value.trim() !== xpub) return;
-      state.xpub = xpub;
-      state.session = j.session || '';
-      render(j);
-      // a tela já mostra o resultado: o recado de "consultando" sai de cena
-      // sem virar uma legenda de sucesso permanente
-      setStatus('', '');
-      if (j.watch) openWatch();
-      else closeWatch();
-      schedule();
+      while (true) {
+        var body = { xpub: xpub, scan: 'step' };
+        if (state.session) body.session = state.session;
+        var r = await fetch('/api/wallet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        var j = await r.json();
+        if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+        // a xpub pode ter mudado enquanto a consulta corria: descarta a resposta
+        if ($('#xpub').value.trim() !== xpub) return;
+        state.xpub = xpub;
+        state.session = j.session || '';
+        if (j.scanning) {
+          showScan(j.progress);
+          continue;
+        }
+        stopScan();
+        render(j);
+        // a tela já mostra o resultado: o recado de "consultando" sai de cena
+        // sem virar uma legenda de sucesso permanente
+        setStatus('', '');
+        if (j.watch) openWatch();
+        else closeWatch();
+        schedule();
+        break;
+      }
     } catch (e) {
-      setStatus('error', e && e.message ? e.message : String(e));
+      if (state.scanning && state.session) {
+        scanIncomplete('busca interrompida: o saldo pode estar incompleto. ' +
+          (e && e.message ? e.message : String(e)));
+        setStatus('error', 'busca interrompida.');
+      } else {
+        setStatus('error', e && e.message ? e.message : String(e));
+      }
     } finally {
       state.busy = false;
     }
@@ -618,6 +680,11 @@
       var btn = ev.target.closest ? ev.target.closest('.pager-arrow') : null;
       if (!btn || btn.getAttribute('aria-disabled') === 'true') return;
       goPage(btn.id === 'history-next' ? 1 : -1);
+    });
+
+    var scanContinue = $('#scan-continue');
+    if (scanContinue) scanContinue.addEventListener('click', function () {
+      if (!state.busy) load(false);
     });
 
     var sc = $('#content-scroll');
