@@ -2218,10 +2218,10 @@
             <label class="field-upload" id="psbt-import">
               <input type="file" id="psbt-file" aria-label="importar arquivo psbt"
                      accept=".psbt,.txt,.hex,text/plain,application/octet-stream">
-              <span class="field-upload-pick">importar arquivo</span>
+              <span class="field-upload-pick">importar</span>
             </label>
             <button type="button" id="psbt-clear" aria-label="cancelar o psbt importado" hidden>cancelar</button>
-            <button type="button" class="form-submit" id="sign-btn" disabled>assinar psbt</button>
+            <button type="button" class="form-submit" id="sign-btn" disabled>assinar</button>
           </div>
 
           <p class="status-msg is-reserved" id="sign-status" role="status"></p>
@@ -4432,7 +4432,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (signBtn) signBtn.disabled = true;
     setStatus(signStatus, 'neutro', '');
   }
-  /* Sem arquivo importado, a linha mostra "importar arquivo"; com o PSBT
+  /* Sem arquivo importado, a linha mostra "importar"; com o PSBT
      carregado, o mesmo lugar passa a mostrar "cancelar". */
   function setPsbtLoaded(loaded) {
     if (psbtImport) psbtImport.hidden = !!loaded;
