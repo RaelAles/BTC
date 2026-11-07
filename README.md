@@ -37,8 +37,7 @@ blockchain.info, nem chave privada em lugar nenhum.
   texto solto nem chegam a formar valor (com mensagem explicando o motivo).
   O Worker também recusa essas entradas antes de consultar. A consulta começa
   sozinha assim que o campo fica com a xpub completa e válida (debounce
-  curto), e o tempo real abre junto; os botões `carregar` e `atualizar` servem
-  para forçar uma nova consulta. A API em si continua entendendo
+  curto), e o tempo real abre junto. A API em si continua entendendo
   `zpub`/`ypub` (para outros clientes e para a detecção de bip84/bip49); para
   reabrir isso na tela é só incluir as três no `EXT_PUBLIC`/`filterXpub` de
   `public/app.js`.
@@ -57,8 +56,8 @@ blockchain.info, nem chave privada em lugar nenhum.
   outros tipos também entram no saldo total (união), não só o detectado.
 - **Sem cache durável**: cada consulta deriva e consulta de novo. Enquanto a
   sessão do Durable Object estiver viva (tela aberta) a conexão, os endereços
-  já derivados e o cache de transações ficam em memória; no `atualizar` só o
-  que mudou é baixado.
+  já derivados e o cache de transações ficam em memória; na consulta seguinte
+  só o que mudou é baixado.
 - **Tempo real**: um Durable Object por sessão de tela segura a conexão com o
   servidor, assina os scripthashes e empurra o estado novo por WebSocket
   quando algo muda (detalhes em “Tempo real”).
@@ -201,7 +200,8 @@ backend de Durable Object disponível no plano free).
 - **Varredura completa a cada abertura de tela**: sem cache durável, cada
   abertura refaz a varredura com gap e baixa de novo as transações dos
   endereços usados. É o preço de não guardar nada. Enquanto a sessão está
-  viva, o `atualizar` e os avisos reaproveitam o que já está em memória.
+  viva, as consultas seguintes e os avisos reaproveitam o que já está em
+  memória.
 - **Custo medido** (xpub de teste, 29 endereços usados, 34 transações,
   `wrangler dev` + Electrum real, `SCAN_GAP=50`): **7,0 s** para a primeira
   consulta de uma sessão nova; com a sessão viva, `POST` seguinte na mesma

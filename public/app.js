@@ -203,7 +203,7 @@
   }
 
   /* A consulta começa sozinha quando a digitação/colagem deixa a xpub
-     completa e válida: sem clique em carregar. O debounce curto evita
+     completa e válida. O debounce curto evita
      disparar no meio de uma correção e a comparação com state.xpub evita
      reconsultar a carteira que já está na tela. */
   var AUTO_DELAY = 350;
@@ -359,7 +359,6 @@
           (!state.watch || state.watch.readyState > 1)) load(true);
     });
     window.addEventListener('pagehide', closeWatch);
-    $('#refresh').addEventListener('click', function () { load(false); });
     $('#theme-toggle').addEventListener('click', function () {
       setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
     });

@@ -8,12 +8,9 @@
   <title>Projeto 2 — carteira</title>
   <link rel="stylesheet" href="/style.css">
   <style>
-    /* Ajustes desta tela: rótulos do key-readout são mais longos que os de
-       xpub e o par carregar/atualizar fica centralizado sem a margem
-       automática do form-submit. */
+    /* Ajuste desta tela: os rótulos do key-readout são mais longos que os
+       do campo de xpub. */
     .key-readout tbody th { width: 12ch; }
-    #wallet-form .chips { justify-content: center; align-items: baseline; }
-    #wallet-form .chips .form-submit { margin: 0; }
   </style>
 </head>
 <body>
@@ -47,24 +44,14 @@
           <h2 id="head-carteira" tabindex="-1">CARTEIRA</h2>
           <pre class="rule" aria-hidden="true"></pre>
 
-          <div class="prose app-block">
-            <p>A xpub é a credencial e não fica guardada em lugar nenhum: o Worker deriva os endereços na hora e consulta o servidor Electrum por scripthash, como o Electrum e o Sparrow fazem. Enquanto a tela está aberta o saldo é acompanhado em tempo real; ao fechar, conexão, endereços e qualquer memória do servidor são descartados.</p>
-          </div>
-
           <form id="wallet-form" class="app-block">
-            <label class="field-label" for="xpub">xpub da conta</label>
             <div class="field-box">
               <div class="edge" aria-hidden="true"></div>
               <input id="xpub" name="xpub" type="text" autocomplete="off" spellcheck="false"
                      autocapitalize="off" maxlength="111" inputmode="text"
+                     aria-label="xpub da conta"
                      pattern="^xpub[1-9A-HJ-NP-Za-km-z]+$" placeholder="xpub...">
               <div class="edge" aria-hidden="true"></div>
-            </div>
-            <p class="note">só xpub: o campo recusa endereço, chave privada e qualquer texto que não comece com <code>xpub</code>. a consulta começa sozinha quando a xpub fica completa; nada é salvo no navegador nem no servidor, e os botões só forçam de novo.</p>
-            <div class="chips app-gap">
-              <button type="submit" class="form-submit">carregar</button>
-              <span class="dot-sep" aria-hidden="true">·</span>
-              <button type="button" id="refresh">atualizar</button>
             </div>
             <p class="status-msg is-reserved" id="status" role="status"></p>
           </form>
