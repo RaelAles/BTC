@@ -2096,8 +2096,6 @@
     <nav class="menu" aria-label="Telas">
       <button type="button" data-screen="chave" aria-current="page" tabindex="-1">chave</button>
       <span class="dot-sep" aria-hidden="true">·</span>
-      <button type="button" data-screen="assinar">assinar</button>
-      <span class="dot-sep" aria-hidden="true">·</span>
       <button type="button" data-screen="sobre">sobre</button>
     </nav>
 
@@ -2182,14 +2180,12 @@
               </tbody>
             </table>
           </div>
-        </section>
 
-        <section class="screen" id="screen-assinar" aria-labelledby="head-assinar" hidden>
-          <h2 id="head-assinar" tabindex="-1">ASSINAR</h2>
-          <pre class="rule" aria-hidden="true"></pre>
+          <div class="rule rule-dots reveal-block" aria-hidden="true"></div>
 
-          <div class="prose reveal-block">
-            <p>Cole o PSBT criado pelo projeto 2, em base64 ou hexadecimal. O arquivo confere cada entrada contra as contas BIP44/49/84/86 derivadas dos 256 bits, mostra valores, endereços, troco e taxa, e só então assina. Só <b>SIGHASH_ALL</b> (e o default do Taproot) é aceito; PSBT v2 e scripts que não sejam p2pkh, p2sh-p2wpkh, p2wpkh e p2tr são recusados.</p>
+          <div class="prose reveal-block app-block">
+            <h3><span class="prompt" aria-hidden="true">##</span> assinar psbt</h3>
+            <p>Cole o PSBT criado pelo projeto 2, ou importe o arquivo, em base64 ou hexadecimal. O arquivo confere cada entrada contra as contas BIP44/49/84/86 derivadas dos 256 bits, mostra valores, endereços, troco e taxa, e só então assina. Só <b>SIGHASH_ALL</b> (e o default do Taproot) é aceito; PSBT v2 e scripts que não sejam p2pkh, p2sh-p2wpkh, p2wpkh e p2tr são recusados.</p>
           </div>
 
           <div class="field-row">
@@ -2203,13 +2199,19 @@
                       placeholder="cHNidP8... (base64) ou 70736274ff... (hex)"></textarea>
             <div class="edge" aria-hidden="true"></div>
           </div>
+          <label class="field-upload app-gap">
+            <input type="file" id="psbt-file" aria-label="importar arquivo psbt"
+                   accept=".psbt,.txt,.hex,text/plain,application/octet-stream">
+            <span class="field-upload-pick">importar arquivo</span>
+            <span class="field-upload-name is-empty" id="psbt-file-name" aria-live="polite">nenhum arquivo</span>
+          </label>
           <p class="note app-gap" id="psbt-hint">Espaços e quebras de linha são ignorados. O PSBT precisa trazer a transação não assinada (v0) e, em cada entrada, o <b>witness_utxo</b> — e o <b>non_witness_utxo</b> nas entradas p2pkh — com o valor e o script do UTXO gasto. A derivação BIP32 na entrada é opcional: sem ela, a chave é procurada nas duas cadeias de cada conta até o índice 99.</p>
 
           <p class="status-msg is-reserved" id="sign-status" role="status"></p>
 
           <div id="sign-out" class="app-block" hidden>
             <div class="prose">
-              <h3>revisão</h3>
+              <h3><span class="prompt" aria-hidden="true">##</span> revisão</h3>
             </div>
             <pre class="code-block" id="sign-code"></pre>
           </div>
@@ -2221,7 +2223,7 @@
 
           <div id="signed-out" hidden>
             <div class="prose app-block">
-              <h3>psbt assinado</h3>
+              <h3><span class="prompt" aria-hidden="true">##</span> psbt assinado</h3>
             </div>
             <pre class="code-block is-scroll" id="signed-psbt"></pre>
             <div class="chips app-gap reveal-block keys-actions" role="group" aria-label="Copiar PSBT assinado">
@@ -2229,7 +2231,7 @@
             </div>
 
             <div class="prose app-block">
-              <h3>transação final</h3>
+              <h3><span class="prompt" aria-hidden="true">##</span> transação final</h3>
             </div>
             <pre class="code-block is-scroll" id="signed-tx"></pre>
             <div class="chips app-gap reveal-block keys-actions" role="group" aria-label="Copiar transação final">
@@ -2239,7 +2241,7 @@
           </div>
 
           <div class="prose reveal-block app-block">
-            <h3>como a revisão funciona</h3>
+            <h3><span class="prompt" aria-hidden="true">##</span> como a revisão funciona</h3>
             <p>O <b>sighash</b> é calculado aqui: BIP143 no segwit v0, BIP341 no Taproot (chave ajustada por TapTweak) e o formato legado no p2pkh. As assinaturas são ECDSA determinística (RFC 6979, S baixo) e Schnorr BIP340, e cada uma é verificada antes de entrar no PSBT.</p>
             <p>Saídas para <b>/1/*</b> são marcadas como troco e saídas para <b>/0/*</b> como recebimento; qualquer outro destino aparece como externo e vira aviso. O app não monta transação, não busca UTXOs, não valida consenso e não transmite nada: a transação final sai daqui para o projeto 2 publicar.</p>
           </div>
@@ -2265,7 +2267,7 @@
               <li>não guarda a chave: recarregar a página apaga os 256 bits da memória;</li>
               <li>não consulta saldo nem rede: o xpub é para uma carteira watch-only;</li>
               <li>não usa passphrase BIP39: a passphrase é vazia;</li>
-              <li>não monta transação, não busca UTXOs e não transmite nada: só revisa e assina o PSBT que você colar;</li>
+              <li>não monta transação, não busca UTXOs e não transmite nada: só revisa e assina o PSBT que você colar ou importar;</li>
               <li>não assina PSBT v2, P2WSH, multisig nem <b>SIGHASH_SINGLE/NONE/ANYONECANPAY</b>;</li>
               <li>não substitui carteira de hardware, e a entropia gerada no navegador não tem a garantia de um gerador dedicado.</li>
             </ul>
@@ -3932,7 +3934,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
   var root = document.documentElement;
   var THEME_KEY = 'chave-btc-theme';
-  var SCREENS = ['chave', 'assinar', 'sobre'];
+  var SCREENS = ['chave', 'sobre'];
   var REDUCED = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
   function reduced() { return !!(REDUCED && REDUCED.matches); }
 
@@ -4515,7 +4517,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (signOut) signOut.hidden = true;
     if (signedOut) signedOut.hidden = true;
     if (!state.hd) {
-      setStatus(signStatus, 'erro', 'gere a chave de 256 bits na tela chave antes de analisar o psbt.');
+      setStatus(signStatus, 'erro', 'gere a chave de 256 bits no tabuleiro antes de analisar o psbt.');
       return;
     }
     var text = psbtEl.value.trim();
@@ -4549,7 +4551,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     analyzeTimer = 0;
     if (!psbtEl.value.trim()) return;
     if (!state.hd) {
-      setStatus(signStatus, 'erro', 'gere a chave de 256 bits na tela chave antes de analisar o psbt.');
+      setStatus(signStatus, 'erro', 'gere a chave de 256 bits no tabuleiro antes de analisar o psbt.');
       return;
     }
     setStatus(signStatus, 'neutro', 'analisando...');
@@ -4568,9 +4570,42 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   if (psbtClear) {
     psbtClear.addEventListener('click', function () {
       if (psbtEl) psbtEl.value = '';
+      resetPsbtFile();
       updatePsbtMeta();
       invalidateSignature();
       if (psbtEl) psbtEl.focus();
+    });
+  }
+  /* Importar o PSBT de um arquivo é o mesmo caminho de digitar: o texto vai
+     para a caixa e a revisão roda em seguida, contra a chave já derivada. */
+  var psbtFile = $('#psbt-file');
+  var psbtFileName = $('#psbt-file-name');
+  function resetPsbtFile() {
+    if (psbtFile) psbtFile.value = '';
+    if (psbtFileName) {
+      psbtFileName.textContent = 'nenhum arquivo';
+      psbtFileName.classList.add('is-empty');
+    }
+  }
+  if (psbtFile) {
+    psbtFile.addEventListener('change', function () {
+      var file = psbtFile.files && psbtFile.files[0];
+      if (!file) { resetPsbtFile(); return; }
+      if (psbtFileName) {
+        psbtFileName.textContent = file.name;
+        psbtFileName.classList.remove('is-empty');
+      }
+      var reader = new FileReader();
+      reader.onload = function () {
+        if (psbtEl) psbtEl.value = String(reader.result || '').trim();
+        /* Zera o input para o mesmo arquivo poder ser escolhido de novo. */
+        psbtFile.value = '';
+        scheduleAnalyze();
+      };
+      reader.onerror = function () {
+        setStatus(signStatus, 'erro', 'não foi possível ler o arquivo.');
+      };
+      reader.readAsText(file);
     });
   }
   if (signBtn) {
