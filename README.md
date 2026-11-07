@@ -33,7 +33,10 @@ por WebSocket, sem polling.
   `xpub` e descarta caractere fora do alfabeto base58, então endereço, chave
   privada (`xprv`), `zpub`/`ypub` e texto solto nem chegam a formar valor
   (com mensagem explicando o motivo). O Worker também recusa essas entradas
-  antes de consultar. A API em si continua entendendo `zpub`/`ypub` (para
+  antes de consultar. A consulta começa sozinha assim que o campo fica com a
+  xpub completa e válida (debounce curto), e o tempo real abre junto; os
+  botões `carregar` e `atualizar` servem para forçar uma nova consulta. A API
+  em si continua entendendo `zpub`/`ypub` (para
   outros clientes e para a detecção de bip84/bip49); para reabrir isso na
   tela é só incluir as três no `EXT_PUBLIC`/`filterXpub` de `public/app.js`.
 - Detecta o tipo da conta sem depender de outra fonte: `zpub` → bip84,
@@ -216,7 +219,7 @@ src/
   worker.js           rotas: /api/wallet, /api/events, /api/health
 public/
   index.html          UI ASCII (página publicada)
-  app.js              cliente (xpub, render, update a cada 30 s)
+  app.js              cliente (xpub, carga automática, render, update a cada 30 s)
   style.css           CSS/fonte do projeto 2
 test/
   electrum.test.mjs   cliente Electrum contra servidor falso

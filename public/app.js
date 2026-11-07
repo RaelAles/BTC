@@ -22,7 +22,8 @@
     busy: false,
     watch: null,        // WebSocket do tempo real (Durable Object)
     watchHash: '',
-    watchRetry: 0
+    watchRetry: 0,
+    autoTimer: 0        // debounce da consulta automática
   };
 
   function esc(s) {
@@ -194,6 +195,28 @@
     }
   }
 
+  /* A consulta começa sozinha quando a digitação/colagem deixa a xpub
+     completa e válida: sem clique em carregar. O debounce curto evita
+     disparar no meio de uma correção e a comparação com state.xpub evita
+     reconsultar a carteira que já está na tela. */
+  var AUTO_DELAY = 350;
+  function scheduleAutoLoad() {
+    if (state.autoTimer) { clearTimeout(state.autoTimer); state.autoTimer = 0; }
+    var xpub = $('#xpub').value.trim();
+    if (xpubProblem(xpub)) return;
+    if (xpub === state.xpub && state.data) return;
+    state.autoTimer = setTimeout(function () {
+      state.autoTimer = 0;
+      var current = $('#xpub').value.trim();
+      if (current !== xpub || xpubProblem(current)) return;
+      if (current === state.xpub && state.data) return;
+      // uma consulta em andamento pode ser de outra xpub: espera terminar
+      if (state.busy) { scheduleAutoLoad(); return; }
+      closeWatch();
+      load(false);
+    }, AUTO_DELAY);
+  }
+
   function schedule() {
     if (state.timer) clearInterval(state.timer);
     state.timer = setInterval(function () {
@@ -263,17 +286,19 @@
     function applyXpubFilter(ev) {
       var raw = xpubInput.value;
       var out = filterXpub(raw);
-      if (out.value === raw) return;
-      var caret = xpubInput.selectionStart;
-      var removed = raw.length - out.value.length;
-      xpubInput.value = out.value;
-      try {
-        var pos = Math.max(0, Math.min(out.value.length, caret - removed));
-        xpubInput.setSelectionRange(pos, pos);
-      } catch (e) {}
-      if (out.blocked && ev && ev.type === 'input') {
-        setStatus('error', 'este campo só aceita xpub: endereço, chave privada e outro texto são recusados.');
+      if (out.value !== raw) {
+        var caret = xpubInput.selectionStart;
+        var removed = raw.length - out.value.length;
+        xpubInput.value = out.value;
+        try {
+          var pos = Math.max(0, Math.min(out.value.length, caret - removed));
+          xpubInput.setSelectionRange(pos, pos);
+        } catch (e) {}
+        if (out.blocked && ev && ev.type === 'input') {
+          setStatus('error', 'este campo só aceita xpub: endereço, chave privada e outro texto são recusados.');
+        }
       }
+      scheduleAutoLoad();
     }
     if (xpubInput) {
       xpubInput.addEventListener('input', applyXpubFilter);
@@ -284,10 +309,11 @@
         var out = filterXpub(data);
         if (out.value !== data.replace(/\s+/g, '')) {
           ev.preventDefault();
-          setStatus('error', xpubProblem(data) || 'este campo só aceita xpub.');
+          var missing = xpubProblem(out.value);
+          if (missing) setStatus('error', xpubProblem(data) || missing);
           if (out.value && out.value.length > XPUB_PREFIX.length) {
             xpubInput.value = out.value;
-            load(false);
+            scheduleAutoLoad();
           }
         }
       });
