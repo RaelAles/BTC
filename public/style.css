@@ -1714,10 +1714,9 @@
   #history-help { margin: 0 0 var(--space-7); }
 
   /* A lista do extrato é uma coluna só, em qualquer largura (VG-LST-07). O
-     endereço é o título do item, em texto simples, e ocupa a coluna inteira;
-     caminho, ramo e tipo ficam na linha de dados. O botão de copiar fica
-     embaixo, à direita, como no desenho de leitura das chaves, para nenhuma
-     letra do endereço ser empurrada para a segunda linha por causa dele. */
+     endereço é o título do item, em texto simples e sem a caixa do <code>,
+     ocupando a coluna inteira; caminho, ramo e tipo ficam na linha de dados e
+     o item não tem ação: o histórico é só leitura. */
   .item-list {
     margin: 0;
     padding: 0;

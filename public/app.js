@@ -211,9 +211,9 @@
 
   /* Extrato (VG-LST-01): um item por endereço usado, cinco por página, na
      ordem que o servidor manda — o uso mais recente primeiro. O endereço é o
-     título em texto simples, o caminho e o ramo viram tags, e a linha de
-     dados traz recebido, enviado e saldo. O botão de copiar fica embaixo, à
-     direita, e o clique no próprio endereço continua copiando. */
+     título em texto simples (sem a caixa do <code>), o caminho e o ramo viram
+     tags, e a linha de dados traz recebido, enviado e saldo. O histórico é só
+     leitura: quem copia endereço é o bloco receber. */
   function historyRows() {
     return (state.data && state.data.addresses) || [];
   }
@@ -243,7 +243,7 @@
       var li = document.createElement('li');
       li.className = 'item';
       li.innerHTML =
-        '<h3><code class="item-title is-static">' + esc(a.address) + '</code></h3>' +
+        '<h3><span class="item-title is-static">' + esc(a.address) + '</span></h3>' +
         '<p class="item-meta">m/' + purpose + "'/0'/0'/" + a.chain + '/' + a.idx +
           ' <span class="tag-sep" aria-hidden="true">·</span> ' +
           '<span class="tag">' + chain + '</span>' +
@@ -259,9 +259,7 @@
           '<span class="value-label">enviado</span> ' + signedBtc(a.spent, 'out') +
           ' <span class="value-sep" aria-hidden="true">|</span> ' +
           '<span class="value-label">saldo</span> ' + fmtBtc(a.balance) +
-        '</p>' +
-        '<button type="button" class="key-action" data-copy="' + esc(a.address) + '"' +
-          ' aria-label="copiar endereço ' + esc(a.address) + '">copiar</button>';
+        '</p>';
       list.appendChild(li);
     });
     list.hidden = rows.length === 0;
@@ -372,7 +370,6 @@
     var summary = $('#history-summary');
     if (summary) summary.textContent = 'cole a xpub, zpub ou ypub na carteira para ver o histórico.';
     setStatus('', '');
-    setStatusTo($('#history-status'), '', '');
     updateScroll();
   }
 
@@ -592,8 +589,8 @@
     $('#theme-toggle').addEventListener('click', function () {
       setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
     });
-    // copiar o endereço: no bloco receber pelo botão ao lado e na tabela de
-    // histórico pelo clique no próprio código
+    // copiar o endereço no bloco receber: pelo botão ao lado ou pelo clique
+    // no próprio código
     async function copyAddress(ev, statusEl) {
       var action = ev.target.closest ? ev.target.closest('.key-action') : null;
       var code = ev.target.closest ? ev.target.closest('code') : null;
@@ -615,10 +612,6 @@
     }
     var receiveTable = $('#receive-table');
     if (receiveTable) receiveTable.addEventListener('click', function (ev) { copyAddress(ev, $('#status')); });
-    var historyList = $('#history-list');
-    if (historyList) historyList.addEventListener('click', function (ev) {
-      copyAddress(ev, $('#history-status'));
-    });
     var pager = $('#history-pager');
     if (pager) pager.addEventListener('click', function (ev) {
       var btn = ev.target.closest ? ev.target.closest('.pager-arrow') : null;
