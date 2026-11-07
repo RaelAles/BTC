@@ -2,17 +2,22 @@ import {
   parseXpub, chainNode, deriveChild, deriveAddress, addressForType,
   TYPE_INFO, pathFor
 } from './derivation.js';
+import {
+  DEFAULT_SERVERS, openElectrum, parseServerList, statsMany
+} from './electrum.js';
 
-/* Projeto 2 — Fase 1 no Cloudflare.
+/* Projeto 2 — Fase 1 no Cloudflare + Electrum (fase 2).
    - xpub é a credencial (hash SHA-256 no D1)
    - D1 guarda os endereços públicos derivados e o próximo índice
-   - saldo: blockchain.info para pkh + Blockstream/mempool para os outros
+   - saldo: Electrum (uma conexão TCP/TLS, consulta por scripthash) quando
+     disponível; senão blockchain.info (pkh) + Blockstream/mempool (Esplora)
    - "próximo endereço" é o último usado + 1 (convenção BIP); quando o atual
      recebe, o refresh avança.
    Sem chave privada em lugar nenhum. */
 
 const GAP = 20;          // endereços seguidos sem uso para parar a varredura
 const MAX_SCAN = 120;    // teto de segurança da varredura
+const WINDOW = 20;       // endereços por rodada (uma consulta em lote)
 const PROVIDERS = [
   { name: 'blockstream.info', base: 'https://blockstream.info/api' },
   { name: 'mempool.space', base: 'https://mempool.space/api' }
@@ -47,6 +52,22 @@ async function fetchJson(url, timeoutMs = 15000) {
   }
 }
 
+/* Config do Electrum: ELECTRUM_SERVERS="host:porta[:tls|:tcp],..." ("off" desliga),
+   ELECTRUM_TIMEOUT_MS, EXTRAS_UNION=off para não varrer os outros tipos. */
+function electrumConfig(env) {
+  const raw = env && env.ELECTRUM_SERVERS;
+  const text = raw == null ? '' : String(raw).trim();
+  if (/^(off|0|false|no)$/i.test(text)) return null;
+  let servers;
+  try { servers = text ? parseServerList(text) : DEFAULT_SERVERS; }
+  catch (e) { return null; }
+  return {
+    servers,
+    timeoutMs: Number((env && env.ELECTRUM_TIMEOUT_MS) || 8000),
+    union: !/^(off|0|false|no)$/i.test(String((env && env.EXTRAS_UNION) || 'on'))
+  };
+}
+
 /* Esplora (Blockstream, fallback mempool.space). */
 async function esplora(path) {
   let last = null;
@@ -67,6 +88,26 @@ async function addressStats(address) {
     balance: (c.funded_txo_sum || 0) - (c.spent_txo_sum || 0) +
       (m.funded_txo_sum || 0) - (m.spent_txo_sum || 0)
   };
+}
+
+/* Saldo de uma lista de endereços derivados ({address, script}): Electrum numa
+   conexão só; se ele cair, Esplora endereço por endereço. `ctx` é mutável e
+   carrega o cliente, a falha e as fontes efetivamente usadas. */
+async function readStats(ctx, entries) {
+  if (ctx.client && !ctx.dead && entries.length) {
+    try {
+      const stats = await statsMany(ctx.client, entries.map(e => e.script));
+      ctx.usedElectrum = true;
+      return stats;
+    } catch (e) {
+      ctx.dead = e && e.message ? e.message : String(e);
+      ctx.failures.push(ctx.dead);
+    }
+  }
+  const out = [];
+  for (const e of entries) out.push(await addressStats(e.address));
+  ctx.usedEsplora = true;
+  return out;
 }
 
 /* blockchain.info/xpub: histórico BIP44/p2pkh completo em uma consulta. */
@@ -122,22 +163,23 @@ function parseBip44(j, xpub) {
 
 /* Detecta o tipo: zpub/ypub pela versão; xpub pelo histórico BIP44 e,
    se não houver, pelo primeiro endereço de p2tr/p2wpkh/p2sh. */
-async function detectType(account, xpub) {
+async function detectType(account, xpub, ctx) {
   if (account.versionType === 'bip84' || account.versionType === 'bip49') {
     return { type: account.versionType, bip44: null };
   }
   let b44 = null;
-  try { b44 = await fetchBip44(xpub); } catch (e) {}
+  try { b44 = await fetchBip44(xpub); ctx.usedBci = true; } catch (e) {}
   if (b44 && ((Number(b44.n_tx) || 0) > 0 || (Number(b44.final_balance) || 0) > 0)) {
     return { type: 'bip44', bip44: b44 };
   }
   const order = ['bip86', 'bip84', 'bip49'];
-  for (const type of order) {
-    try {
-      const a = await deriveAddress(type, account, 0, 0);
-      const s = await addressStats(a.address);
-      if (s.txCount > 0 || s.balance > 0) return { type, bip44: null };
-    } catch (e) {}
+  const candidates = [];
+  for (const type of order) candidates.push(await deriveAddress(type, account, 0, 0));
+  let stats;
+  try { stats = await readStats(ctx, candidates); } catch (e) { stats = []; }
+  for (let i = 0; i < order.length; i++) {
+    const s = stats[i];
+    if (s && (s.txCount > 0 || s.balance > 0)) return { type: order[i], bip44: null };
   }
   return { type: 'bip86', bip44: null };
 }
@@ -193,66 +235,139 @@ async function refreshBip44(env, hash, xpub, account, b44) {
   return { parsed, recv, change };
 }
 
-/* bip86/bip84/bip49: varre /0/* e /1/* até GAP seguidos sem uso. */
-async function refreshScan(env, hash, xpub, account, type) {
+/* Varre /0/* e /1/* até GAP seguidos sem uso, em janelas de WINDOW endereços
+   (uma rodada = um lote de consultas). Devolve os usados e o próximo índice. */
+async function scanChain(ctx, account, type, chain) {
+  const cn = await chainNode(account, chain);
+  const used = [];
+  let total = 0, lastUsed = -1, consecutive = 0, idx = 0;
+  while (consecutive < GAP && idx < MAX_SCAN) {
+    const window = [];
+    const size = Math.min(WINDOW, MAX_SCAN - idx);
+    for (let k = 0; k < size; k++) window.push(await deriveChild(type, cn, chain, idx + k));
+    const stats = await readStats(ctx, window);
+    let stop = false;
+    for (let k = 0; k < window.length; k++) {
+      const s = stats[k] || { txCount: 0, balance: 0, funded: null };
+      if (s.txCount > 0) {
+        consecutive = 0;
+        lastUsed = idx + k;
+        total += s.balance;
+        used.push({
+          index: idx + k, address: window[k].address, balance: s.balance,
+          funded: s.funded == null ? s.balance : s.funded, txCount: s.txCount
+        });
+      } else {
+        consecutive++;
+      }
+      if (consecutive >= GAP) { stop = true; break; }
+    }
+    idx += window.length;
+    if (stop) break;
+    if (idx >= MAX_SCAN && consecutive < GAP) {
+      throw new Error('varredura passou do teto de ' + MAX_SCAN + ' endereços');
+    }
+  }
+  const next = lastUsed + 1;
+  const nextAddress = await deriveChild(type, cn, chain, next);
+  return { chain, used, total, next, address: nextAddress.address, path: nextAddress.path };
+}
+
+/* bip86/bip84/bip49: varre /0/* e /1/* do tipo detectado. */
+async function refreshScan(env, hash, xpub, account, type, ctx) {
   const stmts = [];
   const perChain = [];
   let total = 0;
   for (const chain of [0, 1]) {
-    const cn = await chainNode(account, chain);
-    let consecutive = 0, lastUsed = -1, i = 0;
-    while (consecutive < GAP && i < MAX_SCAN) {
-      const a = await deriveChild(type, cn, chain, i);
-      const s = await addressStats(a.address);
-      if (s.txCount > 0) {
-        consecutive = 0;
-        lastUsed = i;
-        total += s.balance;
-        stmts.push(addressStatement(env, hash, type, chain, i, a.address, 1,
-          s.balance, s.funded, s.txCount));
-      } else {
-        consecutive++;
-      }
-      i++;
+    const r = await scanChain(ctx, account, type, chain);
+    total += r.total;
+    for (const u of r.used) {
+      stmts.push(addressStatement(env, hash, type, chain, u.index, u.address, 1,
+        u.balance, u.funded, u.txCount));
     }
-    if (i >= MAX_SCAN && consecutive < GAP) {
-      throw new Error('varredura passou do teto de ' + MAX_SCAN + ' endereços');
-    }
-    const next = lastUsed + 1;
-    const a = await deriveChild(type, cn, chain, next);
-    stmts.push(addressStatement(env, hash, type, chain, next, a.address, 0, 0, 0, 0));
-    perChain[chain] = { next, address: a.address, path: a.path, queries: i };
+    stmts.push(addressStatement(env, hash, type, chain, r.next, r.address, 0, 0, 0, 0));
+    perChain[chain] = { next: r.next, address: r.address, path: r.path };
   }
   if (stmts.length) await env.DB.batch(stmts);
   await setWallet(env, hash, type, perChain[0].next, perChain[1].next, total);
-  return { nextReceive: perChain[0].next, nextChange: perChain[1].next, total };
+  return { nextReceive: perChain[0].next, nextChange: perChain[1].next, total, perChain };
 }
 
-/* Outros tipos: apenas o primeiro endereço, para não explodir subrequests.
-   A união completa é a fase 2 (Electrum/nó); fica marcada no aviso. */
-async function refreshExtras(env, hash, account, detected) {
+/* Outros tipos. Com Electrum: união completa (varredura com gap nos dois
+   ramos de cada tipo). Sem Electrum: só o /0/0, para não explodir subrequests. */
+async function refreshExtras(env, hash, account, detected, ctx) {
   const extras = [];
-  let total = 0;
   const stmts = [];
+  let total = 0;
+  const union = !!(ctx && ctx.client && !ctx.dead && ctx.union !== false);
   for (const type of Object.keys(TYPE_INFO)) {
     if (type === detected) continue;
     try {
-      const a = await deriveAddress(type, account, 0, 0);
-      const s = await addressStats(a.address);
-      total += s.balance;
-      extras.push({
-        type, label: TYPE_INFO[type].label, address: a.address, path: a.path,
-        balance: s.balance, txCount: s.txCount
-      });
-      stmts.push(addressStatement(env, hash, type, 0, 0, a.address,
-        s.txCount > 0 ? 1 : 0, s.balance, s.funded, s.txCount));
+      if (union) {
+        const r0 = await scanChain(ctx, account, type, 0);
+        const r1 = await scanChain(ctx, account, type, 1);
+        const used = r0.used.concat(r1.used);
+        if (!used.length) continue;
+        total += r0.total + r1.total;
+        extras.push({
+          type, label: TYPE_INFO[type].label, address: r0.address, path: r0.path,
+          balance: r0.total + r1.total,
+          txCount: used.reduce((s, u) => s + u.txCount, 0)
+        });
+        for (const u of r0.used) {
+          stmts.push(addressStatement(env, hash, type, 0, u.index, u.address, 1,
+            u.balance, u.funded, u.txCount));
+        }
+        for (const u of r1.used) {
+          stmts.push(addressStatement(env, hash, type, 1, u.index, u.address, 1,
+            u.balance, u.funded, u.txCount));
+        }
+        stmts.push(addressStatement(env, hash, type, 0, r0.next, r0.address, 0, 0, 0, 0));
+      } else {
+        const a = await deriveAddress(type, account, 0, 0);
+        const s = (await readStats(ctx, [a]))[0];
+        total += s.balance;
+        extras.push({
+          type, label: TYPE_INFO[type].label, address: a.address, path: a.path,
+          balance: s.balance, txCount: s.txCount
+        });
+        stmts.push(addressStatement(env, hash, type, 0, 0, a.address,
+          s.txCount > 0 ? 1 : 0, s.balance, s.funded == null ? s.balance : s.funded, s.txCount));
+      }
     } catch (e) {}
   }
   if (stmts.length) await env.DB.batch(stmts);
-  return { extras, total };
+  return { extras, total, union };
 }
 
-function responseWallet(wallet, account, recv, change, extras, addresses, warnings) {
+/* Texto da fonte efetivamente usada nesta consulta. */
+function sourceText(ctx) {
+  const parts = [];
+  if (ctx.usedElectrum) parts.push('electrum (scripthash)');
+  if (ctx.usedBci) parts.push('blockchain.info (bip44)');
+  if (ctx.usedEsplora) parts.push('blockstream.info/mempool.space (Esplora)');
+  return parts.length ? parts.join(' + ') : 'nenhuma fonte consultada';
+}
+
+function warningsFor(ctx) {
+  const w = [];
+  if (ctx.union) {
+    w.push('União dos quatro tipos completa: varredura com gap de ' + GAP +
+      ' endereços por ramo, tudo numa conexão Electrum.');
+  } else {
+    w.push('Os outros tipos mostram apenas o primeiro endereço (/0/0); a união completa exige Electrum.');
+  }
+  if (ctx.failures.length) {
+    w.push('Electrum indisponível (' + ctx.failures[0] + '); o saldo veio do Esplora/blockchain.info.');
+  }
+  if (ctx.usedElectrum) {
+    w.push('O servidor Electrum público vê os scripthashes consultados; "total recebido" por endereço não vem dele.');
+  }
+  w.push('O bitcoin.com não tem API pública de saldo; a fonte é blockchain.info para pkh e Blockstream/mempool para os demais.');
+  return w;
+}
+
+function responseWallet(wallet, account, recv, change, extras, addresses, warnings, source) {
   const detected = TYPE_INFO[wallet.account_type] || { label: wallet.account_type };
   const extraTotal = extras.reduce((s, e) => s + e.balance, 0);
   return {
@@ -271,7 +386,7 @@ function responseWallet(wallet, account, recv, change, extras, addresses, warnin
     extras,
     addresses,
     warnings,
-    source: 'blockchain.info (pkh) + blockstream.info/mempool.space (demais)',
+    source: source || 'blockchain.info (pkh) + blockstream.info/mempool.space (demais)',
     updated_at: wallet.updated_at
   };
 }
@@ -285,40 +400,52 @@ async function handleWallet(request, env) {
   try { account = parseXpub(xpub); }
   catch (e) { return fail(e.message); }
   const hash = await sha256Hex(xpub);
-  let wallet = await getWallet(env, hash);
-  let b44 = null;
-  if (!wallet) {
-    const det = await detectType(account, xpub);
-    b44 = det.bip44;
-    wallet = await insertWallet(env, hash, xpub, account, det.type);
-  }
-  const type = wallet.account_type;
-  let recv, change, balance;
-  if (type === 'bip44') {
-    if (!b44) {
-      try { b44 = await fetchBip44(xpub); }
-      catch (e) { return fail('blockchain.info indisponível para a conta bip44: ' + e.message, 502); }
+
+  const ctx = {
+    client: null, dead: null, failures: [], union: true,
+    usedElectrum: false, usedEsplora: false, usedBci: false
+  };
+  const cfg = electrumConfig(env);
+  if (cfg) {
+    ctx.union = cfg.union;
+    try {
+      ctx.client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
+    } catch (e) {
+      ctx.failures.push(e && e.message ? e.message : String(e));
     }
-    const r = await refreshBip44(env, hash, xpub, account, b44);
-    wallet = await getWallet(env, hash);
-    recv = r.recv; change = r.change;
-  } else {
-    const r = await refreshScan(env, hash, xpub, account, type);
-    wallet = await getWallet(env, hash);
-    const cn0 = await chainNode(account, 0);
-    const cn1 = await chainNode(account, 1);
-    recv = await deriveChild(type, cn0, 0, r.nextReceive);
-    change = await deriveChild(type, cn1, 1, r.nextChange);
-    balance = r.total;
   }
-  const ex = await refreshExtras(env, hash, account, type);
-  const addresses = await getAddresses(env, hash);
-  const warnings = [
-    'Fase 1: o saldo principal é o do tipo detectado; os outros tipos mostram apenas o primeiro endereço (/0/0).',
-    'A união completa dos quatro tipos precisa da fase 2 (Electrum ou nó).',
-    'O bitcoin.com não tem API pública de saldo; a fonte é blockchain.info para pkh e Blockstream/mempool para os demais.'
-  ];
-  return json(responseWallet(wallet, account, recv, change, ex.extras, addresses, warnings));
+
+  try {
+    let wallet = await getWallet(env, hash);
+    let b44 = null;
+    if (!wallet) {
+      const det = await detectType(account, xpub, ctx);
+      b44 = det.bip44;
+      wallet = await insertWallet(env, hash, xpub, account, det.type);
+    }
+    const type = wallet.account_type;
+    let recv, change;
+    if (type === 'bip44') {
+      if (!b44) {
+        try { b44 = await fetchBip44(xpub); ctx.usedBci = true; }
+        catch (e) { return fail('blockchain.info indisponível para a conta bip44: ' + e.message, 502); }
+      }
+      const r = await refreshBip44(env, hash, xpub, account, b44);
+      wallet = await getWallet(env, hash);
+      recv = r.recv; change = r.change;
+    } else {
+      const r = await refreshScan(env, hash, xpub, account, type, ctx);
+      wallet = await getWallet(env, hash);
+      recv = r.perChain[0];
+      change = r.perChain[1];
+    }
+    const ex = await refreshExtras(env, hash, account, type, ctx);
+    const addresses = await getAddresses(env, hash);
+    return json(responseWallet(wallet, account, recv, change, ex.extras, addresses,
+      warningsFor(ctx), sourceText(ctx)));
+  } finally {
+    if (ctx.client) { try { await ctx.client.close(); } catch (e) {} }
+  }
 }
 
 export default {
@@ -326,7 +453,14 @@ export default {
     const url = new URL(request.url);
     try {
       if (url.pathname === '/api/health') {
-        return json({ ok: true, service: 'projeto-2-fase-1', time: now() });
+        const cfg = electrumConfig(env);
+        return json({
+          ok: true,
+          service: 'projeto-2-fase-2',
+          electrum: cfg ? cfg.servers.map(s => s.host + ':' + s.port + (s.secure ? ' tls' : ' tcp')) : 'off',
+          union: cfg ? cfg.union : false,
+          time: now()
+        });
       }
       if (url.pathname === '/api/wallet') {
         if (request.method !== 'POST') return fail('use POST', 405);

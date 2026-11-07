@@ -1,5 +1,8 @@
 import worker from '../src/worker.js';
 import { deriveAddress, parseXpub } from '../src/derivation.js';
+import { scripthash, setConnectOverride } from '../src/electrum.js';
+import { startFakeElectrum, nodeConnect, deadPort } from './fake-electrum.mjs';
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const bci = JSON.parse(fs.readFileSync(new URL('./fixtures/bci.json', import.meta.url),'utf8'));
@@ -67,8 +70,8 @@ class DB {
 }
 
 function req(xpub){return new Request('https://x/api/wallet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({xpub})});}
-async function run(xpub,db){
-  const r=await worker.fetch(req(xpub),{DB:db});
+async function run(xpub,db,env){
+  const r=await worker.fetch(req(xpub),Object.assign({DB:db},env||{}));
   const j=await r.json();
   return {status:r.status,j};
 }
@@ -87,3 +90,48 @@ const zb='zpub6qjfKfHuMfQ5cjzoWcLp9AGFXmqnwuNChxKuSf1KMKXYWqjEEmTYYY8sgCp9yLbiiz
 const db3=new DB(); calls=[];
 const z=await run(zb,db3);
 console.log('zpub',z.status,z.j.detected_type,z.j.receive&&z.j.receive.address,z.j.receive&&z.j.receive.path,'calls',calls.length);
+
+/* ---- Cenário com Electrum: união completa dos quatro tipos ---- */
+setConnectOverride(nodeConnect);
+const shOf = async (type, chain, idx) => scripthash((await deriveAddress(type, ua, chain, idx)).script);
+const balances = {};
+balances[await shOf('bip84', 0, 3)] = 5000;
+balances[await shOf('bip84', 1, 1)] = 2000;
+balances[await shOf('bip86', 0, 7)] = 1234;
+const fake = await startFakeElectrum({ balances });
+const dbe = new DB(); calls = [];
+const t0 = Date.now();
+const e = await run(USER, dbe, {
+  ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp',
+  ELECTRUM_TIMEOUT_MS: '5000'
+});
+console.log('electrum', e.status, e.j.source, JSON.stringify(e.j.balance), e.j.extras.map(x => [x.type, x.balance]), 'pedidos', fake.requests.length, (Date.now() - t0) + 'ms');
+assert.equal(e.status, 200);
+assert.equal(e.j.detected_type, 'bip44');
+assert.match(e.j.source, /electrum/);
+assert.ok(!/Esplora/.test(e.j.source), 'com Electrum vivo o Esplora não é chamado');
+const extraBal = Object.fromEntries(e.j.extras.map(x => [x.type, x.balance]));
+assert.equal(extraBal.bip84, 7000, 'bip84 /0/3 + /1/1 vindos do Electrum');
+assert.equal(extraBal.bip86, 1234, 'bip86 /0/7 vem do Electrum');
+assert.equal(extraBal.bip49, undefined, 'tipo sem uso não entra nos extras');
+assert.equal(e.j.balance.extras, 8234);
+assert.equal(e.j.balance.detected, 12835640, 'bip44 continua no blockchain.info');
+const row84 = e.j.addresses.find(a => a.account_type === 'bip84' && a.chain === 0 && a.idx === 3);
+assert.ok(row84 && row84.balance === 5000 && row84.used === 1, 'endereço usado do bip84 gravado no D1');
+const rowChg = e.j.addresses.find(a => a.account_type === 'bip84' && a.chain === 1 && a.idx === 1);
+assert.ok(rowChg && rowChg.balance === 2000, 'ramo de troco também foi varrido');
+assert.ok(fake.requests.length > 100, 'consulta em lote, não um fetch por endereço');
+await fake.close();
+
+/* ---- Fallback: Electrum fora do ar, tudo volta ao Esplora ---- */
+const db4 = new DB(); calls = [];
+const f = await run(USER, db4, {
+  ELECTRUM_SERVERS: '127.0.0.1:' + (await deadPort()) + ':tcp',
+  ELECTRUM_TIMEOUT_MS: '1000'
+});
+console.log('fallback', f.status, f.j.source, JSON.stringify(f.j.balance));
+assert.equal(f.status, 200);
+assert.match(f.j.source, /Esplora/);
+assert.ok(f.j.warnings.some(w => /Electrum indisponível/.test(w)), 'aviso de Electrum fora do ar');
+assert.equal(f.j.balance.detected, 12835640);
+console.log('electrum/fallback ok');

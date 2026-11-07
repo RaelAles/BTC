@@ -78,7 +78,7 @@
     var b = d.balance || {};
     $('#v-type').textContent = d.detected_label + ' (' + d.version_type + ')';
     $('#v-balance').textContent = fmtBtc(b.total) + ' BTC · ' + fmtInt(b.total) + ' sats';
-    $('#v-breakdown').textContent = 'tipo detectado: ' + fmtBtc(b.detected) + ' BTC · outros tipos (1º endereço): ' + fmtBtc(b.extras) + ' BTC';
+    $('#v-breakdown').textContent = 'tipo detectado: ' + fmtBtc(b.detected) + ' BTC · outros tipos: ' + fmtBtc(b.extras) + ' BTC';
     $('#v-address').textContent = d.receive && d.receive.address ? d.receive.address : '—';
     $('#v-path').textContent = d.receive && d.receive.path ? d.receive.path : '—';
     $('#v-change').textContent = d.change ? (d.change.path + ' · ' + d.change.address) : '—';
@@ -87,7 +87,7 @@
         return '<div>' + esc(e.label) + ' · ' + fmtBtc(e.balance) + ' BTC · <code>' + esc(e.address) + '</code></div>';
       }).join('')
       : '—';
-    $('#v-source').textContent = 'blockchain.info (pkh) · blockstream.info/mempool.space (demais)';
+    $('#v-source').textContent = d.source ? d.source : 'blockchain.info (pkh) · blockstream.info/mempool.space (demais)';
     $('#v-updated').textContent = d.updated_at ? new Date(d.updated_at).toLocaleString('pt-BR') : '—';
     $('#v-warnings').innerHTML = (d.warnings || []).map(function (w) { return esc(w); }).join('<br>');
 
