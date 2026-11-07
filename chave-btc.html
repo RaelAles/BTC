@@ -2229,6 +2229,21 @@
           <div class="rule rule-dots reveal-block" aria-hidden="true"></div>
 
           <div class="prose reveal-block app-block">
+            <h3><span class="prompt" aria-hidden="true">##</span> receber</h3>
+          </div>
+          <div class="reveal-block">
+            <table class="data-table key-readout" id="receive-table" aria-label="primeiros endereços da conta bip86">
+              <tbody>
+                <tr><th scope="row">bip86 /0/0</th><td id="v-receive" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip86 /1/0</th><td id="v-change" class="is-empty">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note reveal-block app-block">Primeiros endereços de recebimento (/0/0) e troco (/1/0) da conta bip86. O projeto 2 deriva os próximos /0/* e /1/* a partir da xpub.</p>
+
+          <div class="rule rule-dots reveal-block" aria-hidden="true"></div>
+
+          <div class="prose reveal-block app-block">
             <h3><span class="prompt" aria-hidden="true">##</span> assinar psbt</h3>
           </div>
 
@@ -2290,6 +2305,7 @@
               <li>mostra o mnemonic de 24 palavras e os 256 bits em binário e em hex;</li>
               <li>deriva a seed BIP39 (passphrase vazia), a raiz BIP32 e as contas BIP44/49/84/86 no mainnet;</li>
               <li>mostra as chaves privadas e as xpubs das contas BIP44/49/84/86, com os caminhos de recebimento (/0/*) e troco (/1/*); as públicas têm o botão de copiar;</li>
+              <li>mostra o primeiro endereço de recebimento (/0/0) e o primeiro de troco (/1/0) da conta BIP86, para conferir o que o projeto 2 deriva;</li>
               <li>assina PSBT (BIP174) criado em outro app: ECDSA RFC 6979 no p2pkh, no BIP49 e no BIP84 (sighash BIP143), e Schnorr BIP340 no P2TR do BIP86 (sighash BIP341);</li>
               <li>faz tudo no próprio arquivo: sem biblioteca externa, sem build e sem requisição de rede — a política de segurança da página bloqueia qualquer conexão.</li>
             </ul>
@@ -3128,12 +3144,16 @@ var BTC = (function () {
     var child = await ckdPriv(node, 0);
     child = await ckdPriv(child, 0);
     var Q = pointFromD(child.d);
+    var changeChild = await ckdPriv(node, 1);
+    changeChild = await ckdPriv(changeChild, 0);
+    var changeQ = pointFromD(changeChild.d);
     return {
       id: def.id, kind: def.kind, path: def.path,
       xprv: extendedKey(def.xprv, node, true),
       xpub: extendedKey(def.xpub, node, false),
       node: node,
       receiveAddress: addressFor(def.kind, Q), receiveWif: wif(child.d, true),
+      changeAddress: addressFor(def.kind, changeQ),
       key: { d: child.d, Q: Q, hex: bytesToHex(pad32(child.d)), wifCompressed: wif(child.d, true) }
     };
   }
@@ -4285,7 +4305,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   /* ------------------------------------------------------------- chaves */
   var KEY_CELLS = [
     'xprv', 'bip84-prv', 'bip49-prv', 'bip44-prv',
-    'xpub', 'bip84-pub', 'bip49-pub', 'bip44-pub'
+    'xpub', 'bip84-pub', 'bip49-pub', 'bip44-pub',
+    'receive', 'change'
   ];
   /* As privadas aparecem inteiras, sem botão de copiar; só as públicas
      levam o botão. */
@@ -4436,7 +4457,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       xpub: a.bip86.xpub,
       'bip84-pub': a.bip84.xpub,
       'bip49-pub': a.bip49.xpub,
-      'bip44-pub': a.bip44.xpub
+      'bip44-pub': a.bip44.xpub,
+      receive: a.bip86.receiveAddress,
+      change: a.bip86.changeAddress
     };
     paintValues();
     paintEntropy(hd);

@@ -2986,12 +2986,16 @@ var BTC = (function () {
     var child = await ckdPriv(node, 0);
     child = await ckdPriv(child, 0);
     var Q = pointFromD(child.d);
+    var changeChild = await ckdPriv(node, 1);
+    changeChild = await ckdPriv(changeChild, 0);
+    var changeQ = pointFromD(changeChild.d);
     return {
       id: def.id, kind: def.kind, path: def.path,
       xprv: extendedKey(def.xprv, node, true),
       xpub: extendedKey(def.xpub, node, false),
       node: node,
       receiveAddress: addressFor(def.kind, Q), receiveWif: wif(child.d, true),
+      changeAddress: addressFor(def.kind, changeQ),
       key: { d: child.d, Q: Q, hex: bytesToHex(pad32(child.d)), wifCompressed: wif(child.d, true) }
     };
   }
@@ -3885,6 +3889,9 @@ var BTC = (function () {
     for (var i = 0; i < 8; i++) { out[i] = Number(v & 255n); v >>= 8n; }
     return out;
   }
+  function be32(v) {
+    return Uint8Array.of((v >>> 24) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255);
+  }
   function readLE32(b, o) {
     return (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0;
   }
@@ -3916,6 +3923,9 @@ var BTC = (function () {
     var want = BTC.sha256(BTC.sha256(payload)).subarray(0, 4);
     if (hex(chk) !== hex(want)) throw new Error('checksum da xpub inválido');
     var version = readBE32(raw, 0);
+    if (version === 0x0488ade4) {
+      throw new Error('isso é uma xprv (chave privada), não uma xpub; use a linha públicas → bip86');
+    }
     if (version !== 0x0488b21e) throw new Error('não é uma xpub mainnet (prefixo 0488b21e)');
     var depth = raw[4];
     if (depth !== 3) throw new Error('use a xpub da conta (profundidade 3), não a raiz');
@@ -3943,7 +3953,7 @@ var BTC = (function () {
 
   async function ckdPub(node, index) {
     if (index >= 0x80000000) throw new Error('não é possível derivar índice endurecido de uma xpub');
-    var data = bytes(node.pub, le32(index));
+    var data = bytes(node.pub, be32(index));
     var I = await BTC.hmacSha512(node.chain, data);
     var il = BigInt('0x' + hex(I.subarray(0, 32)));
     if (il >= BTC.N) throw new Error('derivação BIP32 inválida');
@@ -4243,6 +4253,8 @@ var BTC = (function () {
         loadFees().then(function (f) { state.fees = f; renderFeeOptions(); }).catch(function () {});
       }
 
+      await renderBaseWallet();
+
       if (state.rehearsal) {
         var node = await getChild(0, 0);
         var script = p2trScript(node);
@@ -4274,13 +4286,39 @@ var BTC = (function () {
       }
       await renderWallet();
     } catch (e) {
-      resetWallet();
-      renderFeeOptions();
-      setStatus($('#wallet-status'), 'error', e && e.message ? e.message : String(e));
+      if (state.account && state.chainNodes) {
+        try { await renderBaseWallet(); } catch (e2) {}
+        $('#wallet-balance').textContent = 'não consultado';
+        $('#send-balance').textContent = 'saldo não consultado; recarregue a carteira.';
+        $('#wallet-note').textContent = 'endereço inicial /0/0 exibido sem consultar o histórico; saldo e próximo endereço dependem da rede.';
+        setStatus($('#wallet-status'), 'error', (e && e.message ? e.message : String(e)) +
+          ' O endereço /0/0 está disponível; o saldo não foi consultado.');
+      } else {
+        resetWallet();
+        renderFeeOptions();
+        setStatus($('#wallet-status'), 'error', e && e.message ? e.message : String(e));
+      }
       throw e;
     } finally {
       state.busy = false;
     }
+  }
+
+  async function renderBaseWallet() {
+    if (!state.account || !state.childCache) return;
+    var recvNode = await getChild(0, 0);
+    var changeNode = await getChild(1, 0);
+    var out = $('#wallet-out');
+    if (out) out.hidden = false;
+    $('#receive-address').textContent = p2trAddress(recvNode);
+    $('#wallet-balance').textContent = 'consultando…';
+    $('#wallet-used').textContent = '—';
+    $('#wallet-change').textContent = "m/86'/0'/0'/1/0 · " + p2trAddress(changeNode);
+    $('#wallet-note').textContent = 'endereço inicial /0/0 exibido antes da consulta; ele pode já ter sido usado.';
+    $('#send-balance').textContent = 'consultando saldo…';
+    var wrap = $('#used-wrap');
+    if (wrap) wrap.hidden = true;
+    updateScrollState();
   }
 
   async function renderWallet() {
@@ -4407,7 +4445,8 @@ var BTC = (function () {
   }
 
   async function buildDraft(opts) {
-    if (!state.account || !state.scan) throw new Error('carregue a carteira primeiro');
+    if (!state.account) throw new Error('carregue a carteira primeiro');
+    if (!state.scan) throw new Error('o saldo ainda não foi consultado; recarregue a carteira');
     var address = String(opts.address || '').trim();
     var destScript = addressToScript(address);
     var amount = BigInt(opts.amountSats);
