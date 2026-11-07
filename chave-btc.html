@@ -1921,11 +1921,11 @@
   }
   .bits-actions { justify-content: center; }
   .keys-actions { justify-content: center; }
-  /* Chaves no mesmo desenho dos binários: o rótulo no --dim à esquerda, o
-     valor no --fg à direita, na mesma largura de 28rem do tabuleiro, sem
-     moldura nem fio entre as linhas. A coluna do rótulo cabe os 12
-     caracteres de "bip86 · xprv" mais o vão; a chave privada segue
-     ofuscada, com o botão de mostrar/copiar sob o valor. */
+  /* Chaves no mesmo desenho dos binários: o rótulo (só o bip) no --dim à
+     esquerda, o valor no --fg à direita, na mesma largura de 28rem do
+     tabuleiro, sem moldura nem fio entre as linhas. A coluna do rótulo
+     cabe os 5 caracteres de "bip86" mais o vão; as privadas ficam sem o
+     botão de copiar e as públicas mantêm o botão sob o valor. */
   .data-table.key-readout {
     width: min(100%, 28rem);
     margin: 0 auto var(--space-7);
@@ -1941,7 +1941,7 @@
     overflow-wrap: anywhere;
   }
   .key-readout tbody th {
-    width: 14ch;
+    width: 7ch;
     padding-right: var(--space-3);
     color: var(--dim);
     font-weight: 400;
@@ -1952,8 +1952,8 @@
     padding-top: var(--space-3);
     border-top: 0;
   }
-  /* Todas as chaves ficam inteiras, privadas e públicas, com o botão de
-     copiar sob o valor. */
+  /* Todas as chaves ficam inteiras; as públicas levam o botão de copiar
+     sob o valor. */
   .key-value { display: block; }
   .key-action[hidden] { display: none; }
   .key-action {
@@ -2157,10 +2157,10 @@
           <div class="reveal-block">
             <table class="data-table key-readout" id="keys-table" aria-label="chaves privadas">
               <tbody>
-                <tr><th scope="row">bip86 · xprv</th><td id="v-xprv" class="is-empty">—</td></tr>
-                <tr><th scope="row">bip84 · zprv</th><td id="v-bip84-prv" class="is-empty">—</td></tr>
-                <tr><th scope="row">bip49 · yprv</th><td id="v-bip49-prv" class="is-empty">—</td></tr>
-                <tr><th scope="row">bip44 · xprv</th><td id="v-bip44-prv" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip86</th><td id="v-xprv" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip84</th><td id="v-bip84-prv" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip49</th><td id="v-bip49-prv" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip44</th><td id="v-bip44-prv" class="is-empty">—</td></tr>
               </tbody>
             </table>
           </div>
@@ -2172,10 +2172,10 @@
           <div class="reveal-block">
             <table class="data-table key-readout" id="addr-table" aria-label="chaves públicas estendidas">
               <tbody>
-                <tr><th scope="row">bip86 · xpub</th><td id="v-xpub" class="is-empty">—</td></tr>
-                <tr><th scope="row">bip84 · zpub</th><td id="v-bip84-pub" class="is-empty">—</td></tr>
-                <tr><th scope="row">bip49 · ypub</th><td id="v-bip49-pub" class="is-empty">—</td></tr>
-                <tr><th scope="row">bip44 · xpub</th><td id="v-bip44-pub" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip86</th><td id="v-xpub" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip84</th><td id="v-bip84-pub" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip49</th><td id="v-bip49-pub" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip44</th><td id="v-bip44-pub" class="is-empty">—</td></tr>
               </tbody>
             </table>
           </div>
@@ -2252,7 +2252,7 @@
               <li>lê 256 bits marcados no tabuleiro, digitados como coordenadas A1–Z6 ou gerados pelo botão de bits aleatórios;</li>
               <li>mostra o mnemonic de 24 palavras e os 256 bits em binário e em hex;</li>
               <li>deriva a seed BIP39 (passphrase vazia), a raiz BIP32 e as contas BIP44/49/84/86 no mainnet;</li>
-              <li>mostra as chaves privadas e as xpubs das contas BIP44/49/84/86, com os caminhos de recebimento (/0/*) e troco (/1/*), e o botão de copiar em cada uma;</li>
+              <li>mostra as chaves privadas e as xpubs das contas BIP44/49/84/86, com os caminhos de recebimento (/0/*) e troco (/1/*); as públicas têm o botão de copiar;</li>
               <li>assina PSBT (BIP174) criado em outro app: ECDSA RFC 6979 no p2pkh, no BIP49 e no BIP84 (sighash BIP143), e Schnorr BIP340 no P2TR do BIP86 (sighash BIP341);</li>
               <li>faz tudo no próprio arquivo: sem biblioteca externa, sem build e sem requisição de rede — a política de segurança da página bloqueia qualquer conexão.</li>
             </ul>
@@ -4247,6 +4247,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     'xprv', 'bip84-prv', 'bip49-prv', 'bip44-prv',
     'xpub', 'bip84-pub', 'bip49-pub', 'bip44-pub'
   ];
+  /* As privadas aparecem inteiras, sem botão de copiar; só as públicas
+     levam o botão. */
+  var PRIVATE_CELLS = ['xprv', 'bip84-prv', 'bip49-prv', 'bip44-prv'];
   function copyText(value) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(value).catch(function () { legacyCopy(value); });
@@ -4273,34 +4276,35 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       var value = document.createElement('span');
       value.className = 'key-value';
       value.id = 'key-' + id;
+      cell.textContent = '';
+      cell.appendChild(value);
+      if (PRIVATE_CELLS.indexOf(id) >= 0) return;
       var action = document.createElement('button');
       action.type = 'button';
       action.className = 'key-action';
       action.textContent = 'copiar';
       action.hidden = true;
-      cell.textContent = '';
-      cell.appendChild(value);
       cell.appendChild(action);
     });
   }
   function paintKey(cell, value) {
     var out = cell.querySelector('.key-value');
+    if (!out) return;
     var action = cell.querySelector('.key-action');
-    if (!out || !action) return;
-    if (action._copyTimer) {
+    if (action && action._copyTimer) {
       window.clearTimeout(action._copyTimer);
       action._copyTimer = 0;
     }
-    action.textContent = 'copiar';
+    if (action) action.textContent = 'copiar';
     if (!value) {
       out.textContent = '—';
-      action.hidden = true;
+      if (action) action.hidden = true;
       cell.classList.add('is-empty');
       return;
     }
     cell.classList.remove('is-empty');
     out.textContent = value;
-    action.hidden = false;
+    if (action) action.hidden = false;
   }
   function paintValues() {
     KEY_CELLS.forEach(function (id) {
