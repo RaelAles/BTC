@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2e2d2b">
-<meta name="description" content="Esboço do projeto 2: deriva endereços Taproot da xpub da conta bip86, detecta o tipo da conta (bip44/p2pkh via blockchain.info ou bip86/p2tr via Blockstream Esplora), mostra saldo total, histórico, monta PSBT v0 e confere/transmite o PSBT assinado. Sem rede privada, sem estado.">
+<meta name="description" content="Esboço do projeto 2: detecta automaticamente a conta bip86/bip84/bip49/bip44 a partir da xpub, mostra saldo total e histórico e monta PSBT v0; confere o PSBT assinado antes de transmitir. Sem rede privada, sem estado.">
 <title>Transação BTC - esboço</title>
 <style>
 /* Fonte embutida do projeto.
@@ -2139,7 +2139,7 @@
           <pre class="rule" aria-hidden="true"></pre>
 
           <div class="prose app-block">
-            <p>Este esboço deriva endereços da xpub, detecta o tipo da conta e mostra saldo e histórico. Para <b>bip44 (p2pkh)</b> usa o blockchain.info; para <b>bip86 (p2tr)</b> usa o Blockstream Esplora (com fallback para o mempool.space). Nada é salvo: cada abertura começa vazia.</p>
+            <p>Este esboço deriva endereços da xpub, detecta o tipo da conta e mostra saldo e histórico. O tipo é detectado automaticamente entre <b>bip86</b>, <b>bip84</b>, <b>bip49</b> e <b>bip44</b> (zpub/ypub pela versão; xpub pelo histórico). Contas bip44 usam o blockchain.info; as demais usam o Blockstream Esplora (com fallback para o mempool.space). Nada é salvo: cada abertura começa vazia.</p>
             <p class="note">Se o navegador bloquear a consulta por CORS ao abrir o arquivo direto, sirva a pasta com <code>python3 -m http.server</code> e abra <code>http://localhost:8000/projeto-2.html</code>.</p>
           </div>
 
@@ -2148,18 +2148,6 @@
             <div class="field-box">
               <div class="edge" aria-hidden="true"></div>
               <input id="xpub" name="xpub" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="xpub...">
-              <div class="edge" aria-hidden="true"></div>
-            </div>
-            <div class="field-row">
-              <label class="field-label" for="account-type">tipo de conta</label>
-            </div>
-            <div class="field-box">
-              <div class="edge" aria-hidden="true"></div>
-              <select id="account-type">
-                <option value="auto" selected>automático (detecta)</option>
-                <option value="bip44">bip44 · legacy (p2pkh)</option>
-                <option value="bip86">bip86 · taproot (p2tr)</option>
-              </select>
               <div class="edge" aria-hidden="true"></div>
             </div>
             <div class="field-row">
@@ -3866,7 +3854,6 @@ var BTC = (function () {
   var state = {
     busy: false,
     providerIndex: 0,
-    accountType: 'auto',
     detectedType: null,
     bip44: null,
     xpub: null,
@@ -3957,9 +3944,13 @@ var BTC = (function () {
     if (hex(chk) !== hex(want)) throw new Error('checksum da xpub inválido');
     var version = readBE32(raw, 0);
     if (version === 0x0488ade4) {
-      throw new Error('isso é uma xprv (chave privada), não uma xpub; use a linha públicas → bip86');
+      throw new Error('isso é uma xprv (chave privada), não uma xpub; use a linha públicas');
     }
-    if (version !== 0x0488b21e) throw new Error('não é uma xpub mainnet (prefixo 0488b21e)');
+    var versionType;
+    if (version === 0x0488b21e) versionType = 'xpub';
+    else if (version === 0x04b24746) versionType = 'bip84';
+    else if (version === 0x049d7cb2) versionType = 'bip49';
+    else throw new Error('versão de xpub não suportada (use xpub, zpub ou ypub mainnet)');
     var depth = raw[4];
     if (depth !== 3) throw new Error('use a xpub da conta (profundidade 3), não a raiz');
     var child = readBE32(raw, 9);
@@ -3970,7 +3961,8 @@ var BTC = (function () {
       chain: raw.subarray(13, 45),
       depth: depth,
       parentFp: raw.subarray(5, 9),
-      child: child
+      child: child,
+      versionType: versionType
     };
   }
 
@@ -4021,6 +4013,39 @@ var BTC = (function () {
   }
   function p2pkhAddress(node) {
     return BTC.base58check(BTC.concatBytes(Uint8Array.of(0x00), BTC.hash160(node.pub)));
+  }
+  function p2wpkhScript(node) {
+    return BTC.concatBytes(Uint8Array.of(0x00, 0x14), BTC.hash160(node.pub));
+  }
+  function p2wpkhAddress(node) {
+    return BTC.segwitAddress('bc', 0, BTC.hash160(node.pub));
+  }
+  function p2shP2wpkhScript(node) {
+    return BTC.concatBytes(Uint8Array.of(0xa9, 0x14), BTC.hash160(p2wpkhScript(node)), Uint8Array.of(0x87));
+  }
+  function p2shP2wpkhAddress(node) {
+    return BTC.base58check(BTC.concatBytes(Uint8Array.of(0x05), BTC.hash160(p2wpkhScript(node))));
+  }
+  function p2pkhScript(node) {
+    return BTC.concatBytes(Uint8Array.of(0x76, 0xa9, 0x14), BTC.hash160(node.pub), Uint8Array.of(0x88, 0xac));
+  }
+  var TYPE_INFO = {
+    bip86: { label: 'bip86 · taproot (p2tr)', purpose: 86 },
+    bip84: { label: 'bip84 · segwit (p2wpkh)', purpose: 84 },
+    bip49: { label: 'bip49 · segwit aninhado (p2sh-p2wpkh)', purpose: 49 },
+    bip44: { label: 'bip44 · legacy (p2pkh)', purpose: 44 }
+  };
+  function addressForType(type, node) {
+    if (type === 'bip84') return p2wpkhAddress(node);
+    if (type === 'bip49') return p2shP2wpkhAddress(node);
+    if (type === 'bip44') return p2pkhAddress(node);
+    return p2trAddress(node);
+  }
+  function scriptForType(type, node) {
+    if (type === 'bip84') return p2wpkhScript(node);
+    if (type === 'bip49') return p2shP2wpkhScript(node);
+    if (type === 'bip44') return p2pkhScript(node);
+    return p2trScript(node);
   }
 
   /* ------------------------------------------------------------- endereços */
@@ -4223,7 +4248,7 @@ var BTC = (function () {
     var used = [], consecutive = 0, lastUsed = -1, i = 0;
     while (consecutive < GAP && i < MAX_SCAN) {
       var node = await getChild(chain, i);
-      var addr = p2trAddress(node);
+      var addr = addressForType(state.detectedType, node);
       if (i > 0) await sleep(250);
       var s = await fetchJson(prov.base + '/address/' + addr);
       var txCount = s.chain_stats.tx_count + s.mempool_stats.tx_count;
@@ -4280,7 +4305,7 @@ var BTC = (function () {
         var u = list[j];
         out.push({
           txid: u.txid, vout: u.vout, value: BigInt(u.value),
-          script: p2trScript(e.node), node: e.node,
+          script: scriptForType(state.detectedType, e.node), node: e.node,
           chain: e.chain, index: e.index, address: e.address, status: u.status
         });
       }
@@ -4308,7 +4333,7 @@ var BTC = (function () {
     if (sign) sign.hidden = true;
   }
 
-  async function loadWallet(xpubText, rehearsal, feeOverride, forceType) {
+  async function loadWallet(xpubText, rehearsal, feeOverride) {
     if (state.busy) return;
     state.busy = true;
     try {
@@ -4329,25 +4354,22 @@ var BTC = (function () {
         loadFees().then(function (f) { state.fees = f; renderFeeOptions(); }).catch(function () {});
       }
 
-      state.accountType = state.rehearsal ? 'bip86' : (forceType || 'auto');
-      if (!state.rehearsal && state.accountType !== 'bip86') {
+      if (state.rehearsal) {
+        state.detectedType = 'bip86';
+      } else if (acc.versionType === 'bip84' || acc.versionType === 'bip49') {
+        state.detectedType = acc.versionType;
+      } else {
         var b44 = null;
-        try {
-          b44 = await fetchBip44(String(xpubText).trim());
-        } catch (e) {
-          if (state.accountType === 'bip44') throw e;
-        }
-        if (b44 && (state.accountType === 'bip44' || (Number(b44.n_tx) || 0) > 0 || (Number(b44.final_balance) || 0) > 0)) {
+        try { b44 = await fetchBip44(String(xpubText).trim()); } catch (e) {}
+        if (b44 && ((Number(b44.n_tx) || 0) > 0 || (Number(b44.final_balance) || 0) > 0)) {
           state.detectedType = 'bip44';
           state.bip44 = parseBip44(b44, String(xpubText).trim());
           await renderBip44Wallet();
           return;
         }
-        if (state.accountType === 'bip44') {
-          throw new Error('não foi possível consultar a conta bip44 no blockchain.info');
-        }
+        state.detectedType = await detectStandardType();
       }
-      state.detectedType = 'bip86';
+      setStatus($('#wallet-status'), '', 'tipo detectado: ' + TYPE_INFO[state.detectedType].label + '.');
 
       await renderBaseWallet();
 
@@ -4403,6 +4425,39 @@ var BTC = (function () {
     } finally {
       state.busy = false;
     }
+  }
+
+  async function fetchJsonQuick(url) {
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, 6000);
+    try {
+      var r = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function detectStandardType() {
+    var node = await getChild(0, 0);
+    var types = ['bip86', 'bip84', 'bip49'];
+    var best = null;
+    for (var i = 0; i < types.length; i++) {
+      var type = types[i];
+      try {
+        var addr = addressForType(type, node);
+        var s = await fetchJsonQuick(providerAt(0).base + '/address/' + addr);
+        var c = s.chain_stats, m = s.mempool_stats;
+        var tx = (c.tx_count || 0) + (m.tx_count || 0);
+        var bal = (c.funded_txo_sum || 0) - (c.spent_txo_sum || 0) +
+          (m.funded_txo_sum || 0) - (m.spent_txo_sum || 0);
+        if (!best || bal > best.bal || (bal === best.bal && tx > best.tx)) {
+          best = { type: type, tx: tx, bal: bal };
+        }
+      } catch (e) {}
+    }
+    return best && (best.tx > 0 || best.bal > 0) ? best.type : 'bip86';
   }
 
   async function fetchBip44(xpubText) {
@@ -4506,7 +4561,8 @@ var BTC = (function () {
       var all = state.scan[0].used.concat(state.scan[1].used);
       var total = 0n;
       all.forEach(function (e) { total += e.balance; });
-      summary = 'tipo: bip86 (p2tr) · saldo ' + fmtBtc(total) + ' BTC · ' +
+      var label = TYPE_INFO[state.detectedType] ? TYPE_INFO[state.detectedType].label : state.detectedType;
+      summary = 'tipo: ' + label + ' · saldo ' + fmtBtc(total) + ' BTC · ' +
         all.length + ' endereços usados · fonte ' + providerAt(0).name + ' · gap de ' + GAP;
       all.forEach(function (e) {
         rows.push({ chain: e.chain, index: e.index, address: e.address, balance: e.balance,
@@ -4537,15 +4593,17 @@ var BTC = (function () {
 
   async function renderBaseWallet() {
     if (!state.account || !state.childCache) return;
+    var type = state.detectedType || 'bip86';
+    var info = TYPE_INFO[type];
     var recvNode = await getChild(0, 0);
     var changeNode = await getChild(1, 0);
     var out = $('#wallet-out');
     if (out) out.hidden = false;
-    $('#receive-address').textContent = p2trAddress(recvNode);
+    $('#receive-address').textContent = addressForType(type, recvNode);
     $('#wallet-balance').textContent = 'consultando…';
     $('#wallet-used').textContent = '—';
-    $('#wallet-change').textContent = "m/86'/0'/0'/1/0 · " + p2trAddress(changeNode);
-    $('#wallet-note').textContent = 'endereço inicial /0/0 exibido antes da consulta; ele pode já ter sido usado.';
+    $('#wallet-change').textContent = "m/" + info.purpose + "'/0'/0'/1/0 · " + addressForType(type, changeNode);
+    $('#wallet-note').textContent = 'tipo: ' + info.label + ' · endereço inicial /0/0 exibido antes da consulta; ele pode já ter sido usado.';
     $('#send-balance').textContent = 'consultando saldo…';
     var wrap = $('#used-wrap');
     if (wrap) wrap.hidden = true;
@@ -4556,24 +4614,27 @@ var BTC = (function () {
     if (!state.account || !state.scan) return;
     var total = 0n;
     state.utxos.forEach(function (u) { total += u.value; });
+    var type = state.detectedType || 'bip86';
+    var info = TYPE_INFO[type];
     var recvNode = await getChild(0, state.scan[0].next);
     var changeNode = await getChild(1, state.scan[1].next);
-    var recv = p2trAddress(recvNode);
-    var change = p2trAddress(changeNode);
+    var recv = addressForType(type, recvNode);
+    var change = addressForType(type, changeNode);
 
     $('#wallet-out').hidden = false;
     $('#receive-address').textContent = recv;
     $('#wallet-balance').textContent = fmtBtc(total) + ' BTC · ' + fmtInt(total) + ' sats';
     $('#wallet-used').textContent = state.scan[0].used.length + ' recebimento · ' + state.scan[1].used.length + ' troco';
-    $('#wallet-change').textContent = "m/86'/0'/0'/1/" + state.scan[1].next + ' · ' + change;
-    var note = 'tipo: bip86 (p2tr) · varredura: ' + (state.scan[0].queries + state.scan[1].queries) +
+    $('#wallet-change').textContent = "m/" + info.purpose + "'/0'/0'/1/" + state.scan[1].next + ' · ' + change;
+    var note = 'tipo: ' + info.label + ' · varredura: ' + (state.scan[0].queries + state.scan[1].queries) +
       ' consultas · gap de ' + GAP + ' endereços';
     if (!state.rehearsal) note += ' · fonte: ' + providerAt(0).name;
     note += '.';
     if (state.rehearsal) note = 'modo ensaio: utxo fictício, não transmissível. ' + note;
     $('#wallet-note').textContent = note;
     $('#send-balance').textContent = 'disponível: ' + fmtBtc(total) + ' BTC · ' +
-      state.utxos.length + ' utxo(s) · próximo troco em /1/' + state.scan[1].next;
+      state.utxos.length + ' utxo(s) · ' +
+      (type === 'bip86' ? 'próximo troco em /1/' + state.scan[1].next : 'envio de ' + info.label + ' ainda não implementado');
 
     var wrap = $('#used-wrap');
     var body = $('#used-table tbody');
@@ -4679,7 +4740,10 @@ var BTC = (function () {
   }
 
   async function buildDraft(opts) {
-    if (state.detectedType === 'bip44') throw new Error('o envio de conta bip44 ainda não está implementado neste esboço');
+    if (state.detectedType !== 'bip86') {
+      var ti = TYPE_INFO[state.detectedType];
+      throw new Error('o envio de conta ' + (ti ? ti.label : state.detectedType) + ' ainda não está implementado neste esboço');
+    }
     if (!state.account) throw new Error('carregue a carteira primeiro');
     if (!state.scan) throw new Error('o saldo ainda não foi consultado; recarregue a carteira');
     var address = String(opts.address || '').trim();
@@ -5105,7 +5169,7 @@ var BTC = (function () {
     $('#wallet-form').addEventListener('submit', function (ev) {
       ev.preventDefault();
       setStatus($('#wallet-status'), '', 'carregando carteira…');
-      loadWallet($('#xpub').value, $('#rehearsal').checked, null, $('#account-type').value).catch(function () {});
+      loadWallet($('#xpub').value, $('#rehearsal').checked, null).catch(function () {});
     });
     $('#rehearsal').addEventListener('change', function () {
       setStatus($('#wallet-status'), '', $('#rehearsal').checked
@@ -5219,6 +5283,7 @@ var BTC = (function () {
     parseXpub: parseXpub,
     getChild: getChild,
     p2trAddress: p2trAddress,
+    addressForType: addressForType,
     addressToScript: addressToScript,
     parseBtc: parseBtc
   };
