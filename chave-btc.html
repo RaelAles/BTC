@@ -1995,6 +1995,17 @@
     display: block;
     margin: var(--space-3) 0 0 auto;
   }
+  /* O PSBT importado é leitura, e não campo: uma linha só, no desenho das
+     chaves privadas (rótulo em --dim, valor em --text-sm, sem moldura e sem
+     botão de copiar). O PSBT v0 com non_witness_utxo passa de 2 KB, então o
+     valor rola por dentro para não empurrar importar/assinar para fora da
+     tela. */
+  .key-readout.psbt-readout { margin-bottom: 0; }
+  .psbt-readout .key-value {
+    max-height: 15em;
+    overflow-y: auto;
+    white-space: pre-wrap;
+  }
   /* Tabuleiro de 256 bits em um quadrado de 16 × 16. As coordenadas
      continuam na sequência A1–A9, A0, B1–B9, B0, … até Z6, agora corrida
      pela ordem de leitura (a letra avança a cada 10 células). Sem moldura
@@ -2221,16 +2232,12 @@
             <h3><span class="prompt" aria-hidden="true">##</span> assinar psbt</h3>
           </div>
 
-          <div class="field-row">
-            <label class="field-label" for="psbt">psbt</label>
-            <span class="field-meta" id="psbt-meta">0 bytes</span>
-          </div>
-          <div class="field-box reveal-block" id="psbt-box">
-            <div class="edge" aria-hidden="true"></div>
-            <textarea id="psbt" rows="6" spellcheck="false" autocomplete="off" autocapitalize="off"
-                      readonly aria-describedby="psbt-meta"
-                      placeholder="importe um arquivo .psbt"></textarea>
-            <div class="edge" aria-hidden="true"></div>
+          <div class="reveal-block">
+            <table class="data-table key-readout psbt-readout" aria-label="conteúdo do psbt importado">
+              <tbody>
+                <tr><th scope="row">psbt</th><td id="psbt" class="is-empty"><span class="key-value" id="psbt-value">—</span></td></tr>
+              </tbody>
+            </table>
           </div>
           <div class="psbt-actions reveal-block">
             <label class="field-upload" id="psbt-import">
@@ -3976,8 +3983,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var boardGrid = $('#board-grid');
   var boardPath = [];
   var bitsValue = '';
-  var psbtEl = $('#psbt');
-  var psbtMeta = $('#psbt-meta');
+  var psbtCell = $('#psbt');
+  var psbtValue = $('#psbt-value');
+  var psbtText = '';
   var psbtImport = $('#psbt-import');
   var psbtClear = $('#psbt-clear');
   var signBtn = $('#sign-btn');
@@ -4433,8 +4441,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     paintValues();
     paintEntropy(hd);
     invalidateSignature();
-    /* Se já há um PSBT colado, ele é reavaliado contra a chave nova. */
-    if (psbtEl && psbtEl.value.trim()) scheduleAnalyze();
+    /* Se já há um PSBT importado, ele é reavaliado contra a chave nova. */
+    if (psbtText.trim()) scheduleAnalyze();
   }
   function clearSignature() {
     if (signOut) signOut.hidden = true;
@@ -4456,6 +4464,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function setPsbtLoaded(loaded) {
     if (psbtImport) psbtImport.hidden = !!loaded;
     if (psbtClear) psbtClear.hidden = !loaded;
+  }
+  /* O texto importado é saída de leitura, não entrada: sem PSBT, a linha fica
+     no travessão, no tom do estado vazio. */
+  function paintPsbt(text) {
+    psbtText = text || '';
+    if (psbtValue) psbtValue.textContent = psbtText || '—';
+    if (psbtCell) psbtCell.classList.toggle('is-empty', !psbtText);
   }
 
   function copyFeedback(button, value) {
@@ -4525,16 +4540,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }
     return lines;
   }
-  function updatePsbtMeta() {
-    if (!psbtEl || !psbtMeta) return;
-    var text = psbtEl.value.trim();
-    if (!text) { psbtMeta.textContent = '0 bytes'; return; }
-    try {
-      psbtMeta.textContent = BTC.psbtParseInput(text).length + ' bytes';
-    } catch (e) {
-      psbtMeta.textContent = text.length + ' caracteres';
-    }
-  }
   function auxRandom() {
     try {
       if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
@@ -4553,7 +4558,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       setStatus(signStatus, 'erro', 'gere a chave de 256 bits no tabuleiro antes de analisar o psbt.');
       return;
     }
-    var text = psbtEl.value.trim();
+    var text = psbtText.trim();
     if (!text) {
       setStatus(signStatus, 'neutro', '');
       return;
@@ -4578,11 +4583,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   var analyzeTimer = 0;
   function scheduleAnalyze() {
-    updatePsbtMeta();
     invalidateSignature();
     if (analyzeTimer) window.clearTimeout(analyzeTimer);
     analyzeTimer = 0;
-    if (!psbtEl.value.trim()) return;
+    if (!psbtText.trim()) return;
     if (!state.hd) {
       setStatus(signStatus, 'erro', 'gere a chave de 256 bits no tabuleiro antes de analisar o psbt.');
       return;
@@ -4593,25 +4597,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       analyzeNow();
     }, 250);
   }
-  if (psbtEl) {
-    psbtEl.addEventListener('input', scheduleAnalyze);
-    psbtEl.addEventListener('paste', function () {
-      window.setTimeout(scheduleAnalyze, 0);
-    });
-  }
   if (psbtClear) {
     psbtClear.addEventListener('click', function () {
-      if (psbtEl) psbtEl.value = '';
+      paintPsbt('');
       resetPsbtFile();
       setPsbtLoaded(false);
-      updatePsbtMeta();
       invalidateSignature();
       if (psbtFile) psbtFile.focus();
-      else if (psbtEl) psbtEl.focus();
     });
   }
-  /* Importar o PSBT de um arquivo preenche a caixa somente leitura e dispara
-     a revisão em seguida, contra a chave já derivada. */
+  /* Importar o PSBT de um arquivo mostra o conteúdo importado e dispara a
+     revisão em seguida, contra a chave já derivada. */
   var psbtFile = $('#psbt-file');
   function resetPsbtFile() {
     if (psbtFile) psbtFile.value = '';
@@ -4622,7 +4618,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       if (!file) { resetPsbtFile(); return; }
       var reader = new FileReader();
       reader.onload = function () {
-        if (psbtEl) psbtEl.value = String(reader.result || '').trim();
+        paintPsbt(String(reader.result || '').trim());
         /* Zera o input para o mesmo arquivo poder ser escolhido de novo. */
         psbtFile.value = '';
         setPsbtLoaded(true);
@@ -5149,7 +5145,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   syncThemeColor();
   syncFavicon();
   applyBits(bitsValue);
-  updatePsbtMeta();
+  paintPsbt('');
   buildKeyCells();
   paintValues();
   showScreen(screenName(location.hash.replace(/^#/, '')));
