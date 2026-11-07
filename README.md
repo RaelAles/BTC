@@ -5,9 +5,9 @@ deriva os endereços públicos na hora e consulta um servidor **Electrum**. A
 tela mostra:
 
 1. **saldo total** da carteira (soma das UTXOs de todos os tipos de conta);
-2. **lista de endereços de recebimento já usados**, com **recebido**,
-   **enviado** e **saldo** de cada um — mais o próximo endereço livre para
-   receber.
+2. **lista de endereços já usados** (recebimento e troco), com **recebido**,
+   **enviado** e **saldo** de cada um, na tela **histórico** — mais o próximo
+   endereço livre para receber, na tela **carteira**.
 
 Nada fica guardado: nem a xpub no navegador, nem endereços, transações ou
 saldo no Cloudflare. Enquanto a tela está aberta o saldo é acompanhado em

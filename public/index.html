@@ -31,7 +31,9 @@
     <a class="skip-link" id="skip-link" href="#content">pular para o conteúdo</a>
 
     <nav class="menu" aria-label="Telas">
-      <button type="button" aria-current="page" tabindex="-1">carteira</button>
+      <button type="button" data-screen="carteira" aria-current="page" tabindex="-1">carteira</button>
+      <span class="dot-sep" aria-hidden="true">·</span>
+      <button type="button" data-screen="historico">histórico</button>
     </nav>
 
     <div class="edge" aria-hidden="true"></div>
@@ -75,18 +77,27 @@
 
             <p class="note" id="v-warnings"></p>
 
-            <div class="prose app-block">
-              <h3><span class="prompt" aria-hidden="true">##</span> endereços já usados</h3>
-              <p>O caminho mostra o tipo da conta (44, 49, 84 ou 86), o ramo (0 recebimento, 1 troco) e o índice. "recebido" é tudo que entrou no endereço; "enviado", tudo que saiu.</p>
+            <div class="chips app-gap">
+              <button type="button" id="open-history">ver histórico</button>
             </div>
-            <table class="data-table" id="addresses-table" aria-label="endereços de recebimento já usados, com recebido, enviado e saldo">
-              <thead>
-                <tr><th scope="col">caminho</th><th scope="col">endereço</th><th scope="col" class="is-num">recebido</th><th scope="col" class="is-num">enviado</th><th scope="col" class="is-num">saldo</th></tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-            <p class="list-empty" id="addresses-empty" hidden>[ vazio ] nenhum endereço de recebimento usado ainda.</p>
           </div>
+        </section>
+
+        <section class="screen" id="screen-historico" hidden aria-labelledby="head-historico">
+          <h2 id="head-historico" tabindex="-1">HISTÓRICO</h2>
+          <pre class="rule" aria-hidden="true"></pre>
+
+          <p class="note" id="history-summary">cole a xpub, zpub ou ypub na carteira para ver o histórico.</p>
+          <p class="note" id="history-help">O caminho mostra o tipo da conta (44, 49, 84 ou 86), o ramo (0 recebimento, 1 troco) e o índice. "recebido" é tudo que entrou no endereço; "enviado", tudo que saiu.</p>
+
+          <table class="data-table" id="addresses-table" aria-label="endereços já usados, com recebido, enviado e saldo" hidden>
+            <thead>
+              <tr><th scope="col">caminho</th><th scope="col" aria-label="endereço"><span class="th-long">endereço</span><span class="th-short" aria-hidden="true">end.</span></th><th scope="col" class="is-num" aria-label="recebido"><span class="th-long">recebido</span><span class="th-short" aria-hidden="true">rec.</span></th><th scope="col" class="is-num" aria-label="enviado"><span class="th-long">enviado</span><span class="th-short" aria-hidden="true">env.</span></th><th scope="col" class="is-num">saldo</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <p class="list-empty" id="addresses-empty" hidden>[ vazio ] nenhum endereço usado ainda.</p>
+          <p class="status-msg is-reserved" id="history-status" role="status"></p>
         </section>
       </div>
 

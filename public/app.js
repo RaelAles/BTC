@@ -102,11 +102,38 @@
     while (s.length < 9) s = '0' + s;
     return (neg ? '-' : '') + s.slice(0, -8) + '.' + s.slice(-8);
   }
-  function setStatus(kind, text) {
-    var el = $('#status');
+  function setStatusTo(el, kind, text) {
+    if (!el) return;
     el.textContent = text || '';
     el.classList.remove('ok', 'error');
     if (kind === 'ok' || kind === 'error') el.classList.add(kind);
+  }
+  function setStatus(kind, text) {
+    setStatusTo($('#status'), kind, text);
+  }
+  var SCREEN_TITLES = {
+    carteira: 'Projeto 2 — carteira',
+    historico: 'Projeto 2 — histórico'
+  };
+  function showScreen(name) {
+    if (!SCREEN_TITLES[name]) name = 'carteira';
+    Object.keys(SCREEN_TITLES).forEach(function (n) {
+      var sec = $('#screen-' + n);
+      if (sec) sec.hidden = n !== name;
+    });
+    $$('.menu button[data-screen]').forEach(function (b) {
+      if (b.getAttribute('data-screen') === name) {
+        b.setAttribute('aria-current', 'page');
+        b.setAttribute('tabindex', '-1');
+      } else {
+        b.removeAttribute('aria-current');
+        b.removeAttribute('tabindex');
+      }
+    });
+    document.title = SCREEN_TITLES[name];
+    var sc = $('#content-scroll');
+    if (sc) sc.scrollTop = 0;
+    updateScroll();
   }
   function fillFrames() {
     $$('.edge').forEach(function (el) {
@@ -159,7 +186,11 @@
     var body = $('#addresses-table tbody');
     body.innerHTML = '';
     var rows = d.addresses || [];
+    var total = { received: 0, spent: 0, balance: 0 };
     rows.forEach(function (a) {
+      total.received += Number(a.received) || 0;
+      total.spent += Number(a.spent) || 0;
+      total.balance += Number(a.balance) || 0;
       var tr = document.createElement('tr');
       var purpose = TYPE_PURPOSE[a.account_type] || '?';
       tr.innerHTML = '<td>m/' + purpose + "'/0'/0'/" + a.chain + '/' + a.idx + '</td>' +
@@ -169,6 +200,12 @@
         '<td class="is-num">' + fmtInt(a.balance) + '</td>';
       body.appendChild(tr);
     });
+    var countLabel = rows.length === 1 ? '1 endereço usado' : fmtInt(rows.length) + ' endereços usados';
+    $('#history-summary').textContent = countLabel +
+      ' · recebido ' + fmtBtc(total.received) + ' BTC' +
+      ' · enviado ' + fmtBtc(total.spent) + ' BTC' +
+      ' · saldo ' + fmtBtc(total.balance) + ' BTC';
+    $('#addresses-table').hidden = rows.length === 0;
     $('#addresses-empty').hidden = rows.length > 0;
     $('#out').hidden = false;
     updateScroll();
@@ -318,6 +355,14 @@
     try { setTheme(localStorage.getItem('projeto2-fase1-theme') || 'dark'); }
     catch (e) { setTheme('dark'); }
 
+    $$('.menu button[data-screen]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        showScreen(b.getAttribute('data-screen'));
+      });
+    });
+    var openHistory = $('#open-history');
+    if (openHistory) openHistory.addEventListener('click', function () { showScreen('historico'); });
+
     $('#wallet-form').addEventListener('submit', function (ev) {
       ev.preventDefault();
       // reaproveita a sessão: se a xpub mudou, o DO reinicia sozinho
@@ -387,8 +432,10 @@
       if (!code) return;
       try {
         await navigator.clipboard.writeText(code.textContent.trim());
-        setStatus('ok', 'endereço copiado.');
-      } catch (e) {}
+        setStatusTo($('#history-status'), 'ok', 'endereço copiado.');
+      } catch (e) {
+        setStatusTo($('#history-status'), 'error', 'não foi possível copiar.');
+      }
     });
 
     var sc = $('#content-scroll');

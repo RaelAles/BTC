@@ -1054,6 +1054,10 @@
     width: calc(8ch + 2 * var(--space-4));
   }
   #addresses-table thead th { white-space: nowrap; }
+  /* No celular os rótulos longos não cabem em cinco colunas e quebrariam no
+     meio da palavra; o curto aparece no lugar, com o nome acessível no
+     aria-label do th. */
+  #addresses-table .th-short { display: none; }
   .data-table td.is-num { white-space: nowrap; }
   .data-table .is-empty { color: var(--dim); }
   /* As linhas fora do conjunto moderno ficam em um grupo próprio: o hidden
@@ -1796,6 +1800,16 @@
   @media (max-width: 520px) {
     .menu { gap: var(--space-2) var(--space-5); font-size: var(--text-sm); }
     .status { gap: var(--space-4) var(--space-6); }
+    /* A tabela de endereços tem cinco colunas: no celular, os 8ch fixos de
+       cada coluna numérica tomavam quase toda a largura e sobrava um
+       caractere por linha para caminho e endereço. As numéricas passam a
+       dividir a largura com as demais e o cabeçalho pode quebrar. */
+    #addresses-table .is-num { width: auto; }
+    #addresses-table thead th { white-space: normal; hyphens: auto; }
+    #addresses-table .th-long { display: none; }
+    #addresses-table .th-short { display: inline; }
+    #addresses-table th,
+    #addresses-table td { padding-inline: var(--space-2); }
   }
 
   /* ------------------------------------------------------------------
