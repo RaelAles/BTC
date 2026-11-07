@@ -207,8 +207,8 @@ export class ElectrumClient {
     return Array.isArray(r) ? r : [];
   }
 
-  async listUnspent(sh) {
-    const r = await this.request('blockchain.scripthash.listunspent', [sh]);
+  async mempool(sh) {
+    const r = await this.request('blockchain.scripthash.get_mempool', [sh]);
     return Array.isArray(r) ? r : [];
   }
 
@@ -277,29 +277,48 @@ export async function withElectrum(opts, fn) {
   }
 }
 
-/* Saldo + contagem de txs de vários scripts numa conexão só.
-   `funded` (total recebido) não vem do Electrum sem baixar cada tx: fica null. */
-export async function statsMany(client, scripts, opts) {
+/* Histórico + mempool de vários scripts numa conexão só.
+   Devolve, por script, um Map txid → altura (0 = mempool). */
+export async function historiesMany(client, scripts, opts) {
   const o = opts || {};
   const shs = scripts.map(s => scripthash(s));
   const items = [];
   for (const sh of shs) {
-    items.push({ method: 'blockchain.scripthash.get_balance', params: [sh] });
     items.push({ method: 'blockchain.scripthash.get_history', params: [sh] });
+    items.push({ method: 'blockchain.scripthash.get_mempool', params: [sh] });
   }
   const out = await client.requestMany(items, o.concurrency);
   return shs.map((sh, i) => {
-    const b = out[i * 2] || {};
-    const h = out[i * 2 + 1] || [];
-    const confirmed = Number(b.confirmed || 0);
-    const unconfirmed = Number(b.unconfirmed || 0);
-    return {
-      scripthash: sh,
-      confirmed,
-      unconfirmed,
-      balance: confirmed + unconfirmed,
-      txCount: Array.isArray(h) ? h.length : 0,
-      funded: null
-    };
+    const heights = new Map();
+    for (const h of (out[i * 2] || [])) {
+      if (h && h.tx_hash) heights.set(h.tx_hash, Number(h.height) > 0 ? Number(h.height) : 0);
+    }
+    for (const m of (out[i * 2 + 1] || [])) {
+      if (m && m.tx_hash && !heights.has(m.tx_hash)) heights.set(m.tx_hash, 0);
+    }
+    return { scripthash: sh, heights, txids: [...heights.keys()], txCount: heights.size };
   });
+}
+
+/* Transações cruas (hex) em lote. Tolera txid que sumiu (mempool que caiu,
+   reorg): devolve o que veio e o erro por txid, sem derrubar o lote. */
+export async function transactionsMany(client, txids, opts) {
+  const o = opts || {};
+  const limit = Math.max(1, Number(o.concurrency) || 8);
+  const raw = new Map();
+  const errors = new Map();
+  let cursor = 0;
+  const worker = async () => {
+    for (;;) {
+      const i = cursor++;
+      if (i >= txids.length) return;
+      const txid = txids[i];
+      try { raw.set(txid, await client.request('blockchain.transaction.get', [txid])); }
+      catch (e) { errors.set(txid, e && e.message ? e.message : String(e)); }
+    }
+  };
+  const workers = [];
+  for (let k = 0; k < Math.min(limit, txids.length); k++) workers.push(worker());
+  await Promise.all(workers);
+  return { raw, errors };
 }

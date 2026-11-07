@@ -1,4 +1,4 @@
-/* Projeto 2 — Fase 1 (Cloudflare Worker + D1).
+/* Projeto 2 — Worker + D1 com fonte única Electrum.
    O navegador não deriva nem consulta saldo: só manda a xpub e mostra o
    estado que o Worker devolve. A xpub é a credencial; não há senha. */
 (function () {
@@ -87,7 +87,7 @@
         return '<div>' + esc(e.label) + ' · ' + fmtBtc(e.balance) + ' BTC · <code>' + esc(e.address) + '</code></div>';
       }).join('')
       : '—';
-    $('#v-source').textContent = d.source ? d.source : 'blockchain.info (pkh) · blockstream.info/mempool.space (demais)';
+    $('#v-source').textContent = d.source ? d.source : 'electrum (scripthash)';
     $('#v-updated').textContent = d.updated_at ? new Date(d.updated_at).toLocaleString('pt-BR') : '—';
     $('#v-warnings').innerHTML = (d.warnings || []).map(function (w) { return esc(w); }).join('<br>');
 
@@ -97,10 +97,10 @@
     rows.forEach(function (a) {
       var tr = document.createElement('tr');
       var purpose = TYPE_PURPOSE[a.account_type] || '?';
-      tr.innerHTML = '<td>' + esc(TYPE_LABEL[a.account_type] || a.account_type) + '</td>' +
-        '<td>m/' + purpose + "'/0'/0'/" + a.chain + '/' + a.idx + '</td>' +
+      tr.innerHTML = '<td>m/' + purpose + "'/0'/0'/" + a.chain + '/' + a.idx + '</td>' +
         '<td><code>' + esc(a.address) + '</code></td>' +
-        '<td>' + (a.used ? 'sim' : 'não') + '</td>' +
+        '<td class="is-num">' + fmtInt(a.received) + '</td>' +
+        '<td class="is-num">' + fmtInt(a.spent) + '</td>' +
         '<td class="is-num">' + fmtInt(a.balance) + '</td>';
       body.appendChild(tr);
     });

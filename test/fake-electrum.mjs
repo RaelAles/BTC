@@ -1,15 +1,23 @@
 /* Servidor Electrum de mentira para os testes (TCP puro, sem TLS) e um
    adaptador connect() em Node no mesmo formato de cloudflare:sockets.
-   Não há rede: o teste aponta o transporte para 127.0.0.1. */
+   Fala o subconjunto que o Worker usa: server.version, scripthash
+   get_history/get_mempool e transaction.get. */
 import net from 'node:net';
 import { Readable, Writable } from 'node:stream';
 
 export async function startFakeElectrum(opts) {
   const o = opts || {};
-  const balances = new Map(Object.entries(o.balances || {}));
   const histories = new Map(Object.entries(o.histories || {}));
+  const mempool = new Map(Object.entries(o.mempool || {}));
+  const txs = new Map(Object.entries(o.txs || {}));
   const requests = [];
   const sockets = new Set();
+
+  const asEntries = (list) => (list || []).map(h => ({
+    height: h.height === undefined ? 0 : h.height,
+    tx_hash: h.tx_hash || h.txid,
+    fee: 0
+  }));
 
   const server = net.createServer(socket => {
     sockets.add(socket);
@@ -31,19 +39,21 @@ export async function startFakeElectrum(opts) {
           continue;
         }
         requests.push(req);
-        const sh = req.params && req.params[0];
+        const arg = req.params && req.params[0];
         let result;
         if (req.method === 'server.version') {
           result = ['fake-electrum 1.0', '1.4'];
-        } else if (req.method === 'blockchain.scripthash.get_balance') {
-          const bal = balances.get(sh) || 0;
-          result = { confirmed: bal, unconfirmed: 0 };
         } else if (req.method === 'blockchain.scripthash.get_history') {
-          const n = histories.has(sh) ? histories.get(sh) : (balances.get(sh) > 0 ? 1 : 0);
-          result = Array.from({ length: n }, (_, i) => ({ height: 700000 + i, tx_hash: 'aa'.repeat(31) + '01' }));
-        } else if (req.method === 'blockchain.scripthash.listunspent') {
-          const bal = balances.get(sh) || 0;
-          result = bal > 0 ? [{ tx_hash: 'bb'.repeat(32), tx_pos: 0, height: 700000, value: bal }] : [];
+          result = asEntries(histories.get(arg));
+        } else if (req.method === 'blockchain.scripthash.get_mempool') {
+          result = asEntries(mempool.get(arg));
+        } else if (req.method === 'blockchain.transaction.get') {
+          const hex = txs.get(arg);
+          if (typeof hex !== 'string') {
+            socket.write(JSON.stringify({ id: req.id, jsonrpc: '2.0', error: { code: -32603, message: 'transaction not found' } }) + '\n');
+            continue;
+          }
+          result = hex;
         } else {
           socket.write(JSON.stringify({ id: req.id, jsonrpc: '2.0', error: { code: -32601, message: 'método desconhecido' } }) + '\n');
           continue;
@@ -63,9 +73,10 @@ export async function startFakeElectrum(opts) {
     port,
     host: '127.0.0.1',
     requests,
-    balances,
     histories,
-    server,
+    mempool,
+    txs,
+    count(method) { return requests.filter(r => r.method === method).length; },
     async close() {
       for (const s of sockets) s.destroy();
       await new Promise(resolve => server.close(resolve));

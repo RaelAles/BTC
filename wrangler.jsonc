@@ -18,8 +18,9 @@
     "enabled": true
   },
   "vars": {
-    "ELECTRUM_SERVERS": "electrum.blockstream.info:50002:tls,electrum.blockstream.info:50001:tcp",
+    // Fonte única de saldo/histórico: servidor Electrum (Sparrow usa os mesmos).
+    "ELECTRUM_SERVERS": "electrum.blockstream.info:50002:tls,blockstream.info:700:tls,electrum.diynodes.com:50022:tls",
     "ELECTRUM_TIMEOUT_MS": "8000",
-    "EXTRAS_UNION": "on"
+    "SCAN_MAX": "400"
   }
 }

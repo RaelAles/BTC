@@ -1,11 +1,13 @@
-/* Testes do cliente Electrum: scripthash, lista de servidores, pipelining,
-   fallback entre servidores, timeout, erro de método e fechamento.
+/* Testes do cliente Electrum: scripthash, lista de servidores, histórico em
+   lote, transações cruas, fallback, timeout e erros.
    Roda sem rede e sem Cloudflare: node test/electrum.test.mjs */
 import assert from 'node:assert/strict';
 import {
-  scripthash, parseServerList, openElectrum, setConnectOverride, statsMany
+  scripthash, parseServerList, openElectrum, setConnectOverride,
+  historiesMany, transactionsMany
 } from '../src/electrum.js';
 import { startFakeElectrum, nodeConnect, deadPort } from './fake-electrum.mjs';
+import { makeTx } from './tx-fixture.mjs';
 
 let passed = 0;
 function ok(label) { passed++; console.log('ok   ' + label); }
@@ -33,43 +35,56 @@ function ok(label) { passed++; console.log('ok   ' + label); }
   ok('parseServerList aceita host:porta[:tls|:tcp] e recusa inválidos');
 }
 
-/* 3. statsMany: 3 scripts em 6 pedidos numa conexão, na ordem. */
+/* 3. historiesMany: histórico + mempool por script, numa conexão. */
 {
-  const scripts = [
-    Uint8Array.from([0x76, 0xa9, 0x14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 0x88, 0xac]),
-    Uint8Array.from([0x00, 0x14, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]),
-    Uint8Array.from([0x51, 0x20, ...new Array(32).fill(7)])
-  ];
-  const shs = scripts.map(scripthash);
+  const s1 = Uint8Array.from([0x76, 0xa9, 0x14, ...new Array(20).fill(1), 0x88, 0xac]);
+  const s2 = Uint8Array.from([0x00, 0x14, ...new Array(20).fill(2)]);
+  const s3 = Uint8Array.from([0x51, 0x20, ...new Array(32).fill(3)]);
+  const [sh1, sh2, sh3] = [s1, s2, s3].map(scripthash);
+  const txA = makeTx([{ txid: '11'.repeat(32), vout: 0 }], [{ value: 1000, script: s1 }]);
+  const txB = makeTx([{ txid: txA.txid, vout: 0 }], [{ value: 900, script: s2 }]);
+  const txC = makeTx([{ txid: '22'.repeat(32), vout: 1 }], [{ value: 5000, script: s1 }]);
+
   const fake = await startFakeElectrum({
-    balances: { [shs[0]]: 10665, [shs[1]]: 4200 },
-    histories: { [shs[0]]: 3, [shs[1]]: 0 }
+    histories: {
+      [sh1]: [{ height: 700000, tx_hash: txA.txid }, { height: 700100, tx_hash: txB.txid }],
+      [sh2]: [{ height: 700100, tx_hash: txB.txid }]
+    },
+    mempool: {},
+    txs: { [txA.txid]: txA.raw, [txB.txid]: txB.raw }
   });
+  // txC entra no histórico e no mempool do s1: tem que contar uma vez só
+  fake.histories.get(sh1).push({ height: 0, tx_hash: txC.txid });
+  fake.mempool.set(sh1, [{ height: 0, tx_hash: txC.txid }]);
+  fake.txs.set(txC.txid, txC.raw);
+
   setConnectOverride(nodeConnect);
   const client = await openElectrum({
     servers: [{ host: fake.host, port: fake.port, secure: false }], timeoutMs: 4000
   });
-  assert.equal(client.name, '127.0.0.1:' + fake.port);
-  assert.deepEqual(client.version, ['fake-electrum 1.0', '1.4']);
-  const stats = await statsMany(client, scripts);
-  assert.deepEqual(stats.map(s => s.balance), [10665, 4200, 0]);
-  assert.deepEqual(stats.map(s => s.txCount), [3, 0, 0]);
-  assert.deepEqual(stats.map(s => s.scripthash), shs);
-  assert.equal(stats[0].funded, null);
-  assert.equal(fake.requests.length, 1 + 6, 'um server.version e dois pedidos por script');
-  const bal = await client.balance(shs[0]);
-  assert.deepEqual(bal, { confirmed: 10665, unconfirmed: 0, total: 10665 });
-  const empty = await client.history(shs[2]);
-  assert.deepEqual(empty, []);
+  const hist = await historiesMany(client, [s1, s2, s3]);
+  assert.equal(hist[0].txCount, 3);
+  assert.equal(hist[0].heights.get(txA.txid), 700000);
+  assert.equal(hist[0].heights.get(txB.txid), 700100);
+  assert.equal(hist[0].heights.get(txC.txid), 0, 'mempool entra com altura 0');
+  assert.equal(hist[1].txCount, 1);
+  assert.equal(hist[2].txCount, 0);
+  assert.deepEqual(hist[2].txids, []);
+
+  const raw = await transactionsMany(client, [txA.txid, txB.txid, 'ff'.repeat(32)]);
+  assert.equal(raw.raw.get(txA.txid), txA.raw);
+  assert.equal(raw.raw.get(txB.txid), txB.raw);
+  assert.ok(raw.errors.has('ff'.repeat(32)), 'txid ausente vira erro do item, não do lote');
+
   await client.close();
   await fake.close();
-  ok('statsMany responde saldo e tx_count em lote na mesma conexão');
+  ok('historiesMany junta histórico e mempool; transactionsMany tolera txid ausente');
 }
 
 /* 4. Fallback: primeiro servidor morto, segundo responde. */
 {
   const port = await deadPort();
-  const fake = await startFakeElectrum({ balances: {} });
+  const fake = await startFakeElectrum({});
   setConnectOverride(nodeConnect);
   const client = await openElectrum({
     servers: [
@@ -84,31 +99,29 @@ function ok(label) { passed++; console.log('ok   ' + label); }
   ok('openElectrum cai para o próximo servidor quando o primeiro não conecta');
 }
 
-/* 5. Timeout de requisição e erro de método. */
+/* 5. Timeout, erro de método e uso depois de close. */
 {
   const silent = await startFakeElectrum({ silent: true });
-  const fake = await startFakeElectrum({ balances: {} });
+  const fake = await startFakeElectrum({});
   setConnectOverride(nodeConnect);
-  const client = await openElectrum({
+  const none = await openElectrum({
     servers: [{ host: silent.host, port: silent.port, secure: false }],
     timeoutMs: 300, connectTimeoutMs: 2000
   }).catch(() => null);
-  assert.equal(client, null, 'server.version sem resposta deve estourar o timeout');
+  assert.equal(none, null, 'server.version sem resposta deve estourar o timeout');
 
   const c2 = await openElectrum({
     servers: [{ host: fake.host, port: fake.port, secure: false }], timeoutMs: 300
   });
-  await assert.rejects(() => c2.request('blockchain.transaction.get', ['00']), /método desconhecido/);
-  const dead = await startFakeElectrum({ silent: true });
+  await assert.rejects(() => c2.request('blockchain.transaction.broadcast', ['00']), /método desconhecido/);
   await c2.close();
-  await assert.rejects(() => c2.balance('00'), /fechada/);
+  await assert.rejects(() => c2.history('00'), /fechada/);
   await silent.close();
   await fake.close();
-  await dead.close();
   ok('timeout, erro de método e uso após close são erros claros');
 }
 
-/* 6. Sem transporte disponível (Node sem override) → erro claro, não crash. */
+/* 6. Sem transporte disponível (Node sem override) → erro claro, sem crash. */
 {
   setConnectOverride(null);
   const err = await openElectrum({ servers: [{ host: '127.0.0.1', port: 1, secure: false }] })

@@ -48,7 +48,7 @@
           <pre class="rule" aria-hidden="true"></pre>
 
           <div class="prose app-block">
-            <p>A xpub é a credencial. O Worker deriva os endereços e guarda só os públicos no D1; a chave privada nunca chega aqui. O saldo vem de fontes públicas (blockchain.info para pkh; Blockstream/mempool para os demais).</p>
+            <p>A xpub é a credencial. O Worker deriva os endereços e guarda só os públicos no D1; a chave privada nunca chega aqui. Saldo e histórico vêm de um servidor Electrum, por scripthash, do mesmo jeito que o Electrum e o Sparrow consultam.</p>
           </div>
 
           <form id="wallet-form" class="app-block">
@@ -86,15 +86,16 @@
             <p class="note" id="v-warnings"></p>
 
             <div class="prose app-block">
-              <h3><span class="prompt" aria-hidden="true">##</span> endereços derivados</h3>
+              <h3><span class="prompt" aria-hidden="true">##</span> endereços já usados</h3>
+              <p>O caminho mostra o tipo da conta (44, 49, 84 ou 86), o ramo (0 recebimento, 1 troco) e o índice. "recebido" é tudo que entrou no endereço; "enviado", tudo que saiu.</p>
             </div>
-            <table class="data-table" id="addresses-table" aria-label="endereços derivados e usados">
+            <table class="data-table" id="addresses-table" aria-label="endereços de recebimento já usados, com recebido, enviado e saldo">
               <thead>
-                <tr><th scope="col">tipo</th><th scope="col">caminho</th><th scope="col">endereço</th><th scope="col">usado</th><th scope="col" class="is-num">saldo</th></tr>
+                <tr><th scope="col">caminho</th><th scope="col">endereço</th><th scope="col" class="is-num">recebido</th><th scope="col" class="is-num">enviado</th><th scope="col" class="is-num">saldo</th></tr>
               </thead>
               <tbody></tbody>
             </table>
-            <p class="list-empty" id="addresses-empty" hidden>[ vazio ] nenhum endereço ainda.</p>
+            <p class="list-empty" id="addresses-empty" hidden>[ vazio ] nenhum endereço de recebimento usado ainda.</p>
           </div>
         </section>
       </div>
@@ -106,7 +107,7 @@
     <div class="edge" aria-hidden="true"></div>
 
     <footer class="status">
-      <span class="note">mainnet · cloudflare · fase 1</span>
+      <span class="note">mainnet · cloudflare · electrum</span>
       <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Ativar tema claro">○</button>
     </footer>
 
