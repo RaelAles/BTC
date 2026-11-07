@@ -2007,8 +2007,8 @@
     white-space: pre-wrap;
   }
   /* Tabuleiro de 256 bits em um quadrado de 16 × 16. As coordenadas
-     seguem a grade: a letra da linha e a letra da coluna, AA–AP na
-     primeira linha, BA–BP na segunda, … até PA–PP. Sem moldura
+     seguem a grade: a letra da coluna e a letra da linha, AA–PA na
+     primeira linha, AB–PB na segunda, … até AP–PP. Sem moldura
      nem respiro: a grade é o próprio quadrado, inteiriça, e as células
      repartem o espaço com fios de 1 px. O estado vem do aria-pressed: 0 no
      --dim, 1 no --support. */
@@ -4025,13 +4025,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return text;
   }
 
-  /* Coordenada do bit: letra da linha e letra da coluna (A–P cada), na
-     ordem de leitura: AA–AP, BA–BP, … até PA–PP. A letra da esquerda muda
-     a cada 16 células, então cada linha do quadrado tem a sua letra. */
+  /* Coordenada do bit: letra da coluna e letra da linha (A–P cada), na
+     ordem de leitura: AA–PA, AB–PB, … até AP–PP. A letra da esquerda corre
+     a cada coluna e a da direita muda a cada 16 células, então cada linha
+     do quadrado tem a sua letra. */
   function boardName(index) {
     var row = Math.floor(index / BOARD_COLS);
     var col = index % BOARD_COLS;
-    return String.fromCharCode(65 + row) + String.fromCharCode(65 + col);
+    return String.fromCharCode(65 + col) + String.fromCharCode(65 + row);
   }
 
   function boardLabel(index) {
@@ -4080,12 +4081,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return bits.join('');
   }
 
-  /* Coordenada: duas letras A–P, linha e coluna, na ordem de leitura do
-     tabuleiro: AA–AP, BA–BP, … até PA–PP. O que passa de PP (QA–ZZ) não
-     existe. */
+  /* Coordenada: duas letras A–P, coluna e linha, na ordem de leitura do
+     tabuleiro: AA–PA, AB–PB, … até AP–PP. O que passa de P em qualquer
+     posição (QA–ZZ) não existe. */
   function coordIndex(name) {
     if (!/^[A-P][A-P]$/.test(name)) return -1;
-    return (name.charCodeAt(0) - 65) * BOARD_COLS + (name.charCodeAt(1) - 65);
+    return (name.charCodeAt(1) - 65) * BOARD_COLS + (name.charCodeAt(0) - 65);
   }
 
   /* Lê o campo como coordenadas, na ordem digitada e sem repetir. Só letras
