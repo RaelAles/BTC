@@ -283,7 +283,8 @@
      (--motion-theme) e liga a transição de cor em todos os elementos, para
      fundo, card, moldura, menu, rodapé, texto e controles passarem juntos.
      Fora dela, hover e foco usam a regra única de --motion-fast (ver
-     VG-EFE-08). O grão é redesenhado pelo JS (ver fadeGrain). */
+     VG-EFE-08). O grão entra pela camada #grain-next, por opacidade (ver
+     setTheme). */
   html.theme-fx,
   html.theme-fx *,
   html.theme-fx *::before,
@@ -325,13 +326,25 @@
 
   /* Sem opacidade global: o canvas já desenha o glifo no tom certo e qualquer
      véu aqui afastaria a cor do card. */
-  #grain {
+  #grain,
+  #grain-next {
     position: fixed;
     inset: 0;
     width: 100%;
     height: 100%;
     z-index: var(--layer-base);
     pointer-events: none;
+  }
+  /* O grão da troca de tema é desenhado nas duas pontas: a camada de baixo
+     fica com a tinta antiga e a de cima, com a nova, entra por opacidade.
+     A opacidade anima no compositor junto com as cores do tema, então a
+     tinta não atrasa quando a página perde quadros (ver setTheme). */
+  #grain-next {
+    opacity: 0;
+    transition: opacity var(--motion-theme) var(--motion-ease);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #grain-next { transition: none; }
   }
 
   /* Régua do viewport dinâmico (VG-LAY-12): mede o mesmo 100dvh que o card
@@ -1844,6 +1857,7 @@
        marca-d'água é texto com alpha, que viraria um glifo cheio atrás do
        conteúdo; as duas são decorativas. */
     #grain,
+    #grain-next,
     .watermark { display: none; }
     /* O divisor de pontos e os lados do campo eram gradientes de fundo;
        viram borda: tracejada no divisor e sólida no campo. A régua do campo
@@ -2103,6 +2117,7 @@
 </head>
 <body>
 <canvas id="grain" aria-hidden="true"></canvas>
+<canvas id="grain-next" aria-hidden="true"></canvas>
 <div class="vh-probe" aria-hidden="true"></div>
 
 <svg class="sprite" aria-hidden="true" focusable="false">
@@ -4789,42 +4804,34 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     button.setAttribute('aria-label', light ? 'Ativar tema escuro' : 'Ativar tema claro');
   }
 
-  // Durante o crossfade de --motion-theme o grão é redesenhado a cada quadro:
-  // a tinta é calculada a partir do --panel/--bg interpolados; trocá-la de uma
-  // vez faria a textura piscar no meio da transição.
-  var themeFx = { fadeTimer: 0, grainRaf: 0 };
-  function stopGrainFade() {
-    if (themeFx.grainRaf) {
-      window.cancelAnimationFrame(themeFx.grainRaf);
-      themeFx.grainRaf = 0;
+  // Troca de tema (VG-EFE-07): fundo, card, moldura, menu, rodapé, texto e
+  // controles passam para o tema novo em --motion-theme. O grão não pode ser
+  // tingido quadro a quadro no canvas: as cores do tema são animadas no
+  // compositor, enquanto o redesenho do canvas roda no main thread e fica
+  // alguns quadros atrás numa página grande — a tinta escura aparecia sobre o
+  // fundo já claro. Por isso as duas tintas são desenhadas nas duas camadas
+  // (#grain e #grain-next) e a de cima entra por opacidade, que o compositor
+  // anima junto com as cores. Com menos movimento, a troca continua direta.
+  var themeFx = { fadeTimer: 0, crossTimer: 0 };
+
+  // Aplica a tinta da camada de cima ao grão de baixo e esconde a camada.
+  // As duas ficam com a mesma tinta, então o fade de saída é invisível.
+  function finishGrainCross() {
+    if (themeFx.crossTimer) {
+      window.clearTimeout(themeFx.crossTimer);
+      themeFx.crossTimer = 0;
     }
-    if (grain.fx) {
-      grain.fx = false;
-      grain.theme = '';
-      drawGrain();
+    if (!grain.cross) return;
+    grain.color = grain.cross;
+    grain.cross = '';
+    grain.theme = root.dataset.theme || 'dark';
+    paintGrain(grain.ctx, grain.color);
+    if (grain.next) {
+      grain.next.style.transition = 'none';
+      grain.next.style.opacity = '0';
+      void grain.next.offsetWidth;
+      grain.next.style.transition = '';
     }
-  }
-  function fadeGrain(duration) {
-    if (!grain.ctx) return;
-    if (themeFx.grainRaf) {
-      window.cancelAnimationFrame(themeFx.grainRaf);
-      themeFx.grainRaf = 0;
-    }
-    var start = performance.now();
-    grain.fx = true;
-    function step(now) {
-      if (!grain.fx) return;
-      drawGrain();
-      if (now - start < duration) {
-        themeFx.grainRaf = window.requestAnimationFrame(step);
-      } else {
-        themeFx.grainRaf = 0;
-        grain.fx = false;
-        grain.theme = '';
-        drawGrain();
-      }
-    }
-    themeFx.grainRaf = window.requestAnimationFrame(step);
   }
 
   function setTheme(theme) {
@@ -4834,10 +4841,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       window.clearTimeout(themeFx.fadeTimer);
       themeFx.fadeTimer = 0;
     }
-    if (reduced()) {
-      stopGrainFade();
-      root.classList.remove('theme-fx');
+    finishGrainCross();
+    var from = grain.color || readGrainColor();
+    root.classList.remove('theme-fx');
+    if (reduced() || !grain.nextCtx) {
       root.dataset.theme = next;
+      grain.theme = next;
+      grain.color = readGrainColor(true);
       try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
       syncThemeColor();
       syncFavicon();
@@ -4846,13 +4856,23 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       return;
     }
     root.classList.add('theme-fx');
-    grain.fx = true;
     root.dataset.theme = next;
+    // A tinta do tema novo sai dos tokens, que trocam de uma vez: o computed
+    // style do card ainda está no começo do crossfade e devolveria a antiga.
+    var target = readGrainColor(true);
     try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
     syncThemeColor();
     syncFavicon();
     updateThemeButton();
-    fadeGrain(duration);
+    grain.theme = next;
+    grain.color = from;
+    grain.cross = target;
+    paintGrain(grain.ctx, from);
+    paintGrain(grain.nextCtx, target);
+    grain.next.style.opacity = '0';
+    void grain.next.offsetWidth;
+    grain.next.style.opacity = '1';
+    themeFx.crossTimer = window.setTimeout(finishGrainCross, duration);
     themeFx.fadeTimer = window.setTimeout(function () {
       themeFx.fadeTimer = 0;
       root.classList.remove('theme-fx');
@@ -4871,8 +4891,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   // tom do card; por isso a textura é sutil nos dois temas. A ocupação é fixa
   // em 50% e o movimento troca glifos de células ocupadas para vazias.
   var grain = {
-    canvas: $('#grain'), ctx: null, cols: 0, rows: 0, grid: null, cell: 14,
-    timer: 0, theme: '', color: '', dpr: 0, coverage: 1, coverageKey: '', fx: false
+    canvas: $('#grain'), ctx: null, next: $('#grain-next'), nextCtx: null,
+    cols: 0, rows: 0, grid: null, cell: 14, timer: 0, theme: '', color: '',
+    cross: '', dpr: 0, coverage: 1, coverageKey: ''
   };
   var GLYPHS = ['.', ':', '-', '=', '+', '*'];
   var OCCUPANCY = 0.5;
@@ -4882,10 +4903,22 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return GLYPHS[(Math.random() * GLYPHS.length) | 0];
   }
   function parseColor(value) {
-    var text = String(value);
+    var text = String(value).trim();
+    // --bg é hex nos dois temas; o rgb()/color() carrega os canais como número.
+    var hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(text);
+    if (hex) {
+      var h = hex[1];
+      if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+      return {
+        r: parseInt(h.slice(0, 2), 16),
+        g: parseInt(h.slice(2, 4), 16),
+        b: parseInt(h.slice(4, 6), 16),
+        a: 1
+      };
+    }
     var parts = text.match(/[\d.]+/g);
     if (!parts || parts.length < 3) return null;
-    var unit = /^color\(/i.test(text.trim()) ? 255 : 1;
+    var unit = /^color\(/i.test(text) ? 255 : 1;
     return {
       r: parseFloat(parts[0]) * unit,
       g: parseFloat(parts[1]) * unit,
@@ -4922,12 +4955,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     grain.coverage = count ? Math.min(1, sum / count) : 1;
     return grain.coverage;
   }
-  function readGrainColor() {
+  function readGrainColor(fromTokens) {
     var style = getComputedStyle(root);
-    var win = $('.window');
-    var panel = (win && parseColor(getComputedStyle(win).backgroundColor)) ||
-      parseColor(style.getPropertyValue('--panel'));
-    var bg = parseColor(style.backgroundColor) || parseColor(style.getPropertyValue('--bg'));
+    var panel, bg;
+    if (fromTokens) {
+      panel = parseColor(style.getPropertyValue('--panel'));
+      bg = parseColor(style.getPropertyValue('--bg'));
+    } else {
+      var win = $('.window');
+      panel = (win && parseColor(getComputedStyle(win).backgroundColor)) ||
+        parseColor(style.getPropertyValue('--panel'));
+      bg = parseColor(style.backgroundColor) || parseColor(style.getPropertyValue('--bg'));
+    }
     if (!panel || !bg) return '0, 0, 0';
     var alpha = panel.a;
     var coverage = glyphCoverage();
@@ -4946,11 +4985,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     var height = window.innerHeight;
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
     grain.dpr = dpr;
-    grain.canvas.width = Math.floor(width * dpr);
-    grain.canvas.height = Math.floor(height * dpr);
-    grain.canvas.style.width = width + 'px';
-    grain.canvas.style.height = height + 'px';
+    [grain.canvas, grain.next].forEach(function (canvas) {
+      if (!canvas) return;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = width + 'px';
+      canvas.style.height = height + 'px';
+    });
     grain.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (grain.nextCtx) grain.nextCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     grain.cols = Math.ceil(width / grain.cell);
     grain.rows = Math.ceil(height / grain.cell);
     grain.grid = [];
@@ -4969,18 +5012,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     grain.theme = '';
     drawGrain();
   }
-  function drawGrain() {
-    if (!grain.ctx) return;
-    var ctx = grain.ctx;
+  function paintGrain(ctx, color) {
+    if (!ctx) return;
     ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-    var theme = root.dataset.theme || 'dark';
-    if (grain.theme !== theme || grain.fx) {
-      grain.color = readGrainColor();
-      grain.theme = theme;
-    }
     ctx.font = grainFont || '13px monospace';
     ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgb(' + grain.color + ')';
+    ctx.fillStyle = 'rgb(' + color + ')';
     for (var y = 0; y < grain.rows; y++) {
       for (var x = 0; x < grain.cols; x++) {
         var ch = grain.grid[y * grain.cols + x];
@@ -4988,6 +5025,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         ctx.fillText(ch, x * grain.cell, y * grain.cell);
       }
     }
+  }
+  function drawGrain() {
+    if (!grain.ctx) return;
+    var theme = root.dataset.theme || 'dark';
+    if (!grain.cross && grain.theme !== theme) {
+      grain.color = readGrainColor();
+      grain.theme = theme;
+    }
+    paintGrain(grain.ctx, grain.color);
+    if (grain.cross) paintGrain(grain.nextCtx, grain.cross);
   }
   // Cada passo tira glifos de células ocupadas e os repõe em células vazias:
   // o total de caracteres não muda, então não há momentos com muitos ou poucos.
@@ -5033,8 +5080,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   function buildGrain() {
     grain.canvas = $('#grain');
+    grain.next = $('#grain-next');
     if (!grain.canvas) return;
     grain.ctx = grain.canvas.getContext('2d');
+    grain.nextCtx = grain.next ? grain.next.getContext('2d') : null;
     if (!grain.ctx) return;
     var mono = getComputedStyle(root).getPropertyValue('--mono').replace(/\s+/g, ' ').trim();
     grainFont = '13px ' + (mono || 'monospace');
@@ -5046,7 +5095,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(function () {
       grain.coverageKey = '';
-      grain.theme = '';
+      if (!grain.cross) grain.theme = '';
       drawGrain();
     }).catch(function () {});
   }
