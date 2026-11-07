@@ -61,17 +61,22 @@
           <div id="out" hidden>
             <div class="rule rule-dots" aria-hidden="true"></div>
 
-            <table class="data-table key-readout" aria-label="estado da carteira">
+            <table class="data-table key-readout" aria-label="saldo total da carteira">
               <tbody>
-                <tr><th scope="row">tipo</th><td id="v-type">—</td></tr>
-                <tr><th scope="row">saldo</th><td id="v-balance">—</td></tr>
-                <tr><th scope="row">detalhe</th><td id="v-breakdown">—</td></tr>
-                <tr><th scope="row">endereço</th><td><span class="key-value" id="v-address">—</span><button type="button" class="key-action" id="copy-address">copiar</button></td></tr>
-                <tr><th scope="row">caminho</th><td id="v-path">—</td></tr>
-                <tr><th scope="row">troco</th><td id="v-change">—</td></tr>
-                <tr><th scope="row">outros tipos</th><td id="v-extras">—</td></tr>
+                <tr><th scope="row">saldo total</th><td id="v-total">—</td></tr>
                 <tr><th scope="row">atualizado</th><td id="v-updated">—</td></tr>
               </tbody>
+            </table>
+
+            <table class="data-table" id="types-table" aria-label="tipo de conta, saldo e próximo endereço de recebimento">
+              <thead>
+                <tr>
+                  <th scope="col">tipo</th>
+                  <th scope="col" class="is-num">saldo</th>
+                  <th scope="col">endereço</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
             </table>
 
             <p class="note" id="v-warnings"></p>

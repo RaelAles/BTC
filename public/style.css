@@ -1058,6 +1058,16 @@
      meio da palavra; o curto aparece no lugar, com o nome acessível no
      aria-label do th. */
   #addresses-table .th-short { display: none; }
+  /* A tabela de tipos tem três colunas: o saldo leva 8 casas decimais mais o
+     sufixo "BTC" (13 caracteres) e a coluna do tipo precisa do mais longo
+     ("bip86 / p2tr · detectado", 24). Sem largura declarada, o endereço — 62
+     caracteres — dividiria a sobra com a coluna do tipo e quebraria em três
+     linhas. */
+  #types-table .is-num {
+    width: calc(13ch + 2 * var(--space-4));
+  }
+  #types-table th:first-child { width: calc(25ch + 2 * var(--space-4)); }
+  #types-table .type-mark { color: var(--dim); font-weight: 400; }
   .data-table td.is-num { white-space: nowrap; }
   .data-table .is-empty { color: var(--dim); }
   /* As linhas fora do conjunto moderno ficam em um grupo próprio: o hidden
@@ -1810,6 +1820,12 @@
     #addresses-table .th-short { display: inline; }
     #addresses-table th,
     #addresses-table td { padding-inline: var(--space-2); }
+    /* Na tabela de tipos, o saldo perde a largura fixa (o endereço ficaria
+       com uma coluna apertada) e o tipo quebra em duas linhas. */
+    #types-table .is-num { width: auto; white-space: normal; }
+    #types-table th:first-child { width: calc(12ch + 2 * var(--space-2)); }
+    #types-table th,
+    #types-table td { padding-inline: var(--space-2); }
   }
 
   /* ------------------------------------------------------------------

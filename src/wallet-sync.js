@@ -258,6 +258,23 @@ export class WalletScanner {
     const usedRows = [...this.byScript.values()].filter(r => r.used);
     const totalOf = t => usedRows.filter(r => r.account_type === t).reduce((s, r) => s + r.balance, 0);
 
+    /* Um item por tipo de conta — o detectado primeiro, os demais na ordem
+       de TYPES —, cada um com o saldo do tipo e o próximo endereço livre do
+       ramo de recebimento. A tela mostra uma linha por tipo; o saldo total
+       é a soma das linhas. */
+    const types = [type, ...TYPES.filter(t => t !== type)].map(t => {
+      const br = this.branch(t, 0);
+      return {
+        type: t,
+        label: (TYPE_INFO[t] || { label: t }).label,
+        address: br.address,
+        path: br.path,
+        balance: totalOf(t),
+        tx_count: usedRows.filter(r => r.account_type === t).reduce((s, r) => s + r.tx_count, 0),
+        detected: t === type
+      };
+    });
+
     const extras = [];
     for (const other of TYPES) {
       if (other === type) continue;
@@ -295,6 +312,7 @@ export class WalletScanner {
       receive: { address: chains[0].address, path: chains[0].path },
       change: { address: chains[1].address, path: chains[1].path },
       balance: { detected, extras: extraTotal, total: detected + extraTotal },
+      types,
       extras,
       addresses: usedRows.slice().sort((a, b) =>
         a.account_type.localeCompare(b.account_type) || a.chain - b.chain || a.idx - b.idx

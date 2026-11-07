@@ -165,21 +165,31 @@
     c.classList.toggle('can-scroll-down', max > 2 && el.scrollTop < max - 2);
   }
 
+  /* Uma linha por tipo de conta: o detectado vem primeiro (marcado) e os
+     demais na ordem de TYPES. A coluna de saldo é o total do tipo e a de
+     endereço é o próximo livre para receber naquele tipo. */
+  function renderTypes(d) {
+    var body = $('#types-table tbody');
+    if (!body) return;
+    body.innerHTML = '';
+    var types = d.types || [];
+    types.forEach(function (t) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<th scope="row">' + esc(TYPE_LABEL[t.type] || t.label || t.type) +
+        (t.detected ? '<span class="type-mark"> · detectado</span>' : '') + '</th>' +
+        '<td class="is-num">' + fmtBtc(t.balance) + ' BTC</td>' +
+        '<td><code>' + esc(t.address || '—') + '</code></td>';
+      body.appendChild(tr);
+    });
+    $('#types-table').hidden = types.length === 0;
+  }
+
   function render(d) {
     state.data = d;
     var b = d.balance || {};
-    $('#v-type').textContent = d.detected_label + ' (' + d.version_type + ')';
-    $('#v-balance').textContent = fmtBtc(b.total) + ' BTC · ' + fmtInt(b.total) + ' sats';
-    $('#v-breakdown').textContent = 'tipo detectado: ' + fmtBtc(b.detected) + ' BTC · outros tipos: ' + fmtBtc(b.extras) + ' BTC';
-    $('#v-address').textContent = d.receive && d.receive.address ? d.receive.address : '—';
-    $('#v-path').textContent = d.receive && d.receive.path ? d.receive.path : '—';
-    $('#v-change').textContent = d.change ? (d.change.path + ' · ' + d.change.address) : '—';
-    $('#v-extras').innerHTML = (d.extras && d.extras.length)
-      ? d.extras.map(function (e) {
-        return '<div>' + esc(e.label) + ' · ' + fmtBtc(e.balance) + ' BTC · <code>' + esc(e.address) + '</code></div>';
-      }).join('')
-      : '—';
+    $('#v-total').textContent = fmtBtc(b.total) + ' BTC · ' + fmtInt(b.total) + ' sats';
     $('#v-updated').textContent = d.updated_at ? new Date(d.updated_at).toLocaleString('pt-BR') : '—';
+    renderTypes(d);
     $('#v-warnings').innerHTML = (d.warnings || []).map(function (w) { return esc(w); }).join('<br>');
 
     var body = $('#addresses-table tbody');
@@ -219,12 +229,15 @@
     state.data = null;
     var out = $('#out');
     if (out) out.hidden = true;
-    ['#v-type', '#v-balance', '#v-breakdown', '#v-address', '#v-path',
-      '#v-change', '#v-extras', '#v-updated', '#v-warnings']
+    ['#v-total', '#v-updated', '#v-warnings']
       .forEach(function (sel) {
         var el = $(sel);
         if (el) el.textContent = '—';
       });
+    var typesBody = $('#types-table tbody');
+    if (typesBody) typesBody.innerHTML = '';
+    var typesTable = $('#types-table');
+    if (typesTable) typesTable.hidden = true;
     var body = $('#addresses-table tbody');
     if (body) body.innerHTML = '';
     var table = $('#addresses-table');
@@ -455,10 +468,12 @@
     $('#theme-toggle').addEventListener('click', function () {
       setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
     });
-    $('#copy-address').addEventListener('click', async function () {
-      var text = $('#v-address').textContent.trim();
+    // copiar o endereço da linha do tipo (mesmo gesto da tabela histórico)
+    $('#types-table').addEventListener('click', async function (ev) {
+      var code = ev.target.closest ? ev.target.closest('code') : null;
+      if (!code) return;
       try {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(code.textContent.trim());
         setStatus('ok', 'endereço copiado.');
       } catch (e) {
         setStatus('error', 'não foi possível copiar.');

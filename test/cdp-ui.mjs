@@ -22,7 +22,7 @@ const xpub='xpub6CivfTixRRqAcvALesYmkkL7JHMkbjuM3dKtgUDiWzNcmpovevhPbGUisjFXVM6p
 await send('Runtime.evaluate',{expression:`document.getElementById('xpub').value=${JSON.stringify(xpub)}; document.getElementById('wallet-form').dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));`});
 let out={};
 for (let i=0;i<120;i++) {
-  const r=await send('Runtime.evaluate',{expression:`JSON.stringify({hidden:document.getElementById('out').hidden,type:document.getElementById('v-type').textContent,balance:document.getElementById('v-balance').textContent,address:document.getElementById('v-address').textContent,path:document.getElementById('v-path').textContent,change:document.getElementById('v-change').textContent,extras:document.getElementById('v-extras').textContent,rows:document.querySelectorAll('#addresses-table tbody tr').length,warnings:document.getElementById('v-warnings').textContent,status:document.getElementById('status').textContent})`,returnByValue:true});
+  const r=await send('Runtime.evaluate',{expression:`JSON.stringify({hidden:document.getElementById('out').hidden,total:document.getElementById('v-total').textContent,updated:document.getElementById('v-updated').textContent,types:[...document.querySelectorAll('#types-table tbody tr')].map(tr=>tr.textContent.replace(/\\s+/g,' ').trim()),rows:document.querySelectorAll('#addresses-table tbody tr').length,warnings:document.getElementById('v-warnings').textContent,status:document.getElementById('status').textContent})`,returnByValue:true});
   out=JSON.parse(r.result.value); if(!out.hidden) break; await sleep(500);
 }
 console.log(JSON.stringify(out,null,1));
