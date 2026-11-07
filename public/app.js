@@ -98,9 +98,13 @@
     while (s.length < 9) s = '0' + s;
     return (neg ? '-' : '') + s.slice(0, -8) + '.' + s.slice(-8);
   }
+  /* Marcador do recado (VG-FRM-06): o estado vem antes do texto, em caixa
+     baixa e entre colchetes, como no gerador. O neutro é o mesmo sinal do
+     carregamento e some quando a consulta termina. */
+  var PREFIX = { ok: '[ ok ]', error: '[ erro ]', '': '[ ... ]' };
   function setStatusTo(el, kind, text) {
     if (!el) return;
-    el.textContent = text || '';
+    el.textContent = text ? (PREFIX[kind] || PREFIX['']) + ' ' + text : '';
     el.classList.remove('ok', 'error');
     if (kind === 'ok' || kind === 'error') el.classList.add(kind);
   }
