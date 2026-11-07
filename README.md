@@ -6,6 +6,14 @@ fontes públicas: **Electrum** (TCP/TLS, por scripthash) quando disponível e
 **blockchain.info/Esplora** como fallback. **Não existe chave privada aqui**;
 o projeto 1 continua offline assinando.
 
+> **Layout do repositório.** A raiz é o projeto do Worker (é ela que o
+> Cloudflare publica): `wrangler.jsonc`, `src/`, `public/`, `test/`,
+> `schema.sql`. Os arquivos soltos na mesma raiz não entram no deploy:
+> `chave-btc.html` é o projeto 1 (offline, assina PSBT), `projeto-2.html` é a
+> UI standalone (consulta blockchain.info/Esplora direto no navegador, sem
+> Worker/D1/Electrum) e `teste-*.psbt` são fixtures de teste. A página
+> publicada é `public/index.html`.
+
 ## O que esta fase faz
 
 - `POST /api/wallet` com `{ "xpub": "xpub..." }`.
@@ -60,23 +68,22 @@ o projeto 1 continua offline assinando.
 ## Estrutura
 
 ```
-projeto-2-cloudflare/
-  wrangler.jsonc
-  package.json
-  schema.sql
-  src/
-    btc-core.js      núcleo BTC (sem DOM), extraído do projeto 2
-    derivation.js    CKDpub, xpub, endereços dos 4 tipos
-    electrum.js      cliente Electrum (JSON-RPC 1.4) sobre cloudflare:sockets
-    worker.js        API, D1, Electrum + blockchain.info/Esplora
-  public/
-    index.html       UI ASCII
-    app.js           cliente (xpub, render, refresh 30 s)
-    style.css        CSS/fonte do projeto 2
-  test/
-    electrum.test.mjs     cliente Electrum contra um servidor falso
-    worker.test.mjs       API com D1/fetch simulados + cenário Electrum
-    fake-electrum.mjs     servidor Electrum falso (TCP em 127.0.0.1)
+wrangler.jsonc
+package.json
+schema.sql
+src/
+  btc-core.js      núcleo BTC (sem DOM), extraído do projeto 2
+  derivation.js    CKDpub, xpub, endereços dos 4 tipos
+  electrum.js      cliente Electrum (JSON-RPC 1.4) sobre cloudflare:sockets
+  worker.js        API, D1, Electrum + blockchain.info/Esplora
+public/
+  index.html       UI ASCII (página publicada)
+  app.js           cliente (xpub, render, refresh 30 s)
+  style.css        CSS/fonte do projeto 2
+test/
+  electrum.test.mjs     cliente Electrum contra um servidor falso
+  worker.test.mjs       API com D1/fetch simulados + cenário Electrum
+  fake-electrum.mjs     servidor Electrum falso (TCP em 127.0.0.1)
 ```
 
 ## Electrum
@@ -107,7 +114,6 @@ Variáveis (`wrangler.jsonc` → `vars`, ou pelo dashboard):
 ## Subir no Cloudflare
 
 ```bash
-cd projeto-2-cloudflare
 npm install
 npx wrangler login
 
@@ -142,37 +148,25 @@ O `wrangler.jsonc` é a fonte da configuração, então dois pontos importam:
    comando de deploy, mas isso re-executa em todo build — o `schema.sql` usa
    `IF NOT EXISTS`, então é seguro).
 
-No painel do Workers Builds: conecte o repositório, aponte **Root directory**
-para `projeto-2-cloudflare`, build command `npm ci` (ou `npm install`) e
-deploy command `npx wrangler deploy`. As variáveis do `vars` do
-`wrangler.jsonc` já vão no bundle; para segredos, use o dashboard.
+No painel do Workers Builds: conecte o repositório, deixe **Root directory**
+na raiz (vazio ou `/`), build command `npm ci` e deploy command
+`npx wrangler deploy`. As variáveis do `vars` do `wrangler.jsonc` já vão no
+bundle; para segredos, use o dashboard.
 
-#### Erro comum no build
+#### Erros de build já resolvidos pelo layout atual
 
-```
-✘ [ERROR] Could not detect a directory containing static files (e.g. html, css and js) for the project
-```
-
-Isso não é falha do Worker: é o `wrangler deploy` rodando **fora** do
-diretório do projeto (o `wrangler.jsonc` não é encontrado, então ele tenta
-“auto-configuração” e chuta site estático). Reproduzido aqui rodando
-`npx wrangler deploy --dry-run` na raiz do repositório. Correções:
-
-- **Root directory** = `projeto-2-cloudflare` (o caminho do repo onde está o
-  `wrangler.jsonc`); ou
-- deixar o root na raiz e usar `cd projeto-2-cloudflare && npx wrangler deploy`
-  como deploy command (aí o `npm ci` também precisa rodar nesse subdiretório).
+Antes, o Worker vivia em `projeto-2-cloudflare/` e o build rodava na raiz do
+repo: o `wrangler deploy` não achava o `wrangler.jsonc` e falhava com
+`Could not detect a directory containing static files (e.g. html, css and js)`;
+com Root directory apontando para a raiz, o `npm ci` também falhava (não há
+`package.json` na raiz). Hoje o `wrangler.jsonc` e o `package-lock.json` estão
+na raiz, então os dois erros somem — a única configuração necessária é não
+apontar Root directory para uma subpasta.
 
 O deploy do Worker exige ainda o `database_id` real do D1 no
 `wrangler.jsonc`: o placeholder `COLE_O_ID_DA_D1_AQUI` não corresponde a
 nenhum banco, então troque pelo id devolvido por `wrangler d1 create` antes
 do primeiro deploy.
-
-Se o build falhar com
-`npm error The \`npm ci\` command can only install with an existing package-lock.json`,
-é o mesmo sintoma: o comando está rodando na raiz do repositório, onde não há
-`package.json`/`package-lock.json` (o lock é de `projeto-2-cloudflare`).
-Corrigir o **Root directory** resolve os dois erros de uma vez.
 
 ## API
 
