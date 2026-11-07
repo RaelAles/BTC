@@ -6,14 +6,14 @@
 <meta name="theme-color" content="#2e2d2b">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'">
 <title>chave btc - chave</title>
-<meta name="description" content="Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 bits marcados em coordenadas A1–Z6, mostra xprv/xpub e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.">
+<meta name="description" content="Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 bits marcados em coordenadas AA–PP, mostra xprv/xpub e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="chave btc - contas hd a partir de 256 bits">
-<meta property="og:description" content="256 bits marcados em coordenadas A1–Z6 entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
+<meta property="og:description" content="256 bits marcados em coordenadas AA–PP entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
 <meta property="og:locale" content="pt_BR">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="chave btc - contas hd a partir de 256 bits">
-<meta name="twitter:description" content="256 bits marcados em coordenadas A1–Z6 entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
+<meta name="twitter:description" content="256 bits marcados em coordenadas AA–PP entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
 <link rel="icon" type="image/svg+xml" id="favicon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%22102%20-1195%201024%201195%22%3E%3Cstyle%3E.marca%7Bfill%3A%235d3d00%7D%40media%20(prefers-color-scheme%3Adark)%7B.marca%7Bfill%3A%23e8c07d%7D%7D%3C%2Fstyle%3E%3Cpath%20class%3D%22marca%22%20d%3D%22M640%20-1195Q640%20-1109%20711%20-1002.5Q782%20-896%20891%20-810Q1021%20-708%201073.5%20-632.5Q1126%20-557%201126%20-478Q1126%20-370%201058%20-305Q990%20-240%20891%20-240Q831%20-240%20765%20-268.5Q699%20-297%20662%20-340Q662%20-207%20749.5%20-131.5Q837%20-56%20982%20-56V0H246V-56Q391%20-56%20478.5%20-131.5Q566%20-207%20566%20-340Q528%20-297%20462%20-268.5Q396%20-240%20337%20-240Q237%20-240%20169.5%20-305Q102%20-370%20102%20-478Q102%20-555%20151.5%20-628Q201%20-701%20337%20-810Q446%20-895%20517%20-1002.5Q588%20-1110%20588%20-1195Z%22%2F%3E%3C%2Fsvg%3E">
 <style>
 /* Fonte embutida do projeto.
@@ -2007,8 +2007,8 @@
     white-space: pre-wrap;
   }
   /* Tabuleiro de 256 bits em um quadrado de 16 × 16. As coordenadas
-     continuam na sequência A1–A9, A0, B1–B9, B0, … até Z6, agora corrida
-     pela ordem de leitura (a letra avança a cada 10 células). Sem moldura
+     seguem a grade: a letra da linha e a letra da coluna, AA–AP na
+     primeira linha, BA–BP na segunda, … até PA–PP. Sem moldura
      nem respiro: a grade é o próprio quadrado, inteiriça, e as células
      repartem o espaço com fios de 1 px. O estado vem do aria-pressed: 0 no
      --dim, 1 no --support. */
@@ -2286,7 +2286,7 @@
           <div class="prose reveal-block">
             <h3>o que este arquivo faz</h3>
             <ul>
-              <li>lê 256 bits marcados no tabuleiro, digitados como coordenadas A1–Z6 ou gerados pelo botão de bits aleatórios;</li>
+              <li>lê 256 bits marcados no tabuleiro, digitados como coordenadas AA–PP ou gerados pelo botão de bits aleatórios;</li>
               <li>mostra o mnemonic de 24 palavras e os 256 bits em binário e em hex;</li>
               <li>deriva a seed BIP39 (passphrase vazia), a raiz BIP32 e as contas BIP44/49/84/86 no mainnet;</li>
               <li>mostra as chaves privadas e as xpubs das contas BIP44/49/84/86, com os caminhos de recebimento (/0/*) e troco (/1/*); as públicas têm o botão de copiar;</li>
@@ -4025,13 +4025,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return text;
   }
 
-  /* Coordenada do bit: letra (A–Z) e dígito (1–9, 0), na ordem de leitura:
-     A1–A9, A0, B1–B9, B0, … até Z6. A letra avança a cada 10 células, então
-     o quadrado de 16 colunas não alinha uma letra por linha. */
+  /* Coordenada do bit: letra da linha e letra da coluna (A–P cada), na
+     ordem de leitura: AA–AP, BA–BP, … até PA–PP. A letra da esquerda muda
+     a cada 16 células, então cada linha do quadrado tem a sua letra. */
   function boardName(index) {
-    var row = Math.floor(index / 10);
-    var col = index % 10;
-    return String.fromCharCode(65 + row) + (col === 9 ? 0 : col + 1);
+    var row = Math.floor(index / BOARD_COLS);
+    var col = index % BOARD_COLS;
+    return String.fromCharCode(65 + row) + String.fromCharCode(65 + col);
   }
 
   function boardLabel(index) {
@@ -4080,20 +4080,20 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return bits.join('');
   }
 
-  /* Coordenada: letra A–Z e dígito 0–9, na ordem de leitura do tabuleiro:
-     A1–A9, A0, B1–B9, B0, … até Z6. O que passa de Z6 (Z7–Z0) não existe. */
+  /* Coordenada: duas letras A–P, linha e coluna, na ordem de leitura do
+     tabuleiro: AA–AP, BA–BP, … até PA–PP. O que passa de PP (QA–ZZ) não
+     existe. */
   function coordIndex(name) {
-    if (!/^[A-Z][0-9]$/.test(name)) return -1;
-    var index = (name.charCodeAt(0) - 65) * 10 + (name.charAt(1) === '0' ? 9 : Number(name.charAt(1)) - 1);
-    return index < BOARD_BITS ? index : -1;
+    if (!/^[A-P][A-P]$/.test(name)) return -1;
+    return (name.charCodeAt(0) - 65) * BOARD_COLS + (name.charCodeAt(1) - 65);
   }
 
-  /* Lê o campo como coordenadas, na ordem digitada e sem repetir. Só letras e
-     dígitos contam; espaço, vírgula e outros sinais separam. Um par
-     incompleto no fim ("A1 B") fica no texto para a digitação continuar; um
-     par inválido no fim ("Z7") deixa só a letra, que ainda aceita 1–6. */
+  /* Lê o campo como coordenadas, na ordem digitada e sem repetir. Só letras
+     contam; espaço, vírgula e outros sinais separam. Um par incompleto no
+     fim ("AB C") fica no texto para a digitação continuar; um par inválido
+     ("AQ") deixa só a letra que ainda aceita A–P. */
   function parseCoords(value) {
-    var raw = String(value).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    var raw = String(value).toUpperCase().replace(/[^A-Z]/g, '');
     var path = [];
     var seen = {};
     var tokens = [];
@@ -4110,11 +4110,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         i += 2;
         continue;
       }
-      var rest = raw.length - i;
-      if (/[A-Z]/.test(raw.charAt(i)) &&
-          (rest === 1 || (rest === 2 && /[0-9]/.test(raw.charAt(i + 1))))) {
-        tokens.push(raw.charAt(i));
-      }
+      if (/^[A-P]$/.test(raw.charAt(i))) tokens.push(raw.charAt(i));
       i += 1;
     }
     return { path: path, text: tokens.join(' ') };
