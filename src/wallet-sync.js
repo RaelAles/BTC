@@ -258,11 +258,12 @@ export class WalletScanner {
     const usedRows = [...this.byScript.values()].filter(r => r.used);
     const totalOf = t => usedRows.filter(r => r.account_type === t).reduce((s, r) => s + r.balance, 0);
 
-    /* Um item por tipo de conta — o detectado primeiro, os demais na ordem
-       de TYPES —, cada um com o saldo do tipo e o próximo endereço livre do
-       ramo de recebimento. A tela mostra uma linha por tipo; o saldo total
-       é a soma das linhas. */
-    const types = [type, ...TYPES.filter(t => t !== type)].map(t => {
+    /* Um item por tipo de conta, na ordem de TYPES (do BIP mais alto para o
+       mais baixo: a tecnologia mais recente primeiro), cada um com o saldo do
+       tipo e o próximo endereço livre do ramo de recebimento. O tipo
+       detectado vem marcado, sem mudar de posição. A tela esconde os tipos
+       sem saldo; o saldo total é a soma das linhas. */
+    const types = TYPES.map(t => {
       const br = this.branch(t, 0);
       return {
         type: t,

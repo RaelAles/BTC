@@ -165,14 +165,15 @@
     c.classList.toggle('can-scroll-down', max > 2 && el.scrollTop < max - 2);
   }
 
-  /* Uma linha por tipo de conta: o detectado vem primeiro (marcado) e os
-     demais na ordem de TYPES. A coluna de saldo é o total do tipo e a de
-     endereço é o próximo livre para receber naquele tipo. */
+  /* Uma linha por tipo de conta com saldo, na ordem que o Worker manda (do
+     BIP mais alto para o mais baixo). Tipo zerado não vira linha: a tabela
+     some quando nenhum tipo tem saldo. A coluna de saldo é o total do tipo
+     e a de endereço é o próximo livre para receber naquele tipo. */
   function renderTypes(d) {
     var body = $('#types-table tbody');
     if (!body) return;
     body.innerHTML = '';
-    var types = d.types || [];
+    var types = (d.types || []).filter(function (t) { return Number(t.balance) > 0; });
     types.forEach(function (t) {
       var tr = document.createElement('tr');
       tr.innerHTML = '<th scope="row">' + esc(TYPE_LABEL[t.type] || t.label || t.type) +

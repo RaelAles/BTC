@@ -6,9 +6,9 @@ tela mostra:
 
 1. **saldo total** da carteira (soma das UTXOs de todos os tipos de conta) e
    o horário da última atualização;
-2. **uma linha por tipo de conta** (bip86, bip84, bip49 e bip44), com o saldo
-   daquele tipo e o próximo endereço livre para receber — o tipo detectado
-   vem primeiro, marcado;
+2. **uma linha por tipo de conta com saldo** (bip86, bip84, bip49 e bip44,
+   do BIP mais alto para o mais baixo), com o saldo daquele tipo e o próximo
+   endereço livre para receber — o tipo detectado vem marcado;
 3. **lista de endereços já usados** (recebimento e troco), com **recebido**,
    **enviado** e **saldo** de cada um, na tela **histórico**.
 
@@ -319,9 +319,6 @@ Resposta (resumida):
   "change":  { "address": "15LE...", "path": "m/44'/0'/0'/1/2" },
   "balance": { "detected": 12835640, "extras": 26536, "total": 12862176 },
   "types": [
-    { "type": "bip44", "label": "bip44 · legacy (p2pkh)", "address": "15tKN...",
-      "path": "m/44'/0'/0'/0/132", "balance": 12835640, "tx_count": 29,
-      "detected": true },
     { "type": "bip86", "label": "bip86 · taproot (p2tr)", "address": "bc1p...",
       "path": "m/86'/0'/0'/0/1", "balance": 11100, "tx_count": 1,
       "detected": false },
@@ -330,7 +327,10 @@ Resposta (resumida):
       "detected": false },
     { "type": "bip49", "label": "bip49 · segwit aninhado (p2sh-p2wpkh)",
       "address": "3Jnu...", "path": "m/49'/0'/0'/0/0", "balance": 0,
-      "tx_count": 0, "detected": false }
+      "tx_count": 0, "detected": false },
+    { "type": "bip44", "label": "bip44 · legacy (p2pkh)", "address": "15tKN...",
+      "path": "m/44'/0'/0'/0/132", "balance": 12835640, "tx_count": 29,
+      "detected": true }
   ],
   "extras": [ { "type": "bip86", "balance": 11100, "address": "bc1p..." } ],
   "addresses": [
@@ -349,10 +349,13 @@ Resposta (resumida):
 recebido, enviado, saldo e número de transações. `receive`/`change` são os
 próximos endereços livres do tipo detectado.
 
-`types` traz **os quatro tipos**, o detectado primeiro: cada um com o saldo
+`types` traz **os quatro tipos**, na ordem bip86 → bip84 → bip49 → bip44 (o
+BIP mais alto, tecnologia mais recente, primeiro) e com o detectado marcado
+por `detected`: cada um com o saldo
 do tipo (soma dos endereços usados dele) e o próximo endereço livre do ramo
 de recebimento (`último usado + 1`, ou o índice 0 se o tipo nunca foi usado).
-A soma de `types[].balance` é o `balance.total`. `extras` continua sendo a
+A soma de `types[].balance` é o `balance.total`. A tela mostra só os tipos com
+saldo maior que zero. `extras` continua sendo a
 lista dos outros tipos **com histórico**, para quem já consumia a resposta
 antiga.
 
