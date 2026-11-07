@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "btc-projeto-2",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-01-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "btc-projeto-2",
+      "database_id": "COLE_O_ID_DA_D1_AQUI"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

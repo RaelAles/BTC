@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2e2d2b">
+  <meta name="description" content="Projeto 2 — Fase 1: xpub como credencial, endereços derivados guardados no D1 e saldo consultado em fontes públicas. Sem chave privada.">
+  <title>Projeto 2 — carteira</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    /* Ajustes desta tela: rótulos do key-readout são mais longos que os de
+       xpub e o par carregar/atualizar fica centralizado sem a margem
+       automática do form-submit. */
+    .key-readout tbody th { width: 12ch; }
+    #wallet-form .chips { justify-content: center; align-items: baseline; }
+    #wallet-form .chips .form-submit { margin: 0; }
+  </style>
+</head>
+<body>
+<canvas id="grain" aria-hidden="true"></canvas>
+<div class="vh-probe" aria-hidden="true"></div>
+
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="marca" viewBox="102 -1195 1024 1195">
+    <path d="M640 -1195Q640 -1109 711 -1002.5Q782 -896 891 -810Q1021 -708 1073.5 -632.5Q1126 -557 1126 -478Q1126 -370 1058 -305Q990 -240 891 -240Q831 -240 765 -268.5Q699 -297 662 -340Q662 -207 749.5 -131.5Q837 -56 982 -56V0H246V-56Q391 -56 478.5 -131.5Q566 -207 566 -340Q528 -297 462 -268.5Q396 -240 337 -240Q237 -240 169.5 -305Q102 -370 102 -478Q102 -555 151.5 -628Q201 -701 337 -810Q446 -895 517 -1002.5Q588 -1110 588 -1195Z"/>
+  </symbol>
+</svg>
+
+<div class="page">
+  <main class="window">
+    <h1 class="sr-only">Projeto 2 — carteira watch-only</h1>
+    <div class="edge" aria-hidden="true"></div>
+
+    <a class="skip-link" id="skip-link" href="#content">pular para o conteúdo</a>
+
+    <nav class="menu" aria-label="Telas">
+      <button type="button" aria-current="page" tabindex="-1">carteira</button>
+    </nav>
+
+    <div class="edge" aria-hidden="true"></div>
+
+    <div class="content" id="content">
+      <svg class="watermark" aria-hidden="true"><use href="#marca"/></svg>
+
+      <div class="content-scroll" id="content-scroll">
+        <section class="screen" id="screen-carteira" aria-labelledby="head-carteira">
+          <h2 id="head-carteira" tabindex="-1">CARTEIRA</h2>
+          <pre class="rule" aria-hidden="true"></pre>
+
+          <div class="prose app-block">
+            <p>A xpub é a credencial. O Worker deriva os endereços e guarda só os públicos no D1; a chave privada nunca chega aqui. O saldo vem de fontes públicas (blockchain.info para pkh; Blockstream/mempool para os demais).</p>
+          </div>
+
+          <form id="wallet-form" class="app-block">
+            <label class="field-label" for="xpub">xpub da conta</label>
+            <div class="field-box">
+              <div class="edge" aria-hidden="true"></div>
+              <input id="xpub" name="xpub" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="xpub...">
+              <div class="edge" aria-hidden="true"></div>
+            </div>
+            <div class="chips app-gap">
+              <button type="submit" class="form-submit">carregar</button>
+              <span class="dot-sep" aria-hidden="true">·</span>
+              <button type="button" id="refresh">atualizar</button>
+            </div>
+            <p class="status-msg is-reserved" id="status" role="status"></p>
+          </form>
+
+          <div id="out" hidden>
+            <div class="rule rule-dots" aria-hidden="true"></div>
+
+            <table class="data-table key-readout" aria-label="estado da carteira">
+              <tbody>
+                <tr><th scope="row">tipo</th><td id="v-type">—</td></tr>
+                <tr><th scope="row">saldo</th><td id="v-balance">—</td></tr>
+                <tr><th scope="row">detalhe</th><td id="v-breakdown">—</td></tr>
+                <tr><th scope="row">endereço</th><td><span class="key-value" id="v-address">—</span><button type="button" class="key-action" id="copy-address">copiar</button></td></tr>
+                <tr><th scope="row">caminho</th><td id="v-path">—</td></tr>
+                <tr><th scope="row">troco</th><td id="v-change">—</td></tr>
+                <tr><th scope="row">outros tipos</th><td id="v-extras">—</td></tr>
+                <tr><th scope="row">fonte</th><td id="v-source">—</td></tr>
+                <tr><th scope="row">atualizado</th><td id="v-updated">—</td></tr>
+              </tbody>
+            </table>
+
+            <p class="note" id="v-warnings"></p>
+
+            <div class="prose app-block">
+              <h3><span class="prompt" aria-hidden="true">##</span> endereços derivados</h3>
+            </div>
+            <table class="data-table" id="addresses-table" aria-label="endereços derivados e usados">
+              <thead>
+                <tr><th scope="col">tipo</th><th scope="col">caminho</th><th scope="col">endereço</th><th scope="col">usado</th><th scope="col" class="is-num">saldo</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <p class="list-empty" id="addresses-empty" hidden>[ vazio ] nenhum endereço ainda.</p>
+          </div>
+        </section>
+      </div>
+
+      <button type="button" class="scroll-arrow scroll-arrow-up" aria-label="Rolar para cima">▲</button>
+      <button type="button" class="scroll-arrow scroll-arrow-down" aria-label="Rolar para baixo">▼</button>
+    </div>
+
+    <div class="edge" aria-hidden="true"></div>
+
+    <footer class="status">
+      <span class="note">mainnet · cloudflare · fase 1</span>
+      <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Ativar tema claro">○</button>
+    </footer>
+
+    <div class="edge" aria-hidden="true"></div>
+  </main>
+</div>
+
+<script src="/app.js" defer></script>
+</body>
+</html>
