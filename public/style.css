@@ -827,6 +827,16 @@
   .screen > .rule + * > :first-child > :first-child {
     margin-top: 0;
   }
+  /* O resultado da carteira fica agrupado no #out, e não solto na tela: o
+     divisor do "receber" é o primeiro filho desse grupo, então o reset
+     acima não o alcança e o subtítulo somaria a própria margem de 44 px aos
+     16 px do divisor. Com o mesmo reset aqui, o vão fica só com os 16 px do
+     divisor, como no gerador e no projeto portfólio. */
+  #out > .rule + *,
+  #out > .rule + * > :first-child,
+  #out > .rule + * > :first-child > :first-child {
+    margin-top: 0;
+  }
 
   /* O conteúdo das telas ocupa toda a largura da coluna de leitura (ver
      --measure). Os parágrafos justificam as duas margens; a hifenização (lang
