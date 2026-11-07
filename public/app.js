@@ -12,14 +12,6 @@
   /* Rótulo curto do tipo de conta: o formato do endereço (p2tr, p2wpkh…) já
      aparece na própria chave, então a tabela fica só com o BIP. */
   var TYPE_PURPOSE = { bip86: 86, bip84: 84, bip49: 49, bip44: 44 };
-  /* Legenda da chave estendida colada, com o BIP a que ela pertence: só o
-     zpub (bip84) e o ypub (bip49) já dizem o tipo; o xpub é genérico e
-     serve aos quatro, e quem escolhe é a varredura. */
-  var PUB_LABEL = {
-    bip84: 'zpub · bip84',
-    bip49: 'ypub · bip49',
-    xpub: 'xpub · bip44/49/84/86'
-  };
 
   var state = {
     xpub: '',
@@ -169,26 +161,6 @@
     c.classList.toggle('can-scroll-down', max > 2 && el.scrollTop < max - 2);
   }
 
-  /* Uma linha por tipo de conta com saldo, na ordem que o Worker manda (do
-     BIP mais alto para o mais baixo). Tipo zerado não vira linha: a tabela
-     some quando nenhum tipo tem saldo. A coluna de saldo é o total do tipo
-     e a de endereço é o próximo livre para receber naquele tipo. */
-  function renderTypes(d) {
-    var body = $('#types-table tbody');
-    if (!body) return;
-    body.innerHTML = '';
-    var types = (d.types || []).filter(function (t) { return Number(t.balance) > 0; });
-    types.forEach(function (t) {
-      var tr = document.createElement('tr');
-      tr.innerHTML = '<th scope="row">' + esc(t.type) +
-        (t.detected ? '<span class="type-mark"> · detectado</span>' : '') + '</th>' +
-        '<td class="is-num">' + fmtBtc(t.balance) + ' BTC</td>' +
-        '<td><code>' + esc(t.address || '—') + '</code></td>';
-      body.appendChild(tr);
-    });
-    $('#types-table').hidden = types.length === 0;
-  }
-
   /* Um endereço de recebimento por tipo — sempre o primeiro índice sem uso
      daquele ramo (`último usado + 1`) —, inclusive os tipos sem saldo, para
      o usuário escolher o que o pagador aceita. O rótulo é o tipo da conta e
@@ -216,11 +188,6 @@
   function render(d) {
     state.data = d;
     var b = d.balance || {};
-    var pub = $('#v-pub');
-    if (pub) {
-      pub.textContent = PUB_LABEL[d.version_type] || '';
-      pub.hidden = !pub.textContent;
-    }
     var total = $('#v-total');
     total.textContent = fmtBtc(b.total) + ' BTC · ' + fmtInt(b.total) + ' sats';
     total.hidden = false;
@@ -229,7 +196,6 @@
       ? 'atualizado ' + new Date(d.updated_at).toLocaleString('pt-BR')
       : '';
     updated.hidden = !d.updated_at;
-    renderTypes(d);
     renderReceive(d);
     $('#v-warnings').innerHTML = (d.warnings || []).map(function (w) { return esc(w); }).join('<br>');
 
@@ -272,7 +238,7 @@
     if (out) out.hidden = true;
     // o saldo e o horário ficam fora do #out (abaixo do campo): saem da tela
     // e voltam ao travessão até a próxima consulta
-    ['#v-pub', '#v-total', '#v-updated'].forEach(function (sel) {
+    ['#v-total', '#v-updated'].forEach(function (sel) {
       var el = $(sel);
       if (!el) return;
       el.textContent = sel === '#v-total' ? '—' : '';
@@ -280,10 +246,6 @@
     });
     var warnings = $('#v-warnings');
     if (warnings) warnings.textContent = '';
-    var typesBody = $('#types-table tbody');
-    if (typesBody) typesBody.innerHTML = '';
-    var typesTable = $('#types-table');
-    if (typesTable) typesTable.hidden = true;
     var receiveBody = $('#receive-table tbody');
     if (receiveBody) receiveBody.innerHTML = '';
     var receiveTable = $('#receive-table');
@@ -519,8 +481,8 @@
     $('#theme-toggle').addEventListener('click', function () {
       setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
     });
-    // copiar o endereço: no bloco receber pelo botão ao lado, nas tabelas
-    // de tipos e de histórico pelo clique no próprio código
+    // copiar o endereço: no bloco receber pelo botão ao lado e na tabela de
+    // histórico pelo clique no próprio código
     async function copyAddress(ev, statusEl) {
       var action = ev.target.closest ? ev.target.closest('.key-action') : null;
       var code = ev.target.closest ? ev.target.closest('code') : null;
@@ -528,7 +490,6 @@
       if (!value) return;
       try {
         await navigator.clipboard.writeText(value);
-        setStatusTo(statusEl, 'ok', 'endereço copiado.');
         if (action) {
           action.textContent = 'copiado';
           if (action._copyTimer) clearTimeout(action._copyTimer);
@@ -541,10 +502,8 @@
         setStatusTo(statusEl, 'error', 'não foi possível copiar.');
       }
     }
-    ['#types-table', '#receive-table'].forEach(function (sel) {
-      var table = $(sel);
-      if (table) table.addEventListener('click', function (ev) { copyAddress(ev, $('#status')); });
-    });
+    var receiveTable = $('#receive-table');
+    if (receiveTable) receiveTable.addEventListener('click', function (ev) { copyAddress(ev, $('#status')); });
     $('#addresses-table').addEventListener('click', function (ev) {
       copyAddress(ev, $('#history-status'));
     });

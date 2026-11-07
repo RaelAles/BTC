@@ -5,18 +5,14 @@ deriva os endereços públicos na hora e consulta um servidor **Electrum**. A
 tela mostra:
 
 1. **saldo total** da carteira (soma das UTXOs de todos os tipos de conta)
-   logo abaixo do campo da xpub, centralizado em verde de sucesso, com a
-   legenda da chave colada (`xpub · bip44/49/84/86`, `zpub · bip84` ou
-   `ypub · bip49`) e o horário da última atualização em nota;
-2. **uma linha por tipo de conta com saldo** (bip86, bip84, bip49 e bip44,
-   do BIP mais alto para o mais baixo), com o saldo daquele tipo e o próximo
-   endereço livre para receber — o tipo detectado vem marcado;
-3. **um endereço de recebimento por tipo**, os quatro, inclusive os zerados:
+   logo abaixo do campo da xpub, centralizado em verde de sucesso, com o
+   horário da última atualização em nota;
+2. **um endereço de recebimento por tipo**, os quatro, inclusive os zerados:
    sempre o primeiro índice sem uso daquele ramo (`último usado + 1`), para
    escolher o que o pagador aceita. O rótulo de cada linha é só o BIP
    (`bip86`, `bip84`, `bip49`, `bip44`), com o botão de copiar ao lado do
    endereço — o clique no próprio endereço também copia;
-4. **lista de endereços já usados** (recebimento e troco), com **recebido**,
+3. **lista de endereços já usados** (recebimento e troco), com **recebido**,
    **enviado** e **saldo** de cada um, na tela **histórico**.
 
 Nada fica guardado: nem a xpub no navegador, nem endereços, transações ou
@@ -361,10 +357,9 @@ BIP mais alto, tecnologia mais recente, primeiro) e com o detectado marcado
 por `detected`: cada um com o saldo
 do tipo (soma dos endereços usados dele) e o próximo endereço livre do ramo
 de recebimento (`último usado + 1`, ou o índice 0 se o tipo nunca foi usado).
-A soma de `types[].balance` é o `balance.total`. A tela mostra só os tipos com
-saldo maior que zero na tabela de saldos e usa `types` inteiro (os quatro) no
-bloco **receber**, que exibe o próximo endereço livre de cada tipo. `extras`
-continua sendo a
+A soma de `types[].balance` é o `balance.total`. A tela usa `types` inteiro
+(os quatro) no bloco **receber**, que exibe o próximo endereço livre de cada
+tipo. `extras` continua sendo a
 lista dos outros tipos **com histórico**, para quem já consumia a resposta
 antiga.
 
