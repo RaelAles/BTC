@@ -168,6 +168,12 @@ O deploy do Worker exige ainda o `database_id` real do D1 no
 nenhum banco, então troque pelo id devolvido por `wrangler d1 create` antes
 do primeiro deploy.
 
+Se o build falhar com
+`npm error The \`npm ci\` command can only install with an existing package-lock.json`,
+é o mesmo sintoma: o comando está rodando na raiz do repositório, onde não há
+`package.json`/`package-lock.json` (o lock é de `projeto-2-cloudflare`).
+Corrigir o **Root directory** resolve os dois erros de uma vez.
+
 ## API
 
 ### `POST /api/wallet`
