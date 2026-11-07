@@ -28,10 +28,14 @@ por WebSocket, sem polling.
 
 ## O que o Worker faz
 
-- `POST /api/wallet` com `{ "xpub": "xpub..." }` — só chave estendida
-  pública da conta (`xpub`, `zpub` ou `ypub`). Endereço Bitcoin, chave
-  privada (`xprv`/`yprv`/`zprv`) ou texto solto são recusados com mensagem
-  específica, no navegador e no Worker, antes de qualquer consulta.
+- `POST /api/wallet` com `{ "xpub": "xpub..." }`. **O campo da tela só
+  aceita `xpub`**: o filtro bloqueia a digitação/colagem que não comece com
+  `xpub` e descarta caractere fora do alfabeto base58, então endereço, chave
+  privada (`xprv`), `zpub`/`ypub` e texto solto nem chegam a formar valor
+  (com mensagem explicando o motivo). O Worker também recusa essas entradas
+  antes de consultar. A API em si continua entendendo `zpub`/`ypub` (para
+  outros clientes e para a detecção de bip84/bip49); para reabrir isso na
+  tela é só incluir as três no `EXT_PUBLIC`/`filterXpub` de `public/app.js`.
 - Detecta o tipo da conta sem depender de outra fonte: `zpub` → bip84,
   `ypub` → bip49; `xpub` → varre os quatro tipos e escolhe o primeiro com
   histórico (bip44, bip86, bip84, bip49, nessa ordem).
@@ -365,6 +369,10 @@ node test/watcher.test.mjs      # Durable Object com WebSocket e alarme
 node test/dev-server.mjs        # UI local em http://127.0.0.1:8787/ (sem DO)
 node test/cdp-ui.mjs            # opcional: Chromium headless + screenshot
 ```
+
+A validação do campo foi conferida em Chromium headless (CDP `Input.insertText`):
+endereço, `xprv`, `zpub` e texto solto deixam o campo vazio com aviso; a xpub
+de 111 caracteres entra e carrega a carteira.
 
 O `watcher.test.mjs` usa um par de WebSocket mínimo e um `storage` de alarme
 em memória para exercitar o Durable Object sem Cloudflare: assinatura de

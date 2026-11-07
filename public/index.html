@@ -55,9 +55,12 @@
             <label class="field-label" for="xpub">xpub da conta</label>
             <div class="field-box">
               <div class="edge" aria-hidden="true"></div>
-              <input id="xpub" name="xpub" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="xpub...">
+              <input id="xpub" name="xpub" type="text" autocomplete="off" spellcheck="false"
+                     autocapitalize="off" maxlength="111" inputmode="text"
+                     pattern="^xpub[1-9A-HJ-NP-Za-km-z]+$" placeholder="xpub...">
               <div class="edge" aria-hidden="true"></div>
             </div>
+            <p class="note">só xpub: o campo recusa endereço, chave privada e qualquer texto que não comece com <code>xpub</code>.</p>
             <div class="chips app-gap">
               <button type="submit" class="form-submit">carregar</button>
               <span class="dot-sep" aria-hidden="true">·</span>

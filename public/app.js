@@ -33,21 +33,50 @@
   function fmtInt(v) {
     return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   }
-  /* Só chave estendida pública da conta (xpub/zpub/ypub). Endereço, chave
-     privada, seed ou fragmento erram antes de sair da tela. */
-  var EXT_PUBLIC = /^(xpub|ypub|zpub)[1-9A-HJ-NP-Za-km-z]{100,120}$/;
+  /* Só xpub. O campo nem aceita outra coisa: o filtro abaixo bloqueia a
+     digitação/colagem que não comece com "xpub" e só deixa passar caracteres
+     do alfabeto base58. Endereço, chave privada, zpub/ypub, seed ou lixo não
+     chegam a formar valor. */
+  var XPUB_PREFIX = 'xpub';
+  var B58_CHARS = /[1-9A-HJ-NP-Za-km-z]/;
+  var XPUB_TOTAL = 111;
   var EXT_PRIVATE = /^(xprv|yprv|zprv)/;
+  var EXT_OTHER = /^(ypub|zpub)/;
+
+  function filterXpub(raw) {
+    var s = String(raw == null ? '' : raw).replace(/\s+/g, '');
+    var keep = 0;
+    while (keep < s.length && keep < XPUB_PREFIX.length && s[keep] === XPUB_PREFIX[keep]) keep++;
+    if (keep < XPUB_PREFIX.length) {
+      // enquanto o texto é prefixo de "xpub" (x, xp, xpu) deixa digitar; se já
+      // passou disso e não casou (xprv, ypub, bc1, 1Efg…), limpa o campo
+      var partial = s.length <= XPUB_PREFIX.length;
+      return { value: partial ? XPUB_PREFIX.slice(0, keep) : '', blocked: true };
+    }
+    var rest = '';
+    var dropped = false;
+    for (var i = XPUB_PREFIX.length; i < s.length; i++) {
+      if (B58_CHARS.test(s[i])) rest += s[i];
+      else dropped = true;
+    }
+    var value = XPUB_PREFIX + rest.slice(0, XPUB_TOTAL - XPUB_PREFIX.length);
+    return { value: value, blocked: dropped || rest.length > XPUB_TOTAL - XPUB_PREFIX.length };
+  }
+
   function xpubProblem(value) {
     var s = String(value || '').trim();
     if (!s) return 'cole a xpub da conta.';
     if (EXT_PRIVATE.test(s)) {
       return 'isso é uma chave privada (xprv/yprv/zprv). Nunca cole a privada aqui: o projeto só consulta.';
     }
-    if (/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{20,}$/.test(s)) {
-      return 'isso é um endereço Bitcoin, não uma xpub. Use a chave que a carteira exporta como xpub/zpub/ypub.';
+    if (EXT_OTHER.test(s)) {
+      return 'este campo aceita só xpub; zpub/ypub não entram.';
     }
-    if (!EXT_PUBLIC.test(s)) {
-      return 'a xpub começa com xpub, zpub ou ypub e tem ~111 caracteres. Confira se copiou a chave da conta (não a raiz).';
+    if (/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{20,}$/.test(s)) {
+      return 'isso é um endereço Bitcoin, não uma xpub. Use a chave estendida pública da conta.';
+    }
+    if (s.length !== XPUB_TOTAL || !/^xpub[1-9A-HJ-NP-Za-km-z]+$/.test(s)) {
+      return 'xpub incompleta ou com caractere inválido (são ' + XPUB_TOTAL + ' caracteres). Confira a cópia da chave da conta.';
     }
     return '';
   }
@@ -230,6 +259,43 @@
       closeWatch();
       load(false);
     });
+    var xpubInput = $('#xpub');
+    function applyXpubFilter(ev) {
+      var raw = xpubInput.value;
+      var out = filterXpub(raw);
+      if (out.value === raw) return;
+      var caret = xpubInput.selectionStart;
+      var removed = raw.length - out.value.length;
+      xpubInput.value = out.value;
+      try {
+        var pos = Math.max(0, Math.min(out.value.length, caret - removed));
+        xpubInput.setSelectionRange(pos, pos);
+      } catch (e) {}
+      if (out.blocked && ev && ev.type === 'input') {
+        setStatus('error', 'este campo só aceita xpub: endereço, chave privada e outro texto são recusados.');
+      }
+    }
+    if (xpubInput) {
+      xpubInput.addEventListener('input', applyXpubFilter);
+      xpubInput.addEventListener('paste', function (ev) {
+        var data = '';
+        try { data = (ev.clipboardData || window.clipboardData).getData('text') || ''; } catch (e) {}
+        if (!data) return;
+        var out = filterXpub(data);
+        if (out.value !== data.replace(/\s+/g, '')) {
+          ev.preventDefault();
+          setStatus('error', xpubProblem(data) || 'este campo só aceita xpub.');
+          if (out.value && out.value.length > XPUB_PREFIX.length) {
+            xpubInput.value = out.value;
+            load(false);
+          }
+        }
+      });
+      xpubInput.addEventListener('blur', function () {
+        applyXpubFilter(null);
+      });
+    }
+
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) closeWatch();
       else if (state.xpub && state.data) load(true);
@@ -269,7 +335,7 @@
 
     var saved = '';
     try { saved = localStorage.getItem('projeto2-fase1-xpub') || ''; } catch (e) {}
-    if (saved) {
+    if (saved && !xpubProblem(saved)) {
       $('#xpub').value = saved;
       load(false);
     } else {
