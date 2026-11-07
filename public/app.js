@@ -179,7 +179,6 @@
         return '<div>' + esc(e.label) + ' · ' + fmtBtc(e.balance) + ' BTC · <code>' + esc(e.address) + '</code></div>';
       }).join('')
       : '—';
-    $('#v-source').textContent = d.source ? d.source : 'electrum (scripthash)';
     $('#v-updated').textContent = d.updated_at ? new Date(d.updated_at).toLocaleString('pt-BR') : '—';
     $('#v-warnings').innerHTML = (d.warnings || []).map(function (w) { return esc(w); }).join('<br>');
 
@@ -221,7 +220,7 @@
     var out = $('#out');
     if (out) out.hidden = true;
     ['#v-type', '#v-balance', '#v-breakdown', '#v-address', '#v-path',
-      '#v-change', '#v-extras', '#v-source', '#v-updated', '#v-warnings']
+      '#v-change', '#v-extras', '#v-updated', '#v-warnings']
       .forEach(function (sel) {
         var el = $(sel);
         if (el) el.textContent = '—';
