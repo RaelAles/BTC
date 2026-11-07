@@ -278,10 +278,7 @@ export class WalletScanner {
     const extraTotal = extras.reduce((s, e) => s + e.balance, 0);
     const detected = totalOf(type);
 
-    const warnings = [
-      'Fonte única: servidor Electrum, por scripthash, como Electrum e Sparrow (get_history + get_mempool + transaction.get).',
-      'O servidor Electrum vê os scripthashes consultados; o saldo sai das UTXOs e o "enviado" das saídas já gastas.'
-    ];
+    const warnings = [];
     if (this.errors) {
       warnings.push('Transações não obtidas do servidor: ' + [...this.errors.keys()].join(', ') +
         '. Os endereços afetados mantêm o último valor calculado nesta sessão.');
