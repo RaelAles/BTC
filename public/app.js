@@ -19,7 +19,10 @@
     xpub: '',
     data: null,
     timer: 0,
-    busy: false
+    busy: false,
+    watch: null,        // WebSocket do tempo real (Durable Object)
+    watchHash: '',
+    watchRetry: 0
   };
 
   function esc(s) {
@@ -129,7 +132,11 @@
       state.xpub = xpub;
       try { localStorage.setItem('projeto2-fase1-xpub', xpub); } catch (e) {}
       render(j);
-      setStatus('ok', 'carteira carregada · saldo e próximo endereço atualizados.');
+      setStatus('ok', j.watch
+        ? 'carteira carregada · tempo real ligado.'
+        : 'carteira carregada · saldo e próximo endereço atualizados.');
+      if (j.watch) openWatch(j.xpub_hash);
+      else closeWatch();
       schedule();
     } catch (e) {
       setStatus('error', e && e.message ? e.message : String(e));
@@ -142,9 +149,55 @@
     if (state.timer) clearInterval(state.timer);
     state.timer = setInterval(function () {
       if (!state.xpub) return;
-      // o Worker checa o endereço atual; se recebeu, avança o índice.
+      // com o tempo real aberto quem avisa é o Durable Object; o polling
+      // fica só como rede de segurança, bem mais espaçado.
+      if (state.watch && state.watch.readyState === 1) return;
       load(true);
     }, 30000);
+  }
+
+  /* Tempo real: o Durable Object segura a conexão Electrum e as assinaturas
+     de scripthash; quando algo muda ele manda o estado novo por aqui. */
+  function closeWatch() {
+    if (state.watch) {
+      try { state.watch.close(); } catch (e) {}
+      state.watch = null;
+    }
+    state.watchHash = '';
+  }
+
+  function openWatch(hash) {
+    if (!hash || !window.WebSocket) return;
+    if (state.watch && state.watchHash === hash &&
+        (state.watch.readyState === 0 || state.watch.readyState === 1)) return;
+    closeWatch();
+    state.watchHash = hash;
+    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var ws;
+    try { ws = new WebSocket(proto + '//' + location.host + '/api/events?hash=' + hash); }
+    catch (e) { return; }
+    state.watch = ws;
+    ws.onopen = function () { state.watchRetry = 0; };
+    ws.onmessage = function (ev) {
+      var msg;
+      try { msg = JSON.parse(ev.data); } catch (e) { return; }
+      if (msg.type === 'payload' && msg.payload) {
+        render(msg.payload);
+        setStatus('ok', 'tempo real · saldo atualizado pelo servidor Electrum.');
+      } else if (msg.type === 'error') {
+        setStatus('error', 'tempo real: ' + msg.error);
+      }
+    };
+    ws.onclose = function () {
+      if (state.watch !== ws) return;
+      state.watch = null;
+      if (!state.xpub || document.hidden) return;
+      var wait = Math.min(30000, 2000 * Math.pow(2, state.watchRetry++));
+      setTimeout(function () {
+        if (state.xpub && !document.hidden) openWatch(state.watchHash);
+        else if (state.xpub) load(true);
+      }, wait);
+    };
   }
 
   function wire() {
@@ -154,7 +207,12 @@
 
     $('#wallet-form').addEventListener('submit', function (ev) {
       ev.preventDefault();
+      closeWatch();
       load(false);
+    });
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) closeWatch();
+      else if (state.xpub && state.data) load(true);
     });
     $('#refresh').addEventListener('click', function () { load(false); });
     $('#theme-toggle').addEventListener('click', function () {

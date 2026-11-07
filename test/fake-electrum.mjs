@@ -3,7 +3,12 @@
    Fala o subconjunto que o Worker usa: server.version, scripthash
    get_history/get_mempool e transaction.get. */
 import net from 'node:net';
+import { createHash } from 'node:crypto';
 import { Readable, Writable } from 'node:stream';
+
+function require_hash(text) {
+  return createHash('sha256').update(text).digest().toString('hex').slice(0, 16);
+}
 
 export async function startFakeElectrum(opts) {
   const o = opts || {};
@@ -12,6 +17,13 @@ export async function startFakeElectrum(opts) {
   const txs = new Map(Object.entries(o.txs || {}));
   const requests = [];
   const sockets = new Set();
+  const subsBySocket = new Map(); // socket -> Set<scripthash>
+
+  const statusOf = (sh) => {
+    const hist = (histories.get(sh) || []).map(h => (h.tx_hash || '') + ':' + (h.height || 0)).join(',');
+    const mem = (mempool.get(sh) || []).map(h => h.tx_hash || '').join(',');
+    return require_hash(hist + '|' + mem);
+  };
 
   const asEntries = (list) => (list || []).map(h => ({
     height: h.height === undefined ? 0 : h.height,
@@ -23,7 +35,8 @@ export async function startFakeElectrum(opts) {
     sockets.add(socket);
     socket.setEncoding('utf8');
     socket.on('error', () => {});
-    socket.on('close', () => sockets.delete(socket));
+    socket.on('close', () => { sockets.delete(socket); subsBySocket.delete(socket); });
+    subsBySocket.set(socket, new Set());
     let buf = '';
     socket.on('data', chunk => {
       if (o.silent) return;
@@ -47,6 +60,14 @@ export async function startFakeElectrum(opts) {
           result = asEntries(histories.get(arg));
         } else if (req.method === 'blockchain.scripthash.get_mempool') {
           result = asEntries(mempool.get(arg));
+        } else if (req.method === 'blockchain.scripthash.subscribe') {
+          subsBySocket.get(socket).add(arg);
+          result = statusOf(arg);
+        } else if (req.method === 'blockchain.scripthash.unsubscribe') {
+          subsBySocket.get(socket).delete(arg);
+          result = true;
+        } else if (req.method === 'server.ping') {
+          result = null;
         } else if (req.method === 'blockchain.transaction.get') {
           const hex = txs.get(arg);
           if (typeof hex !== 'string') {
@@ -77,6 +98,16 @@ export async function startFakeElectrum(opts) {
     mempool,
     txs,
     count(method) { return requests.filter(r => r.method === method).length; },
+    /* Empurra uma notificação de scripthash (como o servidor real faz). */
+    notify(sh) {
+      const next = statusOf(sh);
+      for (const [socket, subs] of subsBySocket) {
+        if (!subs.has(sh)) continue;
+        socket.write(JSON.stringify({
+          jsonrpc: '2.0', method: 'blockchain.scripthash.subscribe', params: [sh, next]
+        }) + '\n');
+      }
+    },
     async close() {
       for (const s of sockets) s.destroy();
       await new Promise(resolve => server.close(resolve));

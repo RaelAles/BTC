@@ -93,6 +93,7 @@ export class ElectrumClient {
     this.writer = socket.writable.getWriter();
     this.reader = socket.readable.getReader();
     this.writeQueue = Promise.resolve();
+    this.onNotification = null;
     this.pump = this._read();
   }
 
@@ -117,6 +118,12 @@ export class ElectrumClient {
     const list = Array.isArray(msg) ? msg : [msg];
     for (const m of list) {
       if (!m || typeof m !== 'object') continue;
+      if (m.method && m.id === undefined) {
+        if (this.onNotification) {
+          try { this.onNotification(m.method, m.params || []); } catch (e) {}
+        }
+        continue; // notificação (scripthash.subscribe, headers.subscribe)
+      }
       const p = this.pending.get(m.id);
       if (!p) continue; // notificação ou resposta já expirada
       this.pending.delete(m.id);
@@ -210,6 +217,23 @@ export class ElectrumClient {
   async mempool(sh) {
     const r = await this.request('blockchain.scripthash.get_mempool', [sh]);
     return Array.isArray(r) ? r : [];
+  }
+
+  /* Assinatura: o servidor devolve o status atual e avisa por notificação
+     `blockchain.scripthash.subscribe` quando ele muda (é o que Electrum e
+     Sparrow usam para atualizar em tempo real). */
+  async subscribe(sh) {
+    const r = await this.request('blockchain.scripthash.subscribe', [sh]);
+    return r == null ? null : String(r);
+  }
+
+  async unsubscribe(sh) {
+    const r = await this.request('blockchain.scripthash.unsubscribe', [sh]);
+    return !!r;
+  }
+
+  async ping() {
+    return await this.request('server.ping', []);
   }
 
   async close() {

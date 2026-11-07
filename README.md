@@ -14,6 +14,10 @@ mesmo jeito que o Electrum e o Sparrow fazem: por `scripthash`,
 com o parse da transação e a conta de UTXO feitos aqui. Não há Esplora, nem
 blockchain.info, nem chave privada em lugar nenhum.
 
+Com o Durable Object ligado, a tela também recebe **tempo real**: o servidor
+avisa quando um endereço muda (`scripthash.subscribe`) e o estado novo chega
+por WebSocket, sem polling.
+
 > **Layout do repositório.** A raiz é o projeto do Worker (é ela que o
 > Cloudflare publica): `wrangler.jsonc`, `src/`, `public/`, `test/`,
 > `schema.sql`. Os arquivos soltos na mesma raiz não entram no deploy:
@@ -40,6 +44,9 @@ blockchain.info, nem chave privada em lugar nenhum.
 - **Cache no D1**: endereços derivados (com o scriptPubKey) e transações
   cruas ficam gravados. Transação confirmada nunca muda, então só as novas
   são baixadas; endereço já derivado não é derivado de novo.
+- **Tempo real**: um Durable Object por xpub segura a conexão com o servidor,
+  assina os scripthashes e empurra o estado novo por WebSocket quando algo
+  muda (detalhes em “Tempo real”).
 - Sem senha: a xpub é a credencial. O app guarda a xpub no `localStorage`
   por conveniência; o estado real fica no D1.
 
@@ -74,16 +81,72 @@ TLS aqui.
 
 `GET /api/health` mostra a configuração efetiva.
 
+## Tempo real (Durable Object)
+
+### Precisa de Durable Object?
+
+Para **push**, sim. O navegador não abre TCP para o Electrum e o Worker só
+existe durante a requisição; sem um processo persistente do lado do servidor,
+sobra polling. O Durable Object é esse processo: ele mantém a conexão TCP/TLS
+com o servidor Electrum e as assinaturas `blockchain.scripthash.subscribe`
+abertas. É a peça que dá ao projeto o mesmo comportamento de Electrum e
+Sparrow (aviso empurrado pelo servidor).
+
+### Como está montado
+
+- Um objeto por xpub: o id é o `sha256` da xpub.
+- `POST /api/wallet` é encaminhado para o objeto (`/sync`); ele reaproveita a
+  conexão e faz a varredura com gap, gravando no D1 como antes.
+- `GET /api/events?hash=…` faz o upgrade de WebSocket. Ao abrir, o objeto manda
+  o estado atual; a cada aviso do servidor ele reconsulta **só aquele
+  scripthash** (`get_history` + `get_mempool` + as transações novas), refaz a
+  conta, grava no D1 e empurra o payload novo para todas as telas abertas.
+- Se o endereço avisado era da cauda de gap e passou a ter histórico, o
+  objeto estende a varredura e assina os endereços novos.
+- Alarme curto (1 s) junta avisos do mesmo bloco; alarme de keepalive (30 s)
+  dá `server.ping` enquanto houver tela aberta.
+
+### O endereço “fica monitorado” no Durable Object?
+
+Só enquanto o objeto estiver vivo **e com a assinatura aberta**. Nada de
+endereço fica guardado no objeto de forma durável: o D1 é a fonte de verdade.
+O ciclo é:
+
+1. tela abre → objeto conecta, assina todos os scripthashes conhecidos
+   (usados + cauda de gap) e monitora de verdade;
+2. última tela fecha → fecha a conexão, descarta as assinaturas e **remove o
+   alarme**, para o objeto poder hibernar (sem custo de duração);
+3. se o objeto for despejado (eviction, deploy, inatividade) o socket e as
+   assinaturas morrem; no próximo acesso ele reconecta, reassina e se
+   atualiza — nada se perde, porque endereços e transações estão no D1.
+
+Ou seja: monitoramento em tempo real é **por sessão de tela aberta**, não um
+vigia 24/7. Para vigia 24/7 seria preciso manter o objeto acordado com alarme
+periódico — o que é possível, mas é exatamente o custo que o desenho atual
+evita.
+
+### Custo
+
+Duração de Durable Object é cobrada com base nos 128 MB de alocação,
+independentemente do uso. No plano free são 13.000 GB-s por dia, o que dá
+~28 horas de **um** objeto acordado (13.000 ÷ 0,128 GB ÷ 3600). Manter um
+objeto 24/7 consome ~85% dessa cota diária; por isso o desenho só acorda com
+tela aberta. WebSocket e alarmes contam como requisições (free: 100.000/dia).
+
+Configuração no `wrangler.jsonc`: binding `WATCH` para a classe
+`WalletWatcher` e a migration `v1` com `new_sqlite_classes` (SQLite é o único
+backend de Durable Object disponível no plano free).
+
 ## Limites conhecidos
 
-- **Sem tempo real ainda**: cada requisição refaz a consulta de histórico de
-  todos os endereços conhecidos (usados + cauda de gap). O Electrum e o
-  Sparrow usam `scripthash.subscribe` numa conexão persistente para receber
-  aviso; isso pede um Durable Object (próxima fase). Enquanto isso a UI
-  atualiza a cada 30 s.
+- **Varredura completa é o custo**: cada `/api/wallet` reconsulta o histórico
+  de todos os endereços conhecidos (usados + cauda de gap). Com tempo real, a
+  atualização por aviso consulta só o endereço avisado; a varredura completa
+  acontece ao abrir a tela ou ao pedir atualizar.
 - **Custo medido** (xpub de teste, 29 endereços usados, 34 transações):
-  3,8 s na primeira consulta e 2,3 s nas seguintes no `wrangler dev`, já com
-  o cache do D1 (nessa xpub a varredura chega ao índice 131 do bip44).
+  3,9 s na primeira consulta e ~1,5–2,3 s nas seguintes no `wrangler dev`,
+  já com o cache do D1 (nessa xpub a varredura chega ao índice 131 do bip44).
+  O aviso de mudança custa 2 pedidos + as transações novas.
 - **CPU**: a primeira varredura deriva algumas centenas de endereços. Cabe
   nos 30 s de CPU do plano pago (US$ 5/mês); no free (10 ms) não cabe.
   Depois do primeiro scan, as atualizações praticamente não derivam.
@@ -104,7 +167,10 @@ src/
   derivation.js       CKDpub, xpub, endereços dos 4 tipos
   electrum.js         cliente Electrum (JSON-RPC 1.4) sobre cloudflare:sockets
   address-totals.js   conta de UTXO: recebido/enviado/saldo por script
-  worker.js           API, D1, varredura com gap, cache
+  wallet-sync.js      varredura com gap, cache no D1 e payload da carteira
+  watcher.js          Durable Object: socket + assinaturas + WebSocket
+  config.js           env (servidores, timeout, SCAN_MAX) e helpers
+  worker.js           rotas: /api/wallet, /api/events, /api/health
 public/
   index.html          UI ASCII (página publicada)
   app.js              cliente (xpub, render, update a cada 30 s)
@@ -112,7 +178,8 @@ public/
 test/
   electrum.test.mjs   cliente Electrum contra servidor falso
   worker.test.mjs     ponta a ponta: saldo/recebido/enviado, cache, erros
-  fake-electrum.mjs   servidor Electrum falso (TCP em 127.0.0.1)
+  watcher.test.mjs    Durable Object: assinatura, aviso → push, repouso
+  fake-electrum.mjs   servidor Electrum falso (TCP em 127.0.0.1, com notify)
   memory-db.mjs       D1 em memória
   tx-fixture.mjs      transações cruas montadas com o btc-core
 ```
@@ -203,7 +270,8 @@ Resposta (resumida):
       "tx_count": 3 }
   ],
   "source": "electrum (scripthash) · electrum.blockstream.info:50002",
-  "warnings": [ "..." ]
+  "warnings": [ "..." ],
+  "watch": true
 }
 ```
 
@@ -211,9 +279,17 @@ Resposta (resumida):
 recebido, enviado, saldo e número de transações. `receive`/`change` são os
 próximos endereços livres do tipo detectado.
 
+`watch: true` avisa a UI para abrir o WebSocket de tempo real.
+
+### `GET /api/events?hash=<sha256 da xpub>`
+
+Upgrade para WebSocket no Durable Object. Mensagens: `{ "type": "payload",
+"payload": { ...mesma resposta do POST } }` a cada mudança, e
+`{ "type": "error", "error": "..." }` quando a conexão com o Electrum cai.
+
 ### `GET /api/health`
 
-`{ "ok": true, "service": "projeto-2-electrum", "source": "electrum", "electrum": [...] }`.
+`{ "ok": true, "service": "projeto-2-electrum", "source": "electrum", "realtime": true, "electrum": [...] }`.
 
 ## Segurança
 
@@ -229,18 +305,37 @@ próximos endereços livres do tipo detectado.
 ## Testes
 
 ```bash
-npm test                        # electrum + worker, sem rede
+npm test                        # electrum + worker + watcher, sem rede
 node test/electrum.test.mjs     # protocolo contra servidor falso
 node test/worker.test.mjs       # ponta a ponta com D1 em memória
-node test/dev-server.mjs        # UI local em http://127.0.0.1:8787/
+node test/watcher.test.mjs      # Durable Object com WebSocket e alarme
+node test/dev-server.mjs        # UI local em http://127.0.0.1:8787/ (sem DO)
 node test/cdp-ui.mjs            # opcional: Chromium headless + screenshot
 ```
+
+O `watcher.test.mjs` usa um par de WebSocket mínimo e um `storage` de alarme
+em memória para exercitar o Durable Object sem Cloudflare: assinatura de
+todos os scripthashes, aviso → reconsulta só do endereço → push, extensão da
+cauda de gap com novas assinaturas, e o encerramento quando a última tela
+fecha.
 
 O `worker.test.mjs` monta transações com o próprio `btc-core` e cobre:
 endereço que recebeu e gastou (`recebido 10000 / enviado 10000 / saldo 0`),
 endereço que só recebeu, próximo índice, mempool no saldo, união dos tipos,
 reuso do cache de transações (nenhum `transaction.get` repetido) e ausência
 de fallback quando o Electrum não responde.
+
+## Verificado no runtime de verdade
+
+`wrangler dev` (workerd + D1 local + Durable Object) com o servidor real:
+
+```
+POST /api/wallet          200  3,9 s   watch=true   total 12 862 176 sats   29 endereços
+GET  /api/health          200           realtime=true
+GET  /api/events          101  Switching Protocols
+WebSocket                 msg { type: "payload", total: 12862176,
+                              source: "electrum (scripthash) · electrum.blockstream.info:50002" }
+```
 
 ## Verificado contra o servidor real
 
@@ -252,9 +347,8 @@ saldo daquele endereço, agora com o enviado explícito.
 
 ## Próxima fase
 
-- **Tempo real** com `scripthash.subscribe` num Durable Object: conexão
-  persistente, aviso de mudança e push para a UI — é o que falta para a
-  atualização ser instantânea como no Electrum/Sparrow.
 - SPV (`blockchain.transaction.get_merkle` + cadeia de cabeçalhos) se quiser
   prova de inclusão em vez de confiar no servidor.
+- Aviso com a tela fechada (Web Push/e-mail) manteria o Durable Object
+  acordado 24/7 — é decisão de custo, não de código.
 - Envio: o projeto 2 só exibe; o projeto 1 assina o PSBT.

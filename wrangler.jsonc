@@ -14,6 +14,20 @@
       "database_id": "7c26213e-28f3-41d8-946c-742ec63b4c2f"
     }
   ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "WATCH",
+        "class_name": "WalletWatcher"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["WalletWatcher"]
+    }
+  ],
   "observability": {
     "enabled": true
   },
