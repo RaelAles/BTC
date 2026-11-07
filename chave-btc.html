@@ -1952,42 +1952,13 @@
     padding-top: var(--space-3);
     border-top: 0;
   }
-  /* Chave privada ofuscada: as pontas ficam visíveis e a linha de pontos
-     ocupa toda a largura que sobra da célula. As públicas ficam inteiras,
-     com o botão de copiar. O botão das duas segue o padrão da página. */
+  /* Todas as chaves ficam inteiras, privadas e públicas, com o botão de
+     copiar sob o valor. */
   .key-value { display: block; }
-  .key-mask {
-    display: flex;
-    align-items: center;
-    width: 100%;
-  }
-  .key-mask-lead,
-  .key-mask-tail { flex: 0 0 auto; }
-  .key-mask-fill {
-    flex: 1 1 auto;
-    min-width: 2ch;
-    height: 3px;
-    margin: 0 1ch;
-    color: var(--sep);
-    background-image: radial-gradient(circle at center, currentColor 1px, transparent 1.2px);
-    background-size: 11px 100%;
-    background-repeat: repeat-x;
-  }
-  .key-mask[hidden],
-  .key-full[hidden],
   .key-action[hidden] { display: none; }
   .key-action {
     display: block;
     margin: var(--space-3) 0 0 auto;
-  }
-  /* Fio sutil entre as chaves privadas e as públicas da lista completa: mais
-     leve que o divisor de seção, para separar sem abrir outro bloco. */
-  .keys-sep {
-    margin: 0 0 var(--space-7);
-    height: 1px;
-    background-image: radial-gradient(circle at center, var(--line) 1px, transparent 1.2px);
-    background-size: 11px 100%;
-    background-repeat: repeat-x;
   }
   /* Tabuleiro de 256 bits em um quadrado de 16 × 16. As coordenadas
      continuam na sequência A1–A9, A0, B1–B9, B0, … até Z6, agora corrida
@@ -2184,9 +2155,12 @@
             <h3><span class="prompt" aria-hidden="true">##</span> privadas</h3>
           </div>
           <div class="reveal-block">
-            <table class="data-table key-readout" id="keys-table" aria-label="chave privada">
+            <table class="data-table key-readout" id="keys-table" aria-label="chaves privadas">
               <tbody>
                 <tr><th scope="row">bip86 · xprv</th><td id="v-xprv" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip84 · zprv</th><td id="v-bip84-prv" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip49 · yprv</th><td id="v-bip49-prv" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip44 · xprv</th><td id="v-bip44-prv" class="is-empty">—</td></tr>
               </tbody>
             </table>
           </div>
@@ -2196,43 +2170,14 @@
             <h3><span class="prompt" aria-hidden="true">##</span> públicas</h3>
           </div>
           <div class="reveal-block">
-            <table class="data-table key-readout" id="addr-table" aria-label="chave pública estendida">
+            <table class="data-table key-readout" id="addr-table" aria-label="chaves públicas estendidas">
               <tbody>
                 <tr><th scope="row">bip86 · xpub</th><td id="v-xpub" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip84 · zpub</th><td id="v-bip84-pub" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip49 · ypub</th><td id="v-bip49-pub" class="is-empty">—</td></tr>
+                <tr><th scope="row">bip44 · xpub</th><td id="v-bip44-pub" class="is-empty">—</td></tr>
               </tbody>
             </table>
-          </div>
-          <div class="chips app-gap reveal-block keys-actions">
-            <button type="button" id="more-toggle" aria-expanded="false" aria-controls="all-keys" aria-label="Mostrar todas as chaves privadas e públicas">mostrar todas as chaves</button>
-          </div>
-
-          <div id="all-keys" hidden>
-            <div class="rule rule-dots reveal-block" aria-hidden="true"></div>
-
-            <div class="prose reveal-block app-block">
-              <h3><span class="prompt" aria-hidden="true">##</span> todas as chaves</h3>
-            </div>
-            <div class="reveal-block">
-              <table class="data-table key-readout" id="keys-table-all" aria-label="todas as chaves privadas">
-                <tbody>
-                  <tr><th scope="row">bip86 · xprv</th><td id="v-all-xprv" class="is-empty">—</td></tr>
-                  <tr><th scope="row">bip84 · zprv</th><td id="v-bip84-prv" class="is-empty">—</td></tr>
-                  <tr><th scope="row">bip49 · yprv</th><td id="v-bip49-prv" class="is-empty">—</td></tr>
-                  <tr><th scope="row">bip44 · xprv</th><td id="v-bip44-prv" class="is-empty">—</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="keys-sep" aria-hidden="true"></div>
-            <div class="reveal-block">
-              <table class="data-table key-readout" id="addr-table-all" aria-label="todas as chaves públicas estendidas">
-                <tbody>
-                  <tr><th scope="row">bip86 · xpub</th><td id="v-all-xpub" class="is-empty">—</td></tr>
-                  <tr><th scope="row">bip84 · zpub</th><td id="v-bip84-pub" class="is-empty">—</td></tr>
-                  <tr><th scope="row">bip49 · ypub</th><td id="v-bip49-pub" class="is-empty">—</td></tr>
-                  <tr><th scope="row">bip44 · xpub</th><td id="v-bip44-pub" class="is-empty">—</td></tr>
-                </tbody>
-              </table>
-            </div>
           </div>
         </section>
 
@@ -2307,7 +2252,7 @@
               <li>lê 256 bits marcados no tabuleiro, digitados como coordenadas A1–Z6 ou gerados pelo botão de bits aleatórios;</li>
               <li>mostra o mnemonic de 24 palavras e os 256 bits em binário e em hex;</li>
               <li>deriva a seed BIP39 (passphrase vazia), a raiz BIP32 e as contas BIP44/49/84/86 no mainnet;</li>
-              <li>mostra a chave privada e a xpub de cada conta, com os caminhos de recebimento (/0/*) e troco (/1/*);</li>
+              <li>mostra as chaves privadas e as xpubs das contas BIP44/49/84/86, com os caminhos de recebimento (/0/*) e troco (/1/*), e o botão de copiar em cada uma;</li>
               <li>assina PSBT (BIP174) criado em outro app: ECDSA RFC 6979 no p2pkh, no BIP49 e no BIP84 (sighash BIP143), e Schnorr BIP340 no P2TR do BIP86 (sighash BIP341);</li>
               <li>faz tudo no próprio arquivo: sem biblioteca externa, sem build e sem requisição de rede — a política de segurança da página bloqueia qualquer conexão.</li>
             </ul>
@@ -4299,23 +4244,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   /* ------------------------------------------------------------- chaves */
   var KEY_CELLS = [
-    { id: 'xprv', secret: true },
-    { id: 'xpub', secret: false },
-    { id: 'all-xprv', secret: true },
-    { id: 'bip84-prv', secret: true },
-    { id: 'bip49-prv', secret: true },
-    { id: 'bip44-prv', secret: true },
-    { id: 'all-xpub', secret: false },
-    { id: 'bip84-pub', secret: false },
-    { id: 'bip49-pub', secret: false },
-    { id: 'bip44-pub', secret: false }
+    'xprv', 'bip84-prv', 'bip49-prv', 'bip44-prv',
+    'xpub', 'bip84-pub', 'bip49-pub', 'bip44-pub'
   ];
-  function maskEnds(value) {
-    var text = String(value).replace(/\s+/g, ' ').trim();
-    var words = text.split(' ');
-    if (words.length > 1) return [words[0], words[words.length - 1]];
-    return [text.slice(0, 5), text.slice(-5)];
-  }
   function copyText(value) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(value).catch(function () { legacyCopy(value); });
@@ -4336,74 +4267,23 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     document.body.removeChild(area);
   }
   function buildKeyCells() {
-    KEY_CELLS.forEach(function (entry) {
-      var cell = document.getElementById('v-' + entry.id);
+    KEY_CELLS.forEach(function (id) {
+      var cell = document.getElementById('v-' + id);
       if (!cell || cell.querySelector('.key-value')) return;
       var value = document.createElement('span');
       value.className = 'key-value';
-      value.id = 'key-' + entry.id;
+      value.id = 'key-' + id;
       var action = document.createElement('button');
       action.type = 'button';
       action.className = 'key-action';
+      action.textContent = 'copiar';
       action.hidden = true;
-      if (entry.secret) {
-        action.setAttribute('aria-controls', value.id);
-        var mask = document.createElement('span');
-        mask.className = 'key-mask';
-        var lead = document.createElement('span');
-        lead.className = 'key-mask-lead';
-        var fill = document.createElement('span');
-        fill.className = 'key-mask-fill';
-        fill.setAttribute('aria-hidden', 'true');
-        var tail = document.createElement('span');
-        tail.className = 'key-mask-tail';
-        mask.appendChild(lead);
-        mask.appendChild(fill);
-        mask.appendChild(tail);
-        var full = document.createElement('span');
-        full.className = 'key-full';
-        full.hidden = true;
-        value.appendChild(mask);
-        value.appendChild(full);
-        action.textContent = 'mostrar';
-        action.setAttribute('aria-expanded', 'false');
-        cell.classList.add('secret');
-        cell.setAttribute('data-revealed', 'false');
-      } else {
-        action.textContent = 'copiar';
-        cell.classList.add('public');
-      }
       cell.textContent = '';
       cell.appendChild(value);
       cell.appendChild(action);
     });
   }
-  function paintPrivate(cell, value) {
-    var mask = cell.querySelector('.key-mask');
-    var full = cell.querySelector('.key-full');
-    var action = cell.querySelector('.key-action');
-    if (!mask || !full || !action) return;
-    var ends = value ? maskEnds(value) : [];
-    cell.setAttribute('data-revealed', 'false');
-    action.setAttribute('aria-expanded', 'false');
-    action.textContent = 'mostrar';
-    if (!value) {
-      mask.hidden = true;
-      full.hidden = false;
-      full.textContent = '—';
-      action.hidden = true;
-      cell.classList.add('is-empty');
-      return;
-    }
-    cell.classList.remove('is-empty');
-    mask.hidden = false;
-    cell.querySelector('.key-mask-lead').textContent = ends[0];
-    cell.querySelector('.key-mask-tail').textContent = ends[1];
-    full.hidden = true;
-    full.textContent = '';
-    action.hidden = false;
-  }
-  function paintPublic(cell, value) {
+  function paintKey(cell, value) {
     var out = cell.querySelector('.key-value');
     var action = cell.querySelector('.key-action');
     if (!out || !action) return;
@@ -4423,12 +4303,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     action.hidden = false;
   }
   function paintValues() {
-    KEY_CELLS.forEach(function (entry) {
-      var cell = document.getElementById('v-' + entry.id);
+    KEY_CELLS.forEach(function (id) {
+      var cell = document.getElementById('v-' + id);
       if (!cell) return;
-      var value = state.values ? state.values[entry.id] : '';
-      if (entry.secret) paintPrivate(cell, value);
-      else paintPublic(cell, value);
+      paintKey(cell, state.values ? state.values[id] : '');
     });
   }
   /* Mnemonic e binários são saída do tabuleiro, não entrada: a frase de 24
@@ -4483,16 +4361,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (!cell) return;
     var value = state.values ? state.values[cell.id.replace(/^v-/, '')] : '';
     if (!value) return;
-    if (cell.classList.contains('secret')) {
-      var open = cell.getAttribute('data-revealed') !== 'true';
-      cell.setAttribute('data-revealed', open ? 'true' : 'false');
-      cell.querySelector('.key-mask').hidden = open;
-      cell.querySelector('.key-full').hidden = !open;
-      cell.querySelector('.key-full').textContent = open ? value : '';
-      action.setAttribute('aria-expanded', open ? 'true' : 'false');
-      action.textContent = open ? 'ocultar' : 'mostrar';
-      return;
-    }
     copyText(value);
     action.textContent = 'copiado';
     if (action._copyTimer) window.clearTimeout(action._copyTimer);
@@ -4518,12 +4386,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     state.key = hd.signingKey;
     state.values = {
       xprv: a.bip86.xprv,
-      'all-xprv': a.bip86.xprv,
       'bip84-prv': a.bip84.xprv,
       'bip49-prv': a.bip49.xprv,
       'bip44-prv': a.bip44.xprv,
       xpub: a.bip86.xpub,
-      'all-xpub': a.bip86.xpub,
       'bip84-pub': a.bip84.xpub,
       'bip49-pub': a.bip49.xpub,
       'bip44-pub': a.bip44.xpub
@@ -4562,25 +4428,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       button._copyTimer = 0;
     }, 1400);
   }
-  /* O terceiro subtítulo (todas as chaves) nasce oculto. O botão único o
-     revela por inteiro e anuncia o estado pelo aria-expanded. */
-  var moreToggle = $('#more-toggle');
-  var moreGroup = $('#all-keys');
-  function setMore(open) {
-    if (!moreToggle) return;
-    moreToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-    moreToggle.setAttribute('aria-label', open
-      ? 'Ocultar todas as chaves privadas e públicas'
-      : 'Mostrar todas as chaves privadas e públicas');
-    moreToggle.textContent = open ? 'ocultar todas as chaves' : 'mostrar todas as chaves';
-    if (moreGroup) moreGroup.hidden = !open;
-  }
-  if (moreToggle) {
-    moreToggle.addEventListener('click', function () {
-      setMore(moreToggle.getAttribute('aria-expanded') !== 'true');
-    });
-  }
-
   /* ---------------------------------------------------------- bits/entrada */
   var BIT_MAX = 256;
 
