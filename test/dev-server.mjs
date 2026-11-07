@@ -12,7 +12,6 @@ import { deriveAddress, parseXpub } from '../src/derivation.js';
 import { scripthash, setConnectOverride } from '../src/electrum.js';
 import { startFakeElectrum, nodeConnect } from './fake-electrum.mjs';
 import { makeTx } from './tx-fixture.mjs';
-import { MemoryDB } from './memory-db.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pub = path.join(__dirname, '..', 'public');
@@ -44,8 +43,7 @@ const txs = { [txA.txid]: txA.raw, [txB.txid]: txB.raw, [txC.txid]: txC.raw };
 const fake = await startFakeElectrum({ histories, txs });
 setConnectOverride(nodeConnect);
 
-const db = new MemoryDB();
-const env = { DB: db, ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
+const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
 const types = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',

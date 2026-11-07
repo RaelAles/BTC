@@ -3,8 +3,9 @@
 
    Fonte única: servidor Electrum, por scripthash, como Electrum e Sparrow:
    get_history + get_mempool + transaction.get (crua), parse local, conta de
-   UTXO. O D1 guarda endereços derivados (com scriptPubKey) e as transações
-   cruas; nada de chave privada. */
+   UTXO. Endereços e transações vivem só na memória desta varredura: nada é
+   gravado, nem em D1 nem no Durable Object. Ao fechar a tela, tudo se perde
+   e a próxima abertura refaz a varredura do zero. */
 import { chainNode, deriveChild, TYPE_INFO } from './derivation.js';
 import { historiesMany, transactionsMany } from './electrum.js';
 import { totalsForScripts } from './address-totals.js';
@@ -13,140 +14,33 @@ import BTC from './btc-core.js';
 export const DEFAULT_GAP = 20;
 export const TYPES = ['bip86', 'bip84', 'bip49', 'bip44'];
 
-const TX_CACHE_CHUNK = 80;
 const HIST_CONCURRENCY = 100;
 const TX_CONCURRENCY = 20;
 
 export function now() { return new Date().toISOString(); }
 
-/* ---------- D1 ---------- */
-
-export async function getWallet(env, hash) {
-  return await env.DB.prepare('SELECT * FROM wallets WHERE xpub_hash = ?').bind(hash).first();
-}
-export async function insertWallet(env, hash, xpub, account, type) {
-  const t = now();
-  await env.DB.prepare(
-    `INSERT INTO wallets (xpub_hash, xpub, version_type, account_type, next_receive, next_change, balance, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 0, 0, 0, ?, ?)`
-  ).bind(hash, xpub, account.versionType, type, t, t).run();
-  return await getWallet(env, hash);
-}
-async function setWallet(env, hash, type, nextReceive, nextChange, balance) {
-  await env.DB.prepare(
-    'UPDATE wallets SET account_type = ?, next_receive = ?, next_change = ?, balance = ?, updated_at = ? WHERE xpub_hash = ?'
-  ).bind(type, nextReceive, nextChange, balance, now(), hash).run();
-}
-
 export function rowKey(type, chain) { return type + ':' + chain; }
-
-function emptyRow(row) {
-  return {
-    account_type: row.account_type,
-    chain: Number(row.chain),
-    idx: Number(row.idx),
-    address: row.address,
-    script: row.script,
-    used: Number(row.used) || 0,
-    balance: Number(row.balance) || 0,
-    received: Number(row.received) || 0,
-    spent: Number(row.spent) || 0,
-    tx_count: Number(row.tx_count) || 0,
-    heights: new Map(),
-    txids: [],
-    stale: false,
-    _orig: {
-      used: Number(row.used) || 0,
-      balance: Number(row.balance) || 0,
-      received: Number(row.received) || 0,
-      spent: Number(row.spent) || 0,
-      tx_count: Number(row.tx_count) || 0
-    }
-  };
-}
-
-async function loadRows(env, hash) {
-  const res = await env.DB.prepare('SELECT * FROM addresses WHERE xpub_hash = ?').bind(hash).all();
-  const map = new Map();
-  for (const row of (res.results || [])) {
-    if (!row.script) continue; // linha de schema antigo: será derivada de novo
-    const key = rowKey(row.account_type, row.chain);
-    if (!map.has(key)) map.set(key, new Map());
-    map.get(key).set(Number(row.idx), emptyRow(row));
-  }
-  return map;
-}
-
-function needsWrite(r) {
-  const o = r._orig;
-  if (!o) return true;
-  return o.used !== (r.used ? 1 : 0) || o.balance !== r.balance ||
-    o.received !== r.received || o.spent !== r.spent || o.tx_count !== r.tx_count;
-}
-
-async function saveRows(env, hash, rows) {
-  const stmts = [];
-  const t = now();
-  for (const r of rows) {
-    if (!needsWrite(r)) continue;
-    stmts.push(env.DB.prepare(
-      `INSERT INTO addresses (xpub_hash, account_type, chain, idx, address, script, used, balance, received, spent, tx_count, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT (xpub_hash, account_type, chain, idx) DO UPDATE SET
-         address = excluded.address, script = excluded.script, used = excluded.used,
-         balance = excluded.balance, received = excluded.received, spent = excluded.spent,
-         tx_count = excluded.tx_count, updated_at = excluded.updated_at`
-    ).bind(hash, r.account_type, r.chain, r.idx, r.address, r.script,
-      r.used ? 1 : 0, r.balance, r.received, r.spent, r.tx_count, t));
-  }
-  if (stmts.length) await env.DB.batch(stmts);
-  return stmts.length;
-}
-
-async function loadCachedTx(env, hash, txids) {
-  const out = new Map();
-  for (let i = 0; i < txids.length; i += TX_CACHE_CHUNK) {
-    const chunk = txids.slice(i, i + TX_CACHE_CHUNK);
-    const sql = 'SELECT txid, raw FROM transactions WHERE xpub_hash = ? AND txid IN (' +
-      chunk.map(() => '?').join(',') + ')';
-    const res = await env.DB.prepare(sql).bind(hash, ...chunk).all();
-    for (const row of (res.results || [])) out.set(row.txid, row.raw);
-  }
-  return out;
-}
-
-async function saveTxs(env, hash, items) {
-  const stmts = [];
-  for (const it of items) {
-    stmts.push(env.DB.prepare('INSERT OR IGNORE INTO transactions (xpub_hash, txid, raw) VALUES (?, ?, ?)')
-      .bind(hash, it.txid, it.raw));
-  }
-  if (stmts.length) await env.DB.batch(stmts);
-}
 
 /* ---------- scanner ---------- */
 
 export class WalletScanner {
-  constructor({ env, xpub, account, hash, client, maxScan, gap }) {
+  constructor({ env, xpub, account, client, maxScan, gap }) {
     this.env = env;
     this.xpub = xpub;
     this.account = account;
-    this.hash = hash;
     this.client = client;
     this.gap = Math.max(1, Number(gap) || DEFAULT_GAP);
     this.maxScan = Math.max(this.gap, Number(maxScan) || 400);
     this.rows = new Map();
+    this.txCache = new Map();   // txid -> hex cru, só nesta sessão
     this.chainNodes = new Map();
     this.byScript = new Map();
     this.bySh = new Map();
     this.shCache = new Map();
-    this.newTxs = [];
     this.warnings = [];
-    this.wallet = null;
   }
 
   async init() {
-    this.rows = await loadRows(this.env, this.hash);
     for (const type of TYPES) for (const chain of [0, 1]) {
       if (!this.rows.has(rowKey(type, chain))) this.rows.set(rowKey(type, chain), new Map());
     }
@@ -194,7 +88,7 @@ export class WalletScanner {
       account_type: type, chain, idx, address: a.address, path: a.path,
       script: BTC.bytesToHex(a.script),
       used: 0, balance: 0, received: 0, spent: 0, tx_count: 0,
-      heights: new Map(), txids: [], stale: false, _orig: null
+      heights: new Map(), txids: [], stale: false
     };
   }
 
@@ -221,9 +115,9 @@ export class WalletScanner {
     return { lastUsed, maxIdx };
   }
 
-  /* Consulta o que já está no D1 (quando `requery`) e estende cada ramo até
-     `gap` endereços sem uso, com as extensões de todos os ramos numa rodada.
-     Devolve as linhas novas (para o DO assinar). */
+  /* Consulta de novo o que já está na memória (quando `requery`) e estende
+     cada ramo até `gap` endereços sem uso, com as extensões de todos os
+     ramos numa rodada. Devolve as linhas novas (para o DO assinar). */
   async ensureGap(requery) {
     if (requery) await this.queryRows([...this.byScript.values()]);
     const added = [];
@@ -258,7 +152,7 @@ export class WalletScanner {
     return added;
   }
 
-  /* Conta de UTXO a partir das transações cruas (cache no D1). */
+  /* Conta de UTXO a partir das transações cruas (cache em memória). */
   async recompute() {
     const heights = new Map();
     const scripts = new Set();
@@ -271,12 +165,16 @@ export class WalletScanner {
     let totals = new Map();
     const errors = new Map();
     if (heights.size) {
-      const cached = await loadCachedTx(this.env, this.hash, [...heights.keys()]);
+      const cached = new Map();
+      for (const txid of heights.keys()) {
+        const raw = this.txCache.get(txid);
+        if (raw) cached.set(txid, raw);
+      }
       const missing = [...heights.keys()].filter(t => !cached.has(t));
       const fetched = missing.length
         ? await transactionsMany(this.client, missing, { concurrency: TX_CONCURRENCY })
         : { raw: new Map(), errors: new Map() };
-      for (const [txid, raw] of fetched.raw) this.newTxs.push({ txid, raw });
+      for (const [txid, raw] of fetched.raw) this.txCache.set(txid, raw);
       for (const [txid, msg] of fetched.errors) errors.set(txid, msg);
 
       const entries = [];
@@ -293,7 +191,7 @@ export class WalletScanner {
 
     for (const r of this.byScript.values()) {
       if (r.txids.some(t => errors.has(t))) {
-        // sem a transação não fecha a conta: mantém o último valor gravado
+        // sem a transação não fecha a conta: mantém o último valor calculado
         r.stale = true;
         r.used = r.txids.length ? 1 : 0;
         r.tx_count = r.txids.length;
@@ -309,11 +207,6 @@ export class WalletScanner {
       r.used = r.tx_count ? 1 : 0;
     }
 
-    if (this.newTxs.length) {
-      await saveTxs(this.env, this.hash, this.newTxs);
-      this.newTxs = [];
-    }
-    await saveRows(this.env, this.hash, [...this.byScript.values()]);
     if (errors.size) this.errors = errors;
     else this.errors = null;
     return totals;
@@ -365,18 +258,6 @@ export class WalletScanner {
     const usedRows = [...this.byScript.values()].filter(r => r.used);
     const totalOf = t => usedRows.filter(r => r.account_type === t).reduce((s, r) => s + r.balance, 0);
 
-    let wallet = await getWallet(this.env, this.hash);
-    if (!wallet) wallet = await insertWallet(this.env, this.hash, this.xpub, this.account, type);
-    const changed = wallet.account_type !== type ||
-      Number(wallet.next_receive) !== chains[0].next ||
-      Number(wallet.next_change) !== chains[1].next ||
-      Number(wallet.balance) !== totalOf(type);
-    if (changed) {
-      await setWallet(this.env, this.hash, type, chains[0].next, chains[1].next, totalOf(type));
-      wallet = await getWallet(this.env, this.hash);
-    }
-    this.wallet = wallet;
-
     const extras = [];
     for (const other of TYPES) {
       if (other === type) continue;
@@ -403,15 +284,14 @@ export class WalletScanner {
     ];
     if (this.errors) {
       warnings.push('Transações não obtidas do servidor: ' + [...this.errors.keys()].join(', ') +
-        '. Os endereços afetados mantêm o último valor gravado.');
+        '. Os endereços afetados mantêm o último valor calculado nesta sessão.');
     }
     const stale = [...this.byScript.values()].filter(r => r.stale).length;
     if (stale) warnings.push(stale + ' endereço(s) com valor antigo por falta de transação.');
     for (const w of this.warnings) if (!warnings.includes(w)) warnings.push(w);
 
     return {
-      version: 3,
-      xpub_hash: this.hash,
+      version: 4,
       detected_type: type,
       detected_label: info.label,
       version_type: this.account.versionType,
@@ -434,7 +314,7 @@ export class WalletScanner {
       })),
       warnings,
       source: 'electrum (scripthash) · ' + (this.client ? this.client.name : 'servidor'),
-      updated_at: wallet.updated_at
+      updated_at: now()
     };
   }
 }

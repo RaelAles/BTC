@@ -1,7 +1,8 @@
 /* Teste do Durable Object de tempo real sem Cloudflare: servidor Electrum
-   falso que empurra notificações, D1 em memória e um par de WebSocket
-   mínimo. Verifica assinatura, aviso → atualização incremental → push, e
-   o encerramento quando não há tela aberta.
+   falso que empurra notificações e um par de WebSocket mínimo. O estado
+   `storage` do objeto é um proxy que lança em qualquer acesso, para provar
+   que o watcher não grava nada. Verifica assinatura, aviso → atualização
+   incremental → push, e o descarte total quando a última tela fecha.
 
    node test/watcher.test.mjs */
 import assert from 'node:assert/strict';
@@ -9,9 +10,7 @@ import { WalletWatcher } from '../src/watcher.js';
 import { deriveAddress, parseXpub } from '../src/derivation.js';
 import { scripthash, setConnectOverride } from '../src/electrum.js';
 import { startFakeElectrum, nodeConnect } from './fake-electrum.mjs';
-import { MemoryDB } from './memory-db.mjs';
 import { makeTx } from './tx-fixture.mjs';
-import { sha256Hex } from '../src/config.js';
 
 /* ---------- shims do runtime ---------- */
 class FakeSocket {
@@ -50,17 +49,16 @@ globalThis.WebSocketPair = class {
     this[1] = b;
   }
 };
-class FakeStorage {
-  constructor() { this.alarmAt = null; }
-  async setAlarm(t) { this.alarmAt = t; }
-  async getAlarm() { return this.alarmAt; }
-  async deleteAlarm() { this.alarmAt = null; }
-}
+
+/* Qualquer tentativa de gravar no Durable Object (put, alarm) estoura. */
+const noStorage = new Proxy({}, {
+  get(_, key) { throw new Error('o watcher tentou usar storage: ' + String(key)); }
+});
+const fakeState = () => ({ id: { name: 'sessao-de-teste' }, storage: noStorage });
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const USER = 'xpub6CivfTixRRqAcvALesYmkkL7JHMkbjuM3dKtgUDiWzNcmpovevhPbGUisjFXVM6pWojHnYXMs4HUM8S6qTekRWatk43dGMxCt7mdY82DzDo';
 const ua = parseXpub(USER);
-const hash = await sha256Hex(USER);
 
 const a0 = await deriveAddress('bip84', ua, 0, 0);
 const a1 = await deriveAddress('bip84', ua, 0, 1);
@@ -74,17 +72,13 @@ const fake = await startFakeElectrum({
 });
 setConnectOverride(nodeConnect);
 
-const db = new MemoryDB();
 const env = {
-  DB: db,
   ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp',
   ELECTRUM_TIMEOUT_MS: '5000'
 };
-const storage = new FakeStorage();
-const state = { id: { name: hash }, storage };
-const watcher = new WalletWatcher(state, env);
+const watcher = new WalletWatcher(fakeState(), env);
 
-/* 1. sincronização inicial + assinaturas */
+/* 1. sincronização inicial + assinaturas, sem tocar em storage */
 {
   const res = await watcher.fetch(new Request('https://watch/sync', {
     method: 'POST',
@@ -95,9 +89,11 @@ const watcher = new WalletWatcher(state, env);
   const payload = await res.json();
   assert.equal(payload.detected_type, 'bip84');
   assert.equal(payload.balance.detected, 10000);
+  assert.equal(payload.xpub_hash, undefined, 'nem o hash da xpub é devolvido');
   const subs = fake.count('blockchain.scripthash.subscribe');
   assert.ok(subs >= 160, 'assina todos os endereços conhecidos (' + subs + ')');
   assert.equal(fake.count('blockchain.transaction.get'), 1);
+  assert.ok(watcher.idleTimer, 'sem tela aberta agenda o descarte por inatividade (timer em memória)');
   console.log('ok   sync inicial e assinatura de todos os scripthashes (' + subs + ')');
 }
 
@@ -105,7 +101,8 @@ const watcher = new WalletWatcher(state, env);
 const { client } = await watcher.openSocket();
 assert.equal(client.messages.length, 1);
 assert.equal(JSON.parse(client.messages[0]).type, 'payload');
-assert.ok(storage.alarmAt, 'keepalive agendado com tela aberta');
+assert.ok(watcher.keepaliveTimer, 'keepalive em memória com tela aberta');
+assert.equal(watcher.idleTimer, null, 'tela aberta cancela o descarte');
 
 /* 3. notificação → atualização incremental → push */
 {
@@ -117,10 +114,10 @@ assert.ok(storage.alarmAt, 'keepalive agendado com tela aberta');
   fake.notify(sh0);
   fake.notify(sh1);
   await sleep(30);
-  assert.ok(storage.alarmAt, 'aviso agenda o alarme (debounce)');
+  assert.ok(watcher.debounceTimer, 'aviso agenda o debounce (timer em memória)');
 
   const subsBefore = fake.count('blockchain.scripthash.subscribe');
-  await watcher.alarm();
+  await watcher.flushDirty();
 
   assert.equal(client.messages.length, 2, 'empurrou o estado novo');
   const pushed = JSON.parse(client.messages[1]);
@@ -139,54 +136,121 @@ assert.ok(storage.alarmAt, 'keepalive agendado com tela aberta');
     'endereços novos da cauda de gap foram assinados');
   assert.equal(fake.count('blockchain.transaction.get'), 2, 'só a transação nova foi baixada');
 
-  const saved = db.addresses.find(a => a.address === a1.address && a.account_type === 'bip84');
-  assert.equal(saved.balance, 9000, 'D1 atualizado pelo DO');
+  /* a sessão guarda endereços e transações só em memória */
+  assert.ok(watcher.scanner.byScript.size > 160, 'endereços derivados continuam na memória da sessão');
+  assert.equal(watcher.scanner.txCache.size, 2, 'cache de transações só na memória');
   console.log('ok   notificação atualiza só o endereço afetado, avança o índice e empurra pelo WebSocket');
 }
 
-/* 4. sem tela aberta o objeto para de monitorar e libera para dormir */
+/* 4. conexão Electrum cai: o próximo sync reconecta e reaproveita a sessão */
 {
-  client.close();
-  await sleep(10);
-  assert.equal(watcher.sockets.size, 0);
-  await watcher.alarm();
-  assert.equal(watcher.client, null, 'conexão Electrum fechada');
-  assert.equal(storage.alarmAt, null, 'sem alarme: o DO pode hibernar');
-  console.log('ok   sem tela aberta fecha a conexão e remove o alarme');
-}
-
-/* 5. o Worker encaminha para o Durable Object quando o binding existe */
-{
-  const worker = (await import('../src/worker.js')).default;
-  const db2 = new MemoryDB();
-  const env2 = {
-    DB: db2,
-    ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp',
-    ELECTRUM_TIMEOUT_MS: '5000'
-  };
-  const storage2 = new FakeStorage();
-  const watcher2 = new WalletWatcher({ id: { name: hash }, storage: storage2 }, env2);
-  env2.WATCH = {
-    idFromName: (name) => name,
-    get: (id) => ({
-      // imita o stub do Durable Object: aceita string ou Request
-      fetch: (input, init) => watcher2.fetch(typeof input === 'string' ? new Request(input, init) : input)
-    })
-  };
-  const res = await worker.fetch(new Request('https://x/api/wallet', {
+  await watcher.closeClient();
+  assert.equal(watcher.client, null);
+  const subsBefore = fake.count('blockchain.scripthash.subscribe');
+  const res = await watcher.fetch(new Request('https://watch/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ xpub: USER })
+  }));
+  assert.equal(res.status, 200);
+  const payload = await res.json();
+  assert.equal(payload.balance.detected, 9000);
+  assert.ok(watcher.client && !watcher.client.dead, 'conexão nova');
+  assert.ok(fake.count('blockchain.scripthash.subscribe') > subsBefore, 'reassinou os scripthashes');
+  console.log('ok   queda do Electrum reconecta e reassina sem perder a sessão');
+}
+
+/* 5. sem tela aberta o objeto descarta tudo (mantém só a sessão vazia) */
+{
+  client.close();
+  await sleep(50);
+  assert.equal(watcher.sockets.size, 0);
+  assert.equal(watcher.client, null, 'conexão Electrum fechada');
+  assert.equal(watcher.xpub, null, 'xpub descartada');
+  assert.equal(watcher.scanner, null, 'endereços derivados descartados');
+  assert.equal(watcher.lastPayload, null, 'último payload descartado');
+  assert.equal(watcher.keepaliveTimer, null);
+  assert.equal(watcher.debounceTimer, null);
+  assert.equal(watcher.idleTimer, null);
+  console.log('ok   tela fechada encerra conexão, assinaturas, endereços e xpub');
+}
+
+/* 6. recarga: fechar e re-sincronizar no mesmo instante preserva a sessão */
+{
+  const w = new WalletWatcher(fakeState(), env);
+  const syncReq = () => w.fetch(new Request('https://watch/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ xpub: USER })
+  }));
+  await syncReq();
+  const { client } = await w.openSocket();
+  client.close();          // dispara stopSession (assíncrono)
+  await syncReq();         // chega durante o fechamento
+  await sleep(50);
+  assert.equal(w.xpub, USER, 'sessão reativada não é apagada pelo fechamento anterior');
+  assert.ok(w.scanner);
+  await w.stopSession();
+  assert.equal(w.xpub, null);
+  console.log('ok   fechar e re-sincronizar no mesmo instante não perde a sessão nova');
+}
+
+/* 7. sessão sem xpub recusa o WebSocket (objeto despejado) */
+{
+  const empty = new WalletWatcher(fakeState(), env);
+  const res = await empty.fetch(new Request('https://watch/events', {
+    headers: { Upgrade: 'websocket' }
+  }));
+  assert.equal(res.status, 409);
+  assert.match((await res.json()).error, /sessão expirada/);
+  console.log('ok   sessão sem xpub responde 409 para o WebSocket');
+}
+
+/* 8. o Worker amarra a consulta a uma sessão aleatória, não à xpub */
+{
+  const worker = (await import('../src/worker.js')).default;
+  const env2 = {
+    ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp',
+    ELECTRUM_TIMEOUT_MS: '5000'
+  };
+  const watcher2 = new WalletWatcher(fakeState(), env2);
+  let fetches = 0;
+  env2.WATCH = {
+    newUniqueId: () => 'f'.repeat(64),
+    idFromString: (s) => s,
+    get: () => ({
+      fetch: (input, init) => {
+        fetches++;
+        return watcher2.fetch(typeof input === 'string' ? new Request(input, init) : input);
+      }
+    })
+  };
+  const post = (body) => worker.fetch(new Request('https://x/api/wallet', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
   }), env2);
+
+  const res = await post({ xpub: USER });
   const payload = await res.json();
   assert.equal(res.status, 200);
   assert.equal(payload.watch, true, 'a resposta avisa que o tempo real está ligado');
   assert.equal(payload.balance.detected, 9000);
+  assert.match(payload.session, /^[0-9a-f]{64}$/, 'sessão é um id aleatório, não um hash da xpub');
+  assert.notEqual(payload.session, USER);
   assert.ok(watcher2.subs.size > 0, 'o DO é quem segura as assinaturas');
+  assert.equal(fetches, 1);
 
-  const bad = await worker.fetch(new Request('https://x/api/events?hash=xyz'), env2);
+  /* a segunda consulta reaproveita a mesma sessão */
+  const res2 = await post({ xpub: USER, session: payload.session });
+  const payload2 = await res2.json();
+  assert.equal(payload2.session, payload.session);
+  assert.equal(fetches, 2);
+
+  /* o WebSocket vai por /api/events?session=… e valida o id */
+  const bad = await worker.fetch(new Request('https://x/api/events?session=xyz'), env2);
   assert.equal(bad.status, 400);
-  console.log('ok   Worker encaminha /api/wallet para o DO e valida o hash do WebSocket');
+  console.log('ok   Worker usa sessão aleatória, reaproveita e valida o WebSocket');
 }
 
 await fake.close();

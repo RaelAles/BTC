@@ -1,6 +1,7 @@
-/* Projeto 2 — Worker + D1 com fonte única Electrum.
+/* Projeto 2 — Worker + Durable Object, fonte única Electrum.
    O navegador não deriva nem consulta saldo: só manda a xpub e mostra o
-   estado que o Worker devolve. A xpub é a credencial; não há senha. */
+   estado que o Worker devolve. A xpub é a credencial; não há senha. Nada
+   é gravado: nem no navegador (sem localStorage), nem no servidor. */
 (function () {
   'use strict';
 
@@ -21,8 +22,9 @@
     timer: 0,
     busy: false,
     watch: null,        // WebSocket do tempo real (Durable Object)
-    watchHash: '',
+    session: '',        // id efêmero da sessão no Durable Object
     watchRetry: 0,
+    watchTimer: 0,      // timeout do handshake do WebSocket
     autoTimer: 0        // debounce da consulta automática
   };
 
@@ -172,20 +174,25 @@
     state.busy = true;
     if (!quiet) setStatus('', 'consultando o Worker…');
     try {
+      // A xpub vai no corpo a cada consulta: o servidor não guarda nada,
+      // então ela nunca fica armazenada. O session só reaproveita a conexão
+      // do Durable Object enquanto esta tela estiver aberta.
+      var body = { xpub: xpub };
+      if (state.session) body.session = state.session;
       var r = await fetch('/api/wallet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ xpub: xpub })
+        body: JSON.stringify(body)
       });
       var j = await r.json();
       if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
       state.xpub = xpub;
-      try { localStorage.setItem('projeto2-fase1-xpub', xpub); } catch (e) {}
+      state.session = j.session || '';
       render(j);
       setStatus('ok', j.watch
         ? 'carteira carregada · tempo real ligado.'
         : 'carteira carregada · saldo e próximo endereço atualizados.');
-      if (j.watch) openWatch(j.xpub_hash);
+      if (j.watch) openWatch();
       else closeWatch();
       schedule();
     } catch (e) {
@@ -235,21 +242,41 @@
       try { state.watch.close(); } catch (e) {}
       state.watch = null;
     }
-    state.watchHash = '';
+    clearWatchTimer();
   }
 
-  function openWatch(hash) {
-    if (!hash || !window.WebSocket) return;
-    if (state.watch && state.watchHash === hash &&
-        (state.watch.readyState === 0 || state.watch.readyState === 1)) return;
+  function clearWatchTimer() {
+    if (state.watchTimer) clearTimeout(state.watchTimer);
+    state.watchTimer = 0;
+  }
+
+  /* Fechou sem abrir (409 de sessão expirada, proxy, rede): reenvia a xpub
+     em /api/wallet, que refaz a varredura, e reabre o canal. */
+  function retryWatch(ws) {
+    if (state.watch !== ws) return;
+    state.watch = null;
+    clearWatchTimer();
+    if (!state.xpub || document.hidden) return;
+    var wait = Math.min(30000, 2000 * Math.pow(2, state.watchRetry++));
+    setTimeout(function () {
+      if (!state.xpub || document.hidden) return;
+      // reenvia a xpub (nada fica guardado no servidor) e reabre o canal
+      load(true);
+    }, wait);
+  }
+
+  /* O WebSocket só leva o id da sessão (aleatório), nunca a xpub. Se o DO
+     foi despejado, ele responde 409 e a reconexão reenvia a xpub. */
+  function openWatch() {
+    if (!state.session || !window.WebSocket) return;
+    if (state.watch && (state.watch.readyState === 0 || state.watch.readyState === 1)) return;
     closeWatch();
-    state.watchHash = hash;
     var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     var ws;
-    try { ws = new WebSocket(proto + '//' + location.host + '/api/events?hash=' + hash); }
+    try { ws = new WebSocket(proto + '//' + location.host + '/api/events?session=' + encodeURIComponent(state.session)); }
     catch (e) { return; }
     state.watch = ws;
-    ws.onopen = function () { state.watchRetry = 0; };
+    ws.onopen = function () { state.watchRetry = 0; clearWatchTimer(); };
     ws.onmessage = function (ev) {
       var msg;
       try { msg = JSON.parse(ev.data); } catch (e) { return; }
@@ -260,16 +287,19 @@
         setStatus('error', 'tempo real: ' + msg.error);
       }
     };
-    ws.onclose = function () {
-      if (state.watch !== ws) return;
-      state.watch = null;
-      if (!state.xpub || document.hidden) return;
-      var wait = Math.min(30000, 2000 * Math.pow(2, state.watchRetry++));
-      setTimeout(function () {
-        if (state.xpub && !document.hidden) openWatch(state.watchHash);
-        else if (state.xpub) load(true);
-      }, wait);
+    ws.onerror = function () {
+      try { ws.close(); } catch (e) {}
+      retryWatch(ws);
     };
+    ws.onclose = function () { retryWatch(ws); };
+    // handshake que não abre nem fecha não pode deixar a tela presa
+    state.watchTimer = setTimeout(function () {
+      state.watchTimer = 0;
+      if (state.watch === ws && ws.readyState === 0) {
+        try { ws.close(); } catch (e) {}
+        retryWatch(ws);
+      }
+    }, 8000);
   }
 
   function wire() {
@@ -279,7 +309,7 @@
 
     $('#wallet-form').addEventListener('submit', function (ev) {
       ev.preventDefault();
-      closeWatch();
+      // reaproveita a sessão: se a xpub mudou, o DO reinicia sozinho
       load(false);
     });
     var xpubInput = $('#xpub');
@@ -323,9 +353,12 @@
     }
 
     document.addEventListener('visibilitychange', function () {
-      if (document.hidden) closeWatch();
-      else if (state.xpub && state.data) load(true);
+      // aba em segundo plano continua aberta: a sessão e o tempo real
+      // seguem; só sair da página (pagehide) encerra tudo
+      if (!document.hidden && state.xpub && state.data &&
+          (!state.watch || state.watch.readyState > 1)) load(true);
     });
+    window.addEventListener('pagehide', closeWatch);
     $('#refresh').addEventListener('click', function () { load(false); });
     $('#theme-toggle').addEventListener('click', function () {
       setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
@@ -359,14 +392,9 @@
       });
     });
 
-    var saved = '';
-    try { saved = localStorage.getItem('projeto2-fase1-xpub') || ''; } catch (e) {}
-    if (saved && !xpubProblem(saved)) {
-      $('#xpub').value = saved;
-      load(false);
-    } else {
-      setStatus('', 'cole a xpub da conta; ela é a credencial, não precisa de senha.');
-    }
+    // A tela abre sempre limpa: a xpub nunca foi salva (nem aqui, nem no
+    // servidor), então não há nada para restaurar.
+    setStatus('', 'cole a xpub da conta; ela é a credencial, não precisa de senha. nada fica salvo.');
   }
 
   document.addEventListener('DOMContentLoaded', wire);

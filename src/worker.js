@@ -1,7 +1,7 @@
 import { parseXpub } from './derivation.js';
 import { openElectrum } from './electrum.js';
 import { WalletScanner } from './wallet-sync.js';
-import { electrumConfig, fail, json, sha256Hex } from './config.js';
+import { electrumConfig, fail, json } from './config.js';
 import { WalletWatcher } from './watcher.js';
 
 /* Projeto 2 — rotas HTTP.
@@ -11,11 +11,13 @@ import { WalletWatcher } from './watcher.js';
                          Durable Object de tempo real (conexão Electrum
                          reaproveitada + assinaturas); sem ele, a consulta
                          é avulsa (dev/testes).
-   `GET  /api/events`  → WebSocket do Durable Object, que empurra o estado
-                         novo quando um scripthash muda.
+   `GET  /api/events?session=…` → WebSocket do Durable Object, que empurra
+                         o estado novo quando um scripthash muda.
    `GET  /api/health`  → configuração efetiva.
 
-   Sem chave privada em lugar nenhum. */
+   Nada é gravado: o D1 não existe mais. A xpub só vive na memória do
+   Durable Object durante a sessão e é descartada quando a última tela
+   fecha. Sem chave privada em lugar nenhum. */
 
 /* Mensagem melhor para o que costuma ser colado no lugar da xpub. */
 function xpubHint(value) {
@@ -40,10 +42,16 @@ async function handleWallet(request, env) {
   let account;
   try { account = parseXpub(xpub); }
   catch (e) { return fail(xpubHint(xpub) || e.message); }
-  const hash = await sha256Hex(xpub);
 
   if (env.WATCH) {
-    const stub = env.WATCH.get(env.WATCH.idFromName(hash));
+    // sessão = id aleatório do Durable Object; nunca derivado da xpub.
+    // O cliente devolve o id nas próximas consultas para reaproveitar a
+    // conexão e as assinaturas enquanto a tela estiver aberta.
+    const session = String(body.session || '').trim();
+    const id = /^[0-9a-f]{64}$/.test(session)
+      ? env.WATCH.idFromString(session)
+      : env.WATCH.newUniqueId();
+    const stub = env.WATCH.get(id);
     const res = await stub.fetch('https://watch/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -51,7 +59,7 @@ async function handleWallet(request, env) {
     });
     const payload = await res.json();
     if (res.status !== 200) return json(payload, res.status);
-    return json(Object.assign({}, payload, { watch: true }));
+    return json(Object.assign({}, payload, { watch: true, session: id.toString() }));
   }
 
   const cfg = electrumConfig(env);
@@ -65,7 +73,7 @@ async function handleWallet(request, env) {
   }
   try {
     const scanner = await new WalletScanner({
-      env, xpub, account, hash, client, gap: cfg.gap, maxScan: cfg.maxScan
+      env, xpub, account, client, gap: cfg.gap, maxScan: cfg.maxScan
     }).init();
     const payload = await scanner.fullSync();
     return json(Object.assign({}, payload, { watch: false }));
@@ -75,10 +83,10 @@ async function handleWallet(request, env) {
 }
 
 async function handleEvents(request, env, url) {
-  const hash = String(url.searchParams.get('hash') || '').trim();
-  if (!/^[0-9a-f]{64}$/.test(hash)) return fail('hash da xpub inválido', 400);
+  const session = String(url.searchParams.get('session') || '').trim();
+  if (!/^[0-9a-f]{64}$/.test(session)) return fail('sessão inválida', 400);
   if (!env.WATCH) return fail('tempo real não configurado (sem o Durable Object WATCH)', 503);
-  const stub = env.WATCH.get(env.WATCH.idFromName(hash));
+  const stub = env.WATCH.get(env.WATCH.idFromString(session));
   // o upgrade vai como veio (mesmo Request), o DO aceita /api/events
   return await stub.fetch(request);
 }
@@ -95,6 +103,7 @@ export default {
           ok: true,
           service: 'projeto-2-electrum',
           source: 'electrum',
+          storage: 'nenhum',
           realtime: !!env.WATCH,
           electrum: cfg ? cfg.servers.map(s => s.host + ':' + s.port + (s.secure ? ' tls' : ' tcp')) : 'off',
           time: new Date().toISOString()

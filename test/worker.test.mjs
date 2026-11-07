@@ -1,6 +1,8 @@
-/* Teste de ponta a ponta do Worker sem rede: servidor Electrum falso +
-   D1 em memória. Verifica a conta de saldo/recebido/enviado por endereço,
-   o próximo endereço, o cache de transações e a ausência de outra fonte.
+/* Teste de ponta a ponta do Worker sem rede: servidor Electrum falso.
+   Verifica a conta de saldo/recebido/enviado por endereço, o próximo
+   endereço, a faixa de gap e a ausência de outra fonte. Não existe D1:
+   o env dos testes é só Electrum, então qualquer tentativa de gravar
+   quebraria o teste.
 
    node test/worker.test.mjs */
 import assert from 'node:assert/strict';
@@ -9,22 +11,22 @@ import { deriveAddress, parseXpub } from '../src/derivation.js';
 import { scripthash, setConnectOverride } from '../src/electrum.js';
 import { startFakeElectrum, nodeConnect, deadPort } from './fake-electrum.mjs';
 import { makeTx } from './tx-fixture.mjs';
-import { MemoryDB as DB } from './memory-db.mjs';
 
 const USER = 'xpub6CivfTixRRqAcvALesYmkkL7JHMkbjuM3dKtgUDiWzNcmpovevhPbGUisjFXVM6pWojHnYXMs4HUM8S6qTekRWatk43dGMxCt7mdY82DzDo';
 const ua = parseXpub(USER);
 
 /* ---------------- helpers ---------------- */
-function req(xpub) {
+function req(xpub, session) {
+  const body = { xpub };
+  if (session) body.session = session;
   return new Request('https://x/api/wallet', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ xpub })
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
   });
 }
-async function run(xpub, db, env) {
-  const r = await worker.fetch(req(xpub), Object.assign({ DB: db }, env || {}));
+async function run(xpub, env) {
+  const r = await worker.fetch(req(xpub), env || {});
   return { status: r.status, j: await r.json() };
 }
-const sh = async (type, chain, idx) => scripthash((await deriveAddress(type, ua, chain, idx)).script);
 async function addr(type, chain, idx) { return await deriveAddress(type, ua, chain, idx); }
 
 setConnectOverride(nodeConnect);
@@ -45,11 +47,12 @@ setConnectOverride(nodeConnect);
     txs: { [tx1.txid]: tx1.raw, [tx2.txid]: tx2.raw }
   });
   const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
-  const db = new DB();
 
-  const r = await run(USER, db, env);
+  const r = await run(USER, env);
   assert.equal(r.status, 200);
   assert.equal(r.j.detected_type, 'bip84');
+  assert.equal(r.j.watch, false, 'sem binding WATCH a consulta é avulsa');
+  assert.equal(r.j.xpub_hash, undefined, 'a resposta não carrega identificador da xpub');
   assert.match(r.j.source, /electrum/);
   assert.equal(r.j.balance.detected, 9000);
   assert.equal(r.j.balance.total, 9000);
@@ -72,11 +75,11 @@ setConnectOverride(nodeConnect);
   assert.equal(r.j.receive.path, "m/84'/0'/0'/0/2");
   assert.equal(fake.count('blockchain.transaction.get'), 2, 'uma busca por transação');
 
+  /* sem cache durável, uma nova consulta refaz a varredura e o download */
   const before = fake.count('blockchain.transaction.get');
-  const r2 = await run(USER, db, env);
+  const r2 = await run(USER, env);
   assert.equal(r2.j.balance.total, 9000);
-  assert.equal(fake.count('blockchain.transaction.get'), before, 'transação já está no cache do D1');
-  assert.equal(db.txCount(), 2);
+  assert.equal(fake.count('blockchain.transaction.get'), before + 2, 'nada foi cacheado entre consultas');
 
   /* gasto novo: a1 manda 8500 de volta para a0 */
   const tx3 = makeTx([{ txid: tx2.txid, vout: 0 }], [{ value: 8500, script: a0.script }]);
@@ -84,7 +87,7 @@ setConnectOverride(nodeConnect);
   fake.histories.get(sh0).push({ height: 700200, tx_hash: tx3.txid });
   fake.histories.get(sh1).push({ height: 700200, tx_hash: tx3.txid });
 
-  const r3 = await run(USER, db, env);
+  const r3 = await run(USER, env);
   const u0 = r3.j.addresses.find(x => x.address === a0.address);
   const u1 = r3.j.addresses.find(x => x.address === a1.address);
   assert.equal(u0.received, 18500);
@@ -95,9 +98,8 @@ setConnectOverride(nodeConnect);
   assert.equal(u1.spent, 9000);
   assert.equal(u1.balance, 0);
   assert.equal(r3.j.balance.total, 8500);
-  assert.equal(db.txCount(), 3);
 
-  console.log('ok   saldo/recebido/enviado por endereço, próximo índice e cache de transações');
+  console.log('ok   saldo/recebido/enviado por endereço, próximo índice, sem cache entre consultas');
   await fake.close();
 }
 
@@ -114,10 +116,8 @@ setConnectOverride(nodeConnect);
     },
     txs: { [txA.txid]: txA.raw, [txB.txid]: txB.raw }
   });
-  const db = new DB();
-  const r = await run(USER, db, {
-    ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000'
-  });
+  const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
+  const r = await run(USER, env);
   assert.equal(r.j.detected_type, 'bip86', 'com xpub: bip44 → bip86 → bip84 → bip49');
   assert.equal(r.j.balance.detected, 5000);
   const extra = r.j.extras.find(e => e.type === 'bip84');
@@ -131,9 +131,7 @@ setConnectOverride(nodeConnect);
   const memTx = makeTx([{ txid: '03'.repeat(32), vout: 0 }], [{ value: 1234, script: t86.script }]);
   fake.txs.set(memTx.txid, memTx.raw);
   fake.mempool.set(scripthash(t86.script), [{ height: 0, tx_hash: memTx.txid }]);
-  const r2 = await run(USER, db, {
-    ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000'
-  });
+  const r2 = await run(USER, env);
   assert.equal(r2.j.balance.detected, 6234, 'transação no mempool conta no saldo');
   const u86 = r2.j.addresses.find(x => x.address === t86.address);
   assert.equal(u86.tx_count, 2);
@@ -144,15 +142,13 @@ setConnectOverride(nodeConnect);
 
 /* ---------------- 3. sem Electrum não há outra fonte ---------------- */
 {
-  const db = new DB();
-  const r = await run(USER, db, {
+  const r = await run(USER, {
     ELECTRUM_SERVERS: '127.0.0.1:' + (await deadPort()) + ':tcp', ELECTRUM_TIMEOUT_MS: '800'
   });
   assert.equal(r.status, 502, 'erro explícito em vez de cair para Esplora');
   assert.match(r.j.error, /Electrum indisponível/);
-  assert.equal(db.addresses.length, 0);
 
-  const off = await run(USER, new DB(), { ELECTRUM_SERVERS: 'off' });
+  const off = await run(USER, { ELECTRUM_SERVERS: 'off' });
   assert.equal(off.status, 503);
 
   console.log('ok   sem Electrum a resposta é erro claro (nenhum fallback)');
@@ -160,21 +156,19 @@ setConnectOverride(nodeConnect);
 
 /* ---------------- 4. entrada recusada: endereço, xprv, lixo ---------------- */
 {
-  const db = new DB();
-  const address = await run('1BER6NT4aokSqpPXeWookR9z95huQ2qHwy', db);
+  const address = await run('1BER6NT4aokSqpPXeWookR9z95huQ2qHwy');
   assert.equal(address.status, 400);
   assert.match(address.j.error, /endereço Bitcoin, não uma xpub/);
 
   const xprv = 'xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi';
-  const priv = await run(xprv, db);
+  const priv = await run(xprv);
   assert.equal(priv.status, 400);
   assert.match(priv.j.error, /chave privada/);
 
-  const junk = await run('minha chave 123', db);
+  const junk = await run('minha chave 123');
   assert.equal(junk.status, 400);
   assert.match(junk.j.error, /xpub, zpub ou ypub/);
 
-  assert.equal(db.addresses.length, 0, 'nada é gravado antes de validar');
   console.log('ok   entrada recusada antes de consultar (endereço, xprv, texto solto)');
 }
 
@@ -182,10 +176,9 @@ setConnectOverride(nodeConnect);
 {
   const fake = await startFakeElectrum({});
   const env5 = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000', SCAN_GAP: '5' };
-  const db = new DB();
-  const r = await run(USER, db, env5);
+  const r = await run(USER, env5);
   assert.equal(r.status, 200);
-  assert.equal(db.addresses.length, 40, 'carteira vazia: 8 ramos × gap 5');
+  assert.equal(fake.count('blockchain.scripthash.get_history'), 40, 'carteira vazia: 8 ramos × gap 5');
   assert.equal(r.j.receive.path, "m/86'/0'/0'/0/0");
 
   // atividade no índice 2 de bip84/0 (dentro da faixa): ramo vai até 2 + gap 5
@@ -195,19 +188,18 @@ setConnectOverride(nodeConnect);
     histories: { [scripthash(a2.script)]: [{ height: 700000, tx_hash: tx.txid }] },
     txs: { [tx.txid]: tx.raw }
   });
-  const db2 = new DB();
-  const r2 = await run(USER, db2, {
+  const r2 = await run(USER, {
     ELECTRUM_SERVERS: '127.0.0.1:' + fake2.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000', SCAN_GAP: '5'
   });
-  const branch = db2.addresses.filter(a => a.account_type === 'bip84' && a.chain === 0);
-  assert.equal(branch.length, 8, 'índice 2 usado + 5 de cauda = 0..7');
-  assert.equal(branch.find(a => a.idx === 2).balance, 1234);
+  // 8 ramos × 5 + 3 da extensão do ramo usado (índices 5..7)
+  assert.equal(fake2.count('blockchain.scripthash.get_history'), 43, 'índice 2 usado + 5 de cauda = 0..7');
+  const used = r2.j.addresses.find(a => a.address === a2.address);
+  assert.equal(used.balance, 1234);
   assert.equal(r2.j.receive.address, (await addr('bip84', 0, 3)).address);
 
   const env20 = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
-  const db3 = new DB();
-  await run(USER, db3, env20);
-  assert.equal(db3.addresses.length, 160, 'padrão continua 20 por ramo');
+  await run(USER, env20);
+  assert.equal(fake.count('blockchain.scripthash.get_history'), 40 + 160, 'padrão continua 20 por ramo');
   console.log('ok   faixa de gap vem do ambiente (SCAN_GAP), com padrão 20');
   await fake.close();
   await fake2.close();

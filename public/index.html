@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#2e2d2b">
-  <meta name="description" content="Projeto 2 — Fase 1: xpub como credencial, endereços derivados guardados no D1 e saldo consultado em fontes públicas. Sem chave privada.">
+  <meta name="description" content="Projeto 2 — Fase 1: xpub como credencial, endereços derivados na hora e saldo consultado em fontes públicas. Nada é guardado: nem a xpub, nem endereços. Sem chave privada.">
   <title>Projeto 2 — carteira</title>
   <link rel="stylesheet" href="/style.css">
   <style>
@@ -48,7 +48,7 @@
           <pre class="rule" aria-hidden="true"></pre>
 
           <div class="prose app-block">
-            <p>A xpub é a credencial. O Worker deriva os endereços e guarda só os públicos no D1; a chave privada nunca chega aqui. Saldo e histórico vêm de um servidor Electrum, por scripthash, do mesmo jeito que o Electrum e o Sparrow consultam.</p>
+            <p>A xpub é a credencial e não fica guardada em lugar nenhum: o Worker deriva os endereços na hora e consulta o servidor Electrum por scripthash, como o Electrum e o Sparrow fazem. Enquanto a tela está aberta o saldo é acompanhado em tempo real; ao fechar, conexão, endereços e qualquer memória do servidor são descartados.</p>
           </div>
 
           <form id="wallet-form" class="app-block">
@@ -60,7 +60,7 @@
                      pattern="^xpub[1-9A-HJ-NP-Za-km-z]+$" placeholder="xpub...">
               <div class="edge" aria-hidden="true"></div>
             </div>
-            <p class="note">só xpub: o campo recusa endereço, chave privada e qualquer texto que não comece com <code>xpub</code>. a consulta começa sozinha quando a xpub fica completa; os botões só forçam de novo.</p>
+            <p class="note">só xpub: o campo recusa endereço, chave privada e qualquer texto que não comece com <code>xpub</code>. a consulta começa sozinha quando a xpub fica completa; nada é salvo no navegador nem no servidor, e os botões só forçam de novo.</p>
             <div class="chips app-gap">
               <button type="submit" class="form-submit">carregar</button>
               <span class="dot-sep" aria-hidden="true">·</span>

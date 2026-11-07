@@ -7,13 +7,9 @@
     "directory": "./public",
     "binding": "ASSETS"
   },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "btc-xpub",
-      "database_id": "7c26213e-28f3-41d8-946c-742ec63b4c2f"
-    }
-  ],
+  // Nada de D1/KV/R2: o projeto não guarda estado. O Durable Object abaixo
+  // também não usa storage (sem put/alarm); ele só vive enquanto a tela
+  // estiver aberta, com conexão Electrum e assinaturas em memória.
   "durable_objects": {
     "bindings": [
       {
@@ -28,8 +24,11 @@
       "new_sqlite_classes": ["WalletWatcher"]
     }
   ],
+  // Logs de invocação guardariam URL (com o id da sessão) e metadados no
+  // Cloudflare; para manter o mínimo possível, ficam desligados. Ligue
+  // temporariamente se precisar depurar.
   "observability": {
-    "enabled": true
+    "enabled": false
   },
   "vars": {
     // Fonte única de saldo/histórico: servidor Electrum (Sparrow usa os mesmos).

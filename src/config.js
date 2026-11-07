@@ -1,11 +1,6 @@
 /* Configuração compartilhada entre o Worker e o Durable Object. */
 import { DEFAULT_SERVERS, parseServerList } from './electrum.js';
 
-export async function sha256Hex(text) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
 /* ELECTRUM_SERVERS="host:porta[:tls|:tcp],..." (off desliga),
    ELECTRUM_TIMEOUT_MS, SCAN_GAP (faixa de gap por ramo, 1..500),
    SCAN_MAX (teto de endereços por ramo). */

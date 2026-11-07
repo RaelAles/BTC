@@ -1,29 +1,41 @@
 /* Durable Object que segura a conexão com o servidor Electrum e as
    assinaturas (`blockchain.scripthash.subscribe`) de uma carteira xpub.
 
-   - um objeto por xpub (id = hash da xpub);
-   - recebe aviso do servidor quando um scripthash muda, atualiza só aquele
-     endereço e empurra o estado novo para as telas abertas por WebSocket;
-   - sem tela aberta, fecha a conexão e deixa o objeto dormir (socket aberto
-     mantém o DO em memória por até 15 min, e isso é cobrado como duração);
-   - o D1 continua sendo a fonte de verdade; o DO guarda só conexão,
-     assinaturas e o estado em memória, que é reconstruído do D1 se ele for
-     despejado. */
+   - um objeto por sessão de tela (id aleatório criado pelo Worker, sem
+     relação com a xpub);
+   - **não grava nada**: nem endereços, nem xpub, nem alarme. Todo o estado
+     (conexão, assinaturas, endereços derivados, cache de transações) é
+     memória do objeto e morre com ele;
+   - a xpub chega no POST /sync, fica só em memória e é descartada quando a
+     última tela fecha;
+   - aviso do Electrum → atualiza só aquele endereço e empurra o estado novo
+     para as telas abertas;
+   - sem tela aberta, fecha a conexão e esquece tudo; um objeto sem timers,
+     sem socket e sem storage é despejado pelo runtime.
+   - como não há cache durável, cada abertura de tela refaz a varredura com
+     gap; é o preço de não guardar nada. */
 import { parseXpub } from './derivation.js';
 import { openElectrum } from './electrum.js';
-import { WalletScanner, getWallet } from './wallet-sync.js';
+import { WalletScanner } from './wallet-sync.js';
 import { electrumConfig, json } from './config.js';
 
 const KEEPALIVE_MS = 30000;
 const DEBOUNCE_MS = 1000;
 const IDLE_CLOSE_MS = 60000;
 
+/* Timers em memória não sobrevivem a eviction (o socket do Electrum e as
+   assinaturas também não), então não há o que restaurar. No Node dos testes
+   `unref()` evita segurar o processo. */
+function unref(timer) {
+  if (timer && typeof timer.unref === 'function') timer.unref();
+  return timer;
+}
+
 export class WalletWatcher {
   constructor(state, env) {
     this.state = state;
     this.env = env;
-    this.hash = state.id && state.id.name ? state.id.name : null;
-    this.xpub = null;
+    this.xpub = null;        // só em memória; nada é gravado
     this.account = null;
     this.client = null;
     this.scanner = null;
@@ -32,6 +44,12 @@ export class WalletWatcher {
     this.dirty = new Set();
     this.lastPayload = null;
     this.lastError = null;
+    this.gap = 0;
+    this.maxScan = 0;
+    this.generation = 0;   // detecta reativação durante o encerramento
+    this.debounceTimer = null;
+    this.keepaliveTimer = null;
+    this.idleTimer = null;
   }
 
   async fetch(request) {
@@ -40,14 +58,20 @@ export class WalletWatcher {
       if (url.pathname === '/sync' && request.method === 'POST') {
         let body = {};
         try { body = await request.json(); } catch (e) {}
-        const payload = await this.sync(body.xpub, true);
-        // sem tela aberta, a conexão não fica aberta à toa: o alarme fecha
-        if (!this.sockets.size) await this.state.storage.setAlarm(Date.now() + IDLE_CLOSE_MS);
+        const xpub = String(body.xpub || '').trim();
+        if (!xpub) return json({ error: 'informe a xpub' }, 400);
+        const payload = await this.sync(xpub, true);
+        // sem tela aberta, dá um tempo curto para o WebSocket chegar; o
+        // timer é só memória e fecha a conexão se ninguém aparecer
+        if (!this.sockets.size) this.armIdleClose();
         return json(payload);
       }
       if (url.pathname === '/events' || url.pathname === '/api/events') return await this.events(request);
       if (url.pathname === '/state') {
-        if (!this.lastPayload) await this.sync(null, true);
+        if (!this.lastPayload) {
+          if (!this.xpub) return json({ error: 'sessão sem estado; envie a xpub em /sync' }, 409);
+          await this.sync(null, true);
+        }
         return json(this.lastPayload || { error: 'sem estado' }, this.lastPayload ? 200 : 503);
       }
       return json({ error: 'rota do watch não encontrada' }, 404);
@@ -71,17 +95,21 @@ export class WalletWatcher {
     return this.client;
   }
 
-  async loadXpub() {
-    if (this.xpub) return this.xpub;
-    const wallet = await getWallet(this.env, this.hash);
-    if (!wallet) throw new Error('carteira desconhecida: envie a xpub em /api/wallet antes');
-    this.xpub = wallet.xpub;
-    return this.xpub;
-  }
-
   async ensureScanner(xpub) {
-    const key = xpub || await this.loadXpub();
-    if (this.scanner && this.xpub === key) return this.scanner;
+    const key = xpub || this.xpub;
+    if (!key) throw new Error('sessão sem xpub; envie a xpub em /sync');
+    if (this.scanner && this.xpub === key) {
+      // a conexão pode ter caído: reconecta e reaproveita os endereços já
+      // derivados e o cache de transações da sessão
+      this.scanner.client = await this.ensureClient();
+      return this.scanner;
+    }
+    // xpub diferente na mesma sessão: derruba a conexão e começa do zero
+    if (this.xpub && this.xpub !== key) {
+      await this.closeClient();
+      this.scanner = null;
+      this.lastPayload = null;
+    }
     const client = await this.ensureClient();
     this.xpub = key;
     this.account = parseXpub(key);
@@ -89,21 +117,20 @@ export class WalletWatcher {
       env: this.env,
       xpub: key,
       account: this.account,
-      hash: this.hash,
       client,
-      gap: this.gap,
-      maxScan: this.maxScan
+      gap: this.gap || undefined,
+      maxScan: this.maxScan || undefined
     }).init();
     return this.scanner;
   }
 
   async sync(xpub, watch) {
-    const client = await this.ensureClient();
+    this.generation++;
     const scanner = await this.ensureScanner(xpub);
     const payload = await scanner.fullSync();
     this.lastPayload = payload;
     await this.subscribeAll();
-    if (watch && this.sockets.size) await this.keepAlive();
+    if (watch && this.sockets.size) this.startKeepalive();
     return payload;
   }
 
@@ -126,11 +153,100 @@ export class WalletWatcher {
     const status = params[1];
     this.subs.set(sh, status == null ? null : String(status));
     this.dirty.add(sh);
-    // um alarme só, curto, para juntar avisos do mesmo bloco
-    Promise.resolve()
-      .then(() => this.state.storage.getAlarm())
-      .then(alarm => (alarm === null ? this.state.storage.setAlarm(Date.now() + DEBOUNCE_MS) : null))
-      .catch(() => {});
+    // um debounce só, curto, para juntar avisos do mesmo bloco
+    if (!this.debounceTimer) {
+      this.debounceTimer = unref(setTimeout(() => {
+        this.debounceTimer = null;
+        this.flushDirty();
+      }, DEBOUNCE_MS));
+    }
+  }
+
+  async flushDirty() {
+    try {
+      if (this.dirty.size) {
+        const dirty = [...this.dirty];
+        this.dirty.clear();
+        if (!this.scanner || !this.client || this.client.dead) {
+          const payload = await this.sync(null, this.sockets.size > 0);
+          this.broadcast({ type: 'payload', payload });
+        } else {
+          const { payload, added } = await this.scanner.refreshServices(dirty);
+          this.lastPayload = payload;
+          if (added && added.length) await this.subscribeAll();
+          this.broadcast({ type: 'payload', payload });
+        }
+      }
+    } catch (e) {
+      this.lastError = e && e.message ? e.message : String(e);
+      this.broadcast({ type: 'error', error: this.lastError });
+    }
+  }
+
+  /* ---------- timers (todos em memória) ---------- */
+
+  armIdleClose() {
+    this.stopIdleClose();
+    this.idleTimer = unref(setTimeout(() => {
+      this.idleTimer = null;
+      if (!this.sockets.size) this.stopSession();
+    }, IDLE_CLOSE_MS));
+  }
+
+  stopIdleClose() {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
+  }
+
+  startKeepalive() {
+    if (this.keepaliveTimer) return;
+    this.keepaliveTimer = unref(setInterval(() => { this.ping(); }, KEEPALIVE_MS));
+  }
+
+  stopKeepalive() {
+    if (this.keepaliveTimer) clearInterval(this.keepaliveTimer);
+    this.keepaliveTimer = null;
+  }
+
+  async ping() {
+    if (!this.sockets.size) return this.stopSession();
+    try {
+      if (this.client && !this.client.dead) await this.client.ping();
+      else await this.sync(null, true);
+    } catch (e) {
+      this.lastError = e && e.message ? e.message : String(e);
+      await this.closeClient();
+      this.broadcast({ type: 'error', error: this.lastError });
+    }
+  }
+
+  /* Fim da sessão: nenhuma tela aberta. Descarta conexão, assinaturas,
+     endereços derivados, cache de transações e a xpub. Se um POST chegar
+     enquanto fechamos (troca de xpub, recarga), a sessão foi reativada e o
+     estado novo é preservado. */
+  async stopSession() {
+    if (this.sockets.size) return;
+    const gen = this.generation;
+    this.stopKeepalive();
+    this.stopIdleClose();
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    this.debounceTimer = null;
+    await this.closeClient();
+    if (this.generation !== gen || this.sockets.size) return;
+    this.xpub = null;
+    this.account = null;
+    this.scanner = null;
+    this.lastPayload = null;
+    this.lastError = null;
+    this.dirty.clear();
+  }
+
+  async closeClient() {
+    const client = this.client;
+    this.client = null;
+    this.subs.clear();
+    if (!client) return;
+    try { await client.close(); } catch (e) {}
   }
 
   /* ---------- WebSocket ---------- */
@@ -140,7 +256,12 @@ export class WalletWatcher {
     if (!upgrade || upgrade.toLowerCase() !== 'websocket') {
       return json({ error: 'use websocket' }, 426);
     }
-    await this.sync(null, true);
+    // sessão sem xpub (objeto despejado ou nunca sincronizado): o cliente
+    // precisa reenviar a xpub em /api/wallet, que é o único lugar onde ela
+    // pode aparecer
+    if (!this.xpub) return json({ error: 'sessão expirada; envie a xpub de novo' }, 409);
+    if (!this.lastPayload || !this.scanner || !this.client || this.client.dead) await this.sync(null, true);
+    else await this.subscribeAll();
     const { client } = await this.openSocket();
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -152,12 +273,16 @@ export class WalletWatcher {
     const client = pair[0];
     const server = pair[1];
     server.accept();
+    this.stopIdleClose();
     this.sockets.add(server);
-    const drop = () => this.sockets.delete(server);
+    const drop = () => {
+      this.sockets.delete(server);
+      if (!this.sockets.size) this.stopSession();
+    };
     server.addEventListener('close', drop);
     server.addEventListener('error', drop);
     if (this.lastPayload) this.send(server, { type: 'payload', payload: this.lastPayload });
-    await this.state.storage.setAlarm(Date.now() + KEEPALIVE_MS);
+    this.startKeepalive();
     return { client, server };
   }
 
@@ -171,58 +296,5 @@ export class WalletWatcher {
 
   broadcast(message) {
     for (const socket of [...this.sockets]) this.send(socket, message);
-  }
-
-  async keepAlive() {
-    await this.state.storage.setAlarm(Date.now() + KEEPALIVE_MS);
-  }
-
-  /* ---------- alarme: aviso pendente + keepalive ---------- */
-
-  async alarm() {
-    const hadSockets = this.sockets.size > 0;
-    try {
-      if (this.dirty.size) {
-        const dirty = [...this.dirty];
-        this.dirty.clear();
-        if (!this.scanner || !this.client || this.client.dead) {
-          const payload = await this.sync(null, hadSockets);
-          this.broadcast({ type: 'payload', payload });
-        } else {
-          const { payload, added } = await this.scanner.refreshServices(dirty);
-          this.lastPayload = payload;
-          if (added && added.length) await this.subscribeAll();
-          this.broadcast({ type: 'payload', payload });
-        }
-      }
-    } catch (e) {
-      this.lastError = e && e.message ? e.message : String(e);
-      this.broadcast({ type: 'error', error: this.lastError });
-    }
-
-    if (this.sockets.size) {
-      try {
-        if (this.client && !this.client.dead) await this.client.ping();
-        else await this.sync(null, true);
-      } catch (e) {
-        this.lastError = e && e.message ? e.message : String(e);
-        await this.closeClient();
-        this.broadcast({ type: 'error', error: this.lastError });
-      }
-      await this.keepAlive();
-      return;
-    }
-
-    // nenhuma tela aberta: para de monitorar e deixa o objeto dormir
-    await this.closeClient();
-    await this.state.storage.deleteAlarm();
-  }
-
-  async closeClient() {
-    if (!this.client) return;
-    const client = this.client;
-    this.client = null;
-    this.subs.clear();
-    try { await client.close(); } catch (e) {}
   }
 }
