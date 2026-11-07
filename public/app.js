@@ -397,8 +397,6 @@
         showScreen(b.getAttribute('data-screen'));
       });
     });
-    var openHistory = $('#open-history');
-    if (openHistory) openHistory.addEventListener('click', function () { showScreen('historico'); });
 
     $('#wallet-form').addEventListener('submit', function (ev) {
       ev.preventDefault();
