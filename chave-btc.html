@@ -2002,6 +2002,59 @@
   @media (min-width: 521px) {
     .key-board { font-size: var(--text-sm); }
   }
+  /* Mnemonic e binários são saída do tabuleiro, não entrada: a frase de 24
+     palavras sempre visível, em 3 colunas de 8 linhas, na mesma largura do
+     quadrado, e os 256 bits com os 32 bytes em hex. A palavra longa quebra
+     dentro da coluna e o estado vazio usa o --dim, como o travessão das
+     chaves. */
+  .entropy-block { margin-top: var(--space-9); }
+  .mnemonic-words {
+    display: grid;
+    width: min(100%, 28rem);
+    margin: 0 auto;
+    padding: 0;
+    list-style: none;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2) var(--space-4);
+    font-size: var(--text-sm);
+  }
+  .mnemonic-word {
+    display: flex;
+    align-items: flex-end;
+    gap: .8ch;
+    min-width: 0;
+    padding-bottom: var(--space-1);
+    border-bottom: 1px solid var(--line);
+  }
+  .mnemonic-word-index {
+    flex: 0 0 auto;
+    color: var(--dim);
+    font-size: var(--text-xs);
+  }
+  .mnemonic-word-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .mnemonic-word.is-empty { color: var(--dim); }
+  .bit-readout {
+    width: min(100%, 28rem);
+    margin: 0 auto;
+    font-size: var(--text-sm);
+  }
+  .bit-line {
+    display: grid;
+    grid-template-columns: 4ch minmax(0, 1fr);
+    gap: var(--space-3);
+    margin: 0 0 var(--space-3);
+    line-height: 1.6;
+  }
+  .bit-label { color: var(--dim); }
+  .bit-line code {
+    color: var(--fg);
+    font: inherit;
+    overflow-wrap: anywhere;
+  }
+  .bit-line.is-empty code { color: var(--dim); }
 </style>
 <script>
   /* Tema antes da pintura: evita o clarão do tema escuro padrão. */
@@ -2075,6 +2128,21 @@
                 <button type="button" id="bits-mode" aria-label="Mostrar a entrada por coordenadas">coordenadas</button>
                 <span class="dot-sep" aria-hidden="true">·</span>
                 <button type="button" id="bits-random" aria-label="Gerar 256 bits aleatórios e preencher o tabuleiro">gerar bits</button>
+              </div>
+
+              <div class="entropy-block reveal-block" id="entropy-block">
+                <div class="prose">
+                  <h3><span class="prompt" aria-hidden="true">##</span> mnemonic</h3>
+                </div>
+                <ol class="mnemonic-words" id="mnemonic-words" aria-label="frase mnemônica de 24 palavras"></ol>
+
+                <div class="prose">
+                  <h3><span class="prompt" aria-hidden="true">##</span> binários</h3>
+                </div>
+                <div class="bit-readout" id="bit-readout">
+                  <p class="bit-line is-empty"><span class="bit-label">bits</span><code id="v-bits">—</code></p>
+                  <p class="bit-line is-empty"><span class="bit-label">hex</span><code id="v-hex">—</code></p>
+                </div>
               </div>
             </div>
           </div>
@@ -2206,6 +2274,7 @@
             <h3>o que este arquivo faz</h3>
             <ul>
               <li>lê 256 bits marcados no tabuleiro, digitados como coordenadas A1–Z6 ou gerados pelo botão de bits aleatórios;</li>
+              <li>mostra o mnemonic de 24 palavras e os 256 bits em binário e em hex;</li>
               <li>deriva a seed BIP39 (passphrase vazia), a raiz BIP32 e as contas BIP44/49/84/86 no mainnet;</li>
               <li>mostra a chave privada e a xpub de cada conta, com os caminhos de recebimento (/0/*) e troco (/1/*);</li>
               <li>assina PSBT (BIP174) criado em outro app: ECDSA RFC 6979 no p2pkh, no BIP49 e no BIP84 (sighash BIP143), e Schnorr BIP340 no P2TR do BIP86 (sighash BIP341);</li>
@@ -4331,6 +4400,51 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       else paintPublic(cell, value);
     });
   }
+  /* Mnemonic e binários são saída do tabuleiro, não entrada: a frase de 24
+     palavras fica visível, e os 256 bits aparecem em binário e nos 32 bytes
+     em hex. Sem os 256 bits, as 24 posições e as duas linhas ficam no
+     travessão, no tom do estado vazio. */
+  var mnemonicList = $('#mnemonic-words');
+  (function buildMnemonic() {
+    if (!mnemonicList) return;
+    for (var i = 0; i < 24; i++) {
+      var item = document.createElement('li');
+      item.className = 'mnemonic-word is-empty';
+      var index = document.createElement('span');
+      index.className = 'mnemonic-word-index';
+      index.textContent = padDigits(i + 1, 2);
+      var word = document.createElement('span');
+      word.className = 'mnemonic-word-text';
+      word.textContent = '—';
+      item.appendChild(index);
+      item.appendChild(word);
+      mnemonicList.appendChild(item);
+    }
+  })();
+  function bitsHex(bits) {
+    if (!bits || bits.length !== 256) return '';
+    var bytes = new Uint8Array(32);
+    for (var i = 0; i < 32; i++) bytes[i] = parseInt(bits.substr(i * 8, 8), 2);
+    return BTC.bytesToHex(bytes);
+  }
+  function paintBitLine(id, value) {
+    var out = document.getElementById(id);
+    if (!out) return;
+    out.textContent = value || '—';
+    out.parentNode.classList.toggle('is-empty', !value);
+  }
+  function paintEntropy(hd) {
+    var words = hd ? hd.mnemonic.split(' ') : [];
+    if (mnemonicList) {
+      $$('.mnemonic-word', mnemonicList).forEach(function (item, i) {
+        var word = words[i] || '';
+        item.classList.toggle('is-empty', !word);
+        item.querySelector('.mnemonic-word-text').textContent = word || '—';
+      });
+    }
+    paintBitLine('v-bits', hd ? hd.bits : '');
+    paintBitLine('v-hex', hd ? bitsHex(hd.bits) : '');
+  }
   document.addEventListener('click', function (ev) {
     var action = ev.target && ev.target.closest ? ev.target.closest('.key-action') : null;
     if (!action) return;
@@ -4364,6 +4478,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     state.values = null;
     state.analysis = null;
     paintValues();
+    paintEntropy(null);
     invalidateSignature();
   }
   function applyKey(hd) {
@@ -4383,6 +4498,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       'bip44-pub': a.bip44.xpub
     };
     paintValues();
+    paintEntropy(hd);
     invalidateSignature();
     /* Se já há um PSBT colado, ele é reavaliado contra a chave nova. */
     if (psbtEl && psbtEl.value.trim()) scheduleAnalyze();
