@@ -75,14 +75,9 @@
           <pre class="rule" aria-hidden="true"></pre>
 
           <p class="note" id="history-summary">cole a xpub, zpub ou ypub na carteira para ver o histórico.</p>
-          <p class="note" id="history-help">O caminho mostra o tipo da conta (44, 49, 84 ou 86), o ramo (0 recebimento, 1 troco) e o índice. "recebido" é tudo que entrou no endereço; "enviado", tudo que saiu.</p>
+          <p class="note" id="history-help">O caminho mostra o tipo da conta (44, 49, 84 ou 86), o ramo (0 recebimento, 1 troco) e o índice. "recebido" é tudo que entrou; "enviado", tudo que saiu. Os mais recentes vêm primeiro.</p>
 
-          <table class="data-table" id="addresses-table" aria-label="endereços já usados, com recebido, enviado e saldo" hidden>
-            <thead>
-              <tr><th scope="col">caminho</th><th scope="col" aria-label="endereço"><span class="th-long">endereço</span><span class="th-short" aria-hidden="true">end.</span></th><th scope="col" class="is-num" aria-label="recebido"><span class="th-long">recebido</span><span class="th-short" aria-hidden="true">rec.</span></th><th scope="col" class="is-num" aria-label="enviado"><span class="th-long">enviado</span><span class="th-short" aria-hidden="true">env.</span></th><th scope="col" class="is-num">saldo</th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+          <ul class="item-list" id="history-list" role="list" hidden></ul>
           <p class="list-empty" id="addresses-empty" hidden>[ vazio ] nenhum endereço usado ainda.</p>
           <p class="status-msg is-reserved" id="history-status" role="status"></p>
         </section>
@@ -90,6 +85,12 @@
 
       <button type="button" class="scroll-arrow scroll-arrow-up" aria-label="Rolar para cima">▲</button>
       <button type="button" class="scroll-arrow scroll-arrow-down" aria-label="Rolar para baixo">▼</button>
+
+      <nav class="pager" id="history-pager" aria-label="Páginas do histórico" hidden>
+        <button type="button" class="pager-arrow" id="history-prev" aria-label="Página anterior">◄</button>
+        <span class="pager-position"><span class="pager-current" id="history-page">1</span> de <span id="history-pages">1</span></span>
+        <button type="button" class="pager-arrow" id="history-next" aria-label="Próxima página">►</button>
+      </nav>
     </div>
 
     <div class="edge" aria-hidden="true"></div>

@@ -1057,17 +1057,6 @@
     width: calc(6ch + 2 * var(--space-4));
     text-align: right;
   }
-
-  /* A tabela de endereços tem dois rótulos numéricos de 8ch ("recebido") e
-     7ch ("enviado"): sem isso o cabeçalho quebra no meio da palavra. */
-  #addresses-table .is-num {
-    width: calc(8ch + 2 * var(--space-4));
-  }
-  #addresses-table thead th { white-space: nowrap; }
-  /* No celular os rótulos longos não cabem em cinco colunas e quebrariam no
-     meio da palavra; o curto aparece no lugar, com o nome acessível no
-     aria-label do th. */
-  #addresses-table .th-short { display: none; }
   .data-table td.is-num { white-space: nowrap; }
   .data-table .is-empty { color: var(--dim); }
   /* As linhas fora do conjunto moderno ficam em um grupo próprio: o hidden
@@ -1679,6 +1668,14 @@
      têm o mesmo verde hoje, mas são papéis diferentes (ver VG-COR-15). */
   .status-msg.ok { color: var(--success); }
   .status-msg.error { color: var(--error); }
+  /* Valor que entrou e valor que saiu (VG-COR-16): o sinal no próprio texto
+     (+ e -) diz a direção, e a cor só reforça — o verde do sucesso no que
+     entrou, o tom do erro no que saiu. Não é recado: é dado de uma linha de
+     item, então o tom nunca substitui o sinal (WCAG 1.4.1). O valor zerado
+     não tem direção e fica no --dim da linha. */
+  .value-in { color: var(--success); }
+  .value-out { color: var(--error); }
+  .value-none { color: var(--dim); }
   /* No contato, o recado geral é a única mensagem de erro e pode juntar
      e-mail e mensagem numa frase. Ele reserva duas linhas para o texto não
      empurrar o rodapé quando aparece; o recado de apoio segue com uma. */
@@ -1710,6 +1707,35 @@
   }
   .wallet-balance[hidden],
   .wallet-updated[hidden] { display: none; }
+
+  /* Histórico: o resumo e a explicação são notas de apoio, e a lista começa
+     depois do vão da régua do título. */
+  #history-summary { margin: 0 0 var(--space-3); }
+  #history-help { margin: 0 0 var(--space-7); }
+
+  /* A lista do extrato é uma coluna só, em qualquer largura (VG-LST-07). O
+     endereço é o título do item, em texto simples, e ocupa a coluna inteira;
+     caminho, ramo e tipo ficam na linha de dados. O botão de copiar fica
+     embaixo, à direita, como no desenho de leitura das chaves, para nenhuma
+     letra do endereço ser empurrada para a segunda linha por causa dele. */
+  .item-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .item-list > .rule-dots { margin: var(--space-7) 0; }
+  /* A linha de valores fica no tom do texto, com o rótulo em --dim: o sinal
+     e a cor dos valores já dizem a direção (VG-COR-16), e o saldo é o
+     resultado, sem direção própria. Os campos se separam pelo `|` do
+     divisor, como na linha de dados dos itens. */
+  .history-values { color: var(--fg); }
+  .history-values .value-label { color: var(--dim); }
+  .history-values .value-sep { color: var(--sep); }
+
+  /* O paginador só existe quando há mais de uma página: o hidden tira a
+     navegação inteira do fluxo e da leitura, e o show-pager continua
+     decidindo quando ele aparece no lugar da seta de rolagem. */
+  .pager[hidden] { display: none; }
 
   /* O texto de apoio segue a cadência do manifesto; o vão até a ação fica com
      a margem do próprio botão, como no formulário de contato. */
@@ -1837,16 +1863,6 @@
   @media (max-width: 520px) {
     .menu { gap: var(--space-2) var(--space-5); font-size: var(--text-sm); }
     .status { gap: var(--space-4) var(--space-6); }
-    /* A tabela de endereços tem cinco colunas: no celular, os 8ch fixos de
-       cada coluna numérica tomavam quase toda a largura e sobrava um
-       caractere por linha para caminho e endereço. As numéricas passam a
-       dividir a largura com as demais e o cabeçalho pode quebrar. */
-    #addresses-table .is-num { width: auto; }
-    #addresses-table thead th { white-space: normal; hyphens: auto; }
-    #addresses-table .th-long { display: none; }
-    #addresses-table .th-short { display: inline; }
-    #addresses-table th,
-    #addresses-table td { padding-inline: var(--space-2); }
     /* Na tabela de recebimento, o tipo e o endereço perdem o padding de
        quadro largo para caber na tela. */
     #receive-table th,

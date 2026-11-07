@@ -21,6 +21,22 @@ export function now() { return new Date().toISOString(); }
 
 export function rowKey(type, chain) { return type + ':' + chain; }
 
+/* Altura da atividade mais recente de uma linha: o maior bloco em que o
+   endereço aparece. O mempool (altura 0) é atividade pendente e vale como a
+   mais recente de todas, à frente de qualquer bloco confirmado. */
+function activityOf(row) {
+  let height = 0;
+  let pending = 0;
+  for (const h of row.heights.values()) {
+    if (h > 0) {
+      if (h > height) height = h;
+    } else {
+      pending = 1;
+    }
+  }
+  return { height, pending };
+}
+
 /* ---------- scanner ---------- */
 
 export class WalletScanner {
@@ -296,6 +312,33 @@ export class WalletScanner {
     const extraTotal = extras.reduce((s, e) => s + e.balance, 0);
     const detected = totalOf(type);
 
+    /* Extrato na ordem do uso mais recente: a altura do bloco é a data que a
+       varredura já tem, sem pedir cabeçalho ao servidor, e o mempool vem
+       antes de tudo. O índice (maior primeiro) desempata o mesmo bloco e,
+       por último, o tipo, para a ordem não mudar entre consultas iguais. */
+    const addresses = usedRows
+      .map(r => ({ r, act: activityOf(r) }))
+      .sort((a, b) =>
+        (b.act.pending - a.act.pending) ||
+        (b.act.height - a.act.height) ||
+        (b.r.idx - a.r.idx) ||
+        a.r.account_type.localeCompare(b.r.account_type) ||
+        (a.r.chain - b.r.chain)
+      )
+      .map(({ r, act }) => ({
+        account_type: r.account_type,
+        chain: r.chain,
+        idx: r.idx,
+        address: r.address,
+        used: r.used,
+        balance: r.balance,
+        received: r.received,
+        spent: r.spent,
+        tx_count: r.tx_count,
+        last_height: act.height,
+        pending: act.pending === 1
+      }));
+
     const warnings = [];
     if (this.errors) {
       warnings.push('Transações não obtidas do servidor: ' + [...this.errors.keys()].join(', ') +
@@ -315,19 +358,7 @@ export class WalletScanner {
       balance: { detected, extras: extraTotal, total: detected + extraTotal },
       types,
       extras,
-      addresses: usedRows.slice().sort((a, b) =>
-        a.account_type.localeCompare(b.account_type) || a.chain - b.chain || a.idx - b.idx
-      ).map(r => ({
-        account_type: r.account_type,
-        chain: r.chain,
-        idx: r.idx,
-        address: r.address,
-        used: r.used,
-        balance: r.balance,
-        received: r.received,
-        spent: r.spent,
-        tx_count: r.tx_count
-      })),
+      addresses,
       warnings,
       source: 'electrum (scripthash) · ' + (this.client ? this.client.name : 'servidor'),
       updated_at: now()

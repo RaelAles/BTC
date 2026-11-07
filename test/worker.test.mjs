@@ -61,6 +61,10 @@ setConnectOverride(nodeConnect);
 
   const used = r.j.addresses;
   assert.equal(used.length, 2, 'só os endereços usados vão para a resposta');
+  assert.deepEqual(used.map(x => x.address), [a1.address, a0.address],
+    'ordem do uso mais recente: a1 e a0 dividem a altura 700100, e o índice maior vem antes');
+  assert.deepEqual(used.map(x => x.last_height), [700100, 700100]);
+  assert.deepEqual(used.map(x => x.pending), [false, false]);
   const row0 = used.find(x => x.address === a0.address);
   const row1 = used.find(x => x.address === a1.address);
   assert.deepEqual(
@@ -98,6 +102,9 @@ setConnectOverride(nodeConnect);
   assert.equal(u1.spent, 9000);
   assert.equal(u1.balance, 0);
   assert.equal(r3.j.balance.total, 8500);
+  assert.equal(r3.j.addresses[0].last_height, 700200, 'o gasto também conta como uso do endereço');
+  assert.deepEqual(r3.j.addresses.map(x => x.address), [a1.address, a0.address],
+    'os dois passaram pelo bloco 700200 e o índice maior desempata');
 
   console.log('ok   saldo/recebido/enviado por endereço, próximo índice, sem cache entre consultas');
   await fake.close();
@@ -135,6 +142,9 @@ setConnectOverride(nodeConnect);
   assert.equal(r2.j.balance.detected, 6234, 'transação no mempool conta no saldo');
   const u86 = r2.j.addresses.find(x => x.address === t86.address);
   assert.equal(u86.tx_count, 2);
+  assert.equal(u86.pending, true, 'transação no mempool marca o endereço como pendente');
+  assert.equal(u86.last_height, 700000, 'o mempool não inventa altura');
+  assert.equal(r2.j.addresses[0].address, t86.address, 'pendente vem antes de qualquer bloco confirmado');
 
   console.log('ok   união dos quatro tipos, prioridade de detecção e mempool');
   await fake.close();

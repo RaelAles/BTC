@@ -13,6 +13,11 @@
      aparece na própria chave, então a tabela fica só com o BIP. */
   var TYPE_PURPOSE = { bip86: 86, bip84: 84, bip49: 49, bip44: 44 };
 
+  /* Lista do histórico: cinco itens por página (VG-LST-03) e o ramo em
+     palavra, para o caminho não ficar só com número. */
+  var PER_PAGE = 5;
+  var CHAIN_LABEL = { 0: 'recebimento', 1: 'troco' };
+
   var state = {
     xpub: '',
     data: null,
@@ -22,7 +27,8 @@
     session: '',        // id efêmero da sessão no Durable Object
     watchRetry: 0,
     watchTimer: 0,      // timeout do handshake do WebSocket
-    autoTimer: 0        // debounce da consulta automática
+    autoTimer: 0,       // debounce da consulta automática
+    page: 1             // página da lista do histórico
   };
 
   function esc(s) {
@@ -130,6 +136,11 @@
         b.removeAttribute('tabindex');
       }
     });
+    // abrir a lista pelo menu recomeça na primeira página (VG-LST-03)
+    if (name === 'historico') {
+      state.page = 1;
+      renderHistory();
+    }
     document.title = SCREEN_TITLES[name];
     var sc = $('#content-scroll');
     if (sc) sc.scrollTop = 0;
@@ -163,6 +174,7 @@
     var max = el.scrollHeight - el.clientHeight;
     c.classList.toggle('can-scroll-up', max > 2 && el.scrollTop > 2);
     c.classList.toggle('can-scroll-down', max > 2 && el.scrollTop < max - 2);
+    updatePager(max);
   }
 
   /* Um endereço de recebimento por tipo — sempre o primeiro índice sem uso
@@ -189,6 +201,112 @@
     $('#receive-heading').hidden = types.length === 0;
   }
 
+  /* Linha de valor com sinal (VG-COR-16): o sinal vai no texto e a cor só
+     reforça; o zero não tem direção e fica no --dim da linha. */
+  function signedBtc(sats, dir) {
+    var n = Number(sats) || 0;
+    if (!n) return '<span class="value-none">' + fmtBtc(0) + '</span>';
+    return '<span class="value-' + dir + '">' + (dir === 'in' ? '+' : '-') + fmtBtc(n) + '</span>';
+  }
+
+  /* Extrato (VG-LST-01): um item por endereço usado, cinco por página, na
+     ordem que o servidor manda — o uso mais recente primeiro. O endereço é o
+     título em texto simples, o caminho e o ramo viram tags, e a linha de
+     dados traz recebido, enviado e saldo. O botão de copiar fica embaixo, à
+     direita, e o clique no próprio endereço continua copiando. */
+  function historyRows() {
+    return (state.data && state.data.addresses) || [];
+  }
+
+  function historyPages() {
+    return Math.max(1, Math.ceil(historyRows().length / PER_PAGE));
+  }
+
+  function renderHistory() {
+    var list = $('#history-list');
+    if (!list) return;
+    var rows = historyRows();
+    var pages = historyPages();
+    if (state.page > pages) state.page = pages;
+    if (state.page < 1) state.page = 1;
+    var start = (state.page - 1) * PER_PAGE;
+    list.innerHTML = '';
+    rows.slice(start, start + PER_PAGE).forEach(function (a, i) {
+      if (i) {
+        var sep = document.createElement('li');
+        sep.className = 'rule-dots';
+        sep.setAttribute('aria-hidden', 'true');
+        list.appendChild(sep);
+      }
+      var purpose = TYPE_PURPOSE[a.account_type] || '?';
+      var chain = CHAIN_LABEL[a.chain] || ('ramo ' + a.chain);
+      var li = document.createElement('li');
+      li.className = 'item';
+      li.innerHTML =
+        '<h3><code class="item-title is-static">' + esc(a.address) + '</code></h3>' +
+        '<p class="item-meta">m/' + purpose + "'/0'/0'/" + a.chain + '/' + a.idx +
+          ' <span class="tag-sep" aria-hidden="true">·</span> ' +
+          '<span class="tag">' + chain + '</span>' +
+          ' <span class="tag-sep" aria-hidden="true">·</span> ' +
+          '<span class="tag">bip' + purpose + '</span>' +
+          (a.pending
+            ? ' <span class="tag-sep" aria-hidden="true">·</span> <span class="tag">[ mempool ]</span>'
+            : '') +
+        '</p>' +
+        '<p class="item-meta history-values">' +
+          '<span class="value-label">recebido</span> ' + signedBtc(a.received, 'in') +
+          ' <span class="value-sep" aria-hidden="true">|</span> ' +
+          '<span class="value-label">enviado</span> ' + signedBtc(a.spent, 'out') +
+          ' <span class="value-sep" aria-hidden="true">|</span> ' +
+          '<span class="value-label">saldo</span> ' + fmtBtc(a.balance) +
+        '</p>' +
+        '<button type="button" class="key-action" data-copy="' + esc(a.address) + '"' +
+          ' aria-label="copiar endereço ' + esc(a.address) + '">copiar</button>';
+      list.appendChild(li);
+    });
+    list.hidden = rows.length === 0;
+  }
+
+  /* Paginador mínimo (VG-LST-08): uma página por vez, com a seta fora de
+     alcance em --dim e aria-disabled. Ele aparece no lugar da seta de
+     rolagem quando a lista tem mais de uma página e a rolagem chega ao fim. */
+  function setPagerEdge(btn, enabled) {
+    if (!btn) return;
+    btn.classList.toggle('is-off', !enabled);
+    if (enabled) btn.removeAttribute('aria-disabled');
+    else btn.setAttribute('aria-disabled', 'true');
+  }
+
+  function updatePager(max) {
+    var pager = $('#history-pager');
+    var content = $('#content');
+    var screen = $('#screen-historico');
+    if (!pager || !content || !screen) return;
+    var pages = historyPages();
+    var visible = !screen.hidden && pages > 1;
+    pager.hidden = !visible;
+    var el = $('#content-scroll');
+    var atEnd = !el || max <= 2 || el.scrollTop >= max - 2;
+    content.classList.toggle('show-pager', visible && atEnd);
+    if (!visible) return;
+    var current = $('#history-page');
+    var total = $('#history-pages');
+    if (current) current.textContent = String(state.page);
+    if (total) total.textContent = String(pages);
+    setPagerEdge($('#history-prev'), state.page > 1);
+    setPagerEdge($('#history-next'), state.page < pages);
+  }
+
+  function goPage(delta) {
+    var next = state.page + delta;
+    if (next < 1 || next > historyPages()) return;
+    state.page = next;
+    renderHistory();
+    var sc = $('#content-scroll');
+    if (sc) sc.scrollTop = 0;
+    updateScroll();
+  }
+
   function render(d) {
     state.data = d;
     var b = d.balance || {};
@@ -203,29 +321,19 @@
     renderReceive(d);
     $('#v-warnings').innerHTML = (d.warnings || []).map(function (w) { return esc(w); }).join('<br>');
 
-    var body = $('#addresses-table tbody');
-    body.innerHTML = '';
     var rows = d.addresses || [];
     var sum = { received: 0, spent: 0, balance: 0 };
     rows.forEach(function (a) {
       sum.received += Number(a.received) || 0;
       sum.spent += Number(a.spent) || 0;
       sum.balance += Number(a.balance) || 0;
-      var tr = document.createElement('tr');
-      var purpose = TYPE_PURPOSE[a.account_type] || '?';
-      tr.innerHTML = '<td>m/' + purpose + "'/0'/0'/" + a.chain + '/' + a.idx + '</td>' +
-        '<td><code>' + esc(a.address) + '</code></td>' +
-        '<td class="is-num">' + fmtInt(a.received) + '</td>' +
-        '<td class="is-num">' + fmtInt(a.spent) + '</td>' +
-        '<td class="is-num">' + fmtInt(a.balance) + '</td>';
-      body.appendChild(tr);
     });
     var countLabel = rows.length === 1 ? '1 endereço usado' : fmtInt(rows.length) + ' endereços usados';
     $('#history-summary').textContent = countLabel +
       ' · recebido ' + fmtBtc(sum.received) + ' BTC' +
       ' · enviado ' + fmtBtc(sum.spent) + ' BTC' +
       ' · saldo ' + fmtBtc(sum.balance) + ' BTC';
-    $('#addresses-table').hidden = rows.length === 0;
+    renderHistory();
     $('#addresses-empty').hidden = rows.length > 0;
     $('#out').hidden = false;
     updateScroll();
@@ -256,10 +364,9 @@
     if (receiveTable) receiveTable.hidden = true;
     var receiveHeading = $('#receive-heading');
     if (receiveHeading) receiveHeading.hidden = true;
-    var body = $('#addresses-table tbody');
-    if (body) body.innerHTML = '';
-    var table = $('#addresses-table');
-    if (table) table.hidden = true;
+    var body = $('#history-list');
+    if (body) { body.innerHTML = ''; body.hidden = true; }
+    state.page = 1;
     var empty = $('#addresses-empty');
     if (empty) empty.hidden = true;
     var summary = $('#history-summary');
@@ -508,8 +615,15 @@
     }
     var receiveTable = $('#receive-table');
     if (receiveTable) receiveTable.addEventListener('click', function (ev) { copyAddress(ev, $('#status')); });
-    $('#addresses-table').addEventListener('click', function (ev) {
+    var historyList = $('#history-list');
+    if (historyList) historyList.addEventListener('click', function (ev) {
       copyAddress(ev, $('#history-status'));
+    });
+    var pager = $('#history-pager');
+    if (pager) pager.addEventListener('click', function (ev) {
+      var btn = ev.target.closest ? ev.target.closest('.pager-arrow') : null;
+      if (!btn || btn.getAttribute('aria-disabled') === 'true') return;
+      goPage(btn.id === 'history-next' ? 1 : -1);
     });
 
     var sc = $('#content-scroll');

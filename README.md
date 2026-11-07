@@ -12,8 +12,10 @@ tela mostra:
    escolher o que o pagador aceita. O rótulo de cada linha é só o BIP
    (`bip86`, `bip84`, `bip49`, `bip44`), com o botão de copiar ao lado do
    endereço — o clique no próprio endereço também copia;
-3. **lista de endereços já usados** (recebimento e troco), com **recebido**,
-   **enviado** e **saldo** de cada um, na tela **histórico**.
+3. **lista de endereços já usados** (recebimento e troco), do uso mais
+   recente para o mais antigo, com **recebido** (com sinal `+`, no verde do
+   sucesso), **enviado** (com sinal `-`, no tom do erro) e **saldo** de cada
+   um, cinco por página, na tela **histórico**.
 
 Nada fica guardado: nem a xpub no navegador, nem endereços, transações ou
 saldo no Cloudflare. Enquanto a tela está aberta o saldo é acompanhado em
@@ -339,7 +341,7 @@ Resposta (resumida):
   "addresses": [
     { "account_type": "bip44", "chain": 0, "idx": 0, "address": "1Efg...",
       "used": 1, "received": 110665, "spent": 100000, "balance": 10665,
-      "tx_count": 3 }
+      "tx_count": 3, "last_height": 700200, "pending": false }
   ],
   "source": "electrum (scripthash) · electrum.blockstream.info:50002",
   "warnings": [ "..." ],
@@ -349,8 +351,14 @@ Resposta (resumida):
 ```
 
 `addresses` traz **só endereços usados** (todos os tipos), cada um com
-recebido, enviado, saldo e número de transações. `receive`/`change` são os
-próximos endereços livres do tipo detectado.
+recebido, enviado, saldo e número de transações, na ordem do **uso mais
+recente para o mais antigo**. A data é a altura do bloco em que o endereço
+apareceu pela última vez (`last_height`), que a varredura já tem, sem pedir
+cabeçalho ao servidor; o que está no mempool (`pending: true`) vem antes de
+qualquer bloco confirmado e leva a etiqueta `[ mempool ]` na tela. Mesma
+altura desempata pelo índice maior, para a ordem não mudar entre consultas
+iguais. `receive`/`change` são os próximos endereços livres do tipo
+detectado.
 
 `types` traz **os quatro tipos**, na ordem bip86 → bip84 → bip49 → bip44 (o
 BIP mais alto, tecnologia mais recente, primeiro) e com o detectado marcado
