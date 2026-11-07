@@ -211,8 +211,44 @@
     updateScroll();
   }
 
+  /* Some com o que está na tela quando a xpub do campo deixa de ser a que
+     gerou os dados: edição, apagão ou outra chave/endereço digitado. */
+  function clearView() {
+    if (state.timer) { clearInterval(state.timer); state.timer = 0; }
+    closeWatch();
+    state.xpub = '';
+    state.data = null;
+    var out = $('#out');
+    if (out) out.hidden = true;
+    ['#v-type', '#v-balance', '#v-breakdown', '#v-address', '#v-path',
+      '#v-change', '#v-extras', '#v-source', '#v-updated', '#v-warnings']
+      .forEach(function (sel) {
+        var el = $(sel);
+        if (el) el.textContent = '—';
+      });
+    var body = $('#addresses-table tbody');
+    if (body) body.innerHTML = '';
+    var table = $('#addresses-table');
+    if (table) table.hidden = true;
+    var empty = $('#addresses-empty');
+    if (empty) empty.hidden = true;
+    var summary = $('#history-summary');
+    if (summary) summary.textContent = 'cole a xpub, zpub ou ypub na carteira para ver o histórico.';
+    setStatus('', '');
+    setStatusTo($('#history-status'), '', '');
+    updateScroll();
+  }
+
+  /* A tela só mostra dados da xpub que está no campo. */
+  function syncViewToInput() {
+    if (!state.data && !state.xpub) return;
+    if ($('#xpub').value.trim() !== state.xpub) clearView();
+  }
+
   async function load(quiet) {
     var xpub = $('#xpub').value.trim();
+    // nunca mostra o estado de uma xpub que não está mais no campo
+    syncViewToInput();
     var problem = xpubProblem(xpub);
     if (problem) {
       setStatus('error', problem);
@@ -234,6 +270,8 @@
       });
       var j = await r.json();
       if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+      // a xpub pode ter mudado enquanto a consulta corria: descarta a resposta
+      if ($('#xpub').value.trim() !== xpub) return;
       state.xpub = xpub;
       state.session = j.session || '';
       render(j);
@@ -370,6 +408,7 @@
     });
     var xpubInput = $('#xpub');
     function applyXpubFilter(ev) {
+      syncViewToInput();
       var raw = xpubInput.value;
       var out = filterXpub(raw);
       if (out.value !== raw) {
@@ -396,11 +435,12 @@
         if (out.value !== data.replace(/\s+/g, '')) {
           ev.preventDefault();
           var missing = xpubProblem(out.value);
-          if (missing) setStatus('error', xpubProblem(data) || missing);
           if (out.value && out.value.length > EXT_PREFIX_LEN) {
             xpubInput.value = out.value;
+            syncViewToInput();
             scheduleAutoLoad();
           }
+          if (missing) setStatus('error', xpubProblem(data) || missing);
         }
       });
       xpubInput.addEventListener('blur', function () {
