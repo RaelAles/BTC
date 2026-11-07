@@ -393,7 +393,6 @@
 
     // A tela abre sempre limpa: a xpub nunca foi salva (nem aqui, nem no
     // servidor), então não há nada para restaurar.
-    setStatus('', 'cole a xpub da conta; ela é a credencial, não precisa de senha. nada fica salvo.');
   }
 
   document.addEventListener('DOMContentLoaded', wire);
