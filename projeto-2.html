@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2e2d2b">
-<meta name="description" content="Esboço do projeto 2: deriva endereços Taproot da xpub da conta bip86, consulta o mempool.space, monta PSBT v0 e confere/transmite o PSBT assinado. Sem rede privada, sem estado.">
+<meta name="description" content="Esboço do projeto 2: deriva endereços Taproot da xpub da conta bip86, consulta o histórico no Blockstream Esplora (com fallback para mempool.space), monta PSBT v0 e confere/transmite o PSBT assinado. Sem rede privada, sem estado.">
 <title>Transação BTC - esboço</title>
 <style>
 /* Fonte embutida do projeto.
@@ -2137,7 +2137,8 @@
           <pre class="rule" aria-hidden="true"></pre>
 
           <div class="prose app-block">
-            <p>Este esboço deriva endereços Taproot da xpub da conta <b>bip86</b> exibida pela ferramenta 1, consulta o histórico no mempool.space e monta o PSBT. Nada é salvo: cada abertura começa vazia.</p>
+            <p>Este esboço deriva endereços Taproot da xpub da conta <b>bip86</b> exibida pela ferramenta 1, consulta o histórico no Blockstream Esplora (com fallback para o mempool.space) e monta o PSBT. Nada é salvo: cada abertura começa vazia.</p>
+            <p class="note">Se o navegador bloquear a consulta por CORS ao abrir o arquivo direto, sirva a pasta com <code>python3 -m http.server</code> e abra <code>http://localhost:8000/projeto-2.html</code>.</p>
           </div>
 
           <form id="wallet-form" class="app-block">
@@ -3830,7 +3831,10 @@ var BTC = (function () {
 (function () {
   'use strict';
 
-  var API = 'https://mempool.space/api';
+  var PROVIDERS = [
+    { id: 'blockstream', name: 'blockstream.info', base: 'https://blockstream.info/api' },
+    { id: 'mempool', name: 'mempool.space', base: 'https://mempool.space/api' }
+  ];
   var GAP = 50;
   var DUST = 330n;
   var MAX_SCAN = 10000;
@@ -3840,6 +3844,7 @@ var BTC = (function () {
 
   var state = {
     busy: false,
+    providerIndex: 0,
     xpub: null,
     account: null,
     chainNodes: null,
@@ -3851,6 +3856,10 @@ var BTC = (function () {
     draft: null,
     signed: null
   };
+
+  function providerAt(offset) {
+    return PROVIDERS[(state.providerIndex + offset) % PROVIDERS.length];
+  }
 
   var $ = function (sel, root) { return (root || document).querySelector(sel); };
   var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
@@ -4102,23 +4111,38 @@ var BTC = (function () {
   }
 
   async function loadFees() {
-    var ctrl = new AbortController();
-    var timer = setTimeout(function () { ctrl.abort(); }, 5000);
-    try {
-      var r = await fetch(API + '/v1/fees/recommended', { cache: 'no-store', signal: ctrl.signal });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      var f = await r.json();
-      return {
-        economy: Math.max(1, Number(f.economyFee) || 1),
-        normal: Math.max(1, Number(f.halfHourFee) || Number(f.hourFee) || 1),
-        fast: Math.max(1, Number(f.fastestFee) || 2),
-        source: 'mempool.space'
-      };
-    } catch (e) {
-      return { economy: 1, normal: 1, fast: 2, source: 'padrão' };
-    } finally {
-      clearTimeout(timer);
+    for (var p = 0; p < PROVIDERS.length; p++) {
+      var prov = providerAt(p);
+      var ctrl = new AbortController();
+      var timer = setTimeout(function () { ctrl.abort(); }, 6000);
+      try {
+        var url = prov.id === 'blockstream'
+          ? prov.base + '/fee-estimates'
+          : prov.base + '/v1/fees/recommended';
+        var r = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var f = await r.json();
+        if (prov.id === 'blockstream') {
+          return {
+            economy: Math.max(1, Number(f['144']) || Number(f['504']) || 1),
+            normal: Math.max(1, Number(f['6']) || Number(f['8']) || Number(f['3']) || 1),
+            fast: Math.max(1, Number(f['2']) || Number(f['3']) || 2),
+            source: prov.name
+          };
+        }
+        return {
+          economy: Math.max(1, Number(f.economyFee) || 1),
+          normal: Math.max(1, Number(f.halfHourFee) || Number(f.hourFee) || 1),
+          fast: Math.max(1, Number(f.fastestFee) || 2),
+          source: prov.name
+        };
+      } catch (e) {
+        /* tenta a próxima fonte */
+      } finally {
+        clearTimeout(timer);
+      }
     }
+    return { economy: 1, normal: 1, fast: 2, source: 'padrão' };
   }
 
   function renderFeeOptions() {
@@ -4168,13 +4192,13 @@ var BTC = (function () {
   }
 
   /* ------------------------------------------------------------------ scan */
-  async function scanChain(chain, label) {
+  async function scanChain(chain, label, prov) {
     var used = [], consecutive = 0, lastUsed = -1, i = 0;
     while (consecutive < GAP && i < MAX_SCAN) {
       var node = await getChild(chain, i);
       var addr = p2trAddress(node);
-      if (i > 0) await sleep(120);
-      var s = await fetchJson(API + '/address/' + addr);
+      if (i > 0) await sleep(250);
+      var s = await fetchJson(prov.base + '/address/' + addr);
       var txCount = s.chain_stats.tx_count + s.mempool_stats.tx_count;
       var balance = BigInt(s.chain_stats.funded_txo_sum) - BigInt(s.chain_stats.spent_txo_sum) +
         BigInt(s.mempool_stats.funded_txo_sum) - BigInt(s.mempool_stats.spent_txo_sum);
@@ -4196,12 +4220,34 @@ var BTC = (function () {
     return { used: used, next: lastUsed + 1, queries: i };
   }
 
+  async function scanChainWithProviders(chain, label) {
+    var msgs = [];
+    for (var p = 0; p < PROVIDERS.length; p++) {
+      var prov = providerAt(p);
+      setStatus($('#wallet-status'), '', label + ' via ' + prov.name + '…');
+      try {
+        var r = await scanChain(chain, label + ' via ' + prov.name, prov);
+        state.providerIndex = (state.providerIndex + p) % PROVIDERS.length;
+        return r;
+      } catch (e) {
+        msgs.push(prov.name + ': ' + (e && e.message ? e.message : String(e)));
+      }
+    }
+    throw new Error('nenhuma fonte respondeu (' + msgs.join(' · ') + ')');
+  }
+
   async function fetchUtxos(entries) {
     var out = [];
     for (var k = 0; k < entries.length; k++) {
       var e = entries[k];
       if (e.balance <= 0n) continue;
-      var list = await fetchJson(API + '/address/' + e.address + '/utxo');
+      var list = null, last = null;
+      for (var p = 0; p < PROVIDERS.length && !list; p++) {
+        var prov = providerAt(p);
+        try { list = await fetchJson(prov.base + '/address/' + e.address + '/utxo'); }
+        catch (err) { last = err; }
+      }
+      if (!list) throw last || new Error('falha ao buscar utxos');
       for (var j = 0; j < list.length; j++) {
         var u = list[j];
         out.push({
@@ -4274,15 +4320,16 @@ var BTC = (function () {
         }];
         setStatus($('#wallet-status'), '', 'modo ensaio: entrada fictícia de 100.000 sats em /0/0. A transação não será transmitida.');
       } else {
-        setStatus($('#wallet-status'), '', 'consultando /0/0…');
-        var r0 = await scanChain(0, 'consultando');
+        setStatus($('#wallet-status'), '', 'consultando os endereços…');
+        var r0 = await scanChainWithProviders(0, 'consultando');
         var r1 = { used: [], next: 0, queries: 0 };
-        if (r0.used.length) r1 = await scanChain(1, 'consultando');
+        if (r0.used.length) r1 = await scanChainWithProviders(1, 'consultando');
         state.scan = { 0: r0, 1: r1 };
         setStatus($('#wallet-status'), '', 'buscando utxos…');
         state.utxos = await fetchUtxos(r0.used.concat(r1.used));
         setStatus($('#wallet-status'), 'ok', 'carteira carregada: ' + r0.used.length +
-          ' endereço(s) de recebimento e ' + r1.used.length + ' de troco.');
+          ' endereço(s) de recebimento e ' + r1.used.length + ' de troco · fonte: ' +
+          providerAt(0).name + '.');
       }
       await renderWallet();
     } catch (e) {
@@ -4336,7 +4383,9 @@ var BTC = (function () {
     $('#wallet-used').textContent = state.scan[0].used.length + ' recebimento · ' + state.scan[1].used.length + ' troco';
     $('#wallet-change').textContent = "m/86'/0'/0'/1/" + state.scan[1].next + ' · ' + change;
     var note = 'varredura: ' + (state.scan[0].queries + state.scan[1].queries) +
-      ' consultas · gap de ' + GAP + ' endereços.';
+      ' consultas · gap de ' + GAP + ' endereços';
+    if (!state.rehearsal) note += ' · fonte: ' + providerAt(0).name;
+    note += '.';
     if (state.rehearsal) note = 'modo ensaio: utxo fictício, não transmissível. ' + note;
     $('#wallet-note').textContent = note;
     $('#send-balance').textContent = 'disponível: ' + fmtBtc(total) + ' BTC · ' +
@@ -4744,20 +4793,33 @@ var BTC = (function () {
       return null;
     }
     setStatus($('#broadcast-status'), '', 'transmitindo…');
-    var r = await fetch(API + '/tx', {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: state.signed.txHex
-    });
-    var text = (await r.text()).trim();
-    if (!r.ok) {
-      throw new Error(text || ('HTTP ' + r.status));
+    var last = null;
+    for (var p = 0; p < PROVIDERS.length; p++) {
+      var prov = providerAt(p);
+      try {
+        var r = await fetch(prov.base + '/tx', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: state.signed.txHex
+        });
+        var text = (await r.text()).trim();
+        if (!r.ok) {
+          var err = new Error(text || ('HTTP ' + r.status));
+          err.final = r.status >= 400 && r.status < 500;
+          throw err;
+        }
+        state.providerIndex = (state.providerIndex + p) % PROVIDERS.length;
+        setStatus($('#broadcast-status'), 'ok', 'transação transmitida via ' + prov.name + ': ' + text);
+        var link = $('#tx-link');
+        link.href = 'https://mempool.space/tx/' + text;
+        link.hidden = false;
+        return text;
+      } catch (e) {
+        if (e && e.final) throw e;
+        last = e;
+      }
     }
-    setStatus($('#broadcast-status'), 'ok', 'transação transmitida: ' + text);
-    var link = $('#tx-link');
-    link.href = 'https://mempool.space/tx/' + text;
-    link.hidden = false;
-    return text;
+    throw last || new Error('nenhuma fonte respondeu');
   }
 
   /* ------------------------------------------------------------------ UI */
