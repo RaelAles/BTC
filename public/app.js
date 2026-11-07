@@ -9,13 +9,17 @@
   var $ = function (sel, root) { return (root || document).querySelector(sel); };
   var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
 
-  var TYPE_LABEL = {
-    bip86: 'bip86 / p2tr',
-    bip84: 'bip84 / p2wpkh',
-    bip49: 'bip49 / p2sh-p2wpkh',
-    bip44: 'bip44 / p2pkh'
-  };
+  /* Rótulo curto do tipo de conta: o formato do endereço (p2tr, p2wpkh…) já
+     aparece na própria chave, então a tabela fica só com o BIP. */
   var TYPE_PURPOSE = { bip86: 86, bip84: 84, bip49: 49, bip44: 44 };
+  /* Legenda da chave estendida colada, com o BIP a que ela pertence: só o
+     zpub (bip84) e o ypub (bip49) já dizem o tipo; o xpub é genérico e
+     serve aos quatro, e quem escolhe é a varredura. */
+  var PUB_LABEL = {
+    bip84: 'zpub · bip84',
+    bip49: 'ypub · bip49',
+    xpub: 'xpub · bip44/49/84/86'
+  };
 
   var state = {
     xpub: '',
@@ -176,7 +180,7 @@
     var types = (d.types || []).filter(function (t) { return Number(t.balance) > 0; });
     types.forEach(function (t) {
       var tr = document.createElement('tr');
-      tr.innerHTML = '<th scope="row">' + esc(TYPE_LABEL[t.type] || t.label || t.type) +
+      tr.innerHTML = '<th scope="row">' + esc(t.type) +
         (t.detected ? '<span class="type-mark"> · detectado</span>' : '') + '</th>' +
         '<td class="is-num">' + fmtBtc(t.balance) + ' BTC</td>' +
         '<td><code>' + esc(t.address || '—') + '</code></td>';
@@ -197,7 +201,7 @@
     types.forEach(function (t) {
       var tr = document.createElement('tr');
       var addr = t.address || '';
-      var label = TYPE_LABEL[t.type] || t.label || t.type;
+      var label = t.type || t.label || '';
       tr.innerHTML = '<th scope="row">' + esc(label) + '</th>' +
         '<td><span class="receive-line"><code>' + esc(addr || '—') + '</code>' +
         (addr ? '<button type="button" class="key-action" data-copy="' + esc(addr) +
@@ -212,6 +216,11 @@
   function render(d) {
     state.data = d;
     var b = d.balance || {};
+    var pub = $('#v-pub');
+    if (pub) {
+      pub.textContent = PUB_LABEL[d.version_type] || '';
+      pub.hidden = !pub.textContent;
+    }
     var total = $('#v-total');
     total.textContent = fmtBtc(b.total) + ' BTC · ' + fmtInt(b.total) + ' sats';
     total.hidden = false;
@@ -263,7 +272,7 @@
     if (out) out.hidden = true;
     // o saldo e o horário ficam fora do #out (abaixo do campo): saem da tela
     // e voltam ao travessão até a próxima consulta
-    ['#v-total', '#v-updated'].forEach(function (sel) {
+    ['#v-pub', '#v-total', '#v-updated'].forEach(function (sel) {
       var el = $(sel);
       if (!el) return;
       el.textContent = sel === '#v-total' ? '—' : '';
@@ -423,7 +432,6 @@
       try { msg = JSON.parse(ev.data); } catch (e) { return; }
       if (msg.type === 'payload' && msg.payload) {
         render(msg.payload);
-        setStatus('ok', 'tempo real · saldo atualizado pelo servidor Electrum.');
       } else if (msg.type === 'error') {
         setStatus('error', 'tempo real: ' + msg.error);
       }

@@ -1686,12 +1686,17 @@
      empurrar o rodapé quando aparece; o recado de apoio segue com uma. */
   .status-msg.is-reserved { min-height: 3.3em; }
 
-  /* Saldo da carteira: fica logo abaixo do campo, centralizado e no
-     --success do recado positivo, porque é o resultado da consulta que deu
-     certo. O horário da última atualização acompanha na nota logo abaixo,
-     em --dim e no mesmo eixo. */
-  .wallet-balance {
+  /* Legenda da chave colada e saldo da carteira: ficam logo abaixo do campo,
+     centralizados. O saldo usa o --success do recado positivo, porque é o
+     resultado da consulta que deu certo; o tipo da chave (xpub, zpub, ypub e
+     o BIP dela) e o horário da última atualização acompanham em --dim, no
+     mesmo eixo. */
+  .wallet-pub {
     margin: var(--space-5) 0 0;
+    text-align: center;
+  }
+  .wallet-balance {
+    margin: var(--space-4) 0 0;
     color: var(--success);
     font-size: var(--text-lg);
     line-height: 1.65;
@@ -1701,6 +1706,7 @@
     margin: 0;
     text-align: center;
   }
+  .wallet-pub[hidden],
   .wallet-balance[hidden],
   .wallet-updated[hidden] { display: none; }
 

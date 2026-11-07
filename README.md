@@ -5,15 +5,17 @@ deriva os endereços públicos na hora e consulta um servidor **Electrum**. A
 tela mostra:
 
 1. **saldo total** da carteira (soma das UTXOs de todos os tipos de conta)
-   logo abaixo do campo da xpub, centralizado em verde de sucesso, com o
-   horário da última atualização em nota;
+   logo abaixo do campo da xpub, centralizado em verde de sucesso, com a
+   legenda da chave colada (`xpub · bip44/49/84/86`, `zpub · bip84` ou
+   `ypub · bip49`) e o horário da última atualização em nota;
 2. **uma linha por tipo de conta com saldo** (bip86, bip84, bip49 e bip44,
    do BIP mais alto para o mais baixo), com o saldo daquele tipo e o próximo
    endereço livre para receber — o tipo detectado vem marcado;
 3. **um endereço de recebimento por tipo**, os quatro, inclusive os zerados:
    sempre o primeiro índice sem uso daquele ramo (`último usado + 1`), para
-   escolher o que o pagador aceita (cada linha tem o botão de copiar ao lado
-   do endereço — o clique no próprio endereço também copia);
+   escolher o que o pagador aceita. O rótulo de cada linha é só o BIP
+   (`bip86`, `bip84`, `bip49`, `bip44`), com o botão de copiar ao lado do
+   endereço — o clique no próprio endereço também copia;
 4. **lista de endereços já usados** (recebimento e troco), com **recebido**,
    **enviado** e **saldo** de cada um, na tela **histórico**.
 
