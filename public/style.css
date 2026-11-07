@@ -1062,11 +1062,13 @@
      sufixo "BTC" (13 caracteres) e a coluna do tipo precisa do mais longo
      ("bip86 / p2tr · detectado", 24). Sem largura declarada, o endereço — 62
      caracteres — dividiria a sobra com a coluna do tipo e quebraria em três
-     linhas. */
+     linhas. A tabela de recebimento repete a largura do tipo (as duas ficam
+     alinhadas) e dá o resto para o endereço, que é a única coluna variável. */
   #types-table .is-num {
     width: calc(13ch + 2 * var(--space-4));
   }
-  #types-table th:first-child { width: calc(25ch + 2 * var(--space-4)); }
+  #types-table th:first-child,
+  #receive-table th:first-child { width: calc(25ch + 2 * var(--space-4)); }
   #types-table .type-mark { color: var(--dim); font-weight: 400; }
   .data-table td.is-num { white-space: nowrap; }
   .data-table .is-empty { color: var(--dim); }
@@ -1823,9 +1825,12 @@
     /* Na tabela de tipos, o saldo perde a largura fixa (o endereço ficaria
        com uma coluna apertada) e o tipo quebra em duas linhas. */
     #types-table .is-num { width: auto; white-space: normal; }
-    #types-table th:first-child { width: calc(12ch + 2 * var(--space-2)); }
+    #types-table th:first-child,
+    #receive-table th:first-child { width: calc(12ch + 2 * var(--space-2)); }
     #types-table th,
-    #types-table td { padding-inline: var(--space-2); }
+    #types-table td,
+    #receive-table th,
+    #receive-table td { padding-inline: var(--space-2); }
   }
 
   /* ------------------------------------------------------------------

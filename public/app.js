@@ -185,12 +185,31 @@
     $('#types-table').hidden = types.length === 0;
   }
 
+  /* Um endereço de recebimento por tipo — sempre o primeiro índice sem uso
+     daquele ramo (`último usado + 1`) —, inclusive os tipos sem saldo, para
+     o usuário escolher o que o pagador aceita. */
+  function renderReceive(d) {
+    var body = $('#receive-table tbody');
+    if (!body) return;
+    body.innerHTML = '';
+    var types = d.types || [];
+    types.forEach(function (t) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<th scope="row">' + esc(TYPE_LABEL[t.type] || t.label || t.type) + '</th>' +
+        '<td><code>' + esc(t.address || '—') + '</code></td>';
+      body.appendChild(tr);
+    });
+    $('#receive-table').hidden = types.length === 0;
+    $('#receive-note').hidden = types.length === 0;
+  }
+
   function render(d) {
     state.data = d;
     var b = d.balance || {};
     $('#v-total').textContent = fmtBtc(b.total) + ' BTC · ' + fmtInt(b.total) + ' sats';
     $('#v-updated').textContent = d.updated_at ? new Date(d.updated_at).toLocaleString('pt-BR') : '—';
     renderTypes(d);
+    renderReceive(d);
     $('#v-warnings').innerHTML = (d.warnings || []).map(function (w) { return esc(w); }).join('<br>');
 
     var body = $('#addresses-table tbody');
@@ -239,6 +258,12 @@
     if (typesBody) typesBody.innerHTML = '';
     var typesTable = $('#types-table');
     if (typesTable) typesTable.hidden = true;
+    var receiveBody = $('#receive-table tbody');
+    if (receiveBody) receiveBody.innerHTML = '';
+    var receiveTable = $('#receive-table');
+    if (receiveTable) receiveTable.hidden = true;
+    var receiveNote = $('#receive-note');
+    if (receiveNote) receiveNote.hidden = true;
     var body = $('#addresses-table tbody');
     if (body) body.innerHTML = '';
     var table = $('#addresses-table');
@@ -469,8 +494,9 @@
     $('#theme-toggle').addEventListener('click', function () {
       setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
     });
-    // copiar o endereço da linha do tipo (mesmo gesto da tabela histórico)
-    $('#types-table').addEventListener('click', async function (ev) {
+    // copiar o endereço da linha do tipo e da linha de recebimento (mesmo
+    // gesto da tabela histórico)
+    async function copyFromTable(ev) {
       var code = ev.target.closest ? ev.target.closest('code') : null;
       if (!code) return;
       try {
@@ -479,6 +505,10 @@
       } catch (e) {
         setStatus('error', 'não foi possível copiar.');
       }
+    }
+    ['#types-table', '#receive-table'].forEach(function (sel) {
+      var table = $(sel);
+      if (table) table.addEventListener('click', copyFromTable);
     });
     $('#addresses-table').addEventListener('click', async function (ev) {
       var code = ev.target.closest ? ev.target.closest('code') : null;
