@@ -31,16 +31,15 @@ blockchain.info, nem chave privada em lugar nenhum.
 ## O que o Worker faz
 
 - `POST /api/wallet` com `{ "xpub": "xpub..." }` (e, opcionalmente,
-  `"session"`). **O campo da tela só aceita `xpub`**: o filtro bloqueia a
-  digitação/colagem que não comece com `xpub` e descarta caractere fora do
-  alfabeto base58, então endereço, chave privada (`xprv`), `zpub`/`ypub` e
+  `"session"`). **O campo da tela só aceita chave estendida pública de
+  conta (`xpub`, `zpub` ou `ypub`)**: o filtro bloqueia a digitação/colagem
+  que não case com um dos três prefixos e descarta caractere fora do
+  alfabeto base58, então endereço, chave privada (`xprv`/`yprv`/`zprv`) e
   texto solto nem chegam a formar valor (com mensagem explicando o motivo).
   O Worker também recusa essas entradas antes de consultar. A consulta começa
-  sozinha assim que o campo fica com a xpub completa e válida (debounce
-  curto), e o tempo real abre junto. A API em si continua entendendo
-  `zpub`/`ypub` (para outros clientes e para a detecção de bip84/bip49); para
-  reabrir isso na tela é só incluir as três no `EXT_PUBLIC`/`filterXpub` de
-  `public/app.js`.
+  sozinha assim que o campo fica com a chave completa e válida (debounce
+  curto), e o tempo real abre junto. `zpub`/`ypub` continuam aceitos pela API
+  e pela tela.
 - Detecta o tipo da conta sem depender de outra fonte: `zpub` → bip84,
   `ypub` → bip49; `xpub` → varre os quatro tipos e escolhe o primeiro com
   histórico (bip44, bip86, bip84, bip49, nessa ordem).
@@ -373,9 +372,10 @@ node test/cdp-ui.mjs            # opcional: Chromium headless + screenshot
 ```
 
 A validação do campo foi conferida em Chromium headless (CDP `Input.insertText`):
-endereço, `xprv`, `zpub` e texto solto deixam o campo vazio com aviso; a xpub
-de 111 caracteres entra, dispara a consulta sozinha e carrega a carteira. A
-página abre sempre com o campo vazio, inclusive depois de recarregar.
+endereço, `xprv` e texto solto deixam o campo vazio com aviso; `xpub`, `zpub`
+e `ypub` de 111 caracteres entram, disparam a consulta sozinha e carregam a
+carteira. A página abre sempre com o campo vazio, inclusive depois de
+recarregar.
 
 O `watcher.test.mjs` usa um par de WebSocket mínimo e um `storage` que lança
 em qualquer acesso para exercitar o Durable Object sem Cloudflare: assinatura

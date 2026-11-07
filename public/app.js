@@ -1,5 +1,6 @@
 /* Projeto 2 — Worker + Durable Object, fonte única Electrum.
-   O navegador não deriva nem consulta saldo: só manda a xpub e mostra o
+   O navegador não deriva nem consulta saldo: só manda a chave estendida
+   pública (xpub, zpub ou ypub) e mostra o
    estado que o Worker devolve. A xpub é a credencial; não há senha. Nada
    é gravado: nem no navegador (sem localStorage), nem no servidor. */
 (function () {
@@ -36,50 +37,60 @@
   function fmtInt(v) {
     return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   }
-  /* Só xpub. O campo nem aceita outra coisa: o filtro abaixo bloqueia a
-     digitação/colagem que não comece com "xpub" e só deixa passar caracteres
-     do alfabeto base58. Endereço, chave privada, zpub/ypub, seed ou lixo não
-     chegam a formar valor. */
-  var XPUB_PREFIX = 'xpub';
+  /* Só chave estendida pública de conta: xpub, zpub ou ypub. O campo nem
+     aceita outra coisa: o filtro abaixo bloqueia a digitação/colagem que não
+     case com um dos três prefixos e só deixa passar caracteres do alfabeto
+     base58. Endereço, chave privada, seed ou lixo não chegam a formar valor. */
+  var EXT_PUBLIC = ['xpub', 'zpub', 'ypub'];
+  var EXT_PREFIX_LEN = EXT_PUBLIC[0].length;
+  var EXT_PUBLIC_RE = /^(xpub|zpub|ypub)[1-9A-HJ-NP-Za-km-z]+$/;
   var B58_CHARS = /[1-9A-HJ-NP-Za-km-z]/;
   var XPUB_TOTAL = 111;
   var EXT_PRIVATE = /^(xprv|yprv|zprv)/;
-  var EXT_OTHER = /^(ypub|zpub)/;
+
+  /* Maior trecho do começo do texto que já casa com algum dos prefixos;
+     é o que permite digitar "x", "zp", "ypu" pela metade. */
+  function matchExtPrefix(s) {
+    var best = 0;
+    for (var i = 0; i < EXT_PUBLIC.length; i++) {
+      var p = EXT_PUBLIC[i];
+      var keep = 0;
+      while (keep < s.length && keep < p.length && s[keep] === p[keep]) keep++;
+      if (keep > best) best = keep;
+    }
+    return best;
+  }
 
   function filterXpub(raw) {
     var s = String(raw == null ? '' : raw).replace(/\s+/g, '');
-    var keep = 0;
-    while (keep < s.length && keep < XPUB_PREFIX.length && s[keep] === XPUB_PREFIX[keep]) keep++;
-    if (keep < XPUB_PREFIX.length) {
-      // enquanto o texto é prefixo de "xpub" (x, xp, xpu) deixa digitar; se já
-      // passou disso e não casou (xprv, ypub, bc1, 1Efg…), limpa o campo
-      var partial = s.length <= XPUB_PREFIX.length;
-      return { value: partial ? XPUB_PREFIX.slice(0, keep) : '', blocked: true };
+    var keep = matchExtPrefix(s);
+    if (keep < EXT_PREFIX_LEN) {
+      // enquanto o texto é prefixo de xpub/zpub/ypub (x, zp, ypu…) deixa
+      // digitar; se já passou disso e não casou (xprv, bc1, 1Efg…), limpa
+      var partial = s.length <= EXT_PREFIX_LEN;
+      return { value: partial ? s.slice(0, keep) : '', blocked: true };
     }
     var rest = '';
     var dropped = false;
-    for (var i = XPUB_PREFIX.length; i < s.length; i++) {
+    for (var i = EXT_PREFIX_LEN; i < s.length; i++) {
       if (B58_CHARS.test(s[i])) rest += s[i];
       else dropped = true;
     }
-    var value = XPUB_PREFIX + rest.slice(0, XPUB_TOTAL - XPUB_PREFIX.length);
-    return { value: value, blocked: dropped || rest.length > XPUB_TOTAL - XPUB_PREFIX.length };
+    var value = s.slice(0, EXT_PREFIX_LEN) + rest.slice(0, XPUB_TOTAL - EXT_PREFIX_LEN);
+    return { value: value, blocked: dropped || rest.length > XPUB_TOTAL - EXT_PREFIX_LEN };
   }
 
   function xpubProblem(value) {
     var s = String(value || '').trim();
-    if (!s) return 'cole a xpub da conta.';
+    if (!s) return 'cole a xpub, zpub ou ypub da conta.';
     if (EXT_PRIVATE.test(s)) {
       return 'isso é uma chave privada (xprv/yprv/zprv). Nunca cole a privada aqui: o projeto só consulta.';
     }
-    if (EXT_OTHER.test(s)) {
-      return 'este campo aceita só xpub; zpub/ypub não entram.';
-    }
     if (/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{20,}$/.test(s)) {
-      return 'isso é um endereço Bitcoin, não uma xpub. Use a chave estendida pública da conta.';
+      return 'isso é um endereço Bitcoin, não uma xpub. Use a chave estendida pública da conta (xpub, zpub ou ypub).';
     }
-    if (s.length !== XPUB_TOTAL || !/^xpub[1-9A-HJ-NP-Za-km-z]+$/.test(s)) {
-      return 'xpub incompleta ou com caractere inválido (são ' + XPUB_TOTAL + ' caracteres). Confira a cópia da chave da conta.';
+    if (s.length !== XPUB_TOTAL || !EXT_PUBLIC_RE.test(s)) {
+      return 'chave incompleta, com caractere inválido ou tipo não aceito: use a xpub, zpub ou ypub da conta (' + XPUB_TOTAL + ' caracteres). Confira a cópia da chave da conta.';
     }
     return '';
   }
@@ -325,7 +336,7 @@
           xpubInput.setSelectionRange(pos, pos);
         } catch (e) {}
         if (out.blocked && ev && ev.type === 'input') {
-          setStatus('error', 'este campo só aceita xpub: endereço, chave privada e outro texto são recusados.');
+          setStatus('error', 'este campo só aceita xpub, zpub ou ypub: endereço, chave privada e outro texto são recusados.');
         }
       }
       scheduleAutoLoad();
@@ -341,7 +352,7 @@
           ev.preventDefault();
           var missing = xpubProblem(out.value);
           if (missing) setStatus('error', xpubProblem(data) || missing);
-          if (out.value && out.value.length > XPUB_PREFIX.length) {
+          if (out.value && out.value.length > EXT_PREFIX_LEN) {
             xpubInput.value = out.value;
             scheduleAutoLoad();
           }
