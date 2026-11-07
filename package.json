@@ -8,7 +8,9 @@
     "deploy": "wrangler deploy",
     "db:schema": "wrangler d1 execute btc-xpub --file=./schema.sql --remote",
     "db:schema:local": "wrangler d1 execute btc-xpub --file=./schema.sql --local",
-    "test": "node test/electrum.test.mjs && node test/worker.test.mjs && node test/watcher.test.mjs"
+    "test": "node test/electrum.test.mjs && node test/worker.test.mjs && node test/watcher.test.mjs",
+    "db:migrate": "wrangler d1 execute btc-xpub --file=./migrate.sql --remote",
+    "db:migrate:local": "wrangler d1 execute btc-xpub --file=./migrate.sql --local"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

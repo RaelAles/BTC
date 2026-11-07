@@ -192,21 +192,32 @@ addresses (xpub_hash, account_type, chain, idx, address, script, used,
 transactions (xpub_hash, txid, raw)
 ```
 
-`schema.sql` usa `IF NOT EXISTS`. Se você já tinha criado as tabelas com a
-versão anterior do projeto (sem `script`/`spent`/`transactions`), recrie o
-banco ou rode:
+`schema.sql` usa `IF NOT EXISTS`, então **não altera tabela que já existe**.
+Se o banco foi criado com a versão anterior do schema (sem `script`/`spent`),
+rodar o `schema.sql` de novo não resolve — o INSERT falha com
+`table addresses has no column named script`. Nesse caso:
 
-```sql
-ALTER TABLE addresses ADD COLUMN script TEXT NOT NULL DEFAULT '';
-ALTER TABLE addresses ADD COLUMN spent INTEGER NOT NULL DEFAULT 0;
-CREATE TABLE IF NOT EXISTS transactions (
-  xpub_hash TEXT NOT NULL, txid TEXT NOT NULL, raw TEXT NOT NULL,
-  PRIMARY KEY (xpub_hash, txid)
-);
+```bash
+npm run db:migrate          # migração (remoto)
+npm run db:migrate:local    # dev
 ```
 
-Sem `script` gravado, a varredura antiga é refeita e as linhas são
-preenchidas de novo.
+`migrate.sql` só faz o `ALTER TABLE addresses ADD COLUMN script/spent` e cria
+`transactions` se faltar. Linhas antigas ficam com `script` vazio: elas são
+ignoradas e derivadas de novo no próximo `/api/wallet`, com os valores
+recalculados (verificado: linha com saldo errado volta ao valor certo e o
+`script` é preenchido).
+
+Se preferir começar limpo, dá para apagar tudo — o conteúdo de `addresses` e
+`transactions` é derivado da xpub + Electrum, não é dado do usuário:
+
+```sql
+DROP TABLE IF EXISTS transactions;
+DROP TABLE IF EXISTS addresses;
+DROP TABLE IF EXISTS wallets;
+```
+
+…e rodar o `schema.sql` em seguida.
 
 ## Subir no Cloudflare
 
@@ -220,6 +231,9 @@ npx wrangler d1 create btc-xpub
 # 2. crie as tabelas
 npm run db:schema          # remoto
 npm run db:schema:local    # para o dev local
+
+# 2b. banco criado antes da versão com `script`/`spent`:
+npm run db:migrate
 
 # 3. rode local
 npm run dev
