@@ -13,10 +13,9 @@
      aparece na própria chave, então a tabela fica só com o BIP. */
   var TYPE_PURPOSE = { bip86: 86, bip84: 84, bip49: 49, bip44: 44 };
 
-  /* Lista do histórico: cinco itens por página (VG-LST-03) e o ramo em
-     palavra, para o caminho não ficar só com número. */
+  /* Lista do histórico: cinco itens por página (VG-LST-03). Só o ramo de
+     troco ganha palavra, para o caminho não ficar só com número. */
   var PER_PAGE = 5;
-  var CHAIN_LABEL = { 0: 'recebimento', 1: 'troco' };
 
   var state = {
     xpub: '',
@@ -211,9 +210,9 @@
 
   /* Extrato (VG-LST-01): um item por endereço usado, cinco por página, na
      ordem que o servidor manda — o uso mais recente primeiro. O endereço é o
-     título em texto simples (sem a caixa do <code>), o caminho e o ramo viram
-     tags, e a linha de dados traz recebido, enviado e saldo. O histórico é só
-     leitura: quem copia endereço é o bloco receber. */
+     título em texto simples (sem a caixa do <code>), o caminho e o ramo de
+     troco viram tags, e a linha de dados traz recebido, enviado e saldo. O
+     histórico é só leitura: quem copia endereço é o bloco receber. */
   function historyRows() {
     return (state.data && state.data.addresses) || [];
   }
@@ -239,14 +238,16 @@
         list.appendChild(sep);
       }
       var purpose = TYPE_PURPOSE[a.account_type] || '?';
-      var chain = CHAIN_LABEL[a.chain] || ('ramo ' + a.chain);
+      var chain = a.chain === 1 ? 'troco' : '';
       var li = document.createElement('li');
       li.className = 'item';
       li.innerHTML =
         '<h3><span class="item-title is-static">' + esc(a.address) + '</span></h3>' +
         '<p class="item-meta">m/' + purpose + "'/0'/0'/" + a.chain + '/' + a.idx +
-          ' <span class="tag-sep" aria-hidden="true">·</span> ' +
-          '<span class="tag">' + chain + '</span>' +
+          (chain
+            ? ' <span class="tag-sep" aria-hidden="true">·</span> ' +
+              '<span class="tag">' + chain + '</span>'
+            : '') +
           ' <span class="tag-sep" aria-hidden="true">·</span> ' +
           '<span class="tag">bip' + purpose + '</span>' +
           (a.pending
