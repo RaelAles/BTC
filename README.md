@@ -118,7 +118,7 @@ npm install
 npx wrangler login
 
 # 1. crie o D1 e copie o database_id para wrangler.jsonc
-npx wrangler d1 create btc-projeto-2
+npx wrangler d1 create btc-xpub
 
 # 2. crie as tabelas
 npm run db:schema          # remoto
@@ -140,11 +140,11 @@ válida da sua conta (o código não usa nada recente).
 O `wrangler.jsonc` é a fonte da configuração, então dois pontos importam:
 
 1. **`database_id` precisa ser o real.** Crie o D1 (`npx wrangler d1 create
-   btc-projeto-2`) e troque o `COLE_O_ID_DA_D1_AQUI` no `wrangler.jsonc`
-   antes do primeiro build — o placeholder faz o deploy falhar.
+   btc-xpub`), copie o UUID e ponha em `database_id` no `wrangler.jsonc`;
+   com o placeholder o deploy falha com `must have a valid database_id`.
 2. **Aplique o schema uma vez** contra o D1 remoto (`npm run db:schema`); o
    build do GitHub não roda migração sozinho (dá para acrescentar
-   `npx wrangler d1 execute btc-projeto-2 --file=./schema.sql --remote` no
+   `npx wrangler d1 execute btc-xpub --file=./schema.sql --remote` no
    comando de deploy, mas isso re-executa em todo build — o `schema.sql` usa
    `IF NOT EXISTS`, então é seguro).
 
@@ -163,10 +163,10 @@ com Root directory apontando para a raiz, o `npm ci` também falhava (não há
 na raiz, então os dois erros somem — a única configuração necessária é não
 apontar Root directory para uma subpasta.
 
-O deploy do Worker exige ainda o `database_id` real do D1 no
-`wrangler.jsonc`: o placeholder `COLE_O_ID_DA_D1_AQUI` não corresponde a
-nenhum banco, então troque pelo id devolvido por `wrangler d1 create` antes
-do primeiro deploy.
+O deploy do Worker exige o `database_id` real do D1 no `wrangler.jsonc`
+(hoje `btc-xpub` → `7c26213e-28f3-41d8-946c-742ec63b4c2f`). Um id que não
+existe faz o deploy falhar com `binding DB of type d1 must have a valid
+database_id` (código 10021).
 
 ## API
 
