@@ -1909,8 +1909,9 @@
     min-width: 0;
   }
   /* No quadrado das coordenadas as réguas de cima e de baixo correm na borda
-     da caixa, não no meio delas: assim o contorno visível mede o mesmo que a
-     moldura do tabuleiro. Os fios laterais acompanham de ponta a ponta. */
+     da caixa, não no meio delas: assim o contorno visível mede o mesmo que o
+     quadrado do tabuleiro, que agora não tem moldura nem respiro. Os fios
+     laterais acompanham de ponta a ponta. */
   .coords-box .edge:first-of-type { background-position: 0 0; }
   .coords-box .edge:last-of-type { background-position: 0 100%; }
   .coords-box::before,
@@ -1962,15 +1963,14 @@
   }
   /* Tabuleiro de 256 bits em um quadrado de 16 × 16. As coordenadas
      continuam na sequência A1–A9, A0, B1–B9, B0, … até Z6, agora corrida
-     pela ordem de leitura (a letra avança a cada 10 células). O estado vem
-     do aria-pressed: 0 no --dim, 1 no --support; a borda acompanha a cor
-     do texto. */
+     pela ordem de leitura (a letra avança a cada 10 células). Sem moldura
+     nem respiro: a grade é o próprio quadrado, inteiriça, e as células
+     repartem o espaço com fios de 1 px. O estado vem do aria-pressed: 0 no
+     --dim, 1 no --support. */
   .key-board {
     width: min(100%, 28rem);
     aspect-ratio: 1 / 1;
     margin: 0 auto;
-    border: 1px solid var(--line);
-    padding: var(--space-4);
     font-size: var(--text-xs);
   }
   .key-board[hidden] { display: none; }
@@ -1980,24 +1980,29 @@
     height: 100%;
     grid-template-columns: repeat(16, minmax(0, 1fr));
     grid-template-rows: repeat(16, minmax(0, 1fr));
-    gap: var(--space-1);
   }
   /* A célula é quadrada e a coordenada fica dentro dela. O repouso usa o
      mesmo --accent dos botões de link; o bit em 1 (coordenada selecionada)
      fica preenchido com o --support, o tom do estado em vigor, e o texto
-     passa para o --bg. O hover sobe para o --fg, como nos demais botões. */
+     passa para o --bg. O hover sobe para o --fg, como nos demais botões.
+     Sem vão entre as células, o fio superior e o esquerdo de cada uma
+     desenham a repartição; a última coluna e a última linha fecham o
+     contorno, sem fio duplicado em nenhuma junta. */
   .board-cell {
     padding: 0;
-    border: 1px solid var(--line);
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-left: 1px solid var(--line);
     color: var(--accent);
     font-size: inherit;
     line-height: 1;
     text-align: center;
   }
+  .board-cell:nth-child(16n) { border-right: 1px solid var(--line); }
+  .board-cell:nth-child(n + 241) { border-bottom: 1px solid var(--line); }
   .board-cell[aria-pressed="true"],
   .board-cell[aria-pressed="true"]:hover {
     background-color: var(--support);
-    border-color: var(--support);
     color: var(--bg);
   }
   button.board-cell[aria-pressed="true"]:active { color: var(--bg); }
