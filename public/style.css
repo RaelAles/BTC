@@ -1685,8 +1685,12 @@
     line-height: 1.65;
     text-align: center;
   }
+  /* O horário da consulta é metadado de apoio: fica no passo menor da
+     escala, no --dim herdado da nota, sem competir com o saldo nem com o
+     endereço. */
   .wallet-updated {
     margin: 0;
+    font-size: var(--text-xs);
     text-align: center;
   }
   .wallet-balance[hidden],

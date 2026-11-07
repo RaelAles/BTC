@@ -301,9 +301,9 @@
       state.xpub = xpub;
       state.session = j.session || '';
       render(j);
-      setStatus('ok', j.watch
-        ? 'carteira carregada · tempo real ligado.'
-        : 'carteira carregada · saldo e próximo endereço atualizados.');
+      // a tela já mostra o resultado: o recado de "consultando" sai de cena
+      // sem virar uma legenda de sucesso permanente
+      setStatus('', '');
       if (j.watch) openWatch();
       else closeWatch();
       schedule();
