@@ -1631,9 +1631,10 @@
     padding: 0;
     font-size: var(--text-md);
   }
-  /* Ações do PSBT: importar e assinar na mesma linha, centradas. O rótulo do
-     anexo fica com a largura do próprio conteúdo e o envio perde a margem
-     própria, que aqui pertence ao grupo. */
+  /* Ações do PSBT: importar e assinar na mesma linha, centradas e separadas
+     pelo ponto médio (VG-BOT-01/VG-BOT-05). O rótulo do anexo fica com a
+     largura do próprio conteúdo e o envio perde a margem própria, que aqui
+     pertence ao grupo. */
   .psbt-actions {
     display: flex;
     align-items: baseline;
@@ -1643,6 +1644,9 @@
     margin-top: var(--space-5);
   }
   .psbt-actions button { font-size: var(--text-md); }
+  /* O ponto separador acompanha o corpo dos botões vizinhos, e não o do
+     contêiner. */
+  .psbt-actions .dot-sep { font-size: var(--text-md); }
   .psbt-actions .form-submit { margin: 0; }
   /* O label do anexo tem display: flex próprio, então o [hidden] nativo
      precisa vencer essa regra para o "cancelar" tomar o lugar dele. */
@@ -2221,6 +2225,7 @@
               <span class="field-upload-pick">importar</span>
             </label>
             <button type="button" id="psbt-clear" aria-label="cancelar o psbt importado" hidden>cancelar</button>
+            <span class="dot-sep" aria-hidden="true">·</span>
             <button type="button" class="form-submit" id="sign-btn" disabled>assinar</button>
           </div>
 
