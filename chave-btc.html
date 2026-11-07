@@ -1609,6 +1609,9 @@
     color: var(--fg);
   }
   .field-upload-name.is-empty { color: var(--dim); }
+  /* Anexo centralizado: o label estreito (width: fit-content) fica no meio da
+     coluna, sem esticar como um campo. */
+  .field-upload.is-centered { margin-inline: auto; }
   /* Campo com máscara: a máscara é comportamento (o JS formata e o
      placeholder já desenha os espaços em --dim); o que o CSS decide é a
      largura. Dado de tamanho fixo (telefone, data, documento) não estica a
@@ -2194,11 +2197,11 @@
           <div class="field-box reveal-block" id="psbt-box">
             <div class="edge" aria-hidden="true"></div>
             <textarea id="psbt" rows="6" spellcheck="false" autocomplete="off" autocapitalize="off"
-                      aria-describedby="psbt-meta"
-                      placeholder="cHNidP8... (base64) ou 70736274ff... (hex)"></textarea>
+                      readonly aria-describedby="psbt-meta"
+                      placeholder="importe um arquivo .psbt"></textarea>
             <div class="edge" aria-hidden="true"></div>
           </div>
-          <label class="field-upload app-gap">
+          <label class="field-upload is-centered app-gap">
             <input type="file" id="psbt-file" aria-label="importar arquivo psbt"
                    accept=".psbt,.txt,.hex,text/plain,application/octet-stream">
             <span class="field-upload-pick">importar arquivo</span>
@@ -2259,7 +2262,7 @@
               <li>não guarda a chave: recarregar a página apaga os 256 bits da memória;</li>
               <li>não consulta saldo nem rede: o xpub é para uma carteira watch-only;</li>
               <li>não usa passphrase BIP39: a passphrase é vazia;</li>
-              <li>não monta transação, não busca UTXOs e não transmite nada: só revisa e assina o PSBT que você colar ou importar;</li>
+              <li>não monta transação, não busca UTXOs e não transmite nada: só revisa e assina o PSBT que você importar;</li>
               <li>não assina PSBT v2, P2WSH, multisig nem <b>SIGHASH_SINGLE/NONE/ANYONECANPAY</b>;</li>
               <li>não substitui carteira de hardware, e a entropia gerada no navegador não tem a garantia de um gerador dedicado.</li>
             </ul>
