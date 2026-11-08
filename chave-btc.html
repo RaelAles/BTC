@@ -2098,25 +2098,6 @@
     overflow-wrap: anywhere;
   }
   .mnemonic-word.is-empty { color: var(--dim); }
-  .bit-readout {
-    width: min(100%, 28rem);
-    margin: 0 auto;
-    font-size: var(--text-sm);
-  }
-  .bit-line {
-    display: grid;
-    grid-template-columns: 4ch minmax(0, 1fr);
-    gap: var(--space-3);
-    margin: 0 0 var(--space-3);
-    line-height: 1.6;
-  }
-  .bit-label { color: var(--dim); }
-  .bit-line code {
-    color: var(--fg);
-    font: inherit;
-    overflow-wrap: anywhere;
-  }
-  .bit-line.is-empty code { color: var(--dim); }
 </style>
 <script>
   /* Tema antes da pintura: evita o clarão do tema escuro padrão. */
@@ -2208,13 +2189,6 @@
                   <h3><span class="prompt" aria-hidden="true">##</span> mnemonic</h3>
                 </div>
                 <ol class="mnemonic-words" id="mnemonic-words" aria-label="frase mnemônica de 24 palavras"></ol>
-
-                <div class="prose">
-                  <h3><span class="prompt" aria-hidden="true">##</span> binários</h3>
-                </div>
-                <div class="bit-readout" id="bit-readout">
-                  <p class="bit-line is-empty"><span class="bit-label">bits</span><code id="v-bits">—</code></p>
-                </div>
               </div>
             </div>
           </div>
@@ -4497,12 +4471,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       mnemonicList.appendChild(item);
     }
   })();
-  function paintBitLine(id, value) {
-    var out = document.getElementById(id);
-    if (!out) return;
-    out.textContent = value || '—';
-    out.parentNode.classList.toggle('is-empty', !value);
-  }
   function paintEntropy(hd) {
     var words = hd ? hd.mnemonic.split(' ') : [];
     if (mnemonicList) {
@@ -4512,7 +4480,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         item.querySelector('.mnemonic-word-text').textContent = word || '—';
       });
     }
-    paintBitLine('v-bits', hd ? hd.bits : '');
   }
   document.addEventListener('click', function (ev) {
     var action = ev.target && ev.target.closest ? ev.target.closest('.key-action') : null;
