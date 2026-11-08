@@ -656,6 +656,11 @@
     // no próprio código
     async function copyAddress(ev, statusEl) {
       var action = ev.target.closest ? ev.target.closest('.key-action') : null;
+      /* Enquanto mostra "copiado" o botão só informa: não copia de novo nem
+         responde ao clique. Não usa disabled para não devolver o foco ao
+         body; o aria-disabled tira a cor de ação e o JavaScript segura o
+         clique repetido. */
+      if (action && action.getAttribute('aria-disabled') === 'true') return;
       var code = ev.target.closest ? ev.target.closest('code') : null;
       var value = action ? action.getAttribute('data-copy') : (code ? code.textContent.trim() : '');
       if (!value) return;
@@ -663,9 +668,14 @@
         await navigator.clipboard.writeText(value);
         if (action) {
           action.textContent = 'copiado';
+          action.setAttribute('aria-disabled', 'true');
+          if (!action._copyLabel) action._copyLabel = action.getAttribute('aria-label');
+          action.setAttribute('aria-label', 'endereço copiado');
           if (action._copyTimer) clearTimeout(action._copyTimer);
           action._copyTimer = setTimeout(function () {
             action.textContent = 'copiar';
+            action.removeAttribute('aria-disabled');
+            if (action._copyLabel) action.setAttribute('aria-label', action._copyLabel);
             action._copyTimer = 0;
           }, 1400);
         }

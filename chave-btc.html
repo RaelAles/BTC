@@ -4478,7 +4478,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       window.clearTimeout(action._copyTimer);
       action._copyTimer = 0;
     }
-    if (action) action.textContent = 'copiar';
+    if (action) {
+      action.textContent = 'copiar';
+      action.removeAttribute('aria-disabled');
+    }
     if (!value) {
       out.textContent = '—';
       if (action) action.hidden = true;
@@ -4530,15 +4533,19 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   document.addEventListener('click', function (ev) {
     var action = ev.target && ev.target.closest ? ev.target.closest('.key-action') : null;
     if (!action) return;
+    // "copiado" é recado, não controle: some a ação e fica só a informação
+    if (action.getAttribute('aria-disabled') === 'true') return;
     var cell = action.closest('td');
     if (!cell) return;
     var value = state.values ? state.values[cell.id.replace(/^v-/, '')] : '';
     if (!value) return;
     copyText(value);
     action.textContent = 'copiado';
+    action.setAttribute('aria-disabled', 'true');
     if (action._copyTimer) window.clearTimeout(action._copyTimer);
     action._copyTimer = window.setTimeout(function () {
       action.textContent = 'copiar';
+      action.removeAttribute('aria-disabled');
       action._copyTimer = 0;
     }, 1400);
   });
@@ -4611,13 +4618,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   function copyFeedback(button, value) {
     if (!button || !value) return;
+    // "copiado" é recado, não controle: some a ação e fica só a informação
+    if (button.getAttribute('aria-disabled') === 'true') return;
     copyText(value);
     if (!button.getAttribute('data-label')) button.setAttribute('data-label', button.textContent);
     var label = button.getAttribute('data-label');
     button.textContent = 'copiado';
+    button.setAttribute('aria-disabled', 'true');
     if (button._copyTimer) window.clearTimeout(button._copyTimer);
     button._copyTimer = window.setTimeout(function () {
       button.textContent = label;
+      button.removeAttribute('aria-disabled');
       button._copyTimer = 0;
     }, 1400);
   }
