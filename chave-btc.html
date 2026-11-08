@@ -1920,22 +1920,34 @@
      por vez, como as antigas 24 palavras. O botão abaixo alterna qual
      aparece. */
   .bits-row { margin: var(--space-5) 0 var(--space-7); }
+  /* As duas entradas dividem a primeira linha do grid: a que está fora de
+     uso fica invisível, mas continua medindo a caixa. Assim o campo de
+     coordenadas herda a altura do painel de jogadas e a troca entre os dois
+     não mexe no layout. */
   .bits-col {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
   }
-  /* O campo das coordenadas ocupa o quadrado da entrada e segue o desenho
-     de campo do formulário (VG-FRM-02): a caixa com as réguas em cima e
-     embaixo e o fio de 1 px nos lados, sem rótulo visível. O texto preenche
-     a caixa inteira. */
+  .bits-col > .coords-panel,
+  .bits-col > .coin-panel { grid-area: 1 / 1; }
+  .bits-col > .bits-actions { grid-row: 2; }
+  .bits-col > .entropy-block { grid-row: 3; }
+  .bits-col > .is-off { visibility: hidden; }
+  /* A troca entre as duas entradas é imediata: os controles não esperam o
+     --motion-fast do contorno, senão continuam ocultos no instante do
+     .focus() chamado logo depois da troca e o foco se perde. */
+  .bits-col .coords-box,
+  .bits-col .coin-panel button { transition-property: color, background-color, opacity; }
+  /* O campo das coordenadas ocupa a mesma caixa do painel de jogadas e segue
+     o desenho de campo do formulário (VG-FRM-02): a caixa com as réguas em
+     cima e embaixo e o fio de 1 px nos lados, sem rótulo visível. O texto
+     preenche a caixa inteira. */
   .coords-panel {
     width: min(100%, 28rem);
-    aspect-ratio: 1 / 1;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
   }
-  .coords-panel[hidden] { display: none; }
   .coords-box {
     display: flex;
     flex-direction: column;
@@ -1943,9 +1955,9 @@
     width: 100%;
     min-width: 0;
   }
-  /* No quadrado das coordenadas as réguas de cima e de baixo correm na borda
-     da caixa, não no meio delas: assim o contorno visível mede o mesmo que o
-     quadrado da entrada. Os fios laterais acompanham de ponta a ponta. */
+  /* Nas coordenadas as réguas de cima e de baixo correm na borda da caixa,
+     não no meio delas: assim o contorno visível ocupa a caixa inteira. Os
+     fios laterais acompanham de ponta a ponta. */
   .coords-box .edge:first-of-type { background-position: 0 0; }
   .coords-box .edge:last-of-type { background-position: 0 100%; }
   .coords-box::before,
@@ -2020,7 +2032,6 @@
     gap: var(--space-6);
     font-size: var(--text-sm);
   }
-  .coin-panel[hidden] { display: none; }
   .coin-head {
     display: flex;
     align-items: baseline;
@@ -2145,7 +2156,7 @@
 
           <div class="bits-row">
             <div class="bits-col">
-              <div class="coords-panel reveal-block" id="coords-panel" hidden>
+              <div class="coords-panel reveal-block is-off" id="coords-panel">
                 <label class="sr-only" for="coords">coordenadas</label>
                 <div class="field-box coords-box">
                   <div class="edge" aria-hidden="true"></div>
@@ -4326,8 +4337,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      voltar, o foco vai para a primeira face da moeda que ainda responde. */
   function setCoinOn(on) {
     coinOn = on;
-    coordsPanel.hidden = on;
-    coinPanel.hidden = !on;
+    coordsPanel.classList.toggle('is-off', on);
+    coinPanel.classList.toggle('is-off', !on);
     if (on && tosses.length < BIT_COUNT) clearCoordsInput();
     if (on) {
       modeBtn.textContent = 'coordenadas';
