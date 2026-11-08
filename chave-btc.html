@@ -1608,6 +1608,14 @@
   }
   .field-upload-pick { color: var(--accent); text-transform: uppercase; }
   .field-upload:hover .field-upload-pick { color: var(--fg); }
+  /* Sem chave derivada não há o que revisar: o anexo do PSBT fica fora de
+     alcance (VG-BOT-09), no --dim, sem hover e sem ponteiro, como o resto do
+     que não responde ao clique. O input desabilitado já barra a escolha de
+     arquivo; o pointer-events do rótulo só tira o convite ao clique. */
+  .field-upload.is-off,
+  .field-upload.is-off:hover { cursor: default; pointer-events: none; }
+  .field-upload.is-off .field-upload-pick,
+  .field-upload.is-off:hover .field-upload-pick { color: var(--dim); }
   .field-upload input:focus-visible ~ .field-upload-pick {
     outline: 1px dashed var(--accent);
     outline-offset: 2px;
@@ -1905,7 +1913,9 @@
     button[aria-disabled="true"],
     button[aria-disabled="true"]:hover,
     .pager-arrow.is-off,
-    .pager-arrow.is-off:hover {
+    .pager-arrow.is-off:hover,
+    .field-upload.is-off .field-upload-pick,
+    .field-upload.is-off:hover .field-upload-pick {
       color: GrayText;
     }
   }
@@ -2251,7 +2261,7 @@
           <div class="rule rule-dots reveal-block" aria-hidden="true"></div>
 
           <div class="prose reveal-block app-block">
-            <h3><span class="prompt" aria-hidden="true">##</span> assinar psbt</h3>
+            <h3><span class="prompt" aria-hidden="true">##</span> assinar</h3>
           </div>
 
           <div class="reveal-block">
@@ -2262,8 +2272,8 @@
             </table>
           </div>
           <div class="psbt-actions reveal-block">
-            <label class="field-upload" id="psbt-import">
-              <input type="file" id="psbt-file" aria-label="importar arquivo psbt"
+            <label class="field-upload is-off" id="psbt-import">
+              <input type="file" id="psbt-file" aria-label="importar arquivo psbt" disabled
                      accept=".psbt,.txt,.hex,text/plain,application/octet-stream">
               <span class="field-upload-pick">importar</span>
             </label>
@@ -4540,6 +4550,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     state.analysis = null;
     paintValues();
     paintEntropy(null);
+    setImportEnabled(false);
     invalidateSignature();
   }
   function applyKey(hd) {
@@ -4557,6 +4568,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     };
     paintValues();
     paintEntropy(hd);
+    setImportEnabled(true);
     invalidateSignature();
     /* Se já há um PSBT importado, ele é reavaliado contra a chave nova. */
     if (psbtText.trim()) scheduleAnalyze();
@@ -4581,6 +4593,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function setPsbtLoaded(loaded) {
     if (psbtImport) psbtImport.hidden = !!loaded;
     if (psbtClear) psbtClear.hidden = !loaded;
+  }
+  /* O PSBT só faz sentido contra uma chave derivada: sem chave, o anexo fica
+     inativo (input desabilitado e rótulo no tom de fora de alcance) até a
+     chave existir. */
+  function setImportEnabled(enabled) {
+    if (psbtImport) psbtImport.classList.toggle('is-off', !enabled);
+    if (psbtFile) psbtFile.disabled = !enabled;
   }
   /* O texto importado é saída de leitura, não entrada: sem PSBT, a linha fica
      no travessão, no tom do estado vazio. */
