@@ -2193,7 +2193,6 @@
                 </div>
                 <div class="bit-readout" id="bit-readout">
                   <p class="bit-line is-empty"><span class="bit-label">bits</span><code id="v-bits">—</code></p>
-                  <p class="bit-line is-empty"><span class="bit-label">hex</span><code id="v-hex">—</code></p>
                 </div>
               </div>
             </div>
@@ -2289,7 +2288,7 @@
             <h3>o que este arquivo faz</h3>
             <ul>
               <li>lê 256 bits marcados no tabuleiro, digitados como coordenadas a0–z5 ou gerados pelo botão de bits aleatórios;</li>
-              <li>mostra o mnemonic de 24 palavras e os 256 bits em binário e em hex;</li>
+              <li>mostra o mnemonic de 24 palavras e os 256 bits em binário;</li>
               <li>deriva a seed BIP39 (passphrase vazia), a raiz BIP32 e as contas BIP44/49/84/86 no mainnet;</li>
               <li>mostra as chaves privadas e as xpubs das contas BIP44/49/84/86, com os caminhos de recebimento (/0/*) e troco (/1/*); as públicas têm o botão de copiar;</li>
               <li>assina PSBT (BIP174) criado em outro app: ECDSA RFC 6979 no p2pkh, no BIP49 e no BIP84 (sighash BIP143), e Schnorr BIP340 no P2TR do BIP86 (sighash BIP341);</li>
@@ -4395,9 +4394,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     });
   }
   /* Mnemonic e binários são saída do tabuleiro, não entrada: a frase de 24
-     palavras fica visível, e os 256 bits aparecem em binário e nos 32 bytes
-     em hex. Sem os 256 bits, as 24 posições e as duas linhas ficam no
-     travessão, no tom do estado vazio. */
+     palavras fica visível, e os 256 bits aparecem em binário. Sem os 256
+     bits, as 24 posições e a linha dos bits ficam no travessão, no tom do
+     estado vazio. */
   var mnemonicList = $('#mnemonic-words');
   (function buildMnemonic() {
     if (!mnemonicList) return;
@@ -4415,12 +4414,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       mnemonicList.appendChild(item);
     }
   })();
-  function bitsHex(bits) {
-    if (!bits || bits.length !== 256) return '';
-    var bytes = new Uint8Array(32);
-    for (var i = 0; i < 32; i++) bytes[i] = parseInt(bits.substr(i * 8, 8), 2);
-    return BTC.bytesToHex(bytes);
-  }
   function paintBitLine(id, value) {
     var out = document.getElementById(id);
     if (!out) return;
@@ -4437,7 +4430,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       });
     }
     paintBitLine('v-bits', hd ? hd.bits : '');
-    paintBitLine('v-hex', hd ? bitsHex(hd.bits) : '');
   }
   document.addEventListener('click', function (ev) {
     var action = ev.target && ev.target.closest ? ev.target.closest('.key-action') : null;
