@@ -2183,7 +2183,7 @@
                   <span class="coin-label" aria-hidden="true">jogadas</span>
                   <span class="coin-counter" id="coin-counter">000/256</span>
                 </div>
-                <p class="coin-help" id="coin-help">jogue a moeda 256 vezes e registre cada resultado: cara marca 1, coroa marca 0. A jogada 1 ocupa a0, a 2 ocupa a1, até z5; as coordenadas só são embaralhadas no fim.</p>
+                <p class="coin-help" id="coin-help">jogue a moeda 256 vezes e registre cada resultado: cara marca 1, coroa marca 0. A jogada 1 ocupa a0, a 2 ocupa a1, até z5; as coordenadas aparecem no campo só no fim, embaralhadas.</p>
                 <div class="coin-choices" role="group" aria-label="Resultado da moeda" aria-describedby="coin-help">
                   <button type="button" id="coin-cara" aria-label="Cara: marcar 1 e passar para a próxima jogada">cara · 1</button>
                   <button type="button" id="coin-coroa" aria-label="Coroa: marcar 0 e passar para a próxima jogada">coroa · 0</button>
@@ -4005,6 +4005,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var coinLast = $('#coin-last');
   var coinStatus = $('#coin-status');
   var markedPath = [];
+  var coordsDirty = false;
   var bitsValue = '';
   var psbtCell = $('#psbt');
   var psbtValue = $('#psbt-value');
@@ -4175,6 +4176,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (coordsInput.value !== text) coordsInput.value = text;
   }
 
+  /* O campo de coordenadas é saída só depois da última jogada: enquanto a
+     sequência não fecha, ele fica vazio. A digitação manual marca
+     coordsDirty e é tratada pelos eventos do próprio campo. */
+  function clearCoordsInput() {
+    coordsDirty = false;
+    if (coordsInput && coordsInput.value) coordsInput.value = '';
+  }
+
   /* A jogada n ocupa a n-ésima coordenada da sequência (a0, a1, …, z5). A
      fila de livres fica em ordem crescente: a próxima jogada sempre pega o
      primeiro item, e o desfazer devolve a coordenada à posição dela. */
@@ -4239,13 +4248,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (bit) markedPath.push(index);
     bitsValue = bitsFromPath();
     if (tosses.length >= BIT_COUNT) {
+      coordsDirty = false;
       shuffleArray(markedPath);
       syncCoords();
       paintTosses('256 jogadas registradas; os 256 bits estão completos.');
       applyBits(bitsValue);
       return;
     }
-    syncCoords();
+    clearCoordsInput();
     paintTosses('jogada ' + padDigits(tosses.length, 3) + ' de ' + BIT_COUNT + ': ' +
       (bit ? 'cara, bit 1' : 'coroa, bit 0') + ', coordenada ' + coordName(index) + '.');
     discardKey();
@@ -4263,7 +4273,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     /* Abaixo de 256 a exibição volta à ordem da sequência. */
     markedPath.sort(function (a, b) { return a - b; });
     bitsValue = bitsFromPath();
-    syncCoords();
+    clearCoordsInput();
     paintTosses('jogada desfeita: ' + tosses.length + ' de ' + BIT_COUNT + '.');
     discardKey();
   }
@@ -4273,7 +4283,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     markedPath = [];
     bitsValue = '';
     fillFreeCoords();
-    syncCoords();
+    clearCoordsInput();
     paintTosses('jogadas zeradas.');
     discardKey();
   }
@@ -4306,6 +4316,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       if (bit) markedPath.push(index);
     }
     bitsValue = bitsFromPath();
+    coordsDirty = false;
     shuffleArray(markedPath);
     syncCoords();
     paintTosses('256 jogadas sorteadas; os 256 bits estão completos.');
@@ -4332,6 +4343,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      campo não se reordena ao sair. Só deriva de novo quando o conjunto de
      bits muda de fato. */
   function onCoordsInput() {
+    coordsDirty = true;
     var parsed = parseCoords(coordsInput.value);
     var before = bitsValue;
     var changed = !samePath(parsed.path, markedPath);
@@ -4348,8 +4360,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* Ao sair do campo, a sequência digitada vira o formato de apresentação:
-     agrupada por letra e só com as marcadas, mantendo a ordem do texto. */
+     agrupada por letra e só com as marcadas. Sem digitação, o campo vazio não
+     mexe no conjunto que veio das jogadas. */
   function onCoordsBlur() {
+    if (!coordsDirty) return;
+    coordsDirty = false;
     markedPath = parseCoords(coordsInput.value).path;
     syncCoords();
   }
@@ -4367,7 +4382,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     coinOn = on;
     coordsPanel.hidden = on;
     coinPanel.hidden = !on;
-    syncCoords();
+    if (on && tosses.length < BIT_COUNT) clearCoordsInput();
     if (on) {
       modeBtn.textContent = 'coordenadas';
       modeBtn.setAttribute('aria-label', 'Mostrar a entrada por coordenadas');
