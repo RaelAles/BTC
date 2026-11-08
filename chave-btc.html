@@ -4065,6 +4065,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return text;
   }
 
+  /* hh:mm:ss local do instante da jogada, com zeros à esquerda. */
+  function clockOf(date) {
+    return padDigits(date.getHours(), 2) + ':' +
+      padDigits(date.getMinutes(), 2) + ':' +
+      padDigits(date.getSeconds(), 2);
+  }
+
   /* Coordenada do bit: letra de a a z e dígito de 0 a 9, na ordem de
      leitura: a0–a9, b0–b9, … até z5. */
   function coordName(index) {
@@ -4227,9 +4234,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (coinCoroa) coinCoroa.disabled = full;
     if (coinLast) {
       var last = tosses[count - 1];
-      coinLast.textContent = last
-        ? 'última: ' + last.bit + ' · ' + (last.bit ? 'cara' : 'coroa')
-        : 'clique em 1 (cara) ou 0 (coroa)';
+      coinLast.textContent = last && last.at
+        ? 'última jogada às ' + clockOf(last.at)
+        : '--:--:--';
     }
     if (coinStatus && message !== undefined) coinStatus.textContent = message;
   }
@@ -4249,7 +4256,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function registerToss(bit) {
     if (tosses.length >= BIT_COUNT || !freeCoords.length) return;
     var index = freeCoords.shift();
-    tosses.push({ index: index, bit: bit ? 1 : 0 });
+    tosses.push({ index: index, bit: bit ? 1 : 0, at: new Date() });
     if (bit) markedPath.push(index);
     bitsValue = bitsFromPath();
     if (tosses.length >= BIT_COUNT) {
@@ -4301,7 +4308,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     for (var i = 0; i < BIT_COUNT; i++) {
       var bit = (bytes[i >> 3] >> (7 - (i & 7))) & 1;
       var index = freeCoords.shift();
-      tosses.push({ index: index, bit: bit });
+      tosses.push({ index: index, bit: bit, at: new Date() });
       if (bit) markedPath.push(index);
     }
     bitsValue = bitsFromPath();
