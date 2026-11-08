@@ -2071,7 +2071,6 @@
     color: var(--dim);
     font-size: var(--text-xs);
   }
-  .coin-fix { justify-content: center; }
   /* Mnemonic e binários são saída das jogadas, não entrada: a frase de 24
      palavras sempre visível, em 3 colunas de 8 linhas, na mesma largura do
      painel, e os 256 bits com os 32 bytes em hex. A palavra longa quebra
@@ -2176,17 +2175,16 @@
                   <button type="button" id="coin-coroa" aria-label="Coroa: registrar e passar para a próxima jogada">coroa</button>
                 </div>
                 <p class="coin-last" id="coin-last"></p>
-                <div class="chips coin-fix" role="group" aria-label="Corrigir as jogadas">
-                  <button type="button" id="coin-reset">recomeçar</button>
-                </div>
-                <p class="sr-only" id="coin-status" role="status" aria-live="polite"></p>
               </div>
 
               <div class="chips app-gap reveal-block bits-actions chips-dots" role="group" aria-label="Entrada de bits">
                 <button type="button" id="bits-mode" aria-label="Mostrar a entrada por coordenadas">coordenadas</button>
                 <span class="dot-sep" aria-hidden="true">·</span>
                 <button type="button" id="bits-random" aria-label="Sortear 256 bits aleatórios e preencher as jogadas">gerar bits</button>
+                <span class="dot-sep" aria-hidden="true">·</span>
+                <button type="button" id="coin-reset">recomeçar</button>
               </div>
+              <p class="sr-only" id="coin-status" role="status" aria-live="polite"></p>
 
               <div class="entropy-block reveal-block" id="entropy-block">
                 <div class="prose">
@@ -4228,6 +4226,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       syncCoords();
       paintTosses('256 jogadas registradas; os 256 bits estão completos.');
       applyBits(bitsValue);
+      setCoinOn(false);
       return;
     }
     clearCoordsInput();
@@ -4279,6 +4278,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     syncCoords();
     paintTosses('256 jogadas sorteadas; os 256 bits estão completos.');
     applyBits(bitsValue);
+    setCoinOn(false);
   }
 
   if (randomBtn) {
