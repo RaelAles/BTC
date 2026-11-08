@@ -156,7 +156,7 @@ assert.equal(watcher.idleTimer, null, 'tela aberta cancela o descarte');
     { got: 10000, spent: 10000, bal: 0 }
   );
   assert.deepEqual({ got: row1.received, spent: row1.spent, bal: row1.balance }, { got: 9000, spent: 0, bal: 9000 });
-  assert.equal(pushed.payload.receive.path, "m/84'/0'/0'/0/2", 'índice avançou');
+  assert.equal(pushed.payload.types.find(t => t.detected).path, "m/84'/0'/0'/0/2", 'índice avançou');
 
   assert.ok(fake.count('blockchain.scripthash.subscribe') > subsBefore,
     'endereços novos da cauda de gap foram assinados');

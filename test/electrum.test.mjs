@@ -115,7 +115,7 @@ function ok(label) { passed++; console.log('ok   ' + label); }
   });
   await assert.rejects(() => c2.request('blockchain.transaction.broadcast', ['00']), /método desconhecido/);
   await c2.close();
-  await assert.rejects(() => c2.history('00'), /fechada/);
+  await assert.rejects(() => c2.request('server.ping', []), /fechada/);
   await silent.close();
   await fake.close();
   ok('timeout, erro de método e uso após close são erros claros');

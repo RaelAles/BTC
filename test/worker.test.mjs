@@ -54,11 +54,8 @@ setConnectOverride(nodeConnect);
   assert.equal(r.j.detected_type, 'bip84');
   assert.equal(r.j.watch, false, 'sem binding WATCH a consulta é avulsa');
   assert.equal(r.j.xpub_hash, undefined, 'a resposta não carrega identificador da xpub');
-  assert.match(r.j.source, /electrum/);
   assert.equal(r.j.balance.detected, 9000);
   assert.equal(r.j.balance.total, 9000);
-  assert.equal(r.j.balance.extras, 0);
-  assert.deepEqual(r.j.extras, []);
 
   const used = r.j.addresses;
   assert.equal(used.length, 2, 'só os endereços usados vão para a resposta');
@@ -76,8 +73,9 @@ setConnectOverride(nodeConnect);
     { received: row1.received, spent: row1.spent, balance: row1.balance, tx: row1.tx_count },
     { received: 9000, spent: 0, balance: 9000, tx: 1 }
   );
-  assert.equal(r.j.receive.address, (await addr('bip84', 0, 2)).address, 'próximo = último usado + 1');
-  assert.equal(r.j.receive.path, "m/84'/0'/0'/0/2");
+  const det = r.j.types.find(t => t.detected);
+  assert.equal(det.address, (await addr('bip84', 0, 2)).address, 'próximo = último usado + 1');
+  assert.equal(det.path, "m/84'/0'/0'/0/2");
   assert.equal(fake.count('blockchain.transaction.get'), 2, 'uma busca por transação');
 
   /* sem cache durável, uma nova consulta refaz a varredura e o download */
@@ -128,12 +126,11 @@ setConnectOverride(nodeConnect);
   const r = await run(USER, env);
   assert.equal(r.j.detected_type, 'bip86', 'com xpub: bip44 → bip86 → bip84 → bip49');
   assert.equal(r.j.balance.detected, 5000);
-  const extra = r.j.extras.find(e => e.type === 'bip84');
-  assert.ok(extra, 'o outro tipo com histórico entra nos extras');
-  assert.equal(extra.balance, 7000);
+  const extra = r.j.types.find(t => t.type === 'bip84');
+  assert.equal(extra.balance, 7000, 'o outro tipo com histórico entra nos types');
   assert.equal(r.j.balance.total, 12000);
-  assert.equal(r.j.receive.path, "m/86'/0'/0'/0/1");
-  assert.equal(r.j.extras.find(e => e.type === 'bip84').address, (await addr('bip84', 0, 4)).address);
+  assert.equal(r.j.types.find(t => t.detected).path, "m/86'/0'/0'/0/1");
+  assert.equal(extra.address, (await addr('bip84', 0, 4)).address);
 
   /* mempool entra no saldo */
   const memTx = makeTx([{ txid: '03'.repeat(32), vout: 0 }], [{ value: 1234, script: t86.script }]);
@@ -190,7 +187,7 @@ setConnectOverride(nodeConnect);
   const r = await run(USER, env5);
   assert.equal(r.status, 200);
   assert.equal(fake.count('blockchain.scripthash.get_history'), 400, 'carteira vazia: 8 ramos × 50');
-  assert.equal(r.j.receive.path, "m/86'/0'/0'/0/0");
+  assert.equal(r.j.types.find(t => t.detected).path, "m/86'/0'/0'/0/0");
 
   // atividade no índice 2 de bip84/0: ramo vai até 2 + 50 = 52
   const a2 = await addr('bip84', 0, 2);
@@ -206,7 +203,7 @@ setConnectOverride(nodeConnect);
   assert.equal(fake2.count('blockchain.scripthash.get_history'), 403, 'índice 2 usado + 50 de cauda = 0..52');
   const used = r2.j.addresses.find(a => a.address === a2.address);
   assert.equal(used.balance, 1234);
-  assert.equal(r2.j.receive.address, (await addr('bip84', 0, 3)).address);
+  assert.equal(r2.j.types.find(t => t.detected).address, (await addr('bip84', 0, 3)).address);
 
   /* scripthashes observados: usados + cauda de gap. Com gap 5, o ramo
      bip84/0 derivou 0..7 e o índice 2 é o único usado; 0 e 1 ficam de fora. */
@@ -243,7 +240,7 @@ setConnectOverride(nodeConnect);
   assert.equal(r.j.balance.total, 11000, 'soma os 11 endereços usados');
   assert.ok(r.j.addresses.some(a => a.address === addrs[addrs.length - 1].address),
     'o endereço 500 aparece');
-  assert.equal(r.j.receive.path, "m/84'/0'/0'/0/501");
+  assert.equal(r.j.types.find(t => t.detected).path, "m/84'/0'/0'/0/501");
   assert.ok(fake6.count('blockchain.scripthash.get_history') > 400,
     'a varredura passa do antigo teto de 400');
   console.log('ok   varredura passa do antigo teto de 400 e encontra o índice 500');

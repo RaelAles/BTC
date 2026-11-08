@@ -11,8 +11,8 @@ import { historiesMany, transactionsMany } from './electrum.js';
 import { totalsForScripts } from './address-totals.js';
 import BTC from './btc-core.js';
 
-export const DEFAULT_GAP = 50;
-export const TYPES = ['bip86', 'bip84', 'bip49', 'bip44'];
+const DEFAULT_GAP = 50;
+const TYPES = ['bip86', 'bip84', 'bip49', 'bip44'];
 
 /* A varredura não tem teto de endereços: o fim de cada ramo é a margem de
    `gap` endereços vazios. O lote limita só quanto trabalho uma requisição
@@ -21,9 +21,9 @@ const SCAN_BATCH = 200;
 const HIST_CONCURRENCY = 100;
 const TX_CONCURRENCY = 20;
 
-export function now() { return new Date().toISOString(); }
+function now() { return new Date().toISOString(); }
 
-export function rowKey(type, chain) { return type + ':' + chain; }
+function rowKey(type, chain) { return type + ':' + chain; }
 
 /* Altura da atividade mais recente de uma linha: o maior bloco em que o
    endereço aparece. O mempool (altura 0) é atividade pendente e vale como a
@@ -56,7 +56,6 @@ export class WalletScanner {
     this.byScript = new Map();
     this.bySh = new Map();
     this.shCache = new Map();
-    this.warnings = [];
   }
 
   async init() {
@@ -306,15 +305,14 @@ export class WalletScanner {
 
   async payload() {
     const type = this.chooseType();
-    const chains = { 0: this.branch(type, 0), 1: this.branch(type, 1) };
     const usedRows = [...this.byScript.values()].filter(r => r.used);
     const totalOf = t => usedRows.filter(r => r.account_type === t).reduce((s, r) => s + r.balance, 0);
 
     /* Um item por tipo de conta, na ordem de TYPES (do BIP mais alto para o
        mais baixo: a tecnologia mais recente primeiro), cada um com o saldo do
        tipo e o próximo endereço livre do ramo de recebimento. O tipo
-       detectado vem marcado, sem mudar de posição. A tela esconde os tipos
-       sem saldo; o saldo total é a soma das linhas. */
+       detectado vem marcado, sem mudar de posição. A tela exibe os quatro no
+       bloco receber; o saldo total é a soma das linhas. */
     const types = TYPES.map(t => {
       const br = this.branch(t, 0);
       return {
@@ -328,25 +326,8 @@ export class WalletScanner {
       };
     });
 
-    const extras = [];
-    for (const other of TYPES) {
-      if (other === type) continue;
-      const used = usedRows.filter(r => r.account_type === other);
-      if (!used.length) continue;
-      const branch = this.branch(other, 0);
-      extras.push({
-        type: other,
-        label: TYPE_INFO[other].label,
-        address: branch.address,
-        path: branch.path,
-        balance: totalOf(other),
-        txCount: used.reduce((s, r) => s + r.tx_count, 0)
-      });
-    }
-
-    const info = TYPE_INFO[type] || { label: type };
-    const extraTotal = extras.reduce((s, e) => s + e.balance, 0);
     const detected = totalOf(type);
+    const extraTotal = types.reduce((s, t) => t.type === type ? s : s + t.balance, 0);
 
     /* Extrato na ordem do uso mais recente: a altura do bloco é a data que a
        varredura já tem, sem pedir cabeçalho ao servidor, e o mempool vem
@@ -382,21 +363,13 @@ export class WalletScanner {
     }
     const stale = [...this.byScript.values()].filter(r => r.stale).length;
     if (stale) warnings.push(stale + ' endereço(s) com valor antigo por falta de transação.');
-    for (const w of this.warnings) if (!warnings.includes(w)) warnings.push(w);
 
     return {
-      version: 4,
       detected_type: type,
-      detected_label: info.label,
-      version_type: this.account.versionType,
-      receive: { address: chains[0].address, path: chains[0].path },
-      change: { address: chains[1].address, path: chains[1].path },
-      balance: { detected, extras: extraTotal, total: detected + extraTotal },
+      balance: { detected, total: detected + extraTotal },
       types,
-      extras,
       addresses,
       warnings,
-      source: 'electrum (scripthash) · ' + (this.client ? this.client.name : 'servidor'),
       updated_at: now()
     };
   }

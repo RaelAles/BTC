@@ -5,8 +5,11 @@
    Sem chave privada: a consulta é por scripthash = sha256(scriptPubKey)
    com os bytes invertidos. Métodos usados:
      server.version
-     blockchain.scripthash.get_balance
+     server.ping
      blockchain.scripthash.get_history
+     blockchain.scripthash.get_mempool
+     blockchain.scripthash.subscribe
+     blockchain.transaction.get
    Uma conexão responde a muitas consultas (pipelining), então não há o
    limite de subrequests do fetch. */
 import BTC from './btc-core.js';
@@ -202,36 +205,6 @@ export class ElectrumClient {
     return this.version;
   }
 
-  async balance(sh) {
-    const r = await this.request('blockchain.scripthash.get_balance', [sh]);
-    const confirmed = Number((r && r.confirmed) || 0);
-    const unconfirmed = Number((r && r.unconfirmed) || 0);
-    return { confirmed, unconfirmed, total: confirmed + unconfirmed };
-  }
-
-  async history(sh) {
-    const r = await this.request('blockchain.scripthash.get_history', [sh]);
-    return Array.isArray(r) ? r : [];
-  }
-
-  async mempool(sh) {
-    const r = await this.request('blockchain.scripthash.get_mempool', [sh]);
-    return Array.isArray(r) ? r : [];
-  }
-
-  /* Assinatura: o servidor devolve o status atual e avisa por notificação
-     `blockchain.scripthash.subscribe` quando ele muda (é o que Electrum e
-     Sparrow usam para atualizar em tempo real). */
-  async subscribe(sh) {
-    const r = await this.request('blockchain.scripthash.subscribe', [sh]);
-    return r == null ? null : String(r);
-  }
-
-  async unsubscribe(sh) {
-    const r = await this.request('blockchain.scripthash.unsubscribe', [sh]);
-    return !!r;
-  }
-
   async ping() {
     return await this.request('server.ping', []);
   }
@@ -290,15 +263,6 @@ export async function openElectrum(opts) {
   const err = new Error('nenhum servidor Electrum respondeu: ' + failures.join('; '));
   err.failures = failures;
   throw err;
-}
-
-export async function withElectrum(opts, fn) {
-  const client = await openElectrum(opts);
-  try {
-    return await fn(client);
-  } finally {
-    try { await client.close(); } catch (e) {}
-  }
 }
 
 /* Histórico + mempool de vários scripts numa conexão só.

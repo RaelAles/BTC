@@ -344,11 +344,7 @@ Resposta (resumida):
 ```json
 {
   "detected_type": "bip44",
-  "detected_label": "bip44 · legacy (p2pkh)",
-  "version_type": "xpub",
-  "receive": { "address": "15tKN...", "path": "m/44'/0'/0'/0/132" },
-  "change":  { "address": "15LE...", "path": "m/44'/0'/0'/1/2" },
-  "balance": { "detected": 12835640, "extras": 26536, "total": 12862176 },
+  "balance": { "detected": 12835640, "total": 12862176 },
   "types": [
     { "type": "bip86", "label": "bip86 · taproot (p2tr)", "address": "bc1p...",
       "path": "m/86'/0'/0'/0/1", "balance": 11100, "tx_count": 1,
@@ -363,13 +359,11 @@ Resposta (resumida):
       "path": "m/44'/0'/0'/0/132", "balance": 12835640, "tx_count": 29,
       "detected": true }
   ],
-  "extras": [ { "type": "bip86", "balance": 11100, "address": "bc1p..." } ],
   "addresses": [
     { "account_type": "bip44", "chain": 0, "idx": 0, "address": "1Efg...",
       "used": 1, "received": 110665, "spent": 100000, "balance": 10665,
       "tx_count": 3, "last_height": 700200, "pending": false }
   ],
-  "source": "electrum (scripthash) · electrum.blockstream.info:50002",
   "warnings": [ "..." ],
   "watch": true,
   "session": "0740457f05938f9406827187257194d692dcf571a130eaec3c737dd3392ce31c"
@@ -383,8 +377,7 @@ apareceu pela última vez (`last_height`), que a varredura já tem, sem pedir
 cabeçalho ao servidor; o que está no mempool (`pending: true`) vem antes de
 qualquer bloco confirmado e leva a etiqueta `[ mempool ]` na tela. Mesma
 altura desempata pelo índice maior, para a ordem não mudar entre consultas
-iguais. `receive`/`change` são os próximos endereços livres do tipo
-detectado.
+iguais.
 
 `types` traz **os quatro tipos**, na ordem bip86 → bip84 → bip49 → bip44 (o
 BIP mais alto, tecnologia mais recente, primeiro) e com o detectado marcado
@@ -393,9 +386,7 @@ do tipo (soma dos endereços usados dele) e o próximo endereço livre do ramo
 de recebimento (`último usado + 1`, ou o índice 0 se o tipo nunca foi usado).
 A soma de `types[].balance` é o `balance.total`. A tela usa `types` inteiro
 (os quatro) no bloco **receber**, que exibe o próximo endereço livre de cada
-tipo. `extras` continua sendo a
-lista dos outros tipos **com histórico**, para quem já consumia a resposta
-antiga.
+tipo.
 
 `watch: true` avisa a UI para abrir o WebSocket de tempo real. `session` é o
 id aleatório do Durable Object: mande de volta no próximo `POST` para
