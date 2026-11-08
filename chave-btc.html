@@ -2007,8 +2007,8 @@
     white-space: pre-wrap;
   }
   /* Entrada por jogadas de moeda: cada clique em cara (1) ou coroa (0)
-     consome uma coordenada livre sorteada, até completar os 256 bits. O
-     contador mostra o progresso; o campo de coordenadas continua sendo a
+     preenche a próxima coordenada da sequência, até completar os 256 bits.
+     O contador mostra o progresso; o campo de coordenadas continua sendo a
      outra entrada e ocupa o quadrado, um por vez. */
   .coin-panel {
     width: min(100%, 28rem);
@@ -2183,7 +2183,7 @@
                   <span class="coin-label" aria-hidden="true">jogadas</span>
                   <span class="coin-counter" id="coin-counter">000/256</span>
                 </div>
-                <p class="coin-help" id="coin-help">jogue a moeda 256 vezes e registre cada resultado: cara marca 1, coroa marca 0. Cada jogada ocupa uma coordenada sorteada.</p>
+                <p class="coin-help" id="coin-help">jogue a moeda 256 vezes e registre cada resultado: cara marca 1, coroa marca 0. A jogada 1 ocupa a0, a 2 ocupa a1, até z5; as coordenadas só são embaralhadas no fim.</p>
                 <div class="coin-choices" role="group" aria-label="Resultado da moeda" aria-describedby="coin-help">
                   <button type="button" id="coin-cara" aria-label="Cara: marcar 1 e passar para a próxima jogada">cara · 1</button>
                   <button type="button" id="coin-coroa" aria-label="Coroa: marcar 0 e passar para a próxima jogada">coroa · 0</button>
@@ -4044,7 +4044,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   /* ---------------------------------------------- entrada por jogadas */
   var BIT_COUNT = 256;
   /* tosses: as jogadas na ordem em que foram registradas (index + bit).
-     freeCoords: as coordenadas ainda sem jogada, em ordem sorteada.
+     freeCoords: as coordenadas ainda sem jogada, em ordem crescente.
      markedPath: as coordenadas que ficaram em 1, que é o que o campo de
      coordenadas mostra e o que vira entropia. */
   var tosses = [];
@@ -4127,9 +4127,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return { path: path, text: text };
   }
 
-  /* Embaralha uma lista no lugar. Só a distribuição das jogadas pelas
-     coordenadas usa o sorteio; Fisher–Yates com o gerador do navegador e,
-     sem ele, Math.random, já que a coordenada exibida não é segredo. */
+  /* Embaralha uma lista no lugar. Só a exibição das coordenadas no fim das
+     256 jogadas usa o sorteio; Fisher–Yates com o gerador do navegador e,
+     sem ele, Math.random, já que a ordem exibida não é segredo. */
   function shuffleArray(list) {
     var random = Math.random;
     if (window.crypto && window.crypto.getRandomValues) {
@@ -4168,15 +4168,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* O campo mostra markedPath agrupado por letra, na ordem guardada — que
-     muda a cada jogada, quando a coordenada sorteada entra na lista. */
+     segue a sequência durante as jogadas e é embaralhada só no fim. */
   function syncCoords() {
     if (!coordsInput) return;
     var text = groupedCoords();
     if (coordsInput.value !== text) coordsInput.value = text;
   }
 
-  /* Preenche a fila de coordenadas livres e a sorteia. As marcadas ficam de
-     fora: cada jogada consome uma coordenada que ainda não tinha bit. */
+  /* A jogada n ocupa a n-ésima coordenada da sequência (a0, a1, …, z5). A
+     fila de livres fica em ordem crescente: a próxima jogada sempre pega o
+     primeiro item, e o desfazer devolve a coordenada à posição dela. */
   function fillFreeCoords() {
     var marked = {};
     markedPath.forEach(function (index) { marked[index] = true; });
@@ -4184,7 +4185,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     for (var i = 0; i < BIT_COUNT; i++) {
       if (!marked[i]) freeCoords.push(i);
     }
-    shuffleArray(freeCoords);
   }
 
   function samePath(a, b) {
@@ -4228,21 +4228,24 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (state.hd || state.values || state.analysis) clearKey();
   }
 
-  /* Registra a face da moeda: a próxima coordenada livre recebe o bit. O
-     clique em coroa também consome a coordenada (bit 0); só cara entra em
-     markedPath, que é o que o campo de coordenadas mostra. */
+  /* Registra a face da moeda na próxima coordenada da sequência. O clique
+     em coroa também ocupa a coordenada (bit 0); só cara entra em markedPath,
+     que é o que o campo de coordenadas mostra. Na última jogada a lista de
+     marcadas é embaralhada só para a exibição. */
   function registerToss(bit) {
     if (tosses.length >= BIT_COUNT || !freeCoords.length) return;
-    var index = freeCoords.pop();
+    var index = freeCoords.shift();
     tosses.push({ index: index, bit: bit ? 1 : 0 });
     if (bit) markedPath.push(index);
     bitsValue = bitsFromPath();
-    syncCoords();
     if (tosses.length >= BIT_COUNT) {
+      shuffleArray(markedPath);
+      syncCoords();
       paintTosses('256 jogadas registradas; os 256 bits estão completos.');
       applyBits(bitsValue);
       return;
     }
+    syncCoords();
     paintTosses('jogada ' + padDigits(tosses.length, 3) + ' de ' + BIT_COUNT + ': ' +
       (bit ? 'cara, bit 1' : 'coroa, bit 0') + ', coordenada ' + coordName(index) + '.');
     discardKey();
@@ -4252,10 +4255,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     var last = tosses.pop();
     if (!last) return;
     freeCoords.push(last.index);
+    freeCoords.sort(function (a, b) { return a - b; });
     if (last.bit === 1) {
       var at = markedPath.indexOf(last.index);
       if (at >= 0) markedPath.splice(at, 1);
     }
+    /* Abaixo de 256 a exibição volta à ordem da sequência. */
+    markedPath.sort(function (a, b) { return a - b; });
     bitsValue = bitsFromPath();
     syncCoords();
     paintTosses('jogada desfeita: ' + tosses.length + ' de ' + BIT_COUNT + '.');
@@ -4273,8 +4279,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* As coordenadas digitadas viram o ponto de partida de uma nova sequência:
-     cada marca conta como uma jogada já feita, e as livres entram na fila
-     sorteada. Assim o contador e a fila nunca divergem do conjunto. */
+     cada marca conta como uma jogada já feita, e as livres ficam na fila em
+     ordem crescente. Assim o contador e a fila nunca divergem do conjunto. */
   function adoptCoords() {
     tosses = markedPath.map(function (index) {
       return { index: index, bit: 1 };
@@ -4284,9 +4290,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* O botão aleatório pede 256 bits ao gerador do navegador e preenche a
-     sequência inteira: é como jogar as 256 moedas de uma vez. Cada bit vai
-     para uma coordenada sorteada, então o conjunto marcado é o mesmo que o
-     de 256 cliques aleatórios. */
+     sequência inteira: é como jogar as 256 moedas de uma vez, com cada bit
+     na sua coordenada (a0–z5). No fim a exibição é embaralhada. */
   function randomizeBits() {
     if (!window.crypto || !window.crypto.getRandomValues) return;
     var bytes = new Uint8Array(BIT_COUNT / 8);
@@ -4296,11 +4301,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     fillFreeCoords();
     for (var i = 0; i < BIT_COUNT; i++) {
       var bit = (bytes[i >> 3] >> (7 - (i & 7))) & 1;
-      var index = freeCoords.pop();
+      var index = freeCoords.shift();
       tosses.push({ index: index, bit: bit });
       if (bit) markedPath.push(index);
     }
     bitsValue = bitsFromPath();
+    shuffleArray(markedPath);
     syncCoords();
     paintTosses('256 jogadas sorteadas; os 256 bits estão completos.');
     applyBits(bitsValue);
