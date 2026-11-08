@@ -2024,10 +2024,9 @@
   .coin-head {
     display: flex;
     align-items: baseline;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: var(--space-4);
   }
-  .coin-label { color: var(--dim); }
   .coin-counter {
     color: var(--fg);
     font-size: var(--text-xl);
@@ -2161,7 +2160,6 @@
 
               <div class="coin-panel reveal-block" id="coin-panel">
                 <div class="coin-head">
-                  <span class="coin-label" aria-hidden="true">jogadas</span>
                   <span class="coin-counter" id="coin-counter">000/256</span>
                 </div>
                 <p class="coin-help" id="coin-help">jogue a moeda 256 vezes e registre cada resultado: cara marca 1, coroa marca 0. A jogada 1 ocupa a0, a 2 ocupa a1, até z5; as coordenadas aparecem no campo só no fim, embaralhadas.</p>
@@ -2171,8 +2169,6 @@
                 </div>
                 <p class="coin-last" id="coin-last"></p>
                 <div class="chips coin-fix" role="group" aria-label="Corrigir as jogadas">
-                  <button type="button" id="coin-undo">desfazer</button>
-                  <span class="dot-sep" aria-hidden="true">·</span>
                   <button type="button" id="coin-reset">recomeçar</button>
                 </div>
                 <p class="sr-only" id="coin-status" role="status" aria-live="polite"></p>
@@ -3973,7 +3969,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var coinPanel = $('#coin-panel');
   var coinCara = $('#coin-cara');
   var coinCoroa = $('#coin-coroa');
-  var coinUndo = $('#coin-undo');
   var coinReset = $('#coin-reset');
   var coinCounter = $('#coin-counter');
   var coinLast = $('#coin-last');
@@ -4160,7 +4155,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   /* A jogada n ocupa a n-ésima coordenada da sequência (a0, a1, …, z5). A
      fila de livres fica em ordem crescente: a próxima jogada sempre pega o
-     primeiro item, e o desfazer devolve a coordenada à posição dela. */
+     primeiro item. */
   function fillFreeCoords() {
     var marked = {};
     markedPath.forEach(function (index) { marked[index] = true; });
@@ -4181,8 +4176,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* O contador é o número de jogadas registradas, que também é o número de
-     coordenadas já preenchidas. No fim as duas faces ficam bloqueadas; o
-     desfazer devolve a última coordenada à fila. */
+     coordenadas já preenchidas. No fim as duas faces ficam bloqueadas. */
   function paintTosses(message) {
     var count = tosses.length;
     var full = count >= BIT_COUNT;
@@ -4192,7 +4186,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }
     if (coinCara) coinCara.disabled = full;
     if (coinCoroa) coinCoroa.disabled = full;
-    if (coinUndo) coinUndo.disabled = !count;
     if (coinReset) coinReset.disabled = !count;
     if (coinLast) {
       var last = tosses[count - 1];
@@ -4232,23 +4225,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     clearCoordsInput();
     paintTosses('jogada ' + padDigits(tosses.length, 3) + ' de ' + BIT_COUNT + ': ' +
       (bit ? 'cara, bit 1' : 'coroa, bit 0') + ', coordenada ' + coordName(index) + '.');
-    discardKey();
-  }
-
-  function undoToss() {
-    var last = tosses.pop();
-    if (!last) return;
-    freeCoords.push(last.index);
-    freeCoords.sort(function (a, b) { return a - b; });
-    if (last.bit === 1) {
-      var at = markedPath.indexOf(last.index);
-      if (at >= 0) markedPath.splice(at, 1);
-    }
-    /* Abaixo de 256 a exibição volta à ordem da sequência. */
-    markedPath.sort(function (a, b) { return a - b; });
-    bitsValue = bitsFromPath();
-    clearCoordsInput();
-    paintTosses('jogada desfeita: ' + tosses.length + ' de ' + BIT_COUNT + '.');
     discardKey();
   }
 
@@ -4308,7 +4284,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   if (coinCara) coinCara.addEventListener('click', function () { registerToss(1); });
   if (coinCoroa) coinCoroa.addEventListener('click', function () { registerToss(0); });
-  if (coinUndo) coinUndo.addEventListener('click', undoToss);
   if (coinReset) coinReset.addEventListener('click', resetTossRun);
 
   /* A digitação normaliza o valor no lugar, no formato agrupado e na ordem
