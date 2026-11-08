@@ -2033,12 +2033,6 @@
     font-variant-numeric: tabular-nums;
   }
   .coin-counter.is-full { color: var(--support); }
-  .coin-help {
-    margin: 0;
-    color: var(--dim);
-    font-size: var(--text-xs);
-    line-height: 1.6;
-  }
   /* As duas faces da moeda dividem a largura e mantêm o alvo de 44 px; a
      moldura é a mesma dos campos, e o hover sobe para o --accent. */
   .coin-choices {
@@ -2162,10 +2156,9 @@
                 <div class="coin-head">
                   <span class="coin-counter" id="coin-counter">000/256</span>
                 </div>
-                <p class="coin-help" id="coin-help">jogue a moeda 256 vezes e registre cada resultado: cara marca 1, coroa marca 0. A jogada 1 ocupa a0, a 2 ocupa a1, até z5; as coordenadas aparecem no campo só no fim, embaralhadas.</p>
-                <div class="coin-choices" role="group" aria-label="Resultado da moeda" aria-describedby="coin-help">
-                  <button type="button" id="coin-cara" aria-label="Cara: marcar 1 e passar para a próxima jogada">cara · 1</button>
-                  <button type="button" id="coin-coroa" aria-label="Coroa: marcar 0 e passar para a próxima jogada">coroa · 0</button>
+                <div class="coin-choices" role="group" aria-label="Registrar a face da moeda">
+                  <button type="button" id="coin-cara" aria-label="Cara: registra o bit 1 na próxima coordenada">cara = 1</button>
+                  <button type="button" id="coin-coroa" aria-label="Coroa: registra o bit 0 na próxima coordenada">coroa = 0</button>
                 </div>
                 <p class="coin-last" id="coin-last"></p>
                 <div class="chips coin-fix" role="group" aria-label="Corrigir as jogadas">
