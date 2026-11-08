@@ -2161,8 +2161,8 @@
                   <span class="coin-counter" id="coin-counter">000/256</span>
                 </div>
                 <div class="coin-choices" role="group" aria-label="Registrar a face da moeda">
-                  <button type="button" id="coin-cara" aria-label="Cara: registra o bit 1 na próxima coordenada">cara = 1</button>
-                  <button type="button" id="coin-coroa" aria-label="Coroa: registra o bit 0 na próxima coordenada">coroa = 0</button>
+                  <button type="button" id="coin-cara" aria-label="Cara: registrar e passar para a próxima jogada">cara</button>
+                  <button type="button" id="coin-coroa" aria-label="Coroa: registrar e passar para a próxima jogada">coroa</button>
                 </div>
                 <p class="coin-last" id="coin-last"></p>
                 <div class="chips coin-fix" role="group" aria-label="Corrigir as jogadas">
@@ -4187,7 +4187,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (coinLast) {
       var last = tosses[count - 1];
       coinLast.textContent = last
-        ? 'última: ' + (last.bit ? 'cara (1)' : 'coroa (0)')
+        ? 'última: ' + (last.bit ? 'cara' : 'coroa')
         : '';
     }
     if (coinStatus && message !== undefined) coinStatus.textContent = message;
