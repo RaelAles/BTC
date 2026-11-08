@@ -2052,7 +2052,11 @@
   .coin-choices button:disabled:hover { border-color: var(--line); }
   .coin-last {
     margin: 0;
+    /* Uma linha fixa: o texto troca a cada jogada e o espaço já fica
+       reservado no estado vazio, então o painel não se mexe quando ele
+       aparece nem quando some. O line-height casa com o min-height. */
     min-height: 1.6em;
+    line-height: 1.6;
     color: var(--dim);
     font-size: var(--text-xs);
   }
@@ -4183,7 +4187,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (coinLast) {
       var last = tosses[count - 1];
       coinLast.textContent = last
-        ? 'última: ' + coordName(last.index) + ' · ' + (last.bit ? 'cara (1)' : 'coroa (0)')
+        ? 'última: ' + (last.bit ? 'cara (1)' : 'coroa (0)')
         : '';
     }
     if (coinStatus && message !== undefined) coinStatus.textContent = message;
