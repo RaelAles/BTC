@@ -2018,7 +2018,7 @@
     overflow-y: auto;
     white-space: pre-wrap;
   }
-  /* Entrada por jogadas de moeda: cada clique em cara (1) ou coroa (0)
+  /* Entrada por jogadas de moeda: cada clique em 1 (cara) ou 0 (coroa)
      preenche a próxima coordenada da sequência, até completar os 256 bits.
      O contador mostra o progresso; o campo de coordenadas continua sendo a
      outra entrada e ocupa o quadrado, um por vez. */
@@ -2035,8 +2035,12 @@
   .coin-head {
     display: flex;
     align-items: baseline;
-    justify-content: flex-end;
+    justify-content: space-between;
     gap: var(--space-4);
+  }
+  .coin-head-label {
+    color: var(--dim);
+    font-size: var(--text-xs);
   }
   .coin-counter {
     color: var(--fg);
@@ -2044,23 +2048,48 @@
     font-variant-numeric: tabular-nums;
   }
   .coin-counter.is-full { color: var(--support); }
-  /* As duas faces da moeda dividem a largura e mantêm o alvo de 44 px; a
-     moldura é a mesma dos campos, e o hover sobe para o --accent. */
+  /* As duas faces da moeda dividem a largura num alvo alto, metade da coluna
+     cada: o número ocupa o meio do botão e o nome da face fica embaixo, então
+     o clique não depende de acertar uma linha de texto. A moldura é a mesma
+     dos campos, o hover sobe para o --accent e a pressão assume o --support
+     do restante dos controles. */
   .coin-choices {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-3);
   }
   .coin-choices button {
-    min-height: var(--space-10);
-    padding: var(--space-3) var(--space-4);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: calc(var(--space-10) * 2);
+    padding: var(--space-4) var(--space-5);
     border: 1px solid var(--field-line);
     font-size: var(--text-md);
     line-height: 1.5;
   }
+  /* O número é o alvo principal: sai do passo maior da escala tipográfica,
+     dobrado aqui, sem criar um degrau novo para o resto do texto. */
+  .coin-bit {
+    font-size: calc(var(--text-xl) * 2);
+    font-weight: 700;
+    line-height: 1;
+  }
+  .coin-face {
+    color: var(--dim);
+    font-size: var(--text-xs);
+    line-height: 1;
+    letter-spacing: .12em;
+  }
   .coin-choices button:hover { border-color: var(--accent); }
+  .coin-choices button:hover .coin-face { color: var(--fg); }
+  .coin-choices button:active,
+  .coin-choices button:active:hover { border-color: var(--support); }
   .coin-choices button:disabled,
   .coin-choices button:disabled:hover { border-color: var(--line); }
+  .coin-choices button:disabled .coin-face { color: var(--dim); }
   .coin-last {
     margin: 0;
     /* Uma linha fixa: o texto troca a cada jogada e o espaço já fica
@@ -2168,11 +2197,18 @@
 
               <div class="coin-panel reveal-block" id="coin-panel">
                 <div class="coin-head">
+                  <span class="coin-head-label">jogadas</span>
                   <span class="coin-counter" id="coin-counter">000/256</span>
                 </div>
                 <div class="coin-choices" role="group" aria-label="Registrar a face da moeda">
-                  <button type="button" id="coin-cara" aria-label="Cara: registrar e passar para a próxima jogada">cara</button>
-                  <button type="button" id="coin-coroa" aria-label="Coroa: registrar e passar para a próxima jogada">coroa</button>
+                  <button type="button" id="coin-cara" aria-label="1, cara: registrar a jogada e passar para a próxima">
+                    <span class="coin-bit" aria-hidden="true">1</span>
+                    <span class="coin-face" aria-hidden="true">cara</span>
+                  </button>
+                  <button type="button" id="coin-coroa" aria-label="0, coroa: registrar a jogada e passar para a próxima">
+                    <span class="coin-bit" aria-hidden="true">0</span>
+                    <span class="coin-face" aria-hidden="true">coroa</span>
+                  </button>
                 </div>
                 <p class="coin-last" id="coin-last"></p>
               </div>
@@ -4196,8 +4232,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (coinLast) {
       var last = tosses[count - 1];
       coinLast.textContent = last
-        ? 'última: ' + (last.bit ? 'cara' : 'coroa')
-        : '';
+        ? 'última: ' + last.bit + ' · ' + (last.bit ? 'cara' : 'coroa')
+        : 'clique em 1 (cara) ou 0 (coroa)';
     }
     if (coinStatus && message !== undefined) coinStatus.textContent = message;
   }
