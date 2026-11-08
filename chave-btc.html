@@ -4098,7 +4098,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      cair nele. */
   function parseCoords(value) {
     var raw = String(value).toLowerCase().replace(/[^a-z0-9]/g, '');
-    var path = [];
     var seen = {};
     var groups = [];
     var groupOf = {};
@@ -4117,7 +4116,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         var index = coordIndex(current.letter + ch);
         if (index >= 0 && !seen[index]) {
           seen[index] = true;
-          path.push(index);
           current.digits.push(ch);
         }
       }
@@ -4129,13 +4127,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       order.splice(at, 1);
       order.push(current);
     }
-    var text = order.map(function (g) { return g.letter + g.digits.join(''); }).join('');
+    var path = [];
+    var text = order.map(function (g) {
+      g.digits.forEach(function (digit) { path.push(coordIndex(g.letter + digit)); });
+      return g.letter + g.digits.join('');
+    }).join('');
     return { path: path, text: text };
   }
 
-  /* Embaralha uma lista no lugar, para a ordem exibida não seguir a ordem
-     dos cliques. Fisher–Yates com o gerador do navegador; sem ele,
-     Math.random serve, já que a ordem exibida não é segredo. */
+  /* Embaralha uma lista no lugar. Só o clique no tabuleiro embaralha a
+     ordem guardada em boardPath; Fisher–Yates com o gerador do navegador e,
+     sem ele, Math.random, já que a ordem exibida não é segredo. */
   function shuffleArray(list) {
     var random = Math.random;
     if (window.crypto && window.crypto.getRandomValues) {
@@ -4154,10 +4156,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* Agrupa boardPath por letra (a0123456789b…), só com as coordenadas
-     marcadas. Com shuffle, as letras e os dígitos de cada grupo saem em
-     ordem aleatória; o conjunto de bits não muda, porque bitsFromPath lê a
-     lista como conjunto. */
-  function groupedCoords(shuffle) {
+     marcadas e na ordem em que ela está. */
+  function groupedCoords() {
     var byLetter = {};
     var letters = [];
     boardPath.forEach(function (index) {
@@ -4170,19 +4170,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       }
       byLetter[letter].push(digit);
     });
-    if (shuffle) shuffleArray(letters);
     return letters.map(function (letter) {
-      var digits = byLetter[letter];
-      if (shuffle) shuffleArray(digits);
-      return letter + digits.join('');
+      return letter + byLetter[letter].join('');
     }).join('');
   }
 
-  /* O campo mostra boardPath agrupado por letra e embaralhado, para não
-     seguir a ordem dos cliques. */
+  /* O campo mostra boardPath agrupado por letra, na ordem guardada — que só
+     muda ao clicar no tabuleiro. */
   function syncCoords() {
     if (!coordsInput) return;
-    var text = groupedCoords(true);
+    var text = groupedCoords();
     if (coordsInput.value !== text) coordsInput.value = text;
   }
 
@@ -4191,6 +4188,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (at < 0) boardPath.push(index);
     else boardPath.splice(at, 1);
     bitsValue = bitsFromPath();
+    shuffleArray(boardPath);
     syncCoords();
     setBoardActive(index, true);
     applyBits(bitsValue);
@@ -4258,10 +4256,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   });
 
   /* A digitação normaliza o valor no lugar, no formato agrupado e na ordem
-     digitada — o embaralhado fica para a saída do campo, para não trocar as
-     letras sob o cursor. O grupo em digitação vai para o fim, e o cursor
-     acompanha, de onde a sequência cresce. Só deriva de novo quando o
-     conjunto de bits muda de fato. */
+     digitada. O grupo em digitação vai para o fim, e o cursor acompanha, de
+     onde a sequência cresce; a ordem do texto passa para boardPath, então o
+     campo não se reordena ao sair. Só deriva de novo quando o conjunto de
+     bits muda de fato. */
   function onCoordsInput() {
     var parsed = parseCoords(coordsInput.value);
     var before = bitsValue;
@@ -4277,8 +4275,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* Ao sair do campo, a sequência digitada vira o formato de apresentação:
-     agrupada por letra, só com as marcadas, com letras e dígitos
-     embaralhados. */
+     agrupada por letra e só com as marcadas, mantendo a ordem do texto. */
   function onCoordsBlur() {
     boardPath = parseCoords(coordsInput.value).path;
     syncCoords();
