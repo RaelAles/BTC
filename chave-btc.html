@@ -6,14 +6,14 @@
 <meta name="theme-color" content="#2e2d2b">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'">
 <title>chave btc - chave</title>
-<meta name="description" content="Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 bits marcados em coordenadas a0–z5, mostra xprv/xpub e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.">
+<meta name="description" content="Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 jogadas de moeda (cara = 1, coroa = 0) ou de coordenadas a0–z5, mostra xprv/xpub e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="chave btc - contas hd a partir de 256 bits">
-<meta property="og:description" content="256 bits marcados em coordenadas a0–z5 entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
+<meta property="og:description" content="256 jogadas de moeda (cara = 1, coroa = 0) entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
 <meta property="og:locale" content="pt_BR">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="chave btc - contas hd a partir de 256 bits">
-<meta name="twitter:description" content="256 bits marcados em coordenadas a0–z5 entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
+<meta name="twitter:description" content="256 jogadas de moeda (cara = 1, coroa = 0) entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
 <link rel="icon" type="image/svg+xml" id="favicon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%22102%20-1195%201024%201195%22%3E%3Cstyle%3E.marca%7Bfill%3A%235d3d00%7D%40media%20(prefers-color-scheme%3Adark)%7B.marca%7Bfill%3A%23e8c07d%7D%7D%3C%2Fstyle%3E%3Cpath%20class%3D%22marca%22%20d%3D%22M640%20-1195Q640%20-1109%20711%20-1002.5Q782%20-896%20891%20-810Q1021%20-708%201073.5%20-632.5Q1126%20-557%201126%20-478Q1126%20-370%201058%20-305Q990%20-240%20891%20-240Q831%20-240%20765%20-268.5Q699%20-297%20662%20-340Q662%20-207%20749.5%20-131.5Q837%20-56%20982%20-56V0H246V-56Q391%20-56%20478.5%20-131.5Q566%20-207%20566%20-340Q528%20-297%20462%20-268.5Q396%20-240%20337%20-240Q237%20-240%20169.5%20-305Q102%20-370%20102%20-478Q102%20-555%20151.5%20-628Q201%20-701%20337%20-810Q446%20-895%20517%20-1002.5Q588%20-1110%20588%20-1195Z%22%2F%3E%3C%2Fsvg%3E">
 <style>
 /* Fonte embutida do projeto.
@@ -1915,18 +1915,19 @@
   .app-gap { margin-top: var(--space-5); }
   .app-block { margin-top: var(--space-7); }
 
-  /* Entrada por coordenadas: o tabuleiro e o campo de coordenadas editam o
-     mesmo conjunto de bits e ocupam o mesmo quadrado, um por vez, como as
-     antigas 24 palavras. O botão abaixo alterna qual aparece. */
+  /* Entrada por coordenadas: o painel de jogadas e o campo de coordenadas
+     editam o mesmo conjunto de bits e ocupam o mesmo espaço da entrada, um
+     por vez, como as antigas 24 palavras. O botão abaixo alterna qual
+     aparece. */
   .bits-row { margin: var(--space-5) 0 var(--space-7); }
   .bits-col {
     display: flex;
     flex-direction: column;
   }
-  /* O campo das coordenadas ocupa o mesmo quadrado do tabuleiro e segue o
-     desenho de campo do formulário (VG-FRM-02): a caixa com as réguas em
-     cima e embaixo e o fio de 1 px nos lados, sem rótulo visível. O texto
-     preenche a caixa inteira. */
+  /* O campo das coordenadas ocupa o quadrado da entrada e segue o desenho
+     de campo do formulário (VG-FRM-02): a caixa com as réguas em cima e
+     embaixo e o fio de 1 px nos lados, sem rótulo visível. O texto preenche
+     a caixa inteira. */
   .coords-panel {
     width: min(100%, 28rem);
     aspect-ratio: 1 / 1;
@@ -1944,8 +1945,7 @@
   }
   /* No quadrado das coordenadas as réguas de cima e de baixo correm na borda
      da caixa, não no meio delas: assim o contorno visível mede o mesmo que o
-     quadrado do tabuleiro, que agora não tem moldura nem respiro. Os fios
-     laterais acompanham de ponta a ponta. */
+     quadrado da entrada. Os fios laterais acompanham de ponta a ponta. */
   .coords-box .edge:first-of-type { background-position: 0 0; }
   .coords-box .edge:last-of-type { background-position: 0 100%; }
   .coords-box::before,
@@ -1957,8 +1957,8 @@
   .bits-actions { justify-content: center; }
   .keys-actions { justify-content: center; }
   /* Chaves no mesmo desenho dos binários: o rótulo (só o bip) no --dim à
-     esquerda, o valor no --fg à direita, na mesma largura de 28rem do
-     tabuleiro, sem moldura nem fio entre as linhas. A coluna do rótulo
+     esquerda, o valor no --fg à direita, na mesma largura de 28rem do painel
+     de jogadas, sem moldura nem fio entre as linhas. A coluna do rótulo
      cabe os 5 caracteres de "bip86" mais o vão; as privadas ficam sem o
      botão de copiar e as públicas mantêm o botão sob o valor. */
   .data-table.key-readout {
@@ -2006,59 +2006,67 @@
     overflow-y: auto;
     white-space: pre-wrap;
   }
-  /* Tabuleiro de 256 bits em um quadrado de 16 × 16. As coordenadas
-     seguem a ordem de leitura: letra de a a z e dígito de 0 a 9, a0–a9,
-     b0–b9, … até z5. Sem moldura
-     nem respiro: a grade é o próprio quadrado, inteiriça, e as células
-     repartem o espaço com fios de 1 px. O estado vem do aria-pressed: 0 no
-     --dim, 1 no --support. */
-  .key-board {
+  /* Entrada por jogadas de moeda: cada clique em cara (1) ou coroa (0)
+     consome uma coordenada livre sorteada, até completar os 256 bits. O
+     contador mostra o progresso; o campo de coordenadas continua sendo a
+     outra entrada e ocupa o quadrado, um por vez. */
+  .coin-panel {
     width: min(100%, 28rem);
-    aspect-ratio: 1 / 1;
     margin: 0 auto;
+    padding: var(--space-7);
+    border: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    font-size: var(--text-sm);
+  }
+  .coin-panel[hidden] { display: none; }
+  .coin-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+  .coin-label { color: var(--dim); }
+  .coin-counter {
+    color: var(--fg);
+    font-size: var(--text-xl);
+    font-variant-numeric: tabular-nums;
+  }
+  .coin-counter.is-full { color: var(--support); }
+  .coin-help {
+    margin: 0;
+    color: var(--dim);
+    font-size: var(--text-xs);
+    line-height: 1.6;
+  }
+  /* As duas faces da moeda dividem a largura e mantêm o alvo de 44 px; a
+     moldura é a mesma dos campos, e o hover sobe para o --accent. */
+  .coin-choices {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+  .coin-choices button {
+    min-height: var(--space-10);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--field-line);
+    font-size: var(--text-md);
+    line-height: 1.5;
+  }
+  .coin-choices button:hover { border-color: var(--accent); }
+  .coin-choices button:disabled,
+  .coin-choices button:disabled:hover { border-color: var(--line); }
+  .coin-last {
+    margin: 0;
+    min-height: 1.6em;
+    color: var(--dim);
     font-size: var(--text-xs);
   }
-  .key-board[hidden] { display: none; }
-  .board-grid {
-    display: grid;
-    width: 100%;
-    height: 100%;
-    grid-template-columns: repeat(16, minmax(0, 1fr));
-    grid-template-rows: repeat(16, minmax(0, 1fr));
-  }
-  /* A célula é quadrada e a coordenada fica dentro dela. O repouso usa o
-     mesmo --accent dos botões de link; o bit em 1 (coordenada selecionada)
-     fica preenchido com o --support, o tom do estado em vigor, e o texto
-     passa para o --bg. O hover sobe para o --fg, como nos demais botões.
-     Sem vão entre as células, o fio superior e o esquerdo de cada uma
-     desenham a repartição; a última coluna e a última linha fecham o
-     contorno, sem fio duplicado em nenhuma junta. */
-  .board-cell {
-    padding: 0;
-    border: 0;
-    border-top: 1px solid var(--line);
-    border-left: 1px solid var(--line);
-    color: var(--accent);
-    font-size: inherit;
-    line-height: 1;
-    text-align: center;
-    /* A coordenada é minúscula (a0–z5): não herda a caixa alta dos botões. */
-    text-transform: none;
-  }
-  .board-cell:nth-child(16n) { border-right: 1px solid var(--line); }
-  .board-cell:nth-child(n + 241) { border-bottom: 1px solid var(--line); }
-  .board-cell[aria-pressed="true"],
-  .board-cell[aria-pressed="true"]:hover {
-    background-color: var(--support);
-    color: var(--bg);
-  }
-  button.board-cell[aria-pressed="true"]:active { color: var(--bg); }
-  @media (min-width: 521px) {
-    .key-board { font-size: var(--text-sm); }
-  }
-  /* Mnemonic e binários são saída do tabuleiro, não entrada: a frase de 24
+  .coin-fix { justify-content: center; }
+  /* Mnemonic e binários são saída das jogadas, não entrada: a frase de 24
      palavras sempre visível, em 3 colunas de 8 linhas, na mesma largura do
-     quadrado, e os 256 bits com os 32 bytes em hex. A palavra longa quebra
+     painel, e os 256 bits com os 32 bytes em hex. A palavra longa quebra
      dentro da coluna e o estado vazio usa o --dim, como o travessão das
      chaves. */
   .entropy-block { margin-top: var(--space-9); }
@@ -2170,16 +2178,29 @@
                 </div>
               </div>
 
-              <div class="key-board reveal-block" id="board-panel">
-                <div class="board-grid" id="board-grid" role="group"
-                     aria-label="tabuleiro de 256 bits" aria-describedby="board-help"></div>
-                <p class="sr-only" id="board-help">Use as setas para navegar; espaço ou enter alternam o bit.</p>
+              <div class="coin-panel reveal-block" id="coin-panel">
+                <div class="coin-head">
+                  <span class="coin-label" aria-hidden="true">jogadas</span>
+                  <span class="coin-counter" id="coin-counter">000/256</span>
+                </div>
+                <p class="coin-help" id="coin-help">jogue a moeda 256 vezes e registre cada resultado: cara marca 1, coroa marca 0. Cada jogada ocupa uma coordenada sorteada.</p>
+                <div class="coin-choices" role="group" aria-label="Resultado da moeda" aria-describedby="coin-help">
+                  <button type="button" id="coin-cara" aria-label="Cara: marcar 1 e passar para a próxima jogada">cara · 1</button>
+                  <button type="button" id="coin-coroa" aria-label="Coroa: marcar 0 e passar para a próxima jogada">coroa · 0</button>
+                </div>
+                <p class="coin-last" id="coin-last"></p>
+                <div class="chips coin-fix" role="group" aria-label="Corrigir as jogadas">
+                  <button type="button" id="coin-undo">desfazer</button>
+                  <span class="dot-sep" aria-hidden="true">·</span>
+                  <button type="button" id="coin-reset">recomeçar</button>
+                </div>
+                <p class="sr-only" id="coin-status" role="status" aria-live="polite"></p>
               </div>
 
               <div class="chips app-gap reveal-block bits-actions chips-dots" role="group" aria-label="Entrada de bits">
                 <button type="button" id="bits-mode" aria-label="Mostrar a entrada por coordenadas">coordenadas</button>
                 <span class="dot-sep" aria-hidden="true">·</span>
-                <button type="button" id="bits-random" aria-label="Gerar 256 bits aleatórios e preencher o tabuleiro">gerar bits</button>
+                <button type="button" id="bits-random" aria-label="Sortear 256 bits aleatórios e preencher as jogadas">gerar bits</button>
               </div>
 
               <div class="entropy-block reveal-block" id="entropy-block">
@@ -2287,7 +2308,7 @@
           <div class="prose reveal-block">
             <h3>o que este arquivo faz</h3>
             <ul>
-              <li>lê 256 bits marcados no tabuleiro, digitados como coordenadas a0–z5 ou gerados pelo botão de bits aleatórios;</li>
+              <li>registra 256 jogadas de moeda (cara = 1, coroa = 0), que também podem ser digitadas como coordenadas a0–z5 ou sorteadas pelo botão de bits aleatórios;</li>
               <li>mostra o mnemonic de 24 palavras e os 256 bits em binário;</li>
               <li>deriva a seed BIP39 (passphrase vazia), a raiz BIP32 e as contas BIP44/49/84/86 no mainnet;</li>
               <li>mostra as chaves privadas e as xpubs das contas BIP44/49/84/86, com os caminhos de recebimento (/0/*) e troco (/1/*); as públicas têm o botão de copiar;</li>
@@ -3974,10 +3995,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var coordsPanel = $('#coords-panel');
   var modeBtn = $('#bits-mode');
   var randomBtn = $('#bits-random');
-  var boardOn = true;
-  var boardPanel = $('#board-panel');
-  var boardGrid = $('#board-grid');
-  var boardPath = [];
+  var coinOn = true;
+  var coinPanel = $('#coin-panel');
+  var coinCara = $('#coin-cara');
+  var coinCoroa = $('#coin-coroa');
+  var coinUndo = $('#coin-undo');
+  var coinReset = $('#coin-reset');
+  var coinCounter = $('#coin-counter');
+  var coinLast = $('#coin-last');
+  var coinStatus = $('#coin-status');
+  var markedPath = [];
   var bitsValue = '';
   var psbtCell = $('#psbt');
   var psbtValue = $('#psbt-value');
@@ -4014,11 +4041,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     el.textContent = text ? PREFIX[kind] + ' ' + text : '';
   }
 
-  /* --------------------------------------------------------- tabuleiro */
-  var BOARD_COLS = 16;
-  var BOARD_BITS = 256;
-  var boardCells = [];
-  var boardActive = 0;
+  /* ---------------------------------------------- entrada por jogadas */
+  var BIT_COUNT = 256;
+  /* tosses: as jogadas na ordem em que foram registradas (index + bit).
+     freeCoords: as coordenadas ainda sem jogada, em ordem sorteada.
+     markedPath: as coordenadas que ficaram em 1, que é o que o campo de
+     coordenadas mostra e o que vira entropia. */
+  var tosses = [];
+  var freeCoords = [];
 
   function padDigits(value, size) {
     var text = String(value);
@@ -4027,66 +4057,29 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* Coordenada do bit: letra de a a z e dígito de 0 a 9, na ordem de
-     leitura: a0–a9, b0–b9, … até z5. A letra avança a cada 10 células,
-     então o quadrado de 16 colunas não alinha uma letra por linha. */
-  function boardName(index) {
+     leitura: a0–a9, b0–b9, … até z5. */
+  function coordName(index) {
     var letter = Math.floor(index / 10);
     var digit = index % 10;
     return String.fromCharCode(97 + letter) + digit;
   }
 
-  function boardLabel(index) {
-    return boardName(index) + ', bit ' + padDigits(index + 1, 3);
-  }
-
-  /* A grade nasce uma vez: 256 botões, um por bit, com a coordenada visível
-     dentro da área de clique. Só a célula em foco entra no Tab (tabindex 0);
-     as setas andam pela grade e o clique alterna o bit. */
-  (function buildBoard() {
-    for (var index = 0; index < BOARD_BITS; index++) {
-      var cell = document.createElement('button');
-      cell.type = 'button';
-      cell.className = 'board-cell';
-      cell.dataset.index = String(index);
-      cell.setAttribute('aria-label', boardLabel(index));
-      cell.setAttribute('aria-pressed', 'false');
-      cell.tabIndex = index === 0 ? 0 : -1;
-      cell.textContent = boardName(index);
-      boardGrid.appendChild(cell);
-      boardCells.push(cell);
-    }
-  })();
-
-  function boardCellOf(target) {
-    return target && target.closest ? target.closest('.board-cell') : null;
-  }
-
-  function setBoardActive(index, focus) {
-    if (!boardCells.length) return;
-    if (index < 0) index = 0;
-    if (index >= boardCells.length) index = boardCells.length - 1;
-    if (boardCells[boardActive]) boardCells[boardActive].tabIndex = -1;
-    boardActive = index;
-    boardCells[index].tabIndex = 0;
-    if (focus) boardCells[index].focus();
-  }
-
-  /* O conjunto selecionado é a lista boardPath. A ordem não entra nos bits:
-     os 256 saem do conjunto marcado. Sem coordenada não há entropia e a
-     chave antiga cai. */
+  /* O conjunto marcado é a lista markedPath. A ordem das jogadas não entra
+     nos bits: os 256 saem das coordenadas que ficaram em 1. Sem coordenada
+     não há entropia e a chave antiga cai. */
   function bitsFromPath() {
-    if (!boardPath.length) return '';
-    var bits = new Array(BOARD_BITS + 1).join('0').split('');
-    boardPath.forEach(function (index) { bits[index] = '1'; });
+    if (!markedPath.length) return '';
+    var bits = new Array(BIT_COUNT + 1).join('0').split('');
+    markedPath.forEach(function (index) { bits[index] = '1'; });
     return bits.join('');
   }
 
-  /* Coordenada: letra a–z e dígito 0–9, na ordem de leitura do tabuleiro:
+  /* Coordenada: letra a–z e dígito 0–9, na ordem de leitura das jogadas:
      a0–a9, b0–b9, … até z5. O que passa de z5 (z6–z9) não existe. */
   function coordIndex(name) {
     if (!/^[a-z][0-9]$/.test(name)) return -1;
     var index = (name.charCodeAt(0) - 97) * 10 + Number(name.charAt(1));
-    return index < BOARD_BITS ? index : -1;
+    return index < BIT_COUNT ? index : -1;
   }
 
   /* Lê o campo no formato agrupado (a0123456789b…), na ordem digitada e sem
@@ -4134,9 +4127,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return { path: path, text: text };
   }
 
-  /* Embaralha uma lista no lugar. Só o clique no tabuleiro embaralha a
-     ordem guardada em boardPath; Fisher–Yates com o gerador do navegador e,
-     sem ele, Math.random, já que a ordem exibida não é segredo. */
+  /* Embaralha uma lista no lugar. Só a distribuição das jogadas pelas
+     coordenadas usa o sorteio; Fisher–Yates com o gerador do navegador e,
+     sem ele, Math.random, já que a coordenada exibida não é segredo. */
   function shuffleArray(list) {
     var random = Math.random;
     if (window.crypto && window.crypto.getRandomValues) {
@@ -4154,13 +4147,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }
   }
 
-  /* Agrupa boardPath por letra (a0123456789b…), só com as coordenadas
+  /* Agrupa markedPath por letra (a0123456789b…), só com as coordenadas
      marcadas e na ordem em que ela está. */
   function groupedCoords() {
     var byLetter = {};
     var letters = [];
-    boardPath.forEach(function (index) {
-      var name = boardName(index);
+    markedPath.forEach(function (index) {
+      var name = coordName(index);
       var letter = name.charAt(0);
       var digit = name.charAt(1);
       if (!byLetter[letter]) {
@@ -4174,43 +4167,142 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }).join('');
   }
 
-  /* O campo mostra boardPath agrupado por letra, na ordem guardada — que só
-     muda ao clicar no tabuleiro. */
+  /* O campo mostra markedPath agrupado por letra, na ordem guardada — que
+     muda a cada jogada, quando a coordenada sorteada entra na lista. */
   function syncCoords() {
     if (!coordsInput) return;
     var text = groupedCoords();
     if (coordsInput.value !== text) coordsInput.value = text;
   }
 
-  function toggleBoardBit(index) {
-    var at = boardPath.indexOf(index);
-    if (at < 0) boardPath.push(index);
-    else boardPath.splice(at, 1);
-    bitsValue = bitsFromPath();
-    shuffleArray(boardPath);
-    syncCoords();
-    setBoardActive(index, true);
-    applyBits(bitsValue);
+  /* Preenche a fila de coordenadas livres e a sorteia. As marcadas ficam de
+     fora: cada jogada consome uma coordenada que ainda não tinha bit. */
+  function fillFreeCoords() {
+    var marked = {};
+    markedPath.forEach(function (index) { marked[index] = true; });
+    freeCoords = [];
+    for (var i = 0; i < BIT_COUNT; i++) {
+      if (!marked[i]) freeCoords.push(i);
+    }
+    shuffleArray(freeCoords);
   }
 
-  /* O botão aleatório pede 256 bits ao gerador do navegador. Cada bit 1 vira
-     uma coordenada marcada, que é como o tabuleiro e o campo guardam o
-     conjunto; o campo de coordenadas acompanha a nova sequência. O foco não
-     é movido, para gerar de novo ou voltar ao tabuleiro sem perder o lugar. */
+  function samePath(a, b) {
+    if (a.length !== b.length) return false;
+    var set = {};
+    a.forEach(function (index) { set[index] = true; });
+    for (var i = 0; i < b.length; i++) {
+      if (!set[b[i]]) return false;
+    }
+    return true;
+  }
+
+  /* O contador é o número de jogadas registradas, que também é o número de
+     coordenadas já preenchidas. No fim as duas faces ficam bloqueadas; o
+     desfazer devolve a última coordenada à fila. */
+  function paintTosses(message) {
+    var count = tosses.length;
+    var full = count >= BIT_COUNT;
+    if (coinCounter) {
+      coinCounter.textContent = padDigits(count, 3) + '/' + BIT_COUNT;
+      coinCounter.classList.toggle('is-full', full);
+    }
+    if (coinCara) coinCara.disabled = full;
+    if (coinCoroa) coinCoroa.disabled = full;
+    if (coinUndo) coinUndo.disabled = !count;
+    if (coinReset) coinReset.disabled = !count;
+    if (coinLast) {
+      var last = tosses[count - 1];
+      coinLast.textContent = last
+        ? 'última: ' + coordName(last.index) + ' · ' + (last.bit ? 'cara (1)' : 'coroa (0)')
+        : '';
+    }
+    if (coinStatus && message !== undefined) coinStatus.textContent = message;
+  }
+
+  /* Com a sequência incompleta a chave anterior não vale mais, mas a
+     derivação espera a última jogada: 256 chamadas de BIP39 no meio dos
+     cliques segurariam a página sem necessidade. */
+  function discardKey() {
+    deriveSeq++;
+    if (state.hd || state.values || state.analysis) clearKey();
+  }
+
+  /* Registra a face da moeda: a próxima coordenada livre recebe o bit. O
+     clique em coroa também consome a coordenada (bit 0); só cara entra em
+     markedPath, que é o que o campo de coordenadas mostra. */
+  function registerToss(bit) {
+    if (tosses.length >= BIT_COUNT || !freeCoords.length) return;
+    var index = freeCoords.pop();
+    tosses.push({ index: index, bit: bit ? 1 : 0 });
+    if (bit) markedPath.push(index);
+    bitsValue = bitsFromPath();
+    syncCoords();
+    if (tosses.length >= BIT_COUNT) {
+      paintTosses('256 jogadas registradas; os 256 bits estão completos.');
+      applyBits(bitsValue);
+      return;
+    }
+    paintTosses('jogada ' + padDigits(tosses.length, 3) + ' de ' + BIT_COUNT + ': ' +
+      (bit ? 'cara, bit 1' : 'coroa, bit 0') + ', coordenada ' + coordName(index) + '.');
+    discardKey();
+  }
+
+  function undoToss() {
+    var last = tosses.pop();
+    if (!last) return;
+    freeCoords.push(last.index);
+    if (last.bit === 1) {
+      var at = markedPath.indexOf(last.index);
+      if (at >= 0) markedPath.splice(at, 1);
+    }
+    bitsValue = bitsFromPath();
+    syncCoords();
+    paintTosses('jogada desfeita: ' + tosses.length + ' de ' + BIT_COUNT + '.');
+    discardKey();
+  }
+
+  function resetTossRun() {
+    tosses = [];
+    markedPath = [];
+    bitsValue = '';
+    fillFreeCoords();
+    syncCoords();
+    paintTosses('jogadas zeradas.');
+    discardKey();
+  }
+
+  /* As coordenadas digitadas viram o ponto de partida de uma nova sequência:
+     cada marca conta como uma jogada já feita, e as livres entram na fila
+     sorteada. Assim o contador e a fila nunca divergem do conjunto. */
+  function adoptCoords() {
+    tosses = markedPath.map(function (index) {
+      return { index: index, bit: 1 };
+    });
+    fillFreeCoords();
+    paintTosses('coordenadas digitadas: ' + tosses.length + ' de ' + BIT_COUNT + '.');
+  }
+
+  /* O botão aleatório pede 256 bits ao gerador do navegador e preenche a
+     sequência inteira: é como jogar as 256 moedas de uma vez. Cada bit vai
+     para uma coordenada sorteada, então o conjunto marcado é o mesmo que o
+     de 256 cliques aleatórios. */
   function randomizeBits() {
     if (!window.crypto || !window.crypto.getRandomValues) return;
-    var bytes = new Uint8Array(BOARD_BITS / 8);
+    var bytes = new Uint8Array(BIT_COUNT / 8);
     window.crypto.getRandomValues(bytes);
-    var bits = '';
-    for (var i = 0; i < bytes.length; i++) {
-      bits += ('00000000' + bytes[i].toString(2)).slice(-8);
+    tosses = [];
+    markedPath = [];
+    fillFreeCoords();
+    for (var i = 0; i < BIT_COUNT; i++) {
+      var bit = (bytes[i >> 3] >> (7 - (i & 7))) & 1;
+      var index = freeCoords.pop();
+      tosses.push({ index: index, bit: bit });
+      if (bit) markedPath.push(index);
     }
-    boardPath = [];
-    for (var j = 0; j < bits.length; j++) {
-      if (bits.charAt(j) === '1') boardPath.push(j);
-    }
-    bitsValue = bits;
+    bitsValue = bitsFromPath();
     syncCoords();
+    paintTosses('256 jogadas sorteadas; os 256 bits estão completos.');
     applyBits(bitsValue);
   }
 
@@ -4223,47 +4315,23 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }
   }
 
-  boardGrid.addEventListener('click', function (ev) {
-    var cell = boardCellOf(ev.target);
-    if (!cell) return;
-    toggleBoardBit(Number(cell.dataset.index));
-  });
-  boardGrid.addEventListener('focusin', function (ev) {
-    var cell = boardCellOf(ev.target);
-    if (cell) setBoardActive(Number(cell.dataset.index), false);
-  });
-  boardGrid.addEventListener('keydown', function (ev) {
-    var cell = boardCellOf(ev.target);
-    if (!cell) return;
-    var index = Number(cell.dataset.index);
-    var row = Math.floor(index / BOARD_COLS);
-    var col = index % BOARD_COLS;
-    var next = index;
-    if (ev.key === 'ArrowLeft' && col > 0) next = index - 1;
-    else if (ev.key === 'ArrowRight' && col < BOARD_COLS - 1) next = index + 1;
-    else if (ev.key === 'ArrowUp' && row > 0) next = index - BOARD_COLS;
-    else if (ev.key === 'ArrowDown' && index + BOARD_COLS < BOARD_BITS) next = index + BOARD_COLS;
-    else if (ev.key === 'Home') next = ev.ctrlKey || ev.metaKey ? 0 : row * BOARD_COLS;
-    else if (ev.key === 'End') {
-      next = ev.ctrlKey || ev.metaKey
-        ? BOARD_BITS - 1
-        : Math.min(row * BOARD_COLS + BOARD_COLS - 1, BOARD_BITS - 1);
-    }
-    else return;
-    ev.preventDefault();
-    setBoardActive(next, true);
-  });
+  if (coinCara) coinCara.addEventListener('click', function () { registerToss(1); });
+  if (coinCoroa) coinCoroa.addEventListener('click', function () { registerToss(0); });
+  if (coinUndo) coinUndo.addEventListener('click', undoToss);
+  if (coinReset) coinReset.addEventListener('click', resetTossRun);
 
   /* A digitação normaliza o valor no lugar, no formato agrupado e na ordem
      digitada. O grupo em digitação vai para o fim, e o cursor acompanha, de
-     onde a sequência cresce; a ordem do texto passa para boardPath, então o
+     onde a sequência cresce; a ordem do texto passa para markedPath, então o
      campo não se reordena ao sair. Só deriva de novo quando o conjunto de
      bits muda de fato. */
   function onCoordsInput() {
     var parsed = parseCoords(coordsInput.value);
     var before = bitsValue;
-    boardPath = parsed.path;
+    var changed = !samePath(parsed.path, markedPath);
+    markedPath = parsed.path;
     bitsValue = bitsFromPath();
+    if (changed) adoptCoords();
     if (coordsInput.value !== parsed.text) {
       coordsInput.value = parsed.text;
       try {
@@ -4276,7 +4344,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   /* Ao sair do campo, a sequência digitada vira o formato de apresentação:
      agrupada por letra e só com as marcadas, mantendo a ordem do texto. */
   function onCoordsBlur() {
-    boardPath = parseCoords(coordsInput.value).path;
+    markedPath = parseCoords(coordsInput.value).path;
     syncCoords();
   }
 
@@ -4285,22 +4353,23 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     coordsInput.addEventListener('blur', onCoordsBlur);
   }
 
-  /* O botão alterna as duas entradas, como nas 24 palavras: o tabuleiro e o
-     campo de coordenadas ocupam o mesmo quadrado. Ao abrir as coordenadas, o
-     campo mostra a sequência atual e recebe o foco no fim; ao voltar, o foco
-     vai para a célula ativa do tabuleiro. */
-  function setBoardOn(on) {
-    boardOn = on;
+  /* O botão alterna as duas entradas, como nas 24 palavras: o painel de
+     jogadas e o campo de coordenadas ocupam o mesmo lugar. Ao abrir as
+     coordenadas, o campo mostra a sequência atual e recebe o foco no fim; ao
+     voltar, o foco vai para a primeira face da moeda que ainda responde. */
+  function setCoinOn(on) {
+    coinOn = on;
     coordsPanel.hidden = on;
-    boardPanel.hidden = !on;
+    coinPanel.hidden = !on;
     syncCoords();
     if (on) {
       modeBtn.textContent = 'coordenadas';
       modeBtn.setAttribute('aria-label', 'Mostrar a entrada por coordenadas');
-      setBoardActive(boardActive, true);
+      if (coinCara && !coinCara.disabled) coinCara.focus();
+      else if (coinCoroa) coinCoroa.focus();
     } else {
-      modeBtn.textContent = 'tabuleiro';
-      modeBtn.setAttribute('aria-label', 'Mostrar o tabuleiro de bits');
+      modeBtn.textContent = 'moeda';
+      modeBtn.setAttribute('aria-label', 'Mostrar a entrada por jogadas de moeda');
       if (coordsInput) {
         coordsInput.focus();
         var end = coordsInput.value.length;
@@ -4313,14 +4382,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     updateScrollState();
   }
 
-  modeBtn.addEventListener('click', function () { setBoardOn(!boardOn); });
-
-  function renderBoard(bits) {
-    var padded = (String(bits || '').replace(/[^01]/g, '') + new Array(BOARD_BITS + 1).join('0')).slice(0, BOARD_BITS);
-    for (var i = 0; i < boardCells.length; i++) {
-      boardCells[i].setAttribute('aria-pressed', padded.charAt(i) === '1' ? 'true' : 'false');
-    }
-  }
+  modeBtn.addEventListener('click', function () { setCoinOn(!coinOn); });
 
   /* ------------------------------------------------------------- chaves */
   var KEY_CELLS = [
@@ -4393,7 +4455,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       paintKey(cell, state.values ? state.values[id] : '');
     });
   }
-  /* Mnemonic e binários são saída do tabuleiro, não entrada: a frase de 24
+  /* Mnemonic e binários são saída das jogadas, não entrada: a frase de 24
      palavras fica visível, e os 256 bits aparecem em binário. Sem os 256
      bits, as 24 posições e a linha dos bits ficam no travessão, no tom do
      estado vazio. */
@@ -4519,10 +4581,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   /* ---------------------------------------------------------- bits/entrada */
   var BIT_MAX = 256;
 
-  /* A derivação recebe os 256 bits que saem das coordenadas e pinta o
-     tabuleiro. Com menos de 256 bits não há chave, e o estado antigo cai. */
+  /* A derivação recebe os 256 bits que saem das coordenadas. Com menos de
+     256 bits não há chave, e o estado antigo cai. */
   async function applyBits(bits) {
-    renderBoard(bits);
     if (bits.length < BIT_MAX) {
       clearKey();
       return;
@@ -4586,7 +4647,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (signOut) signOut.hidden = true;
     if (signedOut) signedOut.hidden = true;
     if (!state.hd) {
-      setStatus(signStatus, 'erro', 'gere a chave de 256 bits no tabuleiro antes de analisar o psbt.');
+      setStatus(signStatus, 'erro', 'complete as 256 jogadas antes de analisar o psbt.');
       return;
     }
     var text = psbtText.trim();
@@ -4619,7 +4680,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     analyzeTimer = 0;
     if (!psbtText.trim()) return;
     if (!state.hd) {
-      setStatus(signStatus, 'erro', 'gere a chave de 256 bits no tabuleiro antes de analisar o psbt.');
+      setStatus(signStatus, 'erro', 'complete as 256 jogadas antes de analisar o psbt.');
       return;
     }
     setStatus(signStatus, 'neutro', 'analisando...');
@@ -5175,6 +5236,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   updateThemeButton();
   syncThemeColor();
   syncFavicon();
+  fillFreeCoords();
+  paintTosses('');
   applyBits(bitsValue);
   paintPsbt('');
   buildKeyCells();
