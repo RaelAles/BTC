@@ -4090,31 +4090,43 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   /* Lê o campo no formato agrupado (a0123456789b…), na ordem digitada e sem
      repetir. Cada letra abre o seu grupo e os dígitos seguintes pertencem a
-     ela até a próxima letra; espaço, vírgula e outros sinais separam. Dígito
-     inválido (z6–z9) ou repetido é descartado. O texto devolvido é o próprio
-     campo já agrupado, com o grupo em digitação no fim para a próxima tecla
-     cair nele. */
+     ela até a próxima letra; espaço, vírgula e outros sinais separam. Como a
+     coordenada é sempre uma letra seguida de números (a0–z5), uma letra logo
+     depois de outra é descartada: duas letras seguidas não formam coordenada.
+     Dígito inválido (z6–z9) ou repetido também é descartado. O texto devolvido
+     é o próprio campo já agrupado, com o grupo em digitação no fim para a
+     próxima tecla cair nele. dropped diz se alguma letra seguida caiu. */
   function parseCoords(value) {
     var raw = String(value).toLowerCase().replace(/[^a-z0-9]/g, '');
     var seen = {};
     var groups = [];
     var groupOf = {};
     var current = null;
+    var lastWasLetter = false;
+    var dropped = false;
     var i = 0;
     while (i < raw.length) {
       var ch = raw.charAt(i);
       if (ch >= 'a' && ch <= 'z') {
-        current = groupOf[ch];
-        if (!current) {
-          current = { letter: ch, digits: [] };
-          groupOf[ch] = current;
-          groups.push(current);
+        if (lastWasLetter) {
+          dropped = true;
+        } else {
+          current = groupOf[ch];
+          if (!current) {
+            current = { letter: ch, digits: [] };
+            groupOf[ch] = current;
+            groups.push(current);
+          }
+          lastWasLetter = true;
         }
-      } else if (current) {
-        var index = coordIndex(current.letter + ch);
-        if (index >= 0 && !seen[index]) {
-          seen[index] = true;
-          current.digits.push(ch);
+      } else {
+        lastWasLetter = false;
+        if (current) {
+          var index = coordIndex(current.letter + ch);
+          if (index >= 0 && !seen[index]) {
+            seen[index] = true;
+            current.digits.push(ch);
+          }
         }
       }
       i += 1;
@@ -4130,7 +4142,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       g.digits.forEach(function (digit) { path.push(coordIndex(g.letter + digit)); });
       return g.letter + g.digits.join('');
     }).join('');
-    return { path: path, text: text };
+    return { path: path, text: text, dropped: dropped };
   }
 
   /* Embaralha uma lista no lugar. Só a exibição das coordenadas no fim das
@@ -4322,6 +4334,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   if (coinCara) coinCara.addEventListener('click', function () { registerToss(1); });
   if (coinCoroa) coinCoroa.addEventListener('click', function () { registerToss(0); });
 
+  var COORD_TWO_LETTERS = 'cada coordenada é uma letra e até dez dígitos (a0, a1, …); duas letras seguidas não valem.';
+
   /* A digitação normaliza o valor no lugar, no formato agrupado e na ordem
      digitada. O grupo em digitação vai para o fim, e o cursor acompanha, de
      onde a sequência cresce; a ordem do texto passa para markedPath, então o
@@ -4330,6 +4344,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function onCoordsInput() {
     coordsDirty = true;
     var parsed = parseCoords(coordsInput.value);
+    if (coinStatus) {
+      if (parsed.dropped) coinStatus.textContent = COORD_TWO_LETTERS;
+      else if (coinStatus.textContent === COORD_TWO_LETTERS) coinStatus.textContent = '';
+    }
     var before = bitsValue;
     var changed = !samePath(parsed.path, markedPath);
     markedPath = parsed.path;
