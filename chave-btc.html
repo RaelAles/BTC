@@ -2217,8 +2217,6 @@
                 <button type="button" id="bits-mode" aria-label="Mostrar a entrada por coordenadas">coordenadas</button>
                 <span class="dot-sep" aria-hidden="true">·</span>
                 <button type="button" id="bits-random" aria-label="Sortear 256 bits aleatórios e preencher as jogadas">gerar bits</button>
-                <span class="dot-sep" aria-hidden="true">·</span>
-                <button type="button" id="coin-reset">recomeçar</button>
               </div>
               <p class="sr-only" id="coin-status" role="status" aria-live="polite"></p>
 
@@ -4011,7 +4009,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var coinPanel = $('#coin-panel');
   var coinCara = $('#coin-cara');
   var coinCoroa = $('#coin-coroa');
-  var coinReset = $('#coin-reset');
   var coinCounter = $('#coin-counter');
   var coinLast = $('#coin-last');
   var coinStatus = $('#coin-status');
@@ -4228,7 +4225,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }
     if (coinCara) coinCara.disabled = full;
     if (coinCoroa) coinCoroa.disabled = full;
-    if (coinReset) coinReset.disabled = !count;
     if (coinLast) {
       var last = tosses[count - 1];
       coinLast.textContent = last
@@ -4328,7 +4324,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   if (coinCara) coinCara.addEventListener('click', function () { registerToss(1); });
   if (coinCoroa) coinCoroa.addEventListener('click', function () { registerToss(0); });
-  if (coinReset) coinReset.addEventListener('click', resetTossRun);
 
   /* A digitação normaliza o valor no lugar, no formato agrupado e na ordem
      digitada. O grupo em digitação vai para o fim, e o cursor acompanha, de
