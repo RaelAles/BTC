@@ -2049,10 +2049,9 @@
   }
   .coin-counter.is-full { color: var(--support); }
   /* As duas faces da moeda dividem a largura num alvo alto, metade da coluna
-     cada: o número ocupa o meio do botão e o nome da face fica embaixo, então
-     o clique não depende de acertar uma linha de texto. A moldura é a mesma
-     dos campos, o hover sobe para o --accent e a pressão assume o --support
-     do restante dos controles. */
+     cada: o número ocupa o meio do botão, então o clique não depende de
+     acertar uma linha de texto. A moldura é a mesma dos campos, o hover sobe
+     para o --accent e a pressão assume o --support do restante dos controles. */
   .coin-choices {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2077,19 +2076,11 @@
     font-weight: 700;
     line-height: 1;
   }
-  .coin-face {
-    color: var(--dim);
-    font-size: var(--text-xs);
-    line-height: 1;
-    letter-spacing: .12em;
-  }
   .coin-choices button:hover { border-color: var(--accent); }
-  .coin-choices button:hover .coin-face { color: var(--fg); }
   .coin-choices button:active,
   .coin-choices button:active:hover { border-color: var(--support); }
   .coin-choices button:disabled,
   .coin-choices button:disabled:hover { border-color: var(--line); }
-  .coin-choices button:disabled .coin-face { color: var(--dim); }
   .coin-last {
     margin: 0;
     /* Uma linha fixa: o texto troca a cada jogada e o espaço já fica
@@ -2198,17 +2189,15 @@
 
               <div class="coin-panel reveal-block" id="coin-panel">
                 <div class="coin-head">
-                  <span class="coin-head-label">jogadas</span>
+                  <span class="coin-head-label">rodada</span>
                   <span class="coin-counter" id="coin-counter">000/256</span>
                 </div>
                 <div class="coin-choices" role="group" aria-label="Registrar a face da moeda">
                   <button type="button" id="coin-cara" aria-label="1, cara: registrar a jogada e passar para a próxima">
                     <span class="coin-bit" aria-hidden="true">1</span>
-                    <span class="coin-face" aria-hidden="true">cara</span>
                   </button>
                   <button type="button" id="coin-coroa" aria-label="0, coroa: registrar a jogada e passar para a próxima">
                     <span class="coin-bit" aria-hidden="true">0</span>
-                    <span class="coin-face" aria-hidden="true">coroa</span>
                   </button>
                 </div>
                 <p class="coin-last" id="coin-last"></p>
@@ -4387,7 +4376,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       if (coinCara && !coinCara.disabled) coinCara.focus();
       else if (coinCoroa) coinCoroa.focus();
     } else {
-      modeBtn.textContent = 'moeda';
+      modeBtn.textContent = 'gerar';
       modeBtn.setAttribute('aria-label', 'Mostrar a entrada por jogadas de moeda');
       if (coordsInput) {
         coordsInput.focus();
