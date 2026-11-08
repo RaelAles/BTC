@@ -4017,9 +4017,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var coinStatus = $('#coin-status');
   var markedPath = [];
   var coordsDirty = false;
-  /* Marca se o conjunto atual veio da digitação de coordenadas. Ao voltar
-     para as jogadas, essa digitação é descartada por inteiro. */
-  var coordsTyped = false;
   var bitsValue = '';
   var psbtCell = $('#psbt');
   var psbtValue = $('#psbt-value');
@@ -4255,7 +4252,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      marcadas é embaralhada só para a exibição. */
   function registerToss(bit) {
     if (tosses.length >= BIT_COUNT || !freeCoords.length) return;
-    coordsTyped = false;
     var index = freeCoords.shift();
     tosses.push({ index: index, bit: bit ? 1 : 0 });
     if (bit) markedPath.push(index);
@@ -4278,7 +4274,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function resetTossRun() {
     tosses = [];
     markedPath = [];
-    coordsTyped = false;
     bitsValue = '';
     fillFreeCoords();
     clearCoordsInput();
@@ -4290,7 +4285,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      cada marca conta como uma jogada já feita, e as livres ficam na fila em
      ordem crescente. Assim o contador e a fila nunca divergem do conjunto. */
   function adoptCoords() {
-    coordsTyped = true;
     tosses = markedPath.map(function (index) {
       return { index: index, bit: 1 };
     });
@@ -4307,7 +4301,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     window.crypto.getRandomValues(bytes);
     tosses = [];
     markedPath = [];
-    coordsTyped = false;
     fillFreeCoords();
     for (var i = 0; i < BIT_COUNT; i++) {
       var bit = (bytes[i >> 3] >> (7 - (i & 7))) & 1;
@@ -4378,14 +4371,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      jogadas e o campo de coordenadas ocupam o mesmo lugar. Ao abrir as
      coordenadas, o campo mostra a sequência atual e recebe o foco no fim; ao
      voltar, o foco vai para a primeira face da moeda que ainda responde. A
-     digitação de coordenadas não sobrevive à volta: o campo esvazia e a
-     sequência recomeça do zero, sem herdar os bits digitados. */
+     volta para as jogadas sempre zera o campo de coordenadas e a sequência,
+     sem herdar bits digitados nem jogadas anteriores. */
   function setCoinOn(on) {
     coinOn = on;
     coordsPanel.classList.toggle('is-off', on);
     coinPanel.classList.toggle('is-off', !on);
-    if (on && coordsTyped) resetTossRun();
-    else if (on && tosses.length < BIT_COUNT) clearCoordsInput();
+    if (on) resetTossRun();
     if (on) {
       modeBtn.textContent = 'coordenadas';
       modeBtn.setAttribute('aria-label', 'Mostrar a entrada por coordenadas');
