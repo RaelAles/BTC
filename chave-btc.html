@@ -2099,6 +2099,7 @@
     line-height: 1.6;
     color: var(--dim);
     font-size: var(--text-xs);
+    text-align: center;
   }
   /* Mnemonic e binários são saída das jogadas, não entrada: a frase de 24
      palavras sempre visível, em 3 colunas de 8 linhas, na mesma largura do
@@ -4235,7 +4236,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (coinLast) {
       var last = tosses[count - 1];
       coinLast.textContent = last && last.at
-        ? 'última jogada às ' + clockOf(last.at)
+        ? clockOf(last.at)
         : '--:--:--';
     }
     if (coinStatus && message !== undefined) coinStatus.textContent = message;
