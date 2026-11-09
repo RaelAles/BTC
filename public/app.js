@@ -788,12 +788,13 @@
   }
 
   /* ---------------------------------------------------------- enviar */
-  /* Níveis de prioridade da taxa, na ordem do formulário. O rótulo é o nome
-     que a tela mostra; a taxa de cada nível vem do /api/fees e o custo em
-     BTC, do preview do valor e do destino digitados. */
+  /* FEE_ORDER é a ordem das chaves na tela, do prazo mais longo ao mais
+     curto; o rótulo que aparece é o prazo médio ("1 dia", "1 hora",
+     "30 minutos", "10 minutos"). A taxa de cada nível vem do /api/fees e o
+     custo em BTC, do preview do valor e do destino digitados. */
   var FEE_ORDER = ['minimum', 'standard', 'high', 'urgent'];
   /* Ordem de preferência quando o nível escolhido deixa de ter estimativa:
-     o padrão é a escolha natural; a mínima é o último recurso. */
+     o padrão (1 h) é a escolha natural; a de 1 dia é o último recurso. */
   var FEE_PREF = ['standard', 'high', 'urgent', 'minimum'];
   var FEE_MAX = 10000;
 

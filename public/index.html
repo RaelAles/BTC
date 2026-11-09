@@ -115,33 +115,36 @@
 
               <div id="fee-section" hidden>
                 <div class="field-row">
-                  <span class="field-label" id="fee-label">taxa</span>
+                  <span class="field-label" id="fee-label">taxa · prazo médio</span>
                   <span class="field-meta" id="fee-updated">calculando…</span>
                 </div>
                 <div class="field-checks fee-levels" id="fee-levels" role="radiogroup"
                      aria-labelledby="fee-label">
+                  <!-- O prazo é a média de FEE_TARGETS (src/electrum.js), a
+                       10 min por bloco: 144 blocos ≈ 1 dia, 6 ≈ 1 h, 3 ≈
+                       30 min, 1 ≈ 10 min. É ordem de grandeza, não promessa. -->
                   <label class="field-choice fee-level" data-level="minimum">
                     <input type="radio" name="fee-level" value="minimum">
                     <span class="field-choice-mark" aria-hidden="true"></span>
-                    <span class="fee-level-name">mínima</span>
+                    <span class="fee-level-name">1 dia</span>
                     <span class="fee-level-cost"><span class="fee-level-btc">—</span><span class="fee-level-pct"></span></span>
                   </label>
                   <label class="field-choice fee-level" data-level="standard">
                     <input type="radio" name="fee-level" value="standard" checked>
                     <span class="field-choice-mark" aria-hidden="true"></span>
-                    <span class="fee-level-name">padrão</span>
+                    <span class="fee-level-name">1 hora</span>
                     <span class="fee-level-cost"><span class="fee-level-btc">—</span><span class="fee-level-pct"></span></span>
                   </label>
                   <label class="field-choice fee-level" data-level="high">
                     <input type="radio" name="fee-level" value="high">
                     <span class="field-choice-mark" aria-hidden="true"></span>
-                    <span class="fee-level-name">alta</span>
+                    <span class="fee-level-name">30 minutos</span>
                     <span class="fee-level-cost"><span class="fee-level-btc">—</span><span class="fee-level-pct"></span></span>
                   </label>
                   <label class="field-choice fee-level" data-level="urgent">
                     <input type="radio" name="fee-level" value="urgent">
                     <span class="field-choice-mark" aria-hidden="true"></span>
-                    <span class="fee-level-name">urgente</span>
+                    <span class="fee-level-name">10 minutos</span>
                     <span class="fee-level-cost"><span class="fee-level-btc">—</span><span class="fee-level-pct"></span></span>
                   </label>
                 </div>

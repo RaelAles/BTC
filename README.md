@@ -17,9 +17,9 @@ tela mostra:
    sucesso), **enviado** (com sinal `-`, no tom do erro) e **saldo** de cada
    um, cinco por página, na tela **histórico**;
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e taxa em um
-   **grupo de níveis** — `mínima`, `padrão`, `alta` e `urgente` —, cada um
-   com o **custo em BTC e o percentual sobre o valor**, para o valor e o
-   destino digitados. A taxa de cada nível vem **ao vivo** pelo `/api/fees`.
+   **grupo de níveis** rotulado pelo **prazo médio de confirmação** — `1 dia`,
+   `1 hora`, `30 minutos` e `10 minutos` —, cada um com o **custo em BTC e o
+   percentual sobre o valor**, para o valor e o destino digitados. A taxa de cada nível vem **ao vivo** pelo `/api/fees`.
    O seletor só aparece quando há valor e destino válidos; sem os dois, o
    custo não teria o que cotar. Os níveis são rádios nativos: clique ou
    setas escolhem, e o PSBT usa a taxa do nível escolhido. A quantidade usa
@@ -89,8 +89,9 @@ blockchain.info, nem chave privada em lugar nenhum.
   p2sh-p2wpkh leva o `redeem_script`. O pó (abaixo de 0.00000546 BTC) não vira
   saída de troco: é somado à taxa.
 - **Taxa ao vivo**: `GET /api/fees` pergunta `blockchain.estimatefee` para
-  144, 6, 3 e 1 bloco (mínima, padrão, alta e urgente) e converte BTC/kvB em
-  sat/vB inteiro. A tela reconsulta a cada 60 s enquanto está aberta e mostra
+  144, 6, 3 e 1 bloco, que a tela mostra como prazo médio de 1 dia, 1 hora,
+  30 minutos e 10 minutos (a 10 min por bloco), e converte BTC/kvB em sat/vB
+  inteiro. A tela reconsulta a cada 60 s enquanto está aberta e mostra
   o custo em BTC e o percentual de cada nível para o valor e o destino
   digitados.
 - **Todos os endereços usados** dos quatro tipos vão para a resposta; os
@@ -529,9 +530,12 @@ entra no Worker nem na resposta.
 ### `GET /api/fees?session=<id opcional>`
 
 Taxa ao vivo pelo `blockchain.estimatefee` do Electrum, em quatro alvos:
-144 blocos (`minimum`, ~1 dia), 6 (`standard`, ~1 h), 3 (`high`, ~30 min) e
-1 (`urgent`, ~1 bloco; o Bitcoin Core trata o alvo 1 como 2, o menor que ele
-estima). O valor vira sat/vB inteiro, arredondado para cima; se o servidor
+144 blocos (`minimum`, prazo médio de 1 dia), 6 (`standard`, 1 h), 3 (`high`,
+30 min) e 1 (`urgent`, 10 min; o Bitcoin Core trata o alvo 1 como 2, o menor
+que ele estima). O prazo que a tela mostra é `alvo × 10 min`, a média do
+intervalo entre blocos: o `estimatefee` devolve só a taxa, sem prazo nem
+probabilidade, então o número é ordem de grandeza, não previsão. O valor vira
+sat/vB inteiro, arredondado para cima; se o servidor
 não estimar um nível, ele vem `null` e a tela desabilita aquele nível. Nada
 é somado para separar níveis: estimativas que caem no mesmo inteiro (1,003 e
 1,076 sat/vB viram 2 as duas) aparecem com o mesmo sat/vB e o mesmo custo em

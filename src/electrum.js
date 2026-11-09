@@ -314,8 +314,11 @@ export async function transactionsMany(client, txids, opts) {
 /* Taxa ao vivo: `blockchain.estimatefee` devolve BTC/kvB para um alvo em
    blocos. Quatro alvos cobrem a escolha da tela, em ordem de prioridade:
    mínima (144 blocos ≈ 1 dia), padrão (6 ≈ 1 h), alta (3 ≈ 30 min) e
-   urgente (1 bloco; o Bitcoin Core trata o alvo 1 como 2, o menor que ele
-   estima). O valor vira sat/vB inteiro, arredondado para cima; servidor que
+   urgente (1 bloco ≈ 10 min; o Bitcoin Core trata o alvo 1 como 2, o menor
+   que ele estima). A tela mostra essas chaves como prazo médio, sem citar
+   bloco: o tempo é alvo × 10 min, a média do intervalo entre blocos, não uma
+   previsão do `estimatefee`. O valor vira sat/vB inteiro, arredondado para
+   cima; servidor que
    responde -1 fica sem estimativa naquele nível (null) e a tela desabilita
    aquele nível.
 

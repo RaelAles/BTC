@@ -42,14 +42,14 @@ function mapFind(map, type) {
     'BTC/kvB → sat/vB inteiro');
   assert.deepEqual(r.j.targets, { minimum: 144, standard: 6, high: 3, urgent: 1 });
   assert.equal(r.j.source, 'electrum');
-  console.log('ok   taxa ao vivo em quatro níveis (mínima, padrão, alta, urgente)');
+  console.log('ok   taxa ao vivo em quatro níveis (1 dia, 1 h, 30 min, 10 min)');
   await fake.close();
 }
 
 /* ---------------- 1b. estimativas iguais continuam iguais ---------------- */
 {
   /* 1,003, 1,076 e 1,299 sat/vB viram 2 no teto inteiro: os três níveis
-     mostram 2, sem a escada artificial de +1 sat/vB. A mínima, 0,113
+     mostram 2, sem a escada artificial de +1 sat/vB. A de 1 dia, 0,113
      sat/vB, continua em 1. */
   const fake = await startFakeElectrum({
     fees: { 1: 0.00001299, 3: 0.00001076, 6: 0.00001003, 144: 0.00000113 }
@@ -253,7 +253,7 @@ function mapFind(map, type) {
   });
   assert.deepEqual(quoted.quotes.map(q => q.fee_rate), [1, 2, 6, 12]);
   assert.equal(quoted.quotes[0].fee_sats, Math.ceil(1 * quoted.quotes[0].vsize));
-  assert.ok(quoted.quotes[0].fee_sats < quoted.quotes[3].fee_sats, 'a urgente custa mais que a mínima');
+  assert.ok(quoted.quotes[0].fee_sats < quoted.quotes[3].fee_sats, 'a taxa dos 10 min custa mais que a de 1 dia');
   const tooExpensive = sendLimits({
     utxos, address: destination, feeRate: 4, amountSats: 120000,
     changeScript: change.script, quoteRates: [10000]

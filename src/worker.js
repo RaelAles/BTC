@@ -16,7 +16,8 @@ import BTC from './btc-core.js';
                          da carteira e a taxa escolhida. A chave privada
                          não passa por aqui; quem assina é o projeto 1.
    `GET  /api/fees`    → taxa estimada pelo Electrum em quatro níveis
-                         (mínima, padrão, alta, urgente), em sat/vB.
+                         (minimum, standard, high, urgent; a tela mostra o
+                         prazo médio de 1 dia, 1 h, 30 min e 10 min), em sat/vB.
    `GET  /api/events?session=…` → WebSocket do Durable Object, que empurra
                          o estado novo quando um scripthash muda.
    `GET  /api/health`  → configuração efetiva.
