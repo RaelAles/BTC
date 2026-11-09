@@ -18,20 +18,17 @@ tela mostra:
    um, cinco por página, na tela **histórico**;
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e taxa em um
    **grupo de níveis** — `mínima`, `padrão`, `alta` e `urgente` —, cada um
-   com o **custo em BTC para o valor e o destino digitados**. A taxa em
-   sat/vB de cada nível vem **ao vivo** pelo `/api/fees` e é mostrada na
-   leitura acima das opções, com o tempo de confirmação. O seletor só
-   aparece quando há valor e destino válidos; sem os dois, o custo não teria
-   o que cotar. Os níveis são rádios nativos: clique ou setas escolhem, e o
-   PSBT usa a taxa do nível escolhido. A quantidade usa máscara de BTC:
-   o usuário digita só dígitos e o ponto entra sozinho, da direita para a
-   esquerda (`1` → `0.00000001`, `12345678` → `0.12345678`). A legenda abaixo
-   do campo mostra o valor a enviar e a taxa **separados**, com a porcentagem
-   que a taxa representa do valor; sem valor digitado, mostra o máximo
-   enviável. O botão **criar psbt** fica bloqueado abaixo do pó
-   (0.00000546 BTC) e acima
-   do máximo enviável (saldo − taxa), calculado no servidor para o destino e a
-   taxa escolhidos.
+   com o **custo em BTC e o percentual sobre o valor**, para o valor e o
+   destino digitados. A taxa de cada nível vem **ao vivo** pelo `/api/fees`.
+   O seletor só aparece quando há valor e destino válidos; sem os dois, o
+   custo não teria o que cotar. Os níveis são rádios nativos: clique ou
+   setas escolhem, e o PSBT usa a taxa do nível escolhido. A quantidade usa
+   máscara de BTC: o usuário digita só dígitos e o ponto entra sozinho, da
+   direita para a esquerda (`1` → `0.00000001`, `12345678` → `0.12345678`).
+   A nota abaixo do campo mostra o máximo enviável para o destino e a taxa
+   escolhidos. O botão **criar psbt** fica bloqueado abaixo do pó
+   (0.00000546 BTC) e acima do máximo enviável (saldo − taxa), calculado no
+   servidor para o destino e a taxa escolhidos.
    O PSBT sai sem assinatura, com troco, em base64 para copiar ou baixar.
    Quem assina é o `chave-btc.html` (projeto 1), offline; o projeto 2 nunca
    vê chave privada.
@@ -91,7 +88,8 @@ blockchain.info, nem chave privada em lugar nenhum.
 - **Taxa ao vivo**: `GET /api/fees` pergunta `blockchain.estimatefee` para
   144, 6, 3 e 1 bloco (mínima, padrão, alta e urgente) e converte BTC/kvB em
   sat/vB inteiro. A tela reconsulta a cada 60 s enquanto está aberta e mostra
-  o custo em BTC de cada nível para o valor e o destino digitados.
+  o custo em BTC e o percentual de cada nível para o valor e o destino
+  digitados.
 - **Todos os endereços usados** dos quatro tipos vão para a resposta; os
   outros tipos também entram no saldo total (união), não só o detectado.
 - **Sem cache durável**: cada consulta deriva e consulta de novo. Enquanto a
@@ -596,10 +594,11 @@ e `ypub` de 111 caracteres entram, disparam a consulta sozinha e carregam a
 carteira. A página abre sempre com o campo vazio, inclusive depois de
 recarregar. O bloco **enviar** também foi conferido no Chromium: o seletor
 de taxa só aparece depois de valor e destino válidos, os quatro níveis
-mostram o custo em BTC do Electrum falso, a escolha por rádio muda a taxa do
-PSBT, o PSBT aparece em base64 e some ao editar o formulário. Um PSBT gerado
-pelo montador (bip84 e troco) foi analisado e assinado pelo próprio código do
-`chave-btc.html` em Chromium headless, com o troco reconhecido como interno.
+mostram o custo em BTC e o percentual do Electrum falso, a escolha por rádio
+muda a taxa do PSBT, o PSBT aparece em base64 e some ao editar o formulário.
+Um PSBT gerado pelo montador (bip84 e troco) foi analisado e assinado pelo
+próprio código do `chave-btc.html` em Chromium headless, com o troco
+reconhecido como interno.
 
 O `watcher.test.mjs` usa um par de WebSocket mínimo e um `storage` que lança
 em qualquer acesso para exercitar o Durable Object sem Cloudflare: assinatura

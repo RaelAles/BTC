@@ -1783,17 +1783,10 @@
   #send-amount-hint { margin: var(--space-2) 0 0; }
   #send-amount-hint.is-error { color: var(--error); }
   #fee-section[hidden] { display: none; }
-  /* O nível escolhido é o dado principal do controle: fica no tom do texto,
-     acima das opções, com o tempo de confirmação logo depois. */
-  .fee-readout {
-    margin: 0 0 var(--space-3);
-    color: var(--fg);
-    font-size: var(--text-base);
-  }
   /* Uma opção por linha: o marcador e o nome ocupam a esquerda e o custo
-     encosta na direita, alinhado pela base como as linhas de dados. O grupo
-     herda o desenho do .field-checks/.field-choice; aqui só a coluna e o
-     custo ganham regra. */
+     com o percentual encosta na direita, alinhado pela base como as linhas
+     de dados. O grupo herda o desenho do .field-checks/.field-choice; aqui
+     só a coluna e o custo ganham regra. */
   .fee-levels {
     display: grid;
     grid-template-columns: 1fr;
@@ -1801,6 +1794,7 @@
   }
   .fee-level {
     display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
     gap: var(--space-2);
     min-height: var(--target-size);
@@ -1811,6 +1805,9 @@
     text-transform: none;
     white-space: nowrap;
   }
+  /* O percentual é do valor enviado, não do custo: fica em --dim ao lado do
+     BTC para o número principal continuar sendo o custo. */
+  .fee-level-pct { color: var(--dim); }
   .fee-level.is-empty,
   .fee-level.is-empty:hover { color: var(--dim); cursor: default; }
   .fee-level.is-empty .fee-level-cost { color: var(--dim); }

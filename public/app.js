@@ -240,7 +240,6 @@
   /* Níveis de prioridade da taxa, na ordem do formulário. O rótulo é o nome
      que a tela mostra; a taxa de cada nível vem do /api/fees e o custo em
      BTC, do preview do valor e do destino digitados. */
-  var FEE_LABEL = { minimum: 'mínima', standard: 'padrão', high: 'alta', urgent: 'urgente' };
   var FEE_ORDER = ['minimum', 'standard', 'high', 'urgent'];
   /* Ordem de preferência quando o nível escolhido deixa de ter estimativa:
      o padrão é a escolha natural; a mínima é o último recurso. */
@@ -250,15 +249,6 @@
   function feeRateOf(level) {
     var levels = (state.fees && state.fees.levels) || {};
     return Number(levels[level]) || 0;
-  }
-
-  /* Tempo de confirmação a partir do alvo em blocos (1 bloco ≈ 10 min). */
-  function fmtBlocks(blocks) {
-    var min = Math.round(Number(blocks) * 10);
-    if (!(min > 0)) return '';
-    if (min >= 1440) return '~' + Math.round(min / 1440) + ' dia' + (min >= 2880 ? 's' : '');
-    if (min >= 60) return '~' + Math.round(min / 60) + ' h';
-    return '~' + min + ' min';
   }
 
   /* Valor em BTC com máscara de 8 casas: o usuário digita só dígitos e o
@@ -328,20 +318,10 @@
       problem = 'valor abaixo do mínimo: ' + fmtBtc(DUST_SATS) + ' BTC.';
     } else if (state.limits) {
       var max = Number(state.limits.max_send_sats) || 0;
-      var fee = Number(state.limits.fee_sats);
       hintText = 'máximo ' + fmtBtc(max) + ' BTC.';
       if (max < DUST_SATS) problem = 'saldo insuficiente para enviar com essa taxa.';
       else if (amount > max) {
         problem = 'valor acima do máximo enviável: ' + fmtBtc(max) + ' BTC.';
-      } else if (amount > 0) {
-        /* a taxa do valor digitado vem do mesmo preview que calcula o máximo;
-           enquanto ela não chega, a legenda não mostra número velho */
-        if (state.limits.amount_sats === amount && fee > 0) {
-          hintText = 'envio ' + fmtBtc(amount) + ' BTC · taxa ' + fmtBtc(fee) +
-            ' BTC (' + fmtPercent(fee, amount) + '% do valor)';
-        } else {
-          hintText = 'calculando a taxa…';
-        }
       }
     } else if (state.limitsError) {
       hintText = 'máximo indisponível: ' + state.limitsError;
@@ -452,27 +432,12 @@
     updateSendAvailability();
   }
 
-  /* Desenha a taxa: o nível escolhido e a prioridade acima, e o custo em
-     BTC de cada nível nas opções abaixo. O grupo de rádio é nativo: o
-     navegador guarda a escolha, anda com as setas e leva o foco ao
-     marcador; o JavaScript só reflete o estado da estimativa. */
+  /* Desenha a taxa: o custo em BTC e o percentual de cada nível nas opções.
+     O grupo de rádio é nativo: o navegador guarda a escolha, anda com as
+     setas e leva o foco ao marcador; o JavaScript só reflete o estado da
+     estimativa. */
   function renderFees() {
-    var rate = feeRateOf(state.feeLevel);
     var levels = (state.fees && state.fees.levels) || {};
-    var readout = $('#fee-readout');
-    if (readout) {
-      if (!(rate > 0)) {
-        readout.textContent = state.feesError
-          ? '[ erro ] estimativa indisponível; tente de novo em instantes'
-          : state.fees
-            ? '[ … ] sem estimativa para este nível'
-            : '[ … ] calculando a taxa…';
-      } else {
-        var blocks = Number(state.fees && state.fees.targets && state.fees.targets[state.feeLevel]) || 0;
-        readout.textContent = rate + ' sat/vB · [ ' + FEE_LABEL[state.feeLevel] + ' ]' +
-          (blocks ? ' · ' + fmtBlocks(blocks) : '');
-      }
-    }
     FEE_ORDER.forEach(function (key) {
       var input = $('input[name="fee-level"][value="' + key + '"]');
       if (!input) return;
@@ -495,10 +460,11 @@
         : 'calculando…';
   }
 
-  /* Custo de cada nível para o valor que está no formulário. Só vale quando
-     o preview respondeu para o mesmo valor e o mesmo destino; fora disso a
-     opção fica em `—`, como manda a regra da tela. Níveis que caem na mesma
-     taxa mostram o mesmo custo: o valor é do sat/vB, não do nome. */
+  /* Custo e percentual de cada nível para o valor que está no formulário. Só
+     vale quando o preview respondeu para o mesmo valor e o mesmo destino;
+     fora disso a opção fica em `—`, como manda a regra da tela. Níveis que
+     caem na mesma taxa mostram o mesmo custo: o valor é do sat/vB, não do
+     nome. */
   function feeQuotes() {
     var cached = state.feeQuotes;
     var amount = amountSats();
@@ -511,13 +477,18 @@
   function renderFeeLevels() {
     var levels = (state.fees && state.fees.levels) || {};
     var quotes = feeQuotes();
+    var amount = amountSats();
     FEE_ORDER.forEach(function (key) {
       var label = $('.fee-level[data-level="' + key + '"]');
       if (!label) return;
       var rate = Number(levels[key]) || 0;
       var fee = rate > 0 ? quotes[rate] : null;
-      var cost = $('.fee-level-cost', label);
-      if (cost) cost.textContent = fee > 0 ? fmtBtc(fee) + ' BTC' : '—';
+      var btc = $('.fee-level-btc', label);
+      var pct = $('.fee-level-pct', label);
+      if (btc) btc.textContent = fee > 0 ? fmtBtc(fee) + ' BTC' : '—';
+      if (pct) pct.textContent = fee > 0 && amount > 0
+        ? ' · ' + fmtPercent(fee, amount) + '%'
+        : '';
     });
   }
 
