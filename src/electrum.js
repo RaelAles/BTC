@@ -315,7 +315,14 @@ export async function transactionsMany(client, txids, opts) {
    blocos. Três alvos cobrem a escolha da tela: baixa (144 blocos ≈ 1 dia),
    média (6 blocos ≈ 1 h) e alta (1 bloco). O valor vira sat/vB inteiro,
    arredondado para cima; servidor que responde -1 fica sem estimativa
-   naquele nível (null), e a tela deixa a taxa personalizada. */
+   naquele nível (null), e a tela deixa a taxa personalizada.
+
+   A unidade inteira achatava níveis distintos: 1,003 e 1,299 sat/vB viram
+   ambos 2 e a tela mostrava média e alta com o mesmo número. Quando o
+   servidor ordena os níveis mas o teto os iguala, o de cima sobe 1 sat/vB
+   para a escada continuar visível e a escolha da tela não repetir opção. O
+   ajuste só acontece se o valor bruto de cima for maior: estimativas
+   realmente iguais continuam iguais. */
 export const FEE_TARGETS = { low: 144, medium: 6, high: 1 };
 
 export async function estimateFees(client) {
@@ -326,9 +333,22 @@ export async function estimateFees(client) {
     client.request('blockchain.estimatefee', [FEE_TARGETS[k]]).catch(() => null)
   ));
   const levels = {};
+  let prevRate = null;
+  let prevRaw = null;
   keys.forEach((k, i) => {
     const v = Number(values[i]);
-    levels[k] = Number.isFinite(v) && v > 0 ? Math.max(1, Math.ceil(v * 100000)) : null;
+    const raw = Number.isFinite(v) && v > 0 ? v * 100000 : null;
+    if (raw == null) {
+      levels[k] = null;
+      prevRate = null;
+      prevRaw = null;
+      return;
+    }
+    let rate = Math.max(1, Math.ceil(raw));
+    if (prevRate != null && raw > prevRaw && rate <= prevRate) rate = prevRate + 1;
+    levels[k] = rate;
+    prevRate = rate;
+    prevRaw = raw;
   });
   return {
     levels,

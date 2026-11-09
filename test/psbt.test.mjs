@@ -45,6 +45,22 @@ function mapFind(map, type) {
   await fake.close();
 }
 
+/* ---------------- 1b. níveis que o teto inteiro iguala ---------------- */
+{
+  /* 1,003 e 1,299 sat/vB viram 2 os dois no teto: a alta sobe para 3 para a
+     escada continuar distinta. A baixa, 0,113 sat/vB, continua em 1. */
+  const fake = await startFakeElectrum({
+    fees: { 1: 0.00001299, 6: 0.00001003, 144: 0.00000113 }
+  });
+  const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
+  const r = await reqFees(env);
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.j.levels, { low: 1, medium: 2, high: 3 },
+    'estimativas distintas não repetem o mesmo sat/vB');
+  console.log('ok   níveis distintos mesmo quando o teto inteiro os iguala');
+  await fake.close();
+}
+
 /* ---------------- 2. envio bip84 acima da varredura do assinante ---------------- */
 {
   const account = parseXpub(hd.accounts.bip84.xpub);

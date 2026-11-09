@@ -16,9 +16,12 @@ tela mostra:
    recente para o mais antigo, com **recebido** (com sinal `+`, no verde do
    sucesso), **enviado** (com sinal `-`, no tom do erro) e **saldo** de cada
    um, cinco por página, na tela **histórico**;
-4. **enviar BTC** abaixo dos endereços: quantidade, destino e taxa em
-   quatro escolhas — baixa, média, alta ou personalizada —, com a taxa em
-   sat/vB estimada **ao vivo** pelo Electrum. A quantidade usa máscara de BTC:
+4. **enviar BTC** abaixo dos endereços: quantidade, destino e taxa em um
+   **controle deslizante** — a barra aponta a posição em escala logarítmica
+   de 1 a 10 000 sat/vB, com o valor exato na caixa ao lado —, e a taxa em
+   sat/vB estimada **ao vivo** pelo Electrum (`baixa`, `média` e `alta`
+   aparecem no lugar da barra quando o valor cai num dos três níveis). A
+   quantidade usa máscara de BTC:
    o usuário digita só dígitos e o ponto entra sozinho, da direita para a
    esquerda (`1` → `0.00000001`, `12345678` → `0.12345678`). A legenda abaixo
    do campo mostra o valor a enviar e a taxa **separados**, com a porcentagem
@@ -85,8 +88,8 @@ blockchain.info, nem chave privada em lugar nenhum.
   saída de troco: é somado à taxa.
 - **Taxa ao vivo**: `GET /api/fees` pergunta `blockchain.estimatefee` para
   144, 6 e 1 bloco (baixa, média, alta) e converte BTC/kvB em sat/vB inteiro.
-  A tela reconsulta a cada 60 s enquanto está aberta; a personalizada aceita
-  de 1 a 10 000 sat/vB.
+  A tela reconsulta a cada 60 s enquanto está aberta; a taxa escolhida vai de
+  1 a 10 000 sat/vB.
 - **Todos os endereços usados** dos quatro tipos vão para a resposta; os
   outros tipos também entram no saldo total (união), não só o detectado.
 - **Sem cache durável**: cada consulta deriva e consulta de novo. Enquanto a
@@ -512,7 +515,9 @@ entra no Worker nem na resposta.
 Taxa ao vivo pelo `blockchain.estimatefee` do Electrum, em três alvos:
 144 blocos (baixa), 6 (média) e 1 (alta). O valor vira sat/vB inteiro,
 arredondado para cima; se o servidor não estimar um nível, ele vem `null` e
-a tela oferece a taxa personalizada.
+a tela deixa a taxa no controle deslizante. Quando o teto inteiro iguala
+dois níveis que o servidor ordenou (1,003 e 1,299 sat/vB viram 2 os dois), o
+de cima sobe 1 sat/vB, para a escada não repetir opção.
 
 ```json
 {

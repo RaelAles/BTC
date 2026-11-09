@@ -1616,6 +1616,71 @@
      largura. Dado de tamanho fixo (telefone, data, documento) não estica a
      coluna inteira: para em 22ch, o bastante para um telefone com DDD. */
   .field-box.is-masked { max-width: 22ch; }
+  /* Controle deslizante (VG-FRM-12): a faixa nativa é o único controle que
+     arrasta com ponteiro, teclado e leitor de tela sem JavaScript, então o
+     comportamento fica no navegador e o desenho é do CSS. O trilho é um fio
+     de 1 px no --field-line, e o polegar é uma barra de 1 px em --accent
+     com a altura de uma linha: sem raio, sombra ou preenchimento, na mesma
+     linguagem do cursor de texto. O alvo de toque é a altura do próprio
+     controle (--target-size), e o foco tracejado cai no controle, como nos
+     demais. A caixa com o valor exato continua sendo a .field-box do
+     formulário, ao lado da barra. */
+  .field-range {
+    display: block;
+    width: 100%;
+    height: var(--target-size);
+    margin: 0;
+    padding: 0;
+    background: none;
+    color: var(--field-line);
+    font: inherit;
+    appearance: none;
+    cursor: pointer;
+  }
+  .field-range:focus { outline: none; }
+  .field-range:focus-visible {
+    outline: 1px dashed var(--accent);
+    outline-offset: 2px;
+  }
+  .field-range::-webkit-slider-runnable-track {
+    height: 1px;
+    background: currentColor;
+  }
+  .field-range::-moz-range-track {
+    height: 1px;
+    background: currentColor;
+  }
+  /* O polegar visível é uma barra de 1 px; os lados transparentes alargam a
+     área de agarre sem mudar o desenho, e o background-clip pinta só o
+     miolo. O margin-top centra a barra no fio do trilho. */
+  .field-range::-webkit-slider-thumb {
+    appearance: none;
+    box-sizing: content-box;
+    width: 1px;
+    height: 1.2em;
+    margin-top: calc(-.6em + .5px);
+    border: 0 solid transparent;
+    border-width: 0 9px;
+    border-radius: 0;
+    background-color: var(--accent);
+    background-clip: content-box;
+  }
+  .field-range::-moz-range-thumb {
+    box-sizing: content-box;
+    width: 1px;
+    height: 1.2em;
+    border: 0 solid transparent;
+    border-width: 0 9px;
+    border-radius: 0;
+    background-color: var(--accent);
+    background-clip: content-box;
+  }
+  /* Hover no tom do texto, como nos botões; o trilho sobe junto para o
+     --accent, então a barra e o fio respondem ao ponteiro como um controle
+     só. */
+  .field-range:hover { color: var(--accent); }
+  .field-range:hover::-webkit-slider-thumb { background-color: var(--fg); }
+  .field-range:hover::-moz-range-thumb { background-color: var(--fg); }
   /* O envio não é link de texto, é botão: assume o desenho dos botões de
      assunto (.chips), com o mesmo corpo --text-md, sem respiro próprio,
      --accent em repouso e --fg no hover, sem sublinhado, e fica centralizado
@@ -1709,12 +1774,23 @@
   .wallet-updated[hidden] { display: none; }
 
   /* Envio: o bloco segue o desenho do formulário (rótulo, caixa, recado) e
-     não inventa controle. A taxa é um grupo de botões de assunto (VG-BOT-01)
-     com o valor ao lado; a personalizada abre a mesma caixa dos outros
-     campos. O PSBT é leitura, no bloco de código que já existe. */
+     não inventa controle. A taxa é um controle deslizante (VG-FRM-12) com o
+     valor exato na caixa ao lado e a leitura do nível abaixo; o PSBT é
+     leitura, no bloco de código que já existe. */
   #send-amount-hint { margin: var(--space-2) 0 0; }
   #send-amount-hint.is-error { color: var(--error); }
-  .fee-options { margin-top: var(--space-3); }
+  /* Valor exato e unidade na mesma linha: a caixa para em 12ch (o teto de
+     10 000 cabe com folga) e a barra ocupa a coluna inteira logo abaixo. */
+  .field-range-group { margin-top: var(--space-3); }
+  .field-range-value {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+  .field-range-value .field-box { flex: 0 0 12ch; min-width: 0; }
+  .field-range-unit { color: var(--dim); font-size: var(--text-sm); }
+  .field-range-group .field-range { margin-top: var(--space-3); }
+  .field-range-readout { margin: var(--space-2) 0 0; color: var(--dim); }
   #fee-note { margin: var(--space-3) 0 0; }
   #send-psbt { margin-bottom: 0; }
   #send-meta {
@@ -1985,6 +2061,12 @@
     .pager-arrow.is-off:hover {
       color: GrayText;
     }
+    /* O trilho e o polegar do controle deslizante são cor; no modo eles
+       passam para as cores do sistema, para o fio e a barra continuarem
+       visíveis. */
+    .field-range { color: ButtonText; }
+    .field-range::-webkit-slider-thumb,
+    .field-range::-moz-range-thumb { background-color: ButtonText; }
   }
 
   /* Composição da tela: só ritmo vertical, em passos da escala. Nenhuma cor,

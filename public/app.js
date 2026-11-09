@@ -30,7 +30,9 @@
     scanning: false,    // varredura em passos em andamento
     page: 1,            // página da lista do histórico
     fees: null,         // estimativa ao vivo do Electrum
+    feesError: false,   // a última consulta da taxa falhou
     feeLevel: 'medium', // baixa | medium | high | custom
+    feeSliderBusy: false, // a barra está escrevendo o estado agora
     feeCustom: '',      // sat/vB digitado
     feeTimer: 0,        // reconsulta periódica da taxa
     amountDigits: '',   // satoshis digitados (o ponto é só desenho)
@@ -237,11 +239,65 @@
 
   /* ---------------------------------------------------------- enviar */
   var FEE_LABEL = { low: 'baixa', medium: 'média', high: 'alta' };
+  var FEE_ORDER = ['low', 'medium', 'high'];
+  var FEE_MIN = 1;
+  var FEE_MAX = 10000;
+  /* A barra tem 1 000 posições para 1..10 000 sat/vB em escala logarítmica:
+     o passo perto de 1 é fino (onde a taxa muda de verdade) e perto de
+     10 000 é largo. O valor inteiro é sempre o que vale; a barra só aponta,
+     e o campo ao lado aceita qualquer inteiro da faixa. */
+  var FEE_SLIDER_MAX = 1000;
+  var FEE_LOG = Math.log(FEE_MAX);
 
   function feeRateOf(level) {
     if (level === 'custom') return Number(state.feeCustom) || 0;
     var levels = (state.fees && state.fees.levels) || {};
     return Number(levels[level]) || 0;
+  }
+
+  /* Nível estimado que corresponde exatamente à taxa escolhida: é o que
+     nomeia o valor no lugar do `[ personalizada ]`. */
+  function feeLevelOf(rate) {
+    if (!(rate > 0)) return '';
+    var levels = (state.fees && state.fees.levels) || {};
+    for (var i = 0; i < FEE_ORDER.length; i++) {
+      if (Number(levels[FEE_ORDER[i]]) === rate) return FEE_ORDER[i];
+    }
+    return '';
+  }
+
+  function feeFromSlider(pos) {
+    var i = Math.max(0, Math.min(FEE_SLIDER_MAX, Number(pos) || 0));
+    return Math.round(Math.exp(FEE_LOG * i / FEE_SLIDER_MAX));
+  }
+
+  function sliderFromFee(rate) {
+    var r = Math.max(FEE_MIN, Math.min(FEE_MAX, Number(rate) || FEE_MIN));
+    return Math.round(Math.log(r) / FEE_LOG * FEE_SLIDER_MAX);
+  }
+
+  /* Tempo de confirmação a partir do alvo em blocos (1 bloco ≈ 10 min). */
+  function fmtBlocks(blocks) {
+    var min = Math.round(Number(blocks) * 10);
+    if (!(min > 0)) return '';
+    if (min >= 1440) return '~' + Math.round(min / 1440) + ' dia' + (min >= 2880 ? 's' : '');
+    if (min >= 60) return '~' + Math.round(min / 60) + ' h';
+    return '~' + min + ' min';
+  }
+
+  /* Uma taxa vira estado: se for exatamente um dos três níveis estimados, o
+     nível segue a estimativa viva; senão é personalizada e o valor fica
+     guardado como digitado. Zero (campo vazio) desliga o envio. */
+  function applyFeeRate(rate) {
+    var r = Math.round(Number(rate));
+    if (!isFinite(r) || r < 0) r = 0;
+    if (r > FEE_MAX) r = FEE_MAX;
+    var level = feeLevelOf(r);
+    state.feeLevel = level || 'custom';
+    state.feeCustom = level ? '' : (r > 0 ? String(r) : '');
+    renderFees();
+    invalidatePsbt();
+    scheduleLimits();
   }
 
   /* Valor em BTC com máscara de 8 casas: o usuário digita só dígitos e o
@@ -402,27 +458,53 @@
     updateSendAvailability();
   }
 
+  /* Desenha a taxa: campo com o inteiro, barra na posição equivalente e a
+     linha de leitura com o nível estimado e o tempo-alvo. O campo não é
+     reescrito enquanto tem o foco, para a digitação não pular o cursor. */
   function renderFees() {
-    var options = $('#fee-options');
-    if (!options) return;
-    $$('button[data-level]', options).forEach(function (b) {
-      var level = b.getAttribute('data-level');
-      var rate = feeRateOf(level);
-      var text = level === 'custom' ? 'personalizada' : FEE_LABEL[level];
-      b.textContent = text + (rate > 0 ? ' ' + rate + ' sat/vB' : (level === 'custom' ? '' : ' —'));
-      b.setAttribute('aria-pressed', level === state.feeLevel ? 'true' : 'false');
-    });
-    var custom = $('#fee-custom-box');
-    if (custom) custom.hidden = state.feeLevel !== 'custom';
+    var rate = feeRateOf(state.feeLevel);
+    var level = feeLevelOf(rate);
+    var field = $('#fee-rate');
+    if (field && document.activeElement !== field) {
+      field.value = rate > 0 ? String(rate) : '';
+    }
+    var slider = $('#fee-slider');
+    if (slider) {
+      /* A barra não é reescrita durante o próprio input: o valor arredondado
+         poderia puxar o polegar para trás no meio do arrasto. Fora disso,
+         inclusive com o foco nela, a posição acompanha a taxa. */
+      if (!state.feeSliderBusy) slider.value = String(sliderFromFee(rate));
+      slider.setAttribute('aria-valuetext', rate > 0
+        ? rate + ' sat/vB, ' + (level ? FEE_LABEL[level] : 'personalizada')
+        : 'sem taxa');
+    }
+    var readout = $('#fee-level');
+    if (readout) {
+      if (!(rate > 0)) {
+        readout.textContent = state.feesError
+          ? '[ erro ] estimativa indisponível; digite a taxa'
+          : state.fees
+            ? '[ … ] digite ou arraste para escolher a taxa'
+            : '[ … ] calculando a taxa…';
+      } else if (level) {
+        var blocks = Number(state.fees && state.fees.targets && state.fees.targets[level]) || 0;
+        readout.textContent = '[ ' + FEE_LABEL[level] + ' ]' +
+          (blocks ? ' ' + fmtBlocks(blocks) + ' até confirmar' : '');
+      } else {
+        readout.textContent = '[ personalizada ]';
+      }
+    }
     var upd = $('#fee-updated');
     if (!upd) return;
     var levels = (state.fees && state.fees.levels) || {};
-    var any = ['low', 'medium', 'high'].some(function (k) { return Number(levels[k]) > 0; });
-    upd.textContent = !state.fees
-      ? 'calculando…'
-      : any
+    var any = FEE_ORDER.some(function (k) { return Number(levels[k]) > 0; });
+    upd.textContent = state.fees
+      ? any
         ? 'atualizado ' + new Date(state.fees.updated_at).toLocaleTimeString('pt-BR')
-        : 'estimativa indisponível';
+        : 'estimativa indisponível'
+      : state.feesError
+        ? 'estimativa indisponível'
+        : 'calculando…';
   }
 
   /* Taxa ao vivo: a rota usa a conexão da sessão quando ela existe e o
@@ -439,14 +521,15 @@
       if (state.xpub !== xpub) return;
       var before = feeRateOf(state.feeLevel);
       state.fees = j;
+      state.feesError = false;
       if (state.feeLevel !== 'custom' && !(Number(j.levels[state.feeLevel]) > 0)) {
         state.feeLevel = ['medium', 'high', 'low'].find(function (k) { return Number(j.levels[k]) > 0; }) || 'custom';
       }
       renderFees();
       if (!state.limits || feeRateOf(state.feeLevel) !== before) scheduleLimits();
     } catch (e) {
-      var upd = $('#fee-updated');
-      if (upd) upd.textContent = 'estimativa indisponível';
+      state.feesError = true;
+      renderFees();
     }
   }
 
@@ -477,6 +560,7 @@
     invalidatePsbt();
     state.sendBusy = false;
     state.fees = null;
+    state.feesError = false;
     state.feeLevel = 'medium';
     state.feeCustom = '';
     state.amountDigits = '';
@@ -486,7 +570,7 @@
     if (state.limitsTimer) clearTimeout(state.limitsTimer);
     state.limitsTimer = 0;
     stopFeeTimer();
-    ['#send-address', '#fee-custom'].forEach(function (sel) {
+    ['#send-address', '#fee-rate'].forEach(function (sel) {
       var el = $(sel);
       if (el) el.value = '';
     });
@@ -539,8 +623,8 @@
     }
     var rate = feeRateOf(state.feeLevel);
     if (!Number.isInteger(rate) || rate < 1 || rate > 10000) {
-      setSendStatus('error', 'escolha uma taxa de 1 a 10 000 sat/vB (ou digite a personalizada).');
-      if (state.feeLevel === 'custom') $('#fee-custom').focus();
+      setSendStatus('error', 'escolha uma taxa de 1 a 10 000 sat/vB.');
+      if (state.feeLevel === 'custom') $('#fee-rate').focus();
       return;
     }
     if (!state.limits) {
@@ -1149,36 +1233,46 @@
       ev.preventDefault();
       createPsbt();
     });
-    var feeOptions = $('#fee-options');
-    if (feeOptions) feeOptions.addEventListener('click', function (ev) {
-      var b = ev.target.closest ? ev.target.closest('button[data-level]') : null;
-      if (!b) return;
-      var level = b.getAttribute('data-level');
-      if (level === 'custom' && !state.feeCustom) {
-        // parte da taxa média (ou da que existir) para o usuário ajustar
-        var seed = feeRateOf('medium') || feeRateOf('high') || feeRateOf('low') || 1;
-        state.feeCustom = String(seed);
-        var customInput = $('#fee-custom');
-        if (customInput) customInput.value = state.feeCustom;
-      }
-      state.feeLevel = level;
-      renderFees();
-      invalidatePsbt();
-      scheduleLimits();
-      if (state.feeLevel === 'custom') {
-        var custom = $('#fee-custom');
-        if (custom) custom.focus();
-      }
-    });
-    var feeCustom = $('#fee-custom');
-    if (feeCustom) feeCustom.addEventListener('input', function () {
-      var clean = feeCustom.value.replace(/[^0-9]/g, '').slice(0, 5);
-      if (clean !== feeCustom.value) feeCustom.value = clean;
-      state.feeCustom = clean;
-      renderFees();
-      invalidatePsbt();
-      scheduleLimits();
-    });
+    /* A taxa é um controle deslizante (VG-FRM-12): a barra aponta a posição
+       logarítmica e o campo ao lado guarda o inteiro exato. Os dois escrevem
+       o mesmo estado, então digitar 6 e arrastar até 6 dão o mesmo resultado. */
+    var feeSlider = $('#fee-slider');
+    if (feeSlider) {
+      feeSlider.addEventListener('input', function () {
+        state.feeSliderBusy = true;
+        applyFeeRate(feeFromSlider(feeSlider.value));
+        state.feeSliderBusy = false;
+      });
+      /* No teclado o passo é o sat/vB inteiro, e não a posição da barra: 1
+         por seta, 10 com shift e 100 em PageUp/PageDown. Home e End vão aos
+         extremos. Sem isso, uma seta mudava ~0,9% e o número ficava parado
+         por várias teclas perto da taxa baixa. */
+      feeSlider.addEventListener('keydown', function (ev) {
+        var rate = feeRateOf(state.feeLevel);
+        var step = ev.shiftKey ? 10 : 1;
+        var next = null;
+        if (ev.key === 'ArrowRight' || ev.key === 'ArrowUp') next = (rate || 1) + step;
+        else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowDown') next = (rate || 1) - step;
+        else if (ev.key === 'PageUp') next = (rate || 1) + 100;
+        else if (ev.key === 'PageDown') next = (rate || 1) - 100;
+        else if (ev.key === 'Home') next = FEE_MIN;
+        else if (ev.key === 'End') next = FEE_MAX;
+        if (next == null) return;
+        ev.preventDefault();
+        applyFeeRate(next);
+      });
+    }
+    var feeRate = $('#fee-rate');
+    if (feeRate) {
+      feeRate.addEventListener('input', function () {
+        var clean = feeRate.value.replace(/[^0-9]/g, '').slice(0, 5);
+        if (clean !== feeRate.value) feeRate.value = clean;
+        applyFeeRate(clean === '' ? 0 : Number(clean));
+      });
+      /* Ao sair do campo o valor é reescrito: corta zeros à esquerda e
+         mostra o teto quando a digitação passou de 10 000. */
+      feeRate.addEventListener('blur', function () { renderFees(); });
+    }
 
     /* Máscara de satoshis: dígitos entram da direita, o ponto é automático,
        backspace apaga o último dígito e colar aceita BTC com ponto/vírgula. */
