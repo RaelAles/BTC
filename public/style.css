@@ -1778,8 +1778,8 @@
      cada nível é uma linha com o nome em caixa alta (ação) e o custo em BTC
      (dado) à direita, na mesma linguagem da legenda que existia antes. O
      custo é sempre o do valor e do destino digitados; sem os dois, a seção
-     inteira fica escondida. O PSBT é leitura, no bloco de código que já
-     existe. */
+     inteira fica escondida. O PSBT não aparece como campo: fica só no
+     arquivo que o botão baixa, com os detalhes nas notas abaixo. */
   #send-amount-hint { margin: var(--space-2) 0 0; }
   #send-amount-hint:empty { display: none; }
   #send-amount-hint.is-error { color: var(--error); }
@@ -1814,7 +1814,6 @@
   .fee-level.is-empty .fee-level-cost { color: var(--dim); }
   .fee-level.is-empty:hover .field-choice-mark { color: var(--dim); }
   #fee-note { margin: var(--space-3) 0 0; }
-  #send-psbt { margin-bottom: 0; }
   #send-meta {
     margin: var(--space-4) 0 0;
     text-align: left;

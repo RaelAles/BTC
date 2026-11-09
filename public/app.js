@@ -538,8 +538,6 @@
     state.psbt = null;
     var out = $('#send-out');
     if (out) out.hidden = true;
-    var pre = $('#send-psbt');
-    if (pre) pre.textContent = '';
     var meta = $('#send-meta');
     if (meta) meta.textContent = '';
   }
@@ -667,11 +665,10 @@
       }
       if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
       state.psbt = j;
-      $('#send-psbt').textContent = j.psbt;
       $('#send-meta').textContent = sendMeta(j);
       $('#send-out').hidden = false;
-      // sem recado de sucesso: o próprio psbt na tela confirma (a frase de
-      // "montando" não pode ficar parada embaixo do resultado)
+      // sem recado de sucesso: o download e os detalhes na tela confirmam
+      // (a frase de "montando" não pode ficar parada embaixo do resultado)
       setSendStatus('', '');
       updateScroll();
     } catch (e) {
@@ -684,23 +681,6 @@
       }
       updateSendAvailability();
     }
-  }
-
-  function copyPsbt(button) {
-    if (!state.psbt || !button) return;
-    if (button.getAttribute('aria-disabled') === 'true') return;
-    navigator.clipboard.writeText(state.psbt.psbt).then(function () {
-      button.textContent = 'copiado';
-      button.setAttribute('aria-disabled', 'true');
-      if (button._copyTimer) clearTimeout(button._copyTimer);
-      button._copyTimer = setTimeout(function () {
-        button.textContent = 'copiar psbt';
-        button.removeAttribute('aria-disabled');
-        button._copyTimer = 0;
-      }, 1400);
-    }).catch(function () {
-      setSendStatus('error', 'não foi possível copiar o psbt.');
-    });
   }
 
   function downloadPsbt() {
@@ -1287,8 +1267,6 @@
       invalidatePsbt();
       scheduleLimits();
     });
-    var sendCopy = $('#send-copy');
-    if (sendCopy) sendCopy.addEventListener('click', function () { copyPsbt(sendCopy); });
     var sendDownload = $('#send-download');
     if (sendDownload) sendDownload.addEventListener('click', downloadPsbt);
     renderFees();

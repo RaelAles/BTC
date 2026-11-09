@@ -29,7 +29,9 @@ tela mostra:
    escolhidos. O botão **criar psbt** fica bloqueado abaixo do pó
    (0.00000546 BTC) e acima do máximo enviável (saldo − taxa), calculado no
    servidor para o destino e a taxa escolhidos.
-   O PSBT sai sem assinatura, com troco, em base64 para copiar ou baixar.
+   O PSBT sai sem assinatura, com troco, em base64, e fica disponível só
+   como arquivo em **baixar .psbt**; a tela mostra os detalhes (txid,
+   entradas, saídas, taxa, vsize e troco) em notas, sem o base64 como campo.
    Quem assina é o `chave-btc.html` (projeto 1), offline; o projeto 2 nunca
    vê chave privada.
 
@@ -595,7 +597,8 @@ carteira. A página abre sempre com o campo vazio, inclusive depois de
 recarregar. O bloco **enviar** também foi conferido no Chromium: o seletor
 de taxa só aparece depois de valor e destino válidos, os quatro níveis
 mostram o custo em BTC e o percentual do Electrum falso, a escolha por rádio
-muda a taxa do PSBT, o PSBT aparece em base64 e some ao editar o formulário.
+muda a taxa do PSBT, o resumo do PSBT aparece em notas (sem o base64 na
+tela) e some ao editar o formulário.
 Um PSBT gerado pelo montador (bip84 e troco) foi analisado e assinado pelo
 próprio código do `chave-btc.html` em Chromium headless, com o troco
 reconhecido como interno.

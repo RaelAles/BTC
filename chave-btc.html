@@ -2295,10 +2295,10 @@
             <div class="prose app-block">
               <h3><span class="prompt" aria-hidden="true">##</span> psbt assinado</h3>
             </div>
-            <pre class="code-block is-scroll" id="signed-psbt"></pre>
-            <div class="chips app-gap reveal-block keys-actions" role="group" aria-label="Copiar PSBT assinado">
-              <button type="button" id="copy-signed-psbt">copiar psbt</button>
+            <div class="chips app-gap reveal-block keys-actions" role="group" aria-label="Exportar PSBT assinado">
+              <button type="button" id="download-signed-psbt">baixar .psbt</button>
             </div>
+            <p class="note app-gap" id="signed-meta"></p>
 
             <div class="prose app-block">
               <h3><span class="prompt" aria-hidden="true">##</span> transação final</h3>
@@ -2307,7 +2307,6 @@
             <div class="chips app-gap reveal-block keys-actions" role="group" aria-label="Copiar transação final">
               <button type="button" id="copy-signed-tx">copiar transação</button>
             </div>
-            <p class="note app-gap" id="signed-meta"></p>
           </div>
         </section>
 
@@ -2346,7 +2345,7 @@
               <li><b>públicas</b> — as mesmas quatro contas em chave estendida pública: <code>xpub</code> no BIP86 e no BIP44, <code>zpub</code> no BIP84 e <code>ypub</code> no BIP49. Cada linha tem <b>copiar</b>, e o botão vira <b>copiado</b> por alguns instantes. A pública é watch-only: não gasta, mas permite reconstruir os endereços e, com eles, consultar o histórico da conta — também merece cuidado. O BIP86 e o BIP44 compartilham o prefixo <code>xpub</code>; o que distingue é o tipo de conta, então, ao importar numa carteira, informe que a conta do BIP86 é Taproot. O <code>xpub</code> do BIP86 é o que uma carteira watch-only (como o projeto 2) usa para derivar os endereços de recebimento e de troco.</li>
               <li><b>assinar</b> — a linha <b>psbt</b> mostra o texto do arquivo importado (base64 ou hex) ou <code>—</code>. <b>importar</b> só responde depois que existe uma chave; com o arquivo carregado ele vira <b>cancelar</b>. <b>assinar</b> fica desabilitado até a revisão terminar sem erro. Logo abaixo dos botões, a linha de estado mostra <code>[ ... ]</code> enquanto analisa ou assina, <code>[ ok ]</code> no sucesso e <code>[ erro ]</code> com o motivo.</li>
               <li><b>revisão</b> — aparece sozinha ao importar e lista, para cada entrada, o tipo de script, o caminho de derivação, o valor, o endereço e o outpoint; para cada saída, se é recebimento, troco ou externa, o tipo, o caminho, o valor e o endereço; no fim, a taxa total, a taxa em sat/vB, o vsize estimado e os avisos (taxa fora do comum, saída externa, script não padronizado). Leia antes de assinar.</li>
-              <li><b>psbt assinado e transação final</b> — o PSBT com as assinaturas em base64 e a transação pronta em hex, cada um com <b>copiar</b>. A linha final traz o txid, o vsize e a taxa em sat/vB da transação montada.</li>
+              <li><b>psbt assinado e transação final</b> — o PSBT com as assinaturas em base64 fica disponível em <b>baixar .psbt</b>; a transação pronta em hex aparece na tela, com <b>copiar transação</b>. A nota acima traz o txid, o vsize e a taxa em sat/vB da transação montada.</li>
               <li><b>rodapé</b> — <code>[ offline ] nada sai deste arquivo</code> resume a política da página; o botão redondo troca o tema.</li>
             </ul>
 
@@ -4091,7 +4090,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var signOut = $('#sign-out');
   var signCode = $('#sign-code');
   var signedOut = $('#signed-out');
-  var signedPsbt = $('#signed-psbt');
+  var signedPsbtText = '';
+  var signedTxid = '';
   var signedTx = $('#signed-tx');
   var signedMeta = $('#signed-meta');
   var contentEl = $('#content');
@@ -4650,7 +4650,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (signOut) signOut.hidden = true;
     if (signCode) signCode.textContent = '';
     if (signedOut) signedOut.hidden = true;
-    if (signedPsbt) signedPsbt.textContent = '';
+    signedPsbtText = '';
+    signedTxid = '';
     if (signedTx) signedTx.textContent = '';
     if (signedMeta) signedMeta.textContent = '';
   }
@@ -4849,7 +4850,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       setStatus(signStatus, 'neutro', 'assinando...');
       try {
         var res = await BTC.signPsbt(state.analysis.bytes, state.hd, auxRandom());
-        signedPsbt.textContent = res.psbtBase64;
+        signedPsbtText = res.psbtBase64;
+        signedTxid = res.txid;
         signedTx.textContent = res.txHex;
         signedMeta.textContent = 'txid ' + res.txid + ' · ' + res.vsize + ' vB · ' +
           res.feerate.toFixed(2) + ' sat/vB';
@@ -4864,11 +4866,20 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       }
     });
   }
-  var copySignedPsbt = $('#copy-signed-psbt');
+  var downloadSignedPsbt = $('#download-signed-psbt');
   var copySignedTx = $('#copy-signed-tx');
-  if (copySignedPsbt) {
-    copySignedPsbt.addEventListener('click', function () {
-      copyFeedback(copySignedPsbt, signedPsbt ? signedPsbt.textContent : '');
+  if (downloadSignedPsbt) {
+    downloadSignedPsbt.addEventListener('click', function () {
+      if (!signedPsbtText) return;
+      var blob = new Blob([signedPsbtText], { type: 'text/plain' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'assinado-' + String(signedTxid || 'psbt').slice(0, 8) + '.psbt';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 0);
     });
   }
   if (copySignedTx) {
