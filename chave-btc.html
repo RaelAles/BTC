@@ -1990,8 +1990,10 @@
   /* Chaves no mesmo desenho dos binários: o rótulo (só o bip) no --dim à
      esquerda, o valor no --fg à direita, na mesma largura de 28rem do painel
      de jogadas, sem moldura nem fio entre as linhas. A coluna do rótulo
-     cabe os 5 caracteres de "bip86" mais o vão; as privadas ficam sem o
-     botão de copiar e as públicas mantêm o botão sob o valor. */
+     cabe o maior rótulo das leituras ("endereço") mais o vão, então todas as
+     tabelas — chaves, públicas e PSBT — começam o valor na mesma coluna; as
+     privadas ficam sem o botão de copiar e as públicas mantêm o botão sob o
+     valor. */
   .data-table.key-readout {
     width: min(100%, 28rem);
     margin: 0 auto var(--space-7);
@@ -2007,7 +2009,7 @@
     overflow-wrap: anywhere;
   }
   .key-readout tbody th {
-    width: 7ch;
+    width: 9ch;
     padding-right: var(--space-3);
     color: var(--dim);
     font-weight: 400;
@@ -2026,11 +2028,9 @@
     display: block;
     margin: var(--space-3) 0 0 auto;
   }
-  /* As tabelas de revisão do PSBT usam o desenho das chaves, com o rótulo um
-     pouco mais largo porque os campos têm nome ("caminho", "endereço",
-     "origem") e as tabelas de entrada e saída levam uma legenda curta. */
-  .data-table.key-readout.review-readout { width: min(100%, 32rem); }
-  .key-readout.review-readout tbody th { width: 9ch; }
+  /* As tabelas de revisão do PSBT seguem o desenho e a largura das chaves,
+     para que as linhas do "assinar" caiam nas mesmas colunas dos outros
+     subtítulos; as tabelas de entrada e saída só acrescentam a legenda. */
   /* Aviso é frase curta com endereço comprido: justificar abriria buracos
      entre as palavras, então esse bloco fica à esquerda. */
   #review-warnings-list li { text-align: left; }
