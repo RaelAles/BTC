@@ -189,6 +189,23 @@
       el.textContent = '='.repeat(240);
     });
   }
+  // O ícone da aba é a letra B sozinha, sem fundo, no --accent do tema em
+  // vigor: o desenho sai do mesmo #favicon-marca do href estático, em
+  // currentColor, e o tom sai do token — o favicon não é uma segunda cópia do
+  // desenho nem um hex repetido. O arquivo estático do <link> só conhece o
+  // tema do sistema; aqui ele é reescrito no arranque e a cada troca de tema.
+  function syncFavicon() {
+    var link = document.getElementById('favicon');
+    var symbol = document.getElementById('favicon-marca');
+    if (!link || !symbol) return;
+    var accent = getComputedStyle(document.documentElement)
+      .getPropertyValue('--accent').trim();
+    if (!accent) return;
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' +
+      symbol.getAttribute('viewBox') + '" color="' + accent + '">' +
+      symbol.innerHTML + '</svg>';
+    link.setAttribute('href', 'data:image/svg+xml,' + encodeURIComponent(svg));
+  }
   function setTheme(theme) {
     var t = theme === 'light' ? 'light' : 'dark';
     document.documentElement.dataset.theme = t;
@@ -201,6 +218,7 @@
     var meta = document.querySelector('meta[name="theme-color"]');
     var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
     if (meta && bg) meta.setAttribute('content', bg);
+    syncFavicon();
   }
   function updateScroll() {
     var el = $('#content-scroll');

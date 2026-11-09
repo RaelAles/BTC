@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#2e2d2b">
   <meta name="description" content="Projeto 2 — xpub como credencial, saldo e endereços derivados na hora, e envio de BTC em PSBT sem assinatura. Nada é guardado: nem a xpub, nem endereços. Sem chave privada.">
   <title>Projeto 2 — carteira</title>
+  <link rel="icon" type="image/svg+xml" id="favicon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cstyle%3Esvg%7Bcolor%3A%235d3d00%7D%40media%20(prefers-color-scheme%3Adark)%7Bsvg%7Bcolor%3A%23e8c07d%7D%7D%3C%2Fstyle%3E%3Cmask%20id%3D%22favicon-mask%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20fill%3D%22%23000%22%2F%3E%3Cg%20fill%3D%22%23fff%22%3E%3Crect%20x%3D%227.7%22%20y%3D%225%22%20width%3D%225.2%22%20height%3D%2223.4%22%2F%3E%3Cpath%20d%3D%22M10.9%205H23.9A6.5%205.3%200%200%201%2023.9%2015.6H10.9Z%22%2F%3E%3Cpath%20d%3D%22M10.9%2017H24.3A6.7%205.7%200%200%201%2024.3%2028.4H10.9Z%22%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%22%23000%22%3E%3Cpath%20d%3D%22M12.9%207.6H20.9A4%202.8%200%200%201%2020.9%2013.2H12.9Z%22%2F%3E%3Cpath%20d%3D%22M12.9%2019.6H21.3A4.2%203.1%200%200%201%2021.3%2025.8H12.9Z%22%2F%3E%3C%2Fg%3E%3C%2Fmask%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20fill%3D%22currentColor%22%20mask%3D%22url(%23favicon-mask)%22%2F%3E%3C%2Fsvg%3E">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -15,6 +16,24 @@
 <svg class="sprite" aria-hidden="true" focusable="false">
   <symbol id="marca" viewBox="102 -1195 1024 1195">
     <path d="M640 -1195Q640 -1109 711 -1002.5Q782 -896 891 -810Q1021 -708 1073.5 -632.5Q1126 -557 1126 -478Q1126 -370 1058 -305Q990 -240 891 -240Q831 -240 765 -268.5Q699 -297 662 -340Q662 -207 749.5 -131.5Q837 -56 982 -56V0H246V-56Q391 -56 478.5 -131.5Q566 -207 566 -340Q528 -297 462 -268.5Q396 -240 337 -240Q237 -240 169.5 -305Q102 -370 102 -478Q102 -555 151.5 -628Q201 -701 337 -810Q446 -895 517 -1002.5Q588 -1110 588 -1195Z"/>
+  </symbol>
+  <!-- O ícone da aba: a letra B sozinha, cheia e sem fundo. Mesmo desenho do
+       href estático, em currentColor para o JS trocar o tom pelo --accent do
+       tema em vigor. -->
+  <symbol id="favicon-marca" viewBox="0 0 32 32">
+    <mask id="favicon-mask">
+      <rect width="32" height="32" fill="#000"/>
+      <g fill="#fff">
+        <rect x="7.7" y="5" width="5.2" height="23.4"/>
+        <path d="M10.9 5H23.9A6.5 5.3 0 0 1 23.9 15.6H10.9Z"/>
+        <path d="M10.9 17H24.3A6.7 5.7 0 0 1 24.3 28.4H10.9Z"/>
+      </g>
+      <g fill="#000">
+        <path d="M12.9 7.6H20.9A4 2.8 0 0 1 20.9 13.2H12.9Z"/>
+        <path d="M12.9 19.6H21.3A4.2 3.1 0 0 1 21.3 25.8H12.9Z"/>
+      </g>
+    </mask>
+    <rect width="32" height="32" fill="currentColor" mask="url(#favicon-mask)"/>
   </symbol>
 </svg>
 
