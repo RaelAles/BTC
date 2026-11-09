@@ -1774,34 +1774,47 @@
   .wallet-updated[hidden] { display: none; }
 
   /* Envio: o bloco segue o desenho do formulário (rótulo, caixa, recado) e
-     não inventa controle. A taxa é só o controle deslizante (VG-FRM-12):
-     a leitura do valor e da prioridade fica acima da barra, e a legenda
-     abaixo lista o custo em BTC de cada nível para o valor digitado; o
-     PSBT é leitura, no bloco de código que já existe. */
+     não inventa controle. A taxa é um grupo de rádio nativo (VG-FRM-10):
+     cada nível é uma linha com o nome em caixa alta (ação) e o custo em BTC
+     (dado) à direita, na mesma linguagem da legenda que existia antes. O
+     custo é sempre o do valor e do destino digitados; sem os dois, a seção
+     inteira fica escondida. O PSBT é leitura, no bloco de código que já
+     existe. */
   #send-amount-hint { margin: var(--space-2) 0 0; }
   #send-amount-hint.is-error { color: var(--error); }
-  .field-range-group { margin-top: var(--space-3); }
-  /* O valor escolhido é o dado principal do controle: fica no tom do texto,
-     acima da barra, e o nível em `[ … ]` logo depois. */
-  .field-range-readout {
-    margin: 0 0 var(--space-2);
+  #fee-section[hidden] { display: none; }
+  /* O nível escolhido é o dado principal do controle: fica no tom do texto,
+     acima das opções, com o tempo de confirmação logo depois. */
+  .fee-readout {
+    margin: 0 0 var(--space-3);
     color: var(--fg);
     font-size: var(--text-base);
   }
-  /* Custo de cada nível em BTC, na mesma linguagem das linhas de dados: o
-     rótulo do nível em --dim, o valor em --fg e o nível em vigor em
-     --support, como o assunto marcado dos chips. */
-  .field-range-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2) var(--space-8);
-    margin: var(--space-3) 0 0;
-    color: var(--dim);
+  /* Uma opção por linha: o marcador e o nome ocupam a esquerda e o custo
+     encosta na direita, alinhado pela base como as linhas de dados. O grupo
+     herda o desenho do .field-checks/.field-choice; aqui só a coluna e o
+     custo ganham regra. */
+  .fee-levels {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
   }
-  .fee-legend-item { white-space: nowrap; }
-  .fee-legend-cost { color: var(--fg); }
-  .fee-legend-item.is-current { color: var(--support); }
-  .fee-legend-item.is-current .fee-legend-cost { color: var(--support); }
+  .fee-level {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    min-height: var(--target-size);
+  }
+  .fee-level-cost {
+    margin-left: auto;
+    color: var(--fg);
+    text-transform: none;
+    white-space: nowrap;
+  }
+  .fee-level.is-empty,
+  .fee-level.is-empty:hover { color: var(--dim); cursor: default; }
+  .fee-level.is-empty .fee-level-cost { color: var(--dim); }
+  .fee-level.is-empty:hover .field-choice-mark { color: var(--dim); }
   #fee-note { margin: var(--space-3) 0 0; }
   #send-psbt { margin-bottom: 0; }
   #send-meta {

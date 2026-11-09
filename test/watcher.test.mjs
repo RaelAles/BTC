@@ -281,7 +281,7 @@ assert.equal(watcher.idleTimer, null, 'tela aberta cancela o descarte');
   const feesRes = await worker.fetch(new Request('https://x/api/fees?session=' + payload.session), env2);
   const fees = await feesRes.json();
   assert.equal(feesRes.status, 200);
-  assert.deepEqual(fees.levels, { low: 2, medium: 6, high: 12 });
+  assert.deepEqual(fees.levels, { minimum: 2, standard: 6, high: 9, urgent: 12 });
 
   const dest = (await deriveAddress('bip44', ua, 0, 0)).address;
   const previewRes = await worker.fetch(new Request('https://x/api/psbt', {

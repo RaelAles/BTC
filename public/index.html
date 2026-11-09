@@ -97,22 +97,41 @@
                 <div class="edge" aria-hidden="true"></div>
               </div>
 
-              <div class="field-row">
-                <span class="field-label" id="fee-label">taxa</span>
-                <span class="field-meta" id="fee-updated">calculando…</span>
+              <div id="fee-section" hidden>
+                <div class="field-row">
+                  <span class="field-label" id="fee-label">taxa</span>
+                  <span class="field-meta" id="fee-updated">calculando…</span>
+                </div>
+                <p class="note fee-readout" id="fee-readout">[ … ] calculando a taxa…</p>
+                <div class="field-checks fee-levels" id="fee-levels" role="radiogroup"
+                     aria-labelledby="fee-label" aria-describedby="fee-readout fee-note">
+                  <label class="field-choice fee-level" data-level="minimum">
+                    <input type="radio" name="fee-level" value="minimum">
+                    <span class="field-choice-mark" aria-hidden="true"></span>
+                    <span class="fee-level-name">mínima</span>
+                    <span class="fee-level-cost">—</span>
+                  </label>
+                  <label class="field-choice fee-level" data-level="standard">
+                    <input type="radio" name="fee-level" value="standard" checked>
+                    <span class="field-choice-mark" aria-hidden="true"></span>
+                    <span class="fee-level-name">padrão</span>
+                    <span class="fee-level-cost">—</span>
+                  </label>
+                  <label class="field-choice fee-level" data-level="high">
+                    <input type="radio" name="fee-level" value="high">
+                    <span class="field-choice-mark" aria-hidden="true"></span>
+                    <span class="fee-level-name">alta</span>
+                    <span class="fee-level-cost">—</span>
+                  </label>
+                  <label class="field-choice fee-level" data-level="urgent">
+                    <input type="radio" name="fee-level" value="urgent">
+                    <span class="field-choice-mark" aria-hidden="true"></span>
+                    <span class="fee-level-name">urgente</span>
+                    <span class="fee-level-cost">—</span>
+                  </label>
+                </div>
+                <p class="note" id="fee-note">o custo de cada nível em BTC é além do valor. a prioridade: mínima (~1 dia), padrão (~1 h), alta (~30 min) e urgente (~1 bloco).</p>
               </div>
-              <div class="field-range-group" id="fee-control" role="group" aria-labelledby="fee-label">
-                <p class="note field-range-readout" id="fee-readout">[ … ] calculando a taxa…</p>
-                <input type="range" class="field-range" id="fee-slider" min="0" max="1000"
-                       step="1" value="0" aria-label="taxa em sat/vB"
-                       aria-describedby="fee-legend fee-note">
-                <p class="note field-range-legend" id="fee-legend">
-                  <span class="fee-legend-item" data-level="low">[ baixa ] <span class="fee-legend-cost">—</span></span>
-                  <span class="fee-legend-item" data-level="medium">[ média ] <span class="fee-legend-cost">—</span></span>
-                  <span class="fee-legend-item" data-level="high">[ alta ] <span class="fee-legend-cost">—</span></span>
-                </p>
-              </div>
-              <p class="note" id="fee-note">taxa estimada ao vivo pelo Electrum em três alvos: baixa (~1 dia), média (~1 h) e alta (~1 bloco). arraste a barra para escolher; a legenda mostra a taxa de cada nível em BTC para o envio digitado.</p>
 
               <button type="submit" class="form-submit" id="send-submit" aria-disabled="true">criar psbt</button>
               <p class="status-msg is-reserved" id="send-status" role="status"></p>

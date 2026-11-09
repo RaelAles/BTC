@@ -312,43 +312,30 @@ export async function transactionsMany(client, txids, opts) {
 }
 
 /* Taxa ao vivo: `blockchain.estimatefee` devolve BTC/kvB para um alvo em
-   blocos. Três alvos cobrem a escolha da tela: baixa (144 blocos ≈ 1 dia),
-   média (6 blocos ≈ 1 h) e alta (1 bloco). O valor vira sat/vB inteiro,
-   arredondado para cima; servidor que responde -1 fica sem estimativa
-   naquele nível (null), e a tela deixa a taxa personalizada.
+   blocos. Quatro alvos cobrem a escolha da tela, em ordem de prioridade:
+   mínima (144 blocos ≈ 1 dia), padrão (6 ≈ 1 h), alta (3 ≈ 30 min) e
+   urgente (1 bloco; o Bitcoin Core trata o alvo 1 como 2, o menor que ele
+   estima). O valor vira sat/vB inteiro, arredondado para cima; servidor que
+   responde -1 fica sem estimativa naquele nível (null) e a tela desabilita
+   aquele nível.
 
-   A unidade inteira achatava níveis distintos: 1,003 e 1,299 sat/vB viram
-   ambos 2 e a tela mostrava média e alta com o mesmo número. Quando o
-   servidor ordena os níveis mas o teto os iguala, o de cima sobe 1 sat/vB
-   para a escada continuar visível e a escolha da tela não repetir opção. O
-   ajuste só acontece se o valor bruto de cima for maior: estimativas
-   realmente iguais continuam iguais. */
-export const FEE_TARGETS = { low: 144, medium: 6, high: 1 };
+   Nada é inventado para separar níveis: se o servidor devolve a mesma taxa
+   para dois alvos, os dois mostram o mesmo sat/vB e o mesmo custo em BTC.
+   Num mempool quase vazio, 1 e 1 ou 2 e 2 é o resultado correto — a escada
+   artificial de +1 sat/vB que existia antes escondia isso. */
+export const FEE_TARGETS = { minimum: 144, standard: 6, high: 3, urgent: 1 };
 
 export async function estimateFees(client) {
   const keys = Object.keys(FEE_TARGETS);
   // um nível que o servidor não estima não derruba os outros: cada pedido
-  // falha isolado e vira null (a tela oferece a taxa personalizada)
+  // falha isolado e vira null (a tela desabilita aquele nível)
   const values = await Promise.all(keys.map(k =>
     client.request('blockchain.estimatefee', [FEE_TARGETS[k]]).catch(() => null)
   ));
   const levels = {};
-  let prevRate = null;
-  let prevRaw = null;
   keys.forEach((k, i) => {
     const v = Number(values[i]);
-    const raw = Number.isFinite(v) && v > 0 ? v * 100000 : null;
-    if (raw == null) {
-      levels[k] = null;
-      prevRate = null;
-      prevRaw = null;
-      return;
-    }
-    let rate = Math.max(1, Math.ceil(raw));
-    if (prevRate != null && raw > prevRaw && rate <= prevRate) rate = prevRate + 1;
-    levels[k] = rate;
-    prevRate = rate;
-    prevRaw = raw;
+    levels[k] = Number.isFinite(v) && v > 0 ? Math.max(1, Math.ceil(v * 100000)) : null;
   });
   return {
     levels,

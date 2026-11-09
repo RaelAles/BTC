@@ -17,14 +17,13 @@ tela mostra:
    sucesso), **enviado** (com sinal `-`, no tom do erro) e **saldo** de cada
    um, cinco por página, na tela **histórico**;
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e taxa em um
-   **controle deslizante** — a barra aponta a posição em escala logarítmica
-   de 1 a 10 000 sat/vB e é o único jeito de escolher a taxa (setas mudam
-   1 sat/vB, shift 10, PageUp/Down 100) —, e a taxa em sat/vB estimada **ao
-   vivo** pelo Electrum já vem pelo `/api/fees`. Abaixo da barra, a legenda
-   lista `[ baixa ]`, `[ média ]` e `[ alta ]` com o **custo em BTC de cada
-   nível para o valor digitado** (`—` sem destino ou valor válidos); acima,
-   a leitura mostra a taxa escolhida e a prioridade. A
-   quantidade usa máscara de BTC:
+   **grupo de níveis** — `mínima`, `padrão`, `alta` e `urgente` —, cada um
+   com o **custo em BTC para o valor e o destino digitados**. A taxa em
+   sat/vB de cada nível vem **ao vivo** pelo `/api/fees` e é mostrada na
+   leitura acima das opções, com o tempo de confirmação. O seletor só
+   aparece quando há valor e destino válidos; sem os dois, o custo não teria
+   o que cotar. Os níveis são rádios nativos: clique ou setas escolhem, e o
+   PSBT usa a taxa do nível escolhido. A quantidade usa máscara de BTC:
    o usuário digita só dígitos e o ponto entra sozinho, da direita para a
    esquerda (`1` → `0.00000001`, `12345678` → `0.12345678`). A legenda abaixo
    do campo mostra o valor a enviar e a taxa **separados**, com a porcentagem
@@ -90,9 +89,9 @@ blockchain.info, nem chave privada em lugar nenhum.
   p2sh-p2wpkh leva o `redeem_script`. O pó (abaixo de 0.00000546 BTC) não vira
   saída de troco: é somado à taxa.
 - **Taxa ao vivo**: `GET /api/fees` pergunta `blockchain.estimatefee` para
-  144, 6 e 1 bloco (baixa, média, alta) e converte BTC/kvB em sat/vB inteiro.
-  A tela reconsulta a cada 60 s enquanto está aberta; a taxa escolhida vai de
-  1 a 10 000 sat/vB.
+  144, 6, 3 e 1 bloco (mínima, padrão, alta e urgente) e converte BTC/kvB em
+  sat/vB inteiro. A tela reconsulta a cada 60 s enquanto está aberta e mostra
+  o custo em BTC de cada nível para o valor e o destino digitados.
 - **Todos os endereços usados** dos quatro tipos vão para a resposta; os
   outros tipos também entram no saldo total (união), não só o detectado.
 - **Sem cache durável**: cada consulta deriva e consulta de novo. Enquanto a
@@ -274,7 +273,8 @@ backend de Durable Object disponível no plano free).
   antes de montar.
 - **Taxa é estimativa do servidor**: `blockchain.estimatefee` é um palpite do
   Electrum, não a mempool local. Servidor sem estimativa deixa o nível em
-  `null`; a personalizada continua disponível.
+  `null` e a tela desabilita aquele nível; sem nenhum nível, o envio fica
+  bloqueado e a leitura avisa que a estimativa está indisponível.
 - O servidor Electrum vê os scripthashes consultados (com TLS o caminho da
   rede não vê). Privacidade, não custódia: a xpub não gasta nada.
 - Um vazamento da xpub é perda de privacidade, não de fundos.
@@ -469,14 +469,15 @@ mostrar a taxa ao lado do valor antes de qualquer montagem.
   "change_sats": 7148, "vsize": 142, "inputs_used": 2 }
 ```
 
-O mesmo preview aceita `quote_rates` (até as três taxas dos níveis): a
+O mesmo preview aceita `quote_rates` (até as quatro taxas dos níveis): a
 resposta ganha `quotes`, com a taxa de cada nível para o **mesmo valor**, na
-mesma seleção de entradas. É o que a legenda do seletor mostra em BTC;
-nível em que o valor não cabe volta com `fee_sats: null`.
+mesma seleção de entradas. É o que o seletor mostra em BTC; nível em que o
+valor não cabe volta com `fee_sats: null`.
 
 ```json
 { "quotes": [ { "fee_rate": 2, "fee_sats": 284, "vsize": 142 },
               { "fee_rate": 6, "fee_sats": 852, "vsize": 142 },
+              { "fee_rate": 9, "fee_sats": 1278, "vsize": 142 },
               { "fee_rate": 12, "fee_sats": 1704, "vsize": 142 } ] }
 ```
 
@@ -526,17 +527,19 @@ entra no Worker nem na resposta.
 
 ### `GET /api/fees?session=<id opcional>`
 
-Taxa ao vivo pelo `blockchain.estimatefee` do Electrum, em três alvos:
-144 blocos (baixa), 6 (média) e 1 (alta). O valor vira sat/vB inteiro,
-arredondado para cima; se o servidor não estimar um nível, ele vem `null` e
-a tela deixa a taxa no controle deslizante. Quando o teto inteiro iguala
-dois níveis que o servidor ordenou (1,003 e 1,299 sat/vB viram 2 os dois), o
-de cima sobe 1 sat/vB, para a escada não repetir opção.
+Taxa ao vivo pelo `blockchain.estimatefee` do Electrum, em quatro alvos:
+144 blocos (`minimum`, ~1 dia), 6 (`standard`, ~1 h), 3 (`high`, ~30 min) e
+1 (`urgent`, ~1 bloco; o Bitcoin Core trata o alvo 1 como 2, o menor que ele
+estima). O valor vira sat/vB inteiro, arredondado para cima; se o servidor
+não estimar um nível, ele vem `null` e a tela desabilita aquele nível. Nada
+é somado para separar níveis: estimativas que caem no mesmo inteiro (1,003 e
+1,076 sat/vB viram 2 as duas) aparecem com o mesmo sat/vB e o mesmo custo em
+BTC, porque o dado é do servidor, não do nome do nível.
 
 ```json
 {
-  "levels": { "low": 2, "medium": 6, "high": 12 },
-  "targets": { "low": 144, "medium": 6, "high": 1 },
+  "levels": { "minimum": 2, "standard": 6, "high": 9, "urgent": 12 },
+  "targets": { "minimum": 144, "standard": 6, "high": 3, "urgent": 1 },
   "unit": "sat/vB",
   "source": "electrum",
   "updated_at": "2026-11-09T03:27:02.667Z"
@@ -591,9 +594,10 @@ A validação do campo foi conferida em Chromium headless (CDP `Input.insertText
 endereço, `xprv` e texto solto deixam o campo vazio com aviso; `xpub`, `zpub`
 e `ypub` de 111 caracteres entram, disparam a consulta sozinha e carregam a
 carteira. A página abre sempre com o campo vazio, inclusive depois de
-recarregar. O bloco **enviar** também foi conferido no Chromium: os três
-níveis aparecem com o valor do Electrum falso, a personalizada aceita o
-número, o PSBT aparece em base64 e some ao editar o formulário. Um PSBT gerado
+recarregar. O bloco **enviar** também foi conferido no Chromium: o seletor
+de taxa só aparece depois de valor e destino válidos, os quatro níveis
+mostram o custo em BTC do Electrum falso, a escolha por rádio muda a taxa do
+PSBT, o PSBT aparece em base64 e some ao editar o formulário. Um PSBT gerado
 pelo montador (bip84 e troco) foi analisado e assinado pelo próprio código do
 `chave-btc.html` em Chromium headless, com o troco reconhecido como interno.
 
@@ -606,11 +610,11 @@ conexão/endereços/xpub quando a última tela fecha e a recarga (fechar e
 re-sincronizar no mesmo instante) sem apagar a sessão nova.
 
 O `psbt.test.mjs` deriva uma carteira dos 256 bits (a mesma do projeto 1),
-serve UTXOs por um Electrum falso e verifica: taxa ao vivo nos três níveis,
+serve UTXOs por um Electrum falso e verifica: taxa ao vivo nos quatro níveis,
 escolha de entradas para cobrir o valor, troco no próximo índice `/1`, o
 limite `max_send_sats` (incluindo o envio no máximo, sem troco) e o preview
-com valor (taxa e troco iguais aos do PSBT, e as cotas dos três níveis para
-a legenda), PSBT v0 com
+com valor (taxa e troco iguais aos do PSBT, e as cotas dos níveis para o
+seletor), PSBT v0 com
 origem da conta, `non_witness_utxo` no p2pkh e `tap_bip32_derivation` no
 taproot, recusa de endereço/taxa/saldo inválidos, e a **assinatura do PSBT no
 próprio `btc-core`** com um índice 120 — fora do fallback de 100 — provando a

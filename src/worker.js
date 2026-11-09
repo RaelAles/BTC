@@ -15,8 +15,8 @@ import BTC from './btc-core.js';
    `POST /api/psbt`    → monta o PSBT de envio (sem assinatura) com os UTXOs
                          da carteira e a taxa escolhida. A chave privada
                          não passa por aqui; quem assina é o projeto 1.
-   `GET  /api/fees`    → taxa estimada pelo Electrum em três níveis
-                         (baixa, média, alta), em sat/vB.
+   `GET  /api/fees`    → taxa estimada pelo Electrum em quatro níveis
+                         (mínima, padrão, alta, urgente), em sat/vB.
    `GET  /api/events?session=…` → WebSocket do Durable Object, que empurra
                          o estado novo quando um scripthash muda.
    `GET  /api/health`  → configuração efetiva.
@@ -104,7 +104,7 @@ function sessionId(value) {
 
 /* Parâmetros do envio validados antes de consultar o Electrum. O valor é
    opcional: no preview ele só acrescenta a taxa daquele valor à resposta,
-   junto com `quote_rates` (as taxas dos níveis que a legenda mostra). */
+   junto com `quote_rates` (as taxas dos níveis que o seletor mostra). */
 function sendTarget(body) {
   const address = String(body.address || '').trim();
   if (!address) throw new Error('informe o endereço de destino');
@@ -122,7 +122,7 @@ function sendTarget(body) {
   };
 }
 
-/* Taxas extras que o preview cota para o mesmo valor (os três níveis da
+/* Taxas extras que o preview cota para o mesmo valor (os níveis da
    tela). São só números: cada cotação faz a mesma seleção de entradas. */
 function quoteRatesOf(body) {
   if (body.quote_rates == null) return null;

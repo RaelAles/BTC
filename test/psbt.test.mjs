@@ -32,32 +32,48 @@ function mapFind(map, type) {
   return map.find(e => e.key.length > 0 && e.key[0] === type) || null;
 }
 
-/* ---------------- 1. taxa ao vivo em três níveis ---------------- */
+/* ---------------- 1. taxa ao vivo em quatro níveis ---------------- */
 {
   const fake = await startFakeElectrum({});
   const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const r = await reqFees(env);
   assert.equal(r.status, 200);
-  assert.deepEqual(r.j.levels, { low: 2, medium: 6, high: 12 }, 'BTC/kvB → sat/vB inteiro');
-  assert.deepEqual(r.j.targets, { low: 144, medium: 6, high: 1 });
+  assert.deepEqual(r.j.levels, { minimum: 2, standard: 6, high: 9, urgent: 12 },
+    'BTC/kvB → sat/vB inteiro');
+  assert.deepEqual(r.j.targets, { minimum: 144, standard: 6, high: 3, urgent: 1 });
   assert.equal(r.j.source, 'electrum');
-  console.log('ok   taxa ao vivo em três níveis (baixa, média, alta)');
+  console.log('ok   taxa ao vivo em quatro níveis (mínima, padrão, alta, urgente)');
   await fake.close();
 }
 
-/* ---------------- 1b. níveis que o teto inteiro iguala ---------------- */
+/* ---------------- 1b. estimativas iguais continuam iguais ---------------- */
 {
-  /* 1,003 e 1,299 sat/vB viram 2 os dois no teto: a alta sobe para 3 para a
-     escada continuar distinta. A baixa, 0,113 sat/vB, continua em 1. */
+  /* 1,003, 1,076 e 1,299 sat/vB viram 2 no teto inteiro: os três níveis
+     mostram 2, sem a escada artificial de +1 sat/vB. A mínima, 0,113
+     sat/vB, continua em 1. */
   const fake = await startFakeElectrum({
-    fees: { 1: 0.00001299, 6: 0.00001003, 144: 0.00000113 }
+    fees: { 1: 0.00001299, 3: 0.00001076, 6: 0.00001003, 144: 0.00000113 }
   });
   const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const r = await reqFees(env);
   assert.equal(r.status, 200);
-  assert.deepEqual(r.j.levels, { low: 1, medium: 2, high: 3 },
-    'estimativas distintas não repetem o mesmo sat/vB');
-  console.log('ok   níveis distintos mesmo quando o teto inteiro os iguala');
+  assert.deepEqual(r.j.levels, { minimum: 1, standard: 2, high: 2, urgent: 2 },
+    'a estimativa é do sat/vB, não do nome do nível');
+  console.log('ok   níveis iguais continuam iguais, sem escada artificial');
+  await fake.close();
+}
+
+/* ---------------- 1c. nível sem estimativa fica null ---------------- */
+{
+  const fake = await startFakeElectrum({
+    fees: { 1: 0.00012, 6: 0.00006, 144: 0.00002 }
+  });
+  const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
+  const r = await reqFees(env);
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.j.levels, { minimum: 2, standard: 6, high: null, urgent: 12 },
+    'servidor que responde -1 deixa o nível sem estimativa');
+  console.log('ok   nível sem estimativa vem null e a tela o desabilita');
   await fake.close();
 }
 
@@ -228,16 +244,16 @@ function mapFind(map, type) {
   });
   assert.equal(overMax.fee_sats, null);
 
-  /* as taxas dos três níveis vêm na mesma resposta, cotadas para o mesmo
-     valor: é o que a legenda do seletor mostra em BTC. Nível em que o valor
-     não cabe volta com fee_sats null. */
+  /* as taxas dos níveis vêm na mesma resposta, cotadas para o mesmo valor:
+     é o que o seletor mostra em BTC. Nível em que o valor não cabe volta
+     com fee_sats null. */
   const quoted = sendLimits({
     utxos, address: destination, feeRate: 4, amountSats: 120000,
-    changeScript: change.script, quoteRates: [2, 6, 12]
+    changeScript: change.script, quoteRates: [1, 2, 6, 12]
   });
-  assert.deepEqual(quoted.quotes.map(q => q.fee_rate), [2, 6, 12]);
-  assert.equal(quoted.quotes[0].fee_sats, Math.ceil(2 * quoted.quotes[0].vsize));
-  assert.ok(quoted.quotes[0].fee_sats < quoted.quotes[2].fee_sats, 'a alta custa mais que a baixa');
+  assert.deepEqual(quoted.quotes.map(q => q.fee_rate), [1, 2, 6, 12]);
+  assert.equal(quoted.quotes[0].fee_sats, Math.ceil(1 * quoted.quotes[0].vsize));
+  assert.ok(quoted.quotes[0].fee_sats < quoted.quotes[3].fee_sats, 'a urgente custa mais que a mínima');
   const tooExpensive = sendLimits({
     utxos, address: destination, feeRate: 4, amountSats: 120000,
     changeScript: change.script, quoteRates: [10000]
