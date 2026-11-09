@@ -314,8 +314,9 @@ export class WalletScanner {
   }
 
   /* Maior valor que a carteira consegue enviar para este destino e taxa.
-     Com `amountSats`, devolve também a taxa (e o troco) daquele valor. */
-  limits({ address, feeRate, amountSats }) {
+     Com `amountSats`, devolve também a taxa (e o troco) daquele valor; com
+     `quoteRates`, o custo de cada nível para esse mesmo valor. */
+  limits({ address, feeRate, amountSats, quoteRates }) {
     if (this.errors && this.errors.size) {
       throw new Error('histórico incompleto (faltou transação do servidor); atualize a carteira e tente de novo');
     }
@@ -326,6 +327,7 @@ export class WalletScanner {
       address,
       feeRate,
       amountSats,
+      quoteRates,
       changeScript: changeRow ? BTC.hexToBytes(changeRow.script) : null
     });
   }

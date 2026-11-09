@@ -89,7 +89,8 @@ export class WalletWatcher {
           const target = {
             address: String(body.address || ''),
             feeRate: Number(body.feeRate),
-            amountSats: body.amountSats == null ? null : Number(body.amountSats)
+            amountSats: body.amountSats == null ? null : Number(body.amountSats),
+            quoteRates: Array.isArray(body.quoteRates) ? body.quoteRates : null
           };
           const payload = body.preview === true
             ? scanner.limits(target)

@@ -228,6 +228,22 @@ function mapFind(map, type) {
   });
   assert.equal(overMax.fee_sats, null);
 
+  /* as taxas dos três níveis vêm na mesma resposta, cotadas para o mesmo
+     valor: é o que a legenda do seletor mostra em BTC. Nível em que o valor
+     não cabe volta com fee_sats null. */
+  const quoted = sendLimits({
+    utxos, address: destination, feeRate: 4, amountSats: 120000,
+    changeScript: change.script, quoteRates: [2, 6, 12]
+  });
+  assert.deepEqual(quoted.quotes.map(q => q.fee_rate), [2, 6, 12]);
+  assert.equal(quoted.quotes[0].fee_sats, Math.ceil(2 * quoted.quotes[0].vsize));
+  assert.ok(quoted.quotes[0].fee_sats < quoted.quotes[2].fee_sats, 'a alta custa mais que a baixa');
+  const tooExpensive = sendLimits({
+    utxos, address: destination, feeRate: 4, amountSats: 120000,
+    changeScript: change.script, quoteRates: [10000]
+  });
+  assert.equal(tooExpensive.quotes[0].fee_sats, null);
+
   /* no máximo não sobra troco: a taxa da transação sem saída de troco é
      exatamente a devolvida pelo preview. */
   const atMax = await preparePsbt({

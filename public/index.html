@@ -102,22 +102,17 @@
                 <span class="field-meta" id="fee-updated">calculando…</span>
               </div>
               <div class="field-range-group" id="fee-control" role="group" aria-labelledby="fee-label">
-                <div class="field-range-value">
-                  <div class="field-box is-masked" id="fee-rate-box">
-                    <div class="edge" aria-hidden="true"></div>
-                    <input id="fee-rate" name="fee_rate" type="text" inputmode="numeric"
-                           autocomplete="off" spellcheck="false" placeholder="0"
-                           aria-label="taxa em sat/vB" aria-describedby="fee-level fee-note">
-                    <div class="edge" aria-hidden="true"></div>
-                  </div>
-                  <span class="field-range-unit" aria-hidden="true">sat/vB</span>
-                </div>
+                <p class="note field-range-readout" id="fee-readout">[ … ] calculando a taxa…</p>
                 <input type="range" class="field-range" id="fee-slider" min="0" max="1000"
-                       step="1" value="0" aria-label="ajustar a taxa"
-                       aria-describedby="fee-level fee-note">
-                <p class="note field-range-readout" id="fee-level">[ … ] calculando a taxa…</p>
+                       step="1" value="0" aria-label="taxa em sat/vB"
+                       aria-describedby="fee-legend fee-note">
+                <p class="note field-range-legend" id="fee-legend">
+                  <span class="fee-legend-item" data-level="low">[ baixa ] <span class="fee-legend-cost">—</span></span>
+                  <span class="fee-legend-item" data-level="medium">[ média ] <span class="fee-legend-cost">—</span></span>
+                  <span class="fee-legend-item" data-level="high">[ alta ] <span class="fee-legend-cost">—</span></span>
+                </p>
               </div>
-              <p class="note" id="fee-note">taxa estimada ao vivo pelo Electrum em três alvos: baixa (~1 dia), média (~1 h) e alta (~1 bloco). arraste a barra ou digite um valor inteiro de 1 a 10 000 sat/vB.</p>
+              <p class="note" id="fee-note">taxa estimada ao vivo pelo Electrum em três alvos: baixa (~1 dia), média (~1 h) e alta (~1 bloco). arraste a barra para escolher; a legenda mostra a taxa de cada nível em BTC para o envio digitado.</p>
 
               <button type="submit" class="form-submit" id="send-submit" aria-disabled="true">criar psbt</button>
               <p class="status-msg is-reserved" id="send-status" role="status"></p>

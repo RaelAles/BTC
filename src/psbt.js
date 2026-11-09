@@ -91,8 +91,10 @@ export function selectCoins(utxos, amountSats, feeRate, recipientScript, changeS
 /* Limite de envio para a taxa escolhida: o máximo é o total disponível
    menos a taxa da transação que gasta todas as entradas e manda todo o
    resto ao destino (sem troco). É exatamente o maior valor que
-   selectCoins aceita; abaixo disso sempre existe uma seleção válida. */
-export function sendLimits({ utxos, address, feeRate, amountSats, changeScript }) {
+   selectCoins aceita; abaixo disso sempre existe uma seleção válida.
+   Com `quoteRates`, devolve também `quotes`: a taxa de cada nível estimado
+   para o mesmo valor, que a legenda do seletor mostra em BTC. */
+export function sendLimits({ utxos, address, feeRate, amountSats, changeScript, quoteRates }) {
   if (!Number.isInteger(feeRate) || feeRate < 1 || feeRate > 10000) {
     throw new Error('taxa inválida: use de 1 a 10 000 sat/vB');
   }
@@ -127,6 +129,20 @@ export function sendLimits({ utxos, address, feeRate, amountSats, changeScript }
       limits.vsize = null;
       limits.inputs_used = null;
     }
+  }
+  /* Custo de cada nível para o mesmo valor: uma seleção de entradas por
+     taxa, na mesma regra do PSBT. Nível em que o valor não cabe fica com
+     `fee_sats: null`, e a tela escreve `—`. */
+  if (Array.isArray(quoteRates) && quoteRates.length && Number.isInteger(amountSats) &&
+    amountSats > 0 && changeScript) {
+    limits.quotes = quoteRates.map(rate => {
+      try {
+        const pick = selectCoins(utxos, amountSats, rate, recipientScript, changeScript);
+        return { fee_rate: rate, fee_sats: pick.fee, vsize: pick.vsize };
+      } catch (e) {
+        return { fee_rate: rate, fee_sats: null, vsize: null };
+      }
+    });
   }
   return limits;
 }

@@ -103,7 +103,8 @@ function sessionId(value) {
 }
 
 /* Parâmetros do envio validados antes de consultar o Electrum. O valor é
-   opcional: no preview ele só acrescenta a taxa daquele valor à resposta. */
+   opcional: no preview ele só acrescenta a taxa daquele valor à resposta,
+   junto com `quote_rates` (as taxas dos níveis que a legenda mostra). */
 function sendTarget(body) {
   const address = String(body.address || '').trim();
   if (!address) throw new Error('informe o endereço de destino');
@@ -113,7 +114,28 @@ function sendTarget(body) {
   if (!Number.isInteger(feeRate) || feeRate < 1 || feeRate > 10000) {
     throw new Error('taxa inválida: use de 1 a 10 000 sat/vB');
   }
-  return { address, feeRate, amountSats: amountSatsOf(body) };
+  return {
+    address,
+    feeRate,
+    amountSats: amountSatsOf(body),
+    quoteRates: quoteRatesOf(body)
+  };
+}
+
+/* Taxas extras que o preview cota para o mesmo valor (os três níveis da
+   tela). São só números: cada cotação faz a mesma seleção de entradas. */
+function quoteRatesOf(body) {
+  if (body.quote_rates == null) return null;
+  if (!Array.isArray(body.quote_rates)) throw new Error('taxas de cotação inválidas');
+  const rates = [];
+  for (const value of body.quote_rates) {
+    const rate = Number(value);
+    if (!Number.isInteger(rate) || rate < 1 || rate > 10000) {
+      throw new Error('taxa inválida: use de 1 a 10 000 sat/vB');
+    }
+    if (!rates.includes(rate)) rates.push(rate);
+  }
+  return rates.length ? rates : null;
 }
 
 function amountSatsOf(body) {

@@ -18,9 +18,12 @@ tela mostra:
    um, cinco por página, na tela **histórico**;
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e taxa em um
    **controle deslizante** — a barra aponta a posição em escala logarítmica
-   de 1 a 10 000 sat/vB, com o valor exato na caixa ao lado —, e a taxa em
-   sat/vB estimada **ao vivo** pelo Electrum (`baixa`, `média` e `alta`
-   aparecem no lugar da barra quando o valor cai num dos três níveis). A
+   de 1 a 10 000 sat/vB e é o único jeito de escolher a taxa (setas mudam
+   1 sat/vB, shift 10, PageUp/Down 100) —, e a taxa em sat/vB estimada **ao
+   vivo** pelo Electrum já vem pelo `/api/fees`. Abaixo da barra, a legenda
+   lista `[ baixa ]`, `[ média ]` e `[ alta ]` com o **custo em BTC de cada
+   nível para o valor digitado** (`—` sem destino ou valor válidos); acima,
+   a leitura mostra a taxa escolhida e a prioridade. A
    quantidade usa máscara de BTC:
    o usuário digita só dígitos e o ponto entra sozinho, da direita para a
    esquerda (`1` → `0.00000001`, `12345678` → `0.12345678`). A legenda abaixo
@@ -466,6 +469,17 @@ mostrar a taxa ao lado do valor antes de qualquer montagem.
   "change_sats": 7148, "vsize": 142, "inputs_used": 2 }
 ```
 
+O mesmo preview aceita `quote_rates` (até as três taxas dos níveis): a
+resposta ganha `quotes`, com a taxa de cada nível para o **mesmo valor**, na
+mesma seleção de entradas. É o que a legenda do seletor mostra em BTC;
+nível em que o valor não cabe volta com `fee_sats: null`.
+
+```json
+{ "quotes": [ { "fee_rate": 2, "fee_sats": 284, "vsize": 142 },
+              { "fee_rate": 6, "fee_sats": 852, "vsize": 142 },
+              { "fee_rate": 12, "fee_sats": 1704, "vsize": 142 } ] }
+```
+
 Valor acima do máximo volta com `fee_sats: null` (a tela já mostra o erro de
 limite).
 
@@ -595,7 +609,8 @@ O `psbt.test.mjs` deriva uma carteira dos 256 bits (a mesma do projeto 1),
 serve UTXOs por um Electrum falso e verifica: taxa ao vivo nos três níveis,
 escolha de entradas para cobrir o valor, troco no próximo índice `/1`, o
 limite `max_send_sats` (incluindo o envio no máximo, sem troco) e o preview
-com valor (taxa e troco iguais aos do PSBT), PSBT v0 com
+com valor (taxa e troco iguais aos do PSBT, e as cotas dos três níveis para
+a legenda), PSBT v0 com
 origem da conta, `non_witness_utxo` no p2pkh e `tap_bip32_derivation` no
 taproot, recusa de endereço/taxa/saldo inválidos, e a **assinatura do PSBT no
 próprio `btc-core`** com um índice 120 — fora do fallback de 100 — provando a

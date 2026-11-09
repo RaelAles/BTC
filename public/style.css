@@ -1774,23 +1774,34 @@
   .wallet-updated[hidden] { display: none; }
 
   /* Envio: o bloco segue o desenho do formulário (rótulo, caixa, recado) e
-     não inventa controle. A taxa é um controle deslizante (VG-FRM-12) com o
-     valor exato na caixa ao lado e a leitura do nível abaixo; o PSBT é
-     leitura, no bloco de código que já existe. */
+     não inventa controle. A taxa é só o controle deslizante (VG-FRM-12):
+     a leitura do valor e da prioridade fica acima da barra, e a legenda
+     abaixo lista o custo em BTC de cada nível para o valor digitado; o
+     PSBT é leitura, no bloco de código que já existe. */
   #send-amount-hint { margin: var(--space-2) 0 0; }
   #send-amount-hint.is-error { color: var(--error); }
-  /* Valor exato e unidade na mesma linha: a caixa para em 12ch (o teto de
-     10 000 cabe com folga) e a barra ocupa a coluna inteira logo abaixo. */
   .field-range-group { margin-top: var(--space-3); }
-  .field-range-value {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
+  /* O valor escolhido é o dado principal do controle: fica no tom do texto,
+     acima da barra, e o nível em `[ … ]` logo depois. */
+  .field-range-readout {
+    margin: 0 0 var(--space-2);
+    color: var(--fg);
+    font-size: var(--text-base);
   }
-  .field-range-value .field-box { flex: 0 0 12ch; min-width: 0; }
-  .field-range-unit { color: var(--dim); font-size: var(--text-sm); }
-  .field-range-group .field-range { margin-top: var(--space-3); }
-  .field-range-readout { margin: var(--space-2) 0 0; color: var(--dim); }
+  /* Custo de cada nível em BTC, na mesma linguagem das linhas de dados: o
+     rótulo do nível em --dim, o valor em --fg e o nível em vigor em
+     --support, como o assunto marcado dos chips. */
+  .field-range-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-8);
+    margin: var(--space-3) 0 0;
+    color: var(--dim);
+  }
+  .fee-legend-item { white-space: nowrap; }
+  .fee-legend-cost { color: var(--fg); }
+  .fee-legend-item.is-current { color: var(--support); }
+  .fee-legend-item.is-current .fee-legend-cost { color: var(--support); }
   #fee-note { margin: var(--space-3) 0 0; }
   #send-psbt { margin-bottom: 0; }
   #send-meta {

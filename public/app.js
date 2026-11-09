@@ -31,6 +31,7 @@
     page: 1,            // página da lista do histórico
     fees: null,         // estimativa ao vivo do Electrum
     feesError: false,   // a última consulta da taxa falhou
+    feeQuotes: null,    // custo em BTC de cada nível para o valor atual
     feeLevel: 'medium', // baixa | medium | high | custom
     feeSliderBusy: false, // a barra está escrevendo o estado agora
     feeCustom: '',      // sat/vB digitado
@@ -405,6 +406,9 @@
       else btn.removeAttribute('aria-disabled');
     }
     state.sendBlocked = disabled;
+    /* a legenda da taxa depende do valor, do destino e do preview que acabou
+       de mudar; é o único lugar em que todos os três se encontram */
+    renderFeeLegend();
   }
 
   /* O máximo depende do destino (tamanho do script) e da taxa. A consulta é
@@ -437,6 +441,12 @@
     var xpub = state.xpub;
     var body = { xpub: xpub, address: address, fee_rate: rate, preview: true };
     if (amount > 0) body.amount_sats = amount;
+    /* As três taxas estimadas vão junto para o servidor cotar o custo de
+       cada nível para o mesmo valor, numa seleção de entradas só. */
+    var quoteRates = FEE_ORDER.map(function (k) {
+      return Number((state.fees && state.fees.levels || {})[k]) || 0;
+    }).filter(function (r) { return r > 0; });
+    if (quoteRates.length) body.quote_rates = quoteRates;
     if (state.session) body.session = state.session;
     try {
       var r = await fetch('/api/psbt', {
@@ -450,24 +460,28 @@
       if (!Number.isInteger(j.max_send_sats)) throw new Error('resposta sem limite de envio');
       state.limits = j;
       state.limitsError = '';
+      /* as cotas dos níveis dependem só do valor e do destino: guardadas à
+         parte, a legenda não pisca para `—` quando só a taxa muda */
+      if (Array.isArray(j.quotes)) {
+        var byRate = {};
+        j.quotes.forEach(function (q) { byRate[q.fee_rate] = q.fee_sats; });
+        state.feeQuotes = { amount: j.amount_sats, address: j.recipient, byRate: byRate };
+      }
     } catch (e) {
       if (seq !== state.limitsSeq) return;
       state.limits = null;
+      state.feeQuotes = null; // sem confirmação do servidor, a legenda fica em —
       state.limitsError = e && e.message ? e.message : String(e);
     }
     updateSendAvailability();
   }
 
-  /* Desenha a taxa: campo com o inteiro, barra na posição equivalente e a
-     linha de leitura com o nível estimado e o tempo-alvo. O campo não é
-     reescrito enquanto tem o foco, para a digitação não pular o cursor. */
+  /* Desenha a taxa: barra na posição do valor escolhido, leitura do valor
+     e da prioridade acima, e a legenda com o custo em BTC de cada nível
+     abaixo. O valor exato só sai da barra (e das setas do teclado). */
   function renderFees() {
     var rate = feeRateOf(state.feeLevel);
     var level = feeLevelOf(rate);
-    var field = $('#fee-rate');
-    if (field && document.activeElement !== field) {
-      field.value = rate > 0 ? String(rate) : '';
-    }
     var slider = $('#fee-slider');
     if (slider) {
       /* A barra não é reescrita durante o próprio input: o valor arredondado
@@ -478,22 +492,22 @@
         ? rate + ' sat/vB, ' + (level ? FEE_LABEL[level] : 'personalizada')
         : 'sem taxa');
     }
-    var readout = $('#fee-level');
+    var readout = $('#fee-readout');
     if (readout) {
       if (!(rate > 0)) {
         readout.textContent = state.feesError
-          ? '[ erro ] estimativa indisponível; digite a taxa'
+          ? '[ erro ] estimativa indisponível; arraste a barra para escolher'
           : state.fees
-            ? '[ … ] digite ou arraste para escolher a taxa'
+            ? '[ … ] arraste a barra para escolher a taxa'
             : '[ … ] calculando a taxa…';
-      } else if (level) {
-        var blocks = Number(state.fees && state.fees.targets && state.fees.targets[level]) || 0;
-        readout.textContent = '[ ' + FEE_LABEL[level] + ' ]' +
-          (blocks ? ' ' + fmtBlocks(blocks) + ' até confirmar' : '');
       } else {
-        readout.textContent = '[ personalizada ]';
+        var blocks = level && Number(state.fees && state.fees.targets && state.fees.targets[level]) || 0;
+        readout.textContent = rate + ' sat/vB · ' +
+          (level ? '[ ' + FEE_LABEL[level] + ' ]' : '[ personalizada ]') +
+          (blocks ? ' · ' + fmtBlocks(blocks) : '');
       }
     }
+    renderFeeLegend();
     var upd = $('#fee-updated');
     if (!upd) return;
     var levels = (state.fees && state.fees.levels) || {};
@@ -505,6 +519,37 @@
       : state.feesError
         ? 'estimativa indisponível'
         : 'calculando…';
+  }
+
+  /* Custo de cada nível para o valor que está no formulário. Só vale quando
+     o preview respondeu para o mesmo valor e o mesmo destino; fora disso a
+     legenda fica em `—`, como manda a regra da tela. */
+  function feeQuotes() {
+    var cached = state.feeQuotes;
+    var amount = amountSats();
+    var address = $('#send-address') ? $('#send-address').value.trim() : '';
+    if (!cached || !(amount > 0) || cached.amount !== amount ||
+      cached.address !== address) return {};
+    return cached.byRate;
+  }
+
+  function renderFeeLegend() {
+    var legend = $('#fee-legend');
+    if (!legend) return;
+    var levels = (state.fees && state.fees.levels) || {};
+    var quotes = feeQuotes();
+    var current = feeRateOf(state.feeLevel);
+    $$('.fee-legend-item', legend).forEach(function (item) {
+      var level = item.getAttribute('data-level');
+      var rate = Number(levels[level]) || 0;
+      var fee = rate > 0 ? quotes[rate] : null;
+      var cost = $('.fee-legend-cost', item);
+      if (cost) cost.textContent = fee > 0 ? fmtBtc(fee) + ' BTC' : '—';
+      var active = rate > 0 && rate === current;
+      item.classList.toggle('is-current', active);
+      if (active) item.setAttribute('aria-current', 'true');
+      else item.removeAttribute('aria-current');
+    });
   }
 
   /* Taxa ao vivo: a rota usa a conexão da sessão quando ela existe e o
@@ -526,7 +571,10 @@
         state.feeLevel = ['medium', 'high', 'low'].find(function (k) { return Number(j.levels[k]) > 0; }) || 'custom';
       }
       renderFees();
+      /* taxa escolhida mudou: o máximo é recalculado sem manter o antigo.
+         Só os níveis mudaram: mantém o máximo e refaz as cotas da legenda. */
       if (!state.limits || feeRateOf(state.feeLevel) !== before) scheduleLimits();
+      else scheduleLimits(true);
     } catch (e) {
       state.feesError = true;
       renderFees();
@@ -561,6 +609,7 @@
     state.sendBusy = false;
     state.fees = null;
     state.feesError = false;
+    state.feeQuotes = null;
     state.feeLevel = 'medium';
     state.feeCustom = '';
     state.amountDigits = '';
@@ -570,7 +619,7 @@
     if (state.limitsTimer) clearTimeout(state.limitsTimer);
     state.limitsTimer = 0;
     stopFeeTimer();
-    ['#send-address', '#fee-rate'].forEach(function (sel) {
+    ['#send-address'].forEach(function (sel) {
       var el = $(sel);
       if (el) el.value = '';
     });
@@ -624,7 +673,7 @@
     var rate = feeRateOf(state.feeLevel);
     if (!Number.isInteger(rate) || rate < 1 || rate > 10000) {
       setSendStatus('error', 'escolha uma taxa de 1 a 10 000 sat/vB.');
-      if (state.feeLevel === 'custom') $('#fee-rate').focus();
+      $('#fee-slider').focus();
       return;
     }
     if (!state.limits) {
@@ -1262,18 +1311,6 @@
         applyFeeRate(next);
       });
     }
-    var feeRate = $('#fee-rate');
-    if (feeRate) {
-      feeRate.addEventListener('input', function () {
-        var clean = feeRate.value.replace(/[^0-9]/g, '').slice(0, 5);
-        if (clean !== feeRate.value) feeRate.value = clean;
-        applyFeeRate(clean === '' ? 0 : Number(clean));
-      });
-      /* Ao sair do campo o valor é reescrito: corta zeros à esquerda e
-         mostra o teto quando a digitação passou de 10 000. */
-      feeRate.addEventListener('blur', function () { renderFees(); });
-    }
-
     /* Máscara de satoshis: dígitos entram da direita, o ponto é automático,
        backspace apaga o último dígito e colar aceita BTC com ponto/vírgula. */
     var amountInput = $('#send-amount');

@@ -311,6 +311,20 @@ assert.equal(watcher.idleTimer, null, 'tela aberta cancela o descarte');
   assert.ok(previewAmount.fee_sats > 0, JSON.stringify(previewAmount));
   assert.equal(previewAmount.max_send_sats, preview.max_send_sats);
 
+  /* as taxas dos níveis pedidas em `quote_rates` voltam cotadas para o mesmo
+     valor, no mesmo preview (é a legenda do seletor) */
+  const previewQuotes = await (await worker.fetch(new Request('https://x/api/psbt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      xpub: USER, session: payload.session, address: dest,
+      fee_rate: 6, preview: true, amount_sats: 5000, quote_rates: [2, 6, 12]
+    })
+  }), env2)).json();
+  assert.deepEqual(previewQuotes.quotes.map(q => q.fee_rate), [2, 6, 12], JSON.stringify(previewQuotes));
+  assert.equal(previewQuotes.quotes[1].fee_sats, previewQuotes.fee_sats, 'a cota do nível em vigor é a taxa do preview');
+  assert.ok(previewQuotes.quotes[0].fee_sats < previewQuotes.quotes[2].fee_sats);
+
   const psbtRes = await worker.fetch(new Request('https://x/api/psbt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
