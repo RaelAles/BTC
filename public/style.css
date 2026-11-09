@@ -1819,14 +1819,6 @@
     gap: var(--space-4) var(--space-7);
     flex-wrap: wrap;
   }
-  /* A nota do rodapé e o par de botões ficam nas pontas; o grupo mantém
-     idioma e tema juntos e desce inteiro quando o rodapé quebra no celular. */
-  .status-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--space-5);
-    margin-left: auto;
-  }
   /* Sem tooltip e sem rótulo visível (VG-BOT-11): o nome acessível fica só
      no aria-label e o estado visível no próprio código do idioma (PT, EN) e
      no glifo do tema (●, ○).
