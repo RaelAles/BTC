@@ -17,6 +17,18 @@
      troco ganha palavra, para o caminho não ficar só com número. */
   var PER_PAGE = 5;
 
+  /* Movimento (VG-FND-09): as durações e curvas saem dos mesmos tokens que o
+     CSS usa, então o ritmo muda num lugar só. */
+  function motionMs(name, fallback) {
+    var value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    if (!value) return fallback;
+    if (/ms$/.test(value)) return parseFloat(value);
+    if (/s$/.test(value)) return parseFloat(value) * 1000;
+    return parseFloat(value) || fallback;
+  }
+  var reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  function prefersReducedMotion() { return reducedMotionQuery.matches; }
+
   var state = {
     xpub: '',
     data: null,
@@ -40,7 +52,11 @@
     limitsTimer: 0,
     limitsSeq: 0,
     sendBusy: false,
-    psbt: null          // PSBT criado (texto e resumo)
+    psbt: null,         // PSBT criado (texto e resumo)
+    screen: 'carteira', // tela em vigor (carteira | historico)
+    langOpen: false,    // a tela de idiomas está aberta
+    historyState: 'idle', // idle | loading | error | ready
+    langScroll: 0       // ponto de leitura devolvido pelo voltar da tela de idiomas
   };
 
   function esc(s) {
@@ -140,11 +156,69 @@
      baixa e entre colchetes, como no gerador. O neutro é o mesmo sinal do
      carregamento e some quando a consulta termina. */
   var PREFIX = { ok: '[ ok ]', error: '[ erro ]', '': '[ ... ]' };
+  /* Aviso temporário (VG-ABS-07): o recado final do formulário e da ação
+     secundária some sozinho em 8 s, pausa com o ponteiro sobre ele ou o foco
+     no formulário e recomeça de onde parou. O neutro de carregamento fica
+     fora: ele é substituído pelo recado final. */
+  var notices = new WeakMap();
+  function noticeClear(el) {
+    el.textContent = '';
+    el.classList.remove('ok', 'error');
+  }
+  function noticeStop(el) {
+    var n = notices.get(el);
+    if (n && n.timer) { clearTimeout(n.timer); n.timer = 0; }
+  }
+  function noticeResume(el) {
+    var n = notices.get(el);
+    if (!n || n.timer || n.remaining <= 0) return;
+    n.startedAt = Date.now();
+    n.timer = setTimeout(function () {
+      n.timer = 0;
+      noticeClear(el);
+    }, n.remaining);
+  }
+  function noticePause(el) {
+    var n = notices.get(el);
+    if (!n || !n.timer) return;
+    clearTimeout(n.timer);
+    n.timer = 0;
+    n.remaining = Math.max(0, n.remaining - (Date.now() - n.startedAt));
+  }
+  function noticeSchedule(el) {
+    var n = notices.get(el);
+    if (!n) { n = { timer: 0, remaining: 0, startedAt: 0 }; notices.set(el, n); }
+    noticeStop(el);
+    n.remaining = motionMs('--motion-notice', 8000);
+    n.startedAt = Date.now();
+    n.timer = setTimeout(function () {
+      n.timer = 0;
+      noticeClear(el);
+    }, n.remaining);
+  }
+  function noticeWire(el) {
+    if (!el) return;
+    var form = el.closest ? el.closest('form') : null;
+    el.addEventListener('pointerenter', function () { noticePause(el); });
+    el.addEventListener('pointerleave', function () { noticeResume(el); });
+    if (!form) return;
+    form.addEventListener('focusin', function () { noticePause(el); });
+    form.addEventListener('focusout', function () {
+      setTimeout(function () {
+        if (!form.contains(document.activeElement)) noticeResume(el);
+      }, 0);
+    });
+  }
   function setStatusTo(el, kind, text) {
     if (!el) return;
     el.textContent = text ? (PREFIX[kind] || PREFIX['']) + ' ' + text : '';
     el.classList.remove('ok', 'error');
-    if (kind === 'ok' || kind === 'error') el.classList.add(kind);
+    if (kind === 'ok' || kind === 'error') {
+      el.classList.add(kind);
+      noticeSchedule(el);
+    } else {
+      noticeStop(el);
+    }
   }
   function setStatus(kind, text) {
     setStatusTo($('#status'), kind, text);
@@ -154,14 +228,84 @@
   }
   var SCREEN_TITLES = {
     carteira: 'Monitor BTC - carteira',
-    historico: 'Monitor BTC - histórico'
+    historico: 'Monitor BTC - histórico',
+    language: 'Monitor BTC - idioma'
   };
-  function showScreen(name) {
-    if (!SCREEN_TITLES[name]) name = 'carteira';
-    Object.keys(SCREEN_TITLES).forEach(function (n) {
-      var sec = $('#screen-' + n);
-      if (sec) sec.hidden = n !== name;
+  var SCREEN_IDS = ['carteira', 'historico', 'language'];
+
+  /* URL e histórico (VG-MET-10): a tela e a página da lista vão para o
+     endereço; a tela inicial e a primeira página ficam sem parâmetro, para o
+     endereço continuar curto. A tela de idiomas fica fora do endereço. */
+  function readUrl() {
+    var params = new URLSearchParams(location.search);
+    var screen = params.get('screen') === 'historico' ? 'historico' : 'carteira';
+    var page = parseInt(params.get('page'), 10);
+    if (!isFinite(page) || page < 1) page = 1;
+    return { screen: screen, page: page };
+  }
+  function urlFor() {
+    var params = new URLSearchParams();
+    if (state.screen !== 'carteira') params.set('screen', state.screen);
+    if (state.screen === 'historico' && state.page > 1) params.set('page', String(state.page));
+    var query = params.toString();
+    return location.pathname + (query ? '?' + query : '');
+  }
+  function pushScreenUrl() {
+    var url = urlFor();
+    if (url === location.pathname + location.search) return;
+    history.pushState({ screen: state.screen, page: state.page }, '', url);
+  }
+
+  /* Entrada em foco (VG-EFE-02): o título assenta, a régua se desenha da
+     esquerda para a direita e cada bloco sobe 12 px enquanto o desfoque se
+     resolve, escalonado. Não repete na troca de tema; com menos movimento, o
+     conteúdo aparece direto. */
+  function runReveal(screen) {
+    if (!screen || prefersReducedMotion() || !Element.prototype.animate) return;
+    var title = screen.querySelector('h2');
+    var rule = screen.querySelector('.rule:not(.rule-dots)');
+    if (!title || !rule) return;
+    var blocks = Array.prototype.filter.call(screen.children, function (el) {
+      return el !== title && el !== rule && !el.hidden && el.getClientRects().length;
     });
+    var ease = 'cubic-bezier(.16,1,.3,1)';
+    var easeDraw = 'cubic-bezier(.65,0,.35,1)';
+    [title, rule].concat(blocks).forEach(function (el) {
+      if (el.getAnimations) el.getAnimations().forEach(function (a) { a.cancel(); });
+    });
+    title.animate([
+      { opacity: 0, transform: 'translateY(-6px)' },
+      { opacity: 1, transform: 'translateY(0)' }
+    ], { duration: motionMs('--motion-reveal-head', 250), easing: ease, fill: 'both' });
+    rule.animate([
+      { opacity: 0, clipPath: 'inset(0 100% 0 0)' },
+      { opacity: 1, clipPath: 'inset(0 0 0 0)' }
+    ], {
+      duration: motionMs('--motion-reveal', 250),
+      delay: motionMs('--motion-rule-delay', 75),
+      easing: easeDraw,
+      fill: 'both'
+    });
+    blocks.forEach(function (el, i) {
+      el.animate([
+        { opacity: 0, transform: 'translateY(12px)', filter: 'blur(3px)' },
+        { opacity: 1, transform: 'translateY(0)', filter: 'blur(0px)' }
+      ], {
+        duration: motionMs('--motion-reveal', 250),
+        delay: motionMs('--motion-reveal-delay', 50) + i * motionMs('--motion-reveal-step', 25),
+        easing: ease,
+        fill: 'both'
+      });
+    });
+    screen.setAttribute('aria-busy', 'true');
+    if (screen._revealTimer) clearTimeout(screen._revealTimer);
+    screen._revealTimer = setTimeout(function () {
+      screen._revealTimer = 0;
+      screen.removeAttribute('aria-busy');
+    }, motionMs('--motion-reveal-total', 1000));
+  }
+
+  function markCurrent(name) {
     $$('.menu button[data-screen]').forEach(function (b) {
       if (b.getAttribute('data-screen') === name) {
         b.setAttribute('aria-current', 'page');
@@ -171,15 +315,78 @@
         b.removeAttribute('tabindex');
       }
     });
-    // abrir a lista pelo menu recomeça na primeira página (VG-LST-03)
+    var lang = $('#lang-btn');
+    if (lang) {
+      if (name === 'language') {
+        lang.setAttribute('aria-current', 'page');
+        lang.setAttribute('tabindex', '-1');
+      } else {
+        lang.removeAttribute('aria-current');
+        lang.removeAttribute('tabindex');
+      }
+    }
+  }
+
+  function setScreenVisible(name) {
+    SCREEN_IDS.forEach(function (n) {
+      var sec = $('#screen-' + n);
+      if (sec) sec.hidden = n !== name;
+    });
+  }
+
+  function showScreen(name, opts) {
+    opts = opts || {};
+    if (!SCREEN_TITLES[name] || name === 'language') name = 'carteira';
+    state.screen = name;
+    state.langOpen = false;
+    setScreenVisible(name);
+    markCurrent(name);
     if (name === 'historico') {
-      state.page = 1;
+      // abrir a lista pelo menu recomeça na primeira página (VG-LST-03); a
+      // abertura pelo endereço e o popstate devolvem a página pedida.
+      state.page = opts.page == null ? 1 : opts.page;
       renderHistory();
+      syncHistoryState();
     }
     document.title = SCREEN_TITLES[name];
-    var sc = $('#content-scroll');
-    if (sc) sc.scrollTop = 0;
+    if (!opts.keepScroll) {
+      var sc = $('#content-scroll');
+      if (sc) sc.scrollTop = 0;
+    }
     updateScroll();
+    if (!opts.noReveal) runReveal($('#screen-' + name));
+    if (!opts.noUrl) pushScreenUrl();
+  }
+
+  /* A tela de idiomas é uma tela, não um modal (VG-ABS-06): o menu perde a
+     marca, o botão PT fica em vigor e o voltar/Esc devolve a tela de origem
+     no mesmo ponto de leitura. Ela não entra no endereço (VG-MET-10). */
+  function showLanguage() {
+    var sc = $('#content-scroll');
+    state.langScroll = sc ? sc.scrollTop : 0;
+    state.langOpen = true;
+    setScreenVisible('language');
+    markCurrent('language');
+    document.title = SCREEN_TITLES.language;
+    updateScroll();
+    runReveal($('#screen-language'));
+  }
+  function closeLanguage(opts) {
+    opts = opts || {};
+    state.langOpen = false;
+    showScreen(state.screen, {
+      page: state.page,
+      keepScroll: true,
+      noUrl: true,
+      noReveal: true
+    });
+    var sc = $('#content-scroll');
+    if (sc) sc.scrollTop = state.langScroll;
+    updateScroll();
+    if (opts.focus !== false) {
+      var b = $('#lang-btn');
+      if (b) b.focus();
+    }
   }
   function fillFrames() {
     $$('.edge').forEach(function (el) {
@@ -206,19 +413,36 @@
       symbol.innerHTML + '</svg>';
     link.setAttribute('href', 'data:image/svg+xml,' + encodeURIComponent(svg));
   }
-  function setTheme(theme) {
+  var themeSwapTimer = 0;
+  function setTheme(theme, opts) {
     var t = theme === 'light' ? 'light' : 'dark';
+    var changed = document.documentElement.dataset.theme !== t;
+    /* Crossfade de tema (VG-EFE-07): a classe theme-fx existe só durante
+       --motion-theme e faz fundo, card, moldura, texto e controles passarem
+       juntos; o grão acompanha pelo filtro de brilho, no compositor. Com
+       menos movimento, a troca é direta. */
+    var animate = changed && !(opts && opts.immediate) && !prefersReducedMotion();
+    if (animate) {
+      document.documentElement.classList.add('theme-fx');
+      if (themeSwapTimer) clearTimeout(themeSwapTimer);
+      themeSwapTimer = setTimeout(function () {
+        themeSwapTimer = 0;
+        document.documentElement.classList.remove('theme-fx');
+      }, motionMs('--motion-theme', 150) + 50);
+    }
     document.documentElement.dataset.theme = t;
     try { localStorage.setItem('projeto2-fase1-theme', t); } catch (e) {}
     var b = $('#theme-toggle');
     if (b) {
-      b.textContent = t === 'light' ? '●' : '○';
+      b.innerHTML = '<span class="glyph">' +
+        (t === 'light' ? '●' : '<span class="glyph-ring">○</span>') + '</span>';
       b.setAttribute('aria-label', t === 'light' ? 'Ativar tema escuro' : 'Ativar tema claro');
     }
     var meta = document.querySelector('meta[name="theme-color"]');
     var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
     if (meta && bg) meta.setAttribute('content', bg);
     syncFavicon();
+    syncGrainTheme();
   }
   function updateScroll() {
     var el = $('#content-scroll');
@@ -228,6 +452,300 @@
     c.classList.toggle('can-scroll-up', max > 2 && el.scrollTop > 2);
     c.classList.toggle('can-scroll-down', max > 2 && el.scrollTop < max - 2);
     updatePager(max);
+  }
+
+  /* Rolagem única (VG-LAY-12): quando a janela fica abaixo do piso do card
+     mais os respiros, a página é a única a rolar e o card cresce. O piso e os
+     respiros são lidos já em px, e o 100dvh vem do .vh-probe, que mede o
+     mesmo valor do card. */
+  function syncPageMode() {
+    var probe = $('.vh-probe');
+    var win = $('.window');
+    var page = $('.page');
+    if (!probe || !win || !page) return;
+    var vh = probe.getBoundingClientRect().height;
+    var pageStyle = getComputedStyle(page);
+    var pad = parseFloat(pageStyle.paddingTop) + parseFloat(pageStyle.paddingBottom);
+    var floor = parseFloat(getComputedStyle(win).minHeight) || 0;
+    page.classList.toggle('is-page-scroll', vh > 0 && (vh - pad) < floor);
+    updateScroll();
+  }
+
+  /* Barras de altura igual (VG-LAY-05): menu e rodapé recebem a mesma altura
+     mínima, então o menu que quebra em duas linhas no celular não deixa o
+     rodapé menor. */
+  function syncBars() {
+    var menu = $('.menu');
+    var status = $('.status');
+    if (!menu || !status) return;
+    menu.style.minHeight = '';
+    status.style.minHeight = '';
+    var h = Math.max(
+      menu.getBoundingClientRect().height,
+      status.getBoundingClientRect().height
+    );
+    if (!h) return;
+    menu.style.minHeight = h + 'px';
+    status.style.minHeight = h + 'px';
+  }
+
+  /* Estados da lista (VG-LST-04/05, VG-ABS-10): vazio, carregando e erro de
+     dados ocupam a mesma área, sem deixar o histórico em branco nem reusar a
+     lista vazia, que é um estado válido. */
+  function historySkeleton() {
+    var box = $('#history-skeleton');
+    if (!box || box.childElementCount) return;
+    var html = '';
+    for (var i = 0; i < PER_PAGE; i++) {
+      if (i) html += '<div class="rule rule-dots" aria-hidden="true"></div>';
+      html += '<div class="item-skeleton">' +
+        '<span class="item-skeleton-line is-title"></span>' +
+        '<span class="item-skeleton-line" style="--w: 90%"></span>' +
+        '<span class="item-skeleton-line" style="--w: 76%"></span>' +
+        '<span class="item-skeleton-line is-tags"></span>' +
+        '</div>';
+    }
+    box.innerHTML = html;
+  }
+  function syncHistoryState() {
+    var loading = $('#history-loading');
+    var skel = $('#history-skeleton');
+    var err = $('#history-error');
+    var list = $('#history-list');
+    var empty = $('#addresses-empty');
+    var ready = state.historyState === 'ready';
+    var rows = historyRows();
+    if (loading) loading.hidden = state.historyState !== 'loading';
+    if (skel) {
+      skel.hidden = state.historyState !== 'loading';
+      if (state.historyState === 'loading') historySkeleton();
+    }
+    if (err) err.hidden = state.historyState !== 'error';
+    var summary = $('#history-summary');
+    if (summary) {
+      if (state.historyState === 'loading') {
+        summary.textContent = 'verificando endereços... o saldo aparece ao terminar.';
+      } else if (state.historyState === 'error') {
+        summary.textContent = '';
+      } else if (state.historyState === 'idle') {
+        summary.textContent = 'cole a xpub, zpub ou ypub na carteira para ver o histórico.';
+      }
+    }
+    if (list) {
+      list.hidden = !(ready && rows.length > 0);
+      if (state.historyState === 'loading') list.setAttribute('aria-busy', 'true');
+      else list.removeAttribute('aria-busy');
+    }
+    if (empty) empty.hidden = !(ready && rows.length === 0);
+    updateScroll();
+  }
+
+  /* --------------------------------------------------------------- grão */
+  /* Grão de fundo (VG-FND-05 / VG-EFE-01): células de 14 px, glifos de
+     13 px, seis caracteres e exatamente 50% das células ocupadas. A tinta
+     não é --line: a cobertura média dos glifos e o alpha do --panel sobre o
+     --bg geram um tom cujo glifo renderizado cai no tom do card. A textura é
+     desenhada com a tinta do tema claro; o escuro é o mesmo desenho escurecido
+     por um filtro de brilho, animado pelo compositor junto com as cores. */
+  var GRAIN_GLYPHS = ['.', ':', '-', '=', '+', '*'];
+  var grain = {
+    canvas: null, ctx: null, font: '', ink: '',
+    ratio: 1, cols: 0, rows: 0, cell: 14, occ: null, map: null,
+    timer: 0
+  };
+
+  function colorParts(value) {
+    var s = String(value || '').trim();
+    var hex = s.match(/^#([0-9a-f]{3,8})$/i);
+    if (hex) {
+      var h = hex[1];
+      if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+      var a = 1;
+      if (h.length === 8) { a = parseInt(h.slice(6, 8), 16) / 255; h = h.slice(0, 6); }
+      return {
+        r: parseInt(h.slice(0, 2), 16),
+        g: parseInt(h.slice(2, 4), 16),
+        b: parseInt(h.slice(4, 6), 16),
+        a: a
+      };
+    }
+    var parts = s.match(/[\d.]+/g);
+    if (!parts || parts.length < 3) return null;
+    var unit = /^color\(/i.test(s) ? 255 : 1;
+    return {
+      r: parseFloat(parts[0]) * unit,
+      g: parseFloat(parts[1]) * unit,
+      b: parseFloat(parts[2]) * unit,
+      a: parts.length > 3 ? parseFloat(parts[3]) : 1
+    };
+  }
+  /* Cobertura média dos glifos, medida no canvas com a mesma fonte e DPR. */
+  function grainCoverage(font, dpr) {
+    var probe = document.createElement('canvas');
+    probe.width = Math.ceil(GRAIN_GLYPHS.length * 16 * dpr);
+    probe.height = Math.ceil(20 * dpr);
+    var ctx = probe.getContext('2d');
+    if (!ctx) return 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.font = font;
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = '#fff';
+    for (var i = 0; i < GRAIN_GLYPHS.length; i++) ctx.fillText(GRAIN_GLYPHS[i], i * 16, 0);
+    var data = ctx.getImageData(0, 0, probe.width, probe.height).data;
+    var sum = 0, count = 0;
+    for (var p = 3; p < data.length; p += 4) {
+      var a = data[p] / 255;
+      if (a <= 0) continue;
+      sum += a;
+      count++;
+    }
+    return count ? Math.min(1, sum / count) : 1;
+  }
+  function grainInkFor(panel, bg, coverage) {
+    var alpha = panel.a;
+    function ink(card, base) {
+      return Math.max(0, Math.min(255, Math.round(base + (card - base) / coverage)));
+    }
+    return {
+      r: ink(panel.r * alpha + bg.r * (1 - alpha), bg.r),
+      g: ink(panel.g * alpha + bg.g * (1 - alpha), bg.g),
+      b: ink(panel.b * alpha + bg.b * (1 - alpha), bg.b)
+    };
+  }
+  /* Lê os tokens de um tema num elemento isolado, sem pintar nada na tela. */
+  function themeColorTokens(theme) {
+    var probe = document.createElement('div');
+    probe.setAttribute('data-theme', theme);
+    probe.setAttribute('aria-hidden', 'true');
+    probe.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;visibility:hidden;pointer-events:none';
+    document.body.appendChild(probe);
+    var cs = getComputedStyle(probe);
+    var tokens = {
+      panel: colorParts(cs.getPropertyValue('--panel')),
+      bg: colorParts(cs.getPropertyValue('--bg'))
+    };
+    probe.remove();
+    return tokens;
+  }
+  function grainLuma(c) { return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b; }
+
+  function resizeGrain() {
+    var canvas = grain.canvas;
+    if (!canvas) return;
+    var rect = canvas.getBoundingClientRect();
+    var w = Math.max(1, Math.round(rect.width));
+    var h = Math.max(1, Math.round(rect.height));
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    grain.ctx = ctx;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.font = grain.font;
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = grain.ink;
+    var cell = grain.cell;
+    var cols = Math.ceil(w / cell);
+    var rows = Math.ceil(h / cell);
+    var total = cols * rows;
+    var occ = new Uint8Array(total);
+    var order = new Int32Array(total);
+    for (var i = 0; i < total; i++) order[i] = i;
+    for (var j = total - 1; j > 0; j--) {
+      var k = (Math.random() * (j + 1)) | 0;
+      var t = order[j];
+      order[j] = order[k];
+      order[k] = t;
+    }
+    for (var n = 0; n < Math.floor(total / 2); n++) occ[order[n]] = 1;
+    var map = new Array(total);
+    for (var q = 0; q < total; q++) map[q] = (Math.random() * GRAIN_GLYPHS.length) | 0;
+    grain.cols = cols;
+    grain.rows = rows;
+    grain.occ = occ;
+    grain.map = map;
+    ctx.clearRect(0, 0, w, h);
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        var idx = r * cols + c;
+        if (occ[idx]) ctx.fillText(GRAIN_GLYPHS[map[idx]], c * cell, r * cell);
+      }
+    }
+  }
+
+  function shuffle(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = (Math.random() * (i + 1)) | 0;
+      var t = arr[i];
+      arr[i] = arr[j];
+      arr[j] = t;
+    }
+  }
+  /* A cada --motion-grain, 0,35% dos glifos (mínimo 4) sai de uma célula
+     ocupada e ocupa uma vazia: o total de células ocupadas não muda. */
+  function tickGrain() {
+    if (!grain.ctx || document.hidden) return;
+    var occ = grain.occ;
+    var cell = grain.cell;
+    var ctx = grain.ctx;
+    var cols = grain.cols;
+    var total = cols * grain.rows;
+    var n = Math.max(4, Math.round(total * 0.0035));
+    n = Math.min(n, Math.floor(total / 2));
+    var occupied = [];
+    var empty = [];
+    for (var i = 0; i < total; i++) (occ[i] ? occupied : empty).push(i);
+    if (occupied.length < n || empty.length < n) return;
+    shuffle(occupied);
+    shuffle(empty);
+    for (var k = 0; k < n; k++) {
+      var from = occupied[k];
+      var to = empty[k];
+      occ[from] = 0;
+      occ[to] = 1;
+      ctx.clearRect((from % cols) * cell, ((from / cols) | 0) * cell, cell, cell);
+      grain.map[to] = (Math.random() * GRAIN_GLYPHS.length) | 0;
+      ctx.fillText(GRAIN_GLYPHS[grain.map[to]], (to % cols) * cell, ((to / cols) | 0) * cell);
+    }
+  }
+  function startGrain() {
+    if (!grain.ctx || grain.timer) return;
+    grain.timer = setInterval(tickGrain, motionMs('--motion-grain', 75));
+  }
+  function stopGrain() {
+    if (!grain.timer) return;
+    clearInterval(grain.timer);
+    grain.timer = 0;
+  }
+  function syncGrainTheme() {
+    if (!grain.canvas) return;
+    var light = document.documentElement.dataset.theme === 'light';
+    grain.canvas.style.filter = light ? 'brightness(1)' : 'brightness(' + grain.ratio.toFixed(4) + ')';
+  }
+  function initGrain() {
+    var canvas = $('#grain');
+    if (!canvas || grain.canvas) return;
+    if (window.matchMedia('(forced-colors: active)').matches) return;
+    var mono = getComputedStyle(document.documentElement)
+      .getPropertyValue('--mono').replace(/\s+/g, ' ').trim() || 'monospace';
+    var font = '13px ' + mono;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var coverage = grainCoverage(font, dpr);
+    var light = themeColorTokens('light');
+    var dark = themeColorTokens('dark');
+    if (!light.panel || !light.bg || !dark.panel || !dark.bg) return;
+    var lightInk = grainInkFor(light.panel, light.bg, coverage);
+    var darkInk = grainInkFor(dark.panel, dark.bg, coverage);
+    var lightLuma = grainLuma(lightInk);
+    var darkLuma = grainLuma(darkInk);
+    grain.ratio = lightLuma > 0 ? Math.max(0.05, Math.min(5, darkLuma / lightLuma)) : 1;
+    grain.font = font;
+    grain.ink = 'rgb(' + [lightInk.r, lightInk.g, lightInk.b].join(', ') + ')';
+    grain.canvas = canvas;
+    resizeGrain();
+    syncGrainTheme();
+    if (!prefersReducedMotion()) startGrain();
   }
 
   /* Um endereço de recebimento por tipo — sempre o primeiro índice sem uso
@@ -751,9 +1269,14 @@
     var list = $('#history-list');
     if (!list) return;
     var rows = historyRows();
-    var pages = historyPages();
-    if (state.page > pages) state.page = pages;
-    if (state.page < 1) state.page = 1;
+    // sem dados, a página pedida pelo endereço espera a resposta; com dados,
+    // um número fora do intervalo cai na última sem reescrever o endereço
+    // (VG-MET-10).
+    if (state.data) {
+      var pages = historyPages();
+      if (state.page > pages) state.page = pages;
+      if (state.page < 1) state.page = 1;
+    }
     var start = (state.page - 1) * PER_PAGE;
     list.innerHTML = '';
     rows.slice(start, start + PER_PAGE).forEach(function (a, i) {
@@ -789,7 +1312,6 @@
         '</p>';
       list.appendChild(li);
     });
-    list.hidden = rows.length === 0;
   }
 
   /* Paginador mínimo (VG-LST-08): uma página por vez, com a seta fora de
@@ -808,7 +1330,7 @@
     var screen = $('#screen-historico');
     if (!pager || !content || !screen) return;
     var pages = historyPages();
-    var visible = !screen.hidden && pages > 1;
+    var visible = state.historyState === 'ready' && !screen.hidden && pages > 1;
     pager.hidden = !visible;
     var el = $('#content-scroll');
     var atEnd = !el || max <= 2 || el.scrollTop >= max - 2;
@@ -827,6 +1349,10 @@
     if (next < 1 || next > historyPages()) return;
     state.page = next;
     renderHistory();
+    syncHistoryState();
+    pushScreenUrl();
+    // a troca de página repete a revelação (VG-EFE-05)
+    runReveal($('#screen-historico'));
     var sc = $('#content-scroll');
     if (sc) sc.scrollTop = 0;
     updateScroll();
@@ -859,8 +1385,9 @@
       ' · recebido ' + fmtBtc(sum.received) + ' BTC' +
       ' · enviado ' + fmtBtc(sum.spent) + ' BTC' +
       ' · saldo ' + fmtBtc(sum.balance) + ' BTC';
+    state.historyState = 'ready';
     renderHistory();
-    $('#addresses-empty').hidden = rows.length > 0;
+    syncHistoryState();
     $('#out').hidden = false;
     // saldo novo pode mudar o máximo enviável
     scheduleLimits();
@@ -895,13 +1422,13 @@
     var body = $('#history-list');
     if (body) { body.innerHTML = ''; body.hidden = true; }
     state.page = 1;
+    state.historyState = 'idle';
     stopScan();
-    var empty = $('#addresses-empty');
-    if (empty) empty.hidden = true;
     var summary = $('#history-summary');
     if (summary) summary.textContent = 'cole a xpub, zpub ou ypub na carteira para ver o histórico.';
     resetSend();
     setStatus('', '');
+    syncHistoryState();
     updateScroll();
   }
 
@@ -950,6 +1477,10 @@
     if (btn) btn.hidden = false;
     var summary = $('#history-summary');
     if (summary) summary.textContent = 'busca incompleta: ainda podem existir valores não contabilizados.';
+    if (!state.data) {
+      state.historyState = 'error';
+      syncHistoryState();
+    }
   }
 
   async function load(quiet) {
@@ -965,6 +1496,10 @@
     state.busy = true;
     stopScan();
     closeWatch();
+    if (!state.data) {
+      state.historyState = 'loading';
+      syncHistoryState();
+    }
     if (!quiet) setStatus('', scanText());
     try {
       // A xpub vai no corpo a cada consulta: o servidor não guarda nada,
@@ -1006,6 +1541,10 @@
           (e && e.message ? e.message : String(e)));
       } else {
         setStatus('error', e && e.message ? e.message : String(e));
+        if (!state.data) {
+          state.historyState = 'error';
+          syncHistoryState();
+        }
       }
     } finally {
       state.busy = false;
@@ -1116,10 +1655,49 @@
     try { setTheme(localStorage.getItem('projeto2-fase1-theme') || 'dark'); }
     catch (e) { setTheme('dark'); }
 
+    noticeWire($('#status'));
+    noticeWire($('#send-status'));
+
     $$('.menu button[data-screen]').forEach(function (b) {
       b.addEventListener('click', function () {
         showScreen(b.getAttribute('data-screen'));
       });
+    });
+
+    /* Link de salto (VG-ACR-07): leva o foco ao título da tela aberta, sem
+       escrever no endereço. */
+    var skip = $('#skip-link');
+    if (skip) skip.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      var target = $('#head-' + (state.langOpen ? 'language' : state.screen));
+      if (target) target.focus();
+    });
+
+    /* Tela de idiomas (VG-IDI-01/05): abre no lugar da tela atual e volta com
+       o voltar, o Esc ou o botão que a abriu. */
+    var langBtn = $('#lang-btn');
+    if (langBtn) langBtn.addEventListener('click', showLanguage);
+    var langBack = $('#lang-back');
+    if (langBack) langBack.addEventListener('click', function () { closeLanguage(); });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && state.langOpen) {
+        ev.preventDefault();
+        closeLanguage();
+      }
+    });
+
+    /* Erro de dados do histórico (VG-ABS-10): a nova tentativa é um link de
+       prosa, não um botão novo; o endereço não muda. */
+    var historyRetry = $('#history-retry');
+    if (historyRetry) historyRetry.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      if (!state.busy) load(false);
+    });
+
+    /* Voltar e Avançar devolvem a tela e a página anteriores (VG-MET-10). */
+    window.addEventListener('popstate', function () {
+      var u = readUrl();
+      showScreen(u.screen, { page: u.page, noUrl: true });
     });
 
     $('#wallet-form').addEventListener('submit', function (ev) {
@@ -1170,6 +1748,10 @@
     }
 
     document.addEventListener('visibilitychange', function () {
+      /* Pausa do grão (VG-EFE-09): com a aba oculta o intervalo é cancelado;
+         ao voltar, ele retoma (com menos movimento, fica parado). */
+      if (document.hidden) stopGrain();
+      else if (grain.ctx && !prefersReducedMotion()) startGrain();
       // aba em segundo plano continua aberta: a sessão e o tempo real
       // seguem; só sair da página (pagehide) encerra tudo
       if (!document.hidden && state.xpub && state.data &&
@@ -1304,14 +1886,61 @@
 
     var sc = $('#content-scroll');
     if (sc) sc.addEventListener('scroll', updateScroll);
-    window.addEventListener('resize', updateScroll);
+
+    var resizeTimer = 0;
+    window.addEventListener('resize', function () {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () {
+        resizeTimer = 0;
+        syncBars();
+        syncPageMode();
+        resizeGrain();
+      }, 150);
+    });
+
     $$('.scroll-arrow').forEach(function (b) {
       b.addEventListener('click', function () {
         if (!sc) return;
         var up = b.classList.contains('scroll-arrow-up');
-        sc.scrollBy({ top: (up ? -1 : 1) * sc.clientHeight * 0.8, behavior: 'smooth' });
+        sc.scrollBy({
+          top: (up ? -1 : 1) * sc.clientHeight * 0.8,
+          /* Menos movimento (VG-EFE-04): a seta salta direto. */
+          behavior: prefersReducedMotion() ? 'auto' : 'smooth'
+        });
       });
     });
+
+    if (reducedMotionQuery.addEventListener) {
+      reducedMotionQuery.addEventListener('change', function () {
+        if (prefersReducedMotion()) stopGrain();
+        else if (grain.ctx) startGrain();
+      });
+    } else if (reducedMotionQuery.addListener) {
+      reducedMotionQuery.addListener(function () {
+        if (prefersReducedMotion()) stopGrain();
+        else if (grain.ctx) startGrain();
+      });
+    }
+
+    /* A abertura direta pelo endereço já desenha a tela e a página pedidas
+       (VG-MET-10); sem parâmetro, começa na carteira. */
+    var initial = readUrl();
+    showScreen(initial.screen, { page: initial.page, noUrl: true });
+    syncBars();
+    syncPageMode();
+
+    /* A tinta do grão depende da cobertura dos glifos reais: espera a fonte
+       carregar para medir, e o desenho entra estático nesse intervalo. */
+    var startVisuals = function () {
+      initGrain();
+      syncBars();
+      syncPageMode();
+    };
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(startVisuals).catch(startVisuals);
+    } else {
+      startVisuals();
+    }
 
     // A tela abre sempre limpa: a xpub nunca foi salva (nem aqui, nem no
     // servidor), então não há nada para restaurar.
