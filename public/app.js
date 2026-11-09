@@ -1938,9 +1938,12 @@
     }
 
     /* A abertura direta pelo endereço já desenha a tela e a página pedidas
-       (VG-MET-10); sem parâmetro, começa na carteira. */
+       (VG-MET-10); sem parâmetro, começa na carteira. A primeira pintura não
+       repete a entrada em foco (VG-EFE-02): o HTML já chega na posição final e
+       a animação só marcaria telas trocadas depois, sem fazer o conteúdo
+       tremer na abertura. */
     var initial = readUrl();
-    showScreen(initial.screen, { page: initial.page, noUrl: true });
+    showScreen(initial.screen, { page: initial.page, noUrl: true, noReveal: true });
     syncBars();
     syncPageMode();
 

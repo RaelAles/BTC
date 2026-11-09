@@ -370,6 +370,11 @@
     color: var(--line);
     font-size: var(--text-sm);
     line-height: 1;
+    /* A régua é preenchida pelo JavaScript no arranque. Enquanto o texto não
+       chega, a altura de uma linha já fica reservada: sem isso o .edge vazio
+       mede 0 e o card inteiro andaria quando as réguas fossem desenhadas
+       depois da primeira pintura. */
+    min-height: 1em;
     white-space: nowrap;
     user-select: none;
   }
@@ -748,6 +753,10 @@
     white-space: nowrap;
     user-select: none;
   }
+  /* Mesma reserva da moldura: a régua recebe os "=" depois da primeira
+     pintura e, vazia, não pode encolher a linha do título. O divisor
+     pontilhado tem altura própria (3 px) e fica fora. */
+  .rule:not(.rule-dots) { min-height: 1em; }
   .screen > .rule { margin: 0 0 var(--space-5); }
   /* O "=" é exclusivo do corte entre o título da tela e o corpo. Entre um
      item e outro das listas a separação é uma linha de pontos médios: o mesmo
