@@ -5,8 +5,8 @@ deriva os endereços públicos na hora e consulta um servidor **Electrum**. A
 tela mostra:
 
 1. **saldo total** da carteira (soma das UTXOs de todos os tipos de conta)
-   logo abaixo do campo da xpub, centralizado em verde de sucesso, com o
-   horário da última atualização em nota;
+   logo abaixo do campo da xpub, centralizado em verde de sucesso, em BTC,
+   com o horário da última atualização em nota;
 2. **um endereço de recebimento por tipo**, os quatro, inclusive os zerados:
    sempre o primeiro índice sem uso daquele ramo (`último usado + 1`), para
    escolher o que o pagador aceita. O rótulo de cada linha é só o BIP
@@ -18,12 +18,13 @@ tela mostra:
    um, cinco por página, na tela **histórico**;
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e taxa em
    quatro escolhas — baixa, média, alta ou personalizada —, com a taxa em
-   sat/vB estimada **ao vivo** pelo Electrum. A quantidade usa máscara de satoshis:
+   sat/vB estimada **ao vivo** pelo Electrum. A quantidade usa máscara de BTC:
    o usuário digita só dígitos e o ponto entra sozinho, da direita para a
    esquerda (`1` → `0.00000001`, `12345678` → `0.12345678`). A legenda abaixo
    do campo mostra o valor a enviar e a taxa **separados**, com a porcentagem
    que a taxa representa do valor; sem valor digitado, mostra o máximo
-   enviável. O botão **criar psbt** fica bloqueado abaixo de 546 sats e acima
+   enviável. O botão **criar psbt** fica bloqueado abaixo do pó
+   (0.00000546 BTC) e acima
    do máximo enviável (saldo − taxa), calculado no servidor para o destino e a
    taxa escolhidos.
    O PSBT sai sem assinatura, com troco, em base64 para copiar ou baixar.
@@ -80,7 +81,7 @@ blockchain.info, nem chave privada em lugar nenhum.
   maiores primeiro), calcula a taxa pela vsize estimada, deriva o próximo
   endereço de troco e monta um **PSBT v0** sem assinatura. Cada entrada leva
   `witness_utxo` e a origem BIP32; p2pkh leva também o `non_witness_utxo` e
-  p2sh-p2wpkh leva o `redeem_script`. O pó (abaixo de 546 sats) não vira
+  p2sh-p2wpkh leva o `redeem_script`. O pó (abaixo de 0.00000546 BTC) não vira
   saída de troco: é somado à taxa.
 - **Taxa ao vivo**: `GET /api/fees` pergunta `blockchain.estimatefee` para
   144, 6 e 1 bloco (baixa, média, alta) e converte BTC/kvB em sat/vB inteiro.
@@ -612,7 +613,7 @@ em passos e a assinatura só de usados + cauda.
 UI em Chromium headless:
 
 ```
-POST /api/wallet          200  7,0 s   watch=true  session=0740457f…  total 12 862 176 sats  29 endereços
+POST /api/wallet          200  7,0 s   watch=true  session=0740457f…  total 0.12862176 BTC  29 endereços
 GET  /api/health          200            storage=nenhum  realtime=true
 GET  /api/events?session=…  101          WebSocket: { type: "payload", total: 12862176 }
 fechar a tela             —              mesmo session → 409 (objeto esqueceu a xpub)
@@ -626,7 +627,7 @@ storage e sem alarme não tem dado de carteira para persistir.
 ## Verificado contra o servidor real
 
 `electrum.blockstream.info:50002` (electrs-esplora 0.4.1), xpub de teste
-`xpub6CUGR...`: 29 endereços usados, saldo total `12 862 176` sats,
+`xpub6CUGR...`: 29 endereços usados, saldo total `0.12862176` BTC,
 `bip44 /0/0` com `recebido 110 665`, `enviado 100 000`, `saldo 10 665` — o
 mesmo valor que a versão anterior (blockchain.info/Esplora) mostrava como
 saldo daquele endereço, agora com o enviado explícito.

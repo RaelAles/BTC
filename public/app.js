@@ -308,14 +308,14 @@
     var hintText = 'o ponto entra sozinho: até 8 casas decimais. a taxa entra além do valor.';
 
     if (amount > 0 && amount < DUST_SATS) {
-      problem = 'valor abaixo do mínimo: ' + DUST_SATS + ' sats.';
+      problem = 'valor abaixo do mínimo: ' + fmtBtc(DUST_SATS) + ' BTC.';
     } else if (state.limits) {
       var max = Number(state.limits.max_send_sats) || 0;
       var fee = Number(state.limits.fee_sats);
-      hintText = 'máximo ' + fmtBtc(max) + ' BTC · ' + fmtInt(max) + ' sats.';
+      hintText = 'máximo ' + fmtBtc(max) + ' BTC.';
       if (max < DUST_SATS) problem = 'saldo insuficiente para enviar com essa taxa.';
       else if (amount > max) {
-        problem = 'valor acima do máximo enviável: ' + fmtBtc(max) + ' BTC (' + fmtInt(max) + ' sats).';
+        problem = 'valor acima do máximo enviável: ' + fmtBtc(max) + ' BTC.';
       } else if (amount > 0) {
         /* a taxa do valor digitado vem do mesmo preview que calcula o máximo;
            enquanto ela não chega, a legenda não mostra número velho */
@@ -522,7 +522,7 @@
       return;
     }
     if (amount < DUST_SATS) {
-      setSendStatus('error', 'valor abaixo do mínimo: ' + DUST_SATS + ' sats.');
+      setSendStatus('error', 'valor abaixo do mínimo: ' + fmtBtc(DUST_SATS) + ' BTC.');
       $('#send-amount').focus();
       return;
     }
@@ -555,8 +555,7 @@
     }
     if (amount > Number(state.limits.max_send_sats)) {
       setSendStatus('error', 'valor acima do máximo enviável: ' +
-        fmtBtc(state.limits.max_send_sats) + ' BTC (' +
-        fmtInt(state.limits.max_send_sats) + ' sats).');
+        fmtBtc(state.limits.max_send_sats) + ' BTC.');
       $('#send-amount').focus();
       return;
     }
@@ -753,7 +752,7 @@
     state.data = d;
     var b = d.balance || {};
     var total = $('#v-total');
-    total.textContent = fmtBtc(b.total) + ' BTC · ' + fmtInt(b.total) + ' sats';
+    total.textContent = fmtBtc(b.total) + ' BTC';
     total.hidden = false;
     var updated = $('#v-updated');
     updated.textContent = d.updated_at
