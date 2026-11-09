@@ -141,7 +141,16 @@
               <div class="chips app-gap keys-actions" role="group" aria-label="Exportar PSBT">
                 <button type="button" id="send-download">baixar .psbt</button>
               </div>
-              <p class="note app-gap" id="send-meta"></p>
+              <table class="data-table key-readout" id="send-meta" aria-label="detalhes do psbt criado">
+                <tbody>
+                  <tr><th scope="row">txid</th><td id="send-meta-txid">—</td></tr>
+                  <tr><th scope="row">entrada</th><td id="send-meta-inputs">—</td></tr>
+                  <tr><th scope="row">saída</th><td id="send-meta-outputs">—</td></tr>
+                  <tr><th scope="row">taxa</th><td id="send-meta-fee">—</td></tr>
+                  <tr><th scope="row">vsize</th><td id="send-meta-vsize">—</td></tr>
+                  <tr id="send-meta-change-row"><th scope="row">troco</th><td id="send-meta-change">—</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </section>

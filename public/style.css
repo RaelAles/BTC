@@ -1814,13 +1814,16 @@
   .fee-level.is-empty .fee-level-cost { color: var(--dim); }
   .fee-level.is-empty:hover .field-choice-mark { color: var(--dim); }
   #fee-note { margin: var(--space-3) 0 0; }
+  /* Detalhes do PSBT: mesmo desenho de leitura do "receber" — rótulo em
+     --dim à esquerda, valor no --fg e uma informação por linha —, ocupando a
+     coluna inteira. */
   #send-meta {
+    width: 100%;
     margin: var(--space-4) 0 0;
-    text-align: left;
-    white-space: pre-line;
-    hyphens: none;
-    overflow-wrap: anywhere;
   }
+  /* "entrada" ocupa os 7ch da coluna e encostaria no valor: a coluna ganha
+     dois caracteres a mais para manter o respiro do "receber". */
+  #send-meta tbody th { width: 9ch; }
 
   /* Histórico: o resumo e a explicação são notas de apoio, e a lista começa
      depois do vão da régua do título. */

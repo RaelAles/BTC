@@ -538,8 +538,6 @@
     state.psbt = null;
     var out = $('#send-out');
     if (out) out.hidden = true;
-    var meta = $('#send-meta');
-    if (meta) meta.textContent = '';
   }
 
   function resetSend() {
@@ -572,17 +570,28 @@
     renderAmountInput();
   }
 
-  /* Uma informação por linha: o txid, a contagem, a taxa, o vsize e o troco
-     ficam empilhados para a leitura, e não numa linha só separada por pontos. */
-  function sendMeta(j) {
-    var parts = [];
-    parts.push('txid ' + j.txid);
-    parts.push(fmtInt(j.inputs.length) + (j.inputs.length === 1 ? ' entrada' : ' entradas'));
-    parts.push(fmtInt(j.outputs.length) + (j.outputs.length === 1 ? ' saída' : ' saídas'));
-    parts.push('taxa ' + fmtBtc(j.fee_sats) + ' BTC (' + Number(j.fee_rate).toFixed(2) + ' sat/vB)');
-    parts.push('vsize ~' + fmtInt(j.vsize) + ' vB');
-    if (j.change) parts.push('troco ' + fmtBtc(j.change.value) + ' BTC em ' + j.change.address);
-    return parts.join('\n');
+  /* Os detalhes do PSBT usam o mesmo desenho de leitura do "receber":
+     uma tabela de rótulo e valor, com uma informação por linha. */
+  function renderSendMeta(j) {
+    var values = {
+      '#send-meta-txid': j.txid,
+      '#send-meta-inputs': fmtInt(j.inputs.length),
+      '#send-meta-outputs': fmtInt(j.outputs.length),
+      '#send-meta-fee': fmtBtc(j.fee_sats) + ' BTC (' + Number(j.fee_rate).toFixed(2) + ' sat/vB)',
+      '#send-meta-vsize': '~' + fmtInt(j.vsize) + ' vB'
+    };
+    Object.keys(values).forEach(function (sel) {
+      var el = $(sel);
+      if (el) el.textContent = values[sel];
+    });
+    var change = $('#send-meta-change');
+    if (change) {
+      change.textContent = j.change
+        ? fmtBtc(j.change.value) + ' BTC em ' + j.change.address
+        : '';
+    }
+    var changeRow = $('#send-meta-change-row');
+    if (changeRow) changeRow.hidden = !j.change;
   }
 
   async function createPsbt() {
@@ -668,7 +677,7 @@
       }
       if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
       state.psbt = j;
-      $('#send-meta').textContent = sendMeta(j);
+      renderSendMeta(j);
       $('#send-out').hidden = false;
       // sem recado de sucesso: o download e os detalhes na tela confirmam
       // (a frase de "montando" não pode ficar parada embaixo do resultado)
