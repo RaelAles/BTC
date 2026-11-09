@@ -153,8 +153,8 @@
     setStatusTo($('#send-status'), kind, text);
   }
   var SCREEN_TITLES = {
-    carteira: 'Carteira BTC - endereços',
-    historico: 'Carteira BTC - histórico'
+    carteira: 'Monitor BTC - carteira',
+    historico: 'Monitor BTC - histórico'
   };
   function showScreen(name) {
     if (!SCREEN_TITLES[name]) name = 'carteira';
