@@ -2198,9 +2198,9 @@
     display: block;
     margin: var(--space-3) 0 0 auto;
   }
-  /* Progresso e retomada da varredura: ficam abaixo do campo, no mesmo
-     eixo do recado, e não usam o alinhamento à direita dos botões de copiar. */
-  #scan-status { margin: var(--space-4) 0 0; }
+  /* Retomada da varredura: fica abaixo do campo, no mesmo eixo do recado,
+     e não usa o alinhamento à direita dos botões de copiar. O progresso da
+     varredura usa a própria linha de recado (#status). */
   #scan-continue { margin: var(--space-3) 0 0; }
   /* O PSBT importado é leitura, e não campo: uma linha só, no desenho das
      chaves privadas (rótulo em --dim, valor em --text-sm, sem moldura e sem

@@ -909,8 +909,8 @@
 
   function showScan(progress) {
     state.scanning = true;
-    var el = $('#scan-status');
-    if (el) { el.hidden = false; el.textContent = scanText(progress); }
+    // o progresso ocupa a mesma linha que anunciava a consulta
+    setStatus('', scanText(progress));
     var btn = $('#scan-continue');
     if (btn) btn.hidden = true;
     // durante a busca o saldo anterior não é apresentado como final
@@ -926,16 +926,13 @@
 
   function stopScan() {
     state.scanning = false;
-    var el = $('#scan-status');
-    if (el) { el.hidden = true; el.textContent = ''; }
     var btn = $('#scan-continue');
     if (btn) btn.hidden = true;
   }
 
   function scanIncomplete(message) {
     state.scanning = false;
-    var el = $('#scan-status');
-    if (el) { el.hidden = false; el.textContent = message; }
+    setStatus('error', message);
     var btn = $('#scan-continue');
     if (btn) btn.hidden = false;
     var summary = $('#history-summary');
@@ -955,7 +952,7 @@
     state.busy = true;
     stopScan();
     closeWatch();
-    if (!quiet) setStatus('', 'consultando saldo...');
+    if (!quiet) setStatus('', 'verificando endereços...');
     try {
       // A xpub vai no corpo a cada consulta: o servidor não guarda nada,
       // então ela nunca fica armazenada. O session só reaproveita a conexão
@@ -980,7 +977,7 @@
         }
         stopScan();
         render(j);
-        // a tela já mostra o resultado: o recado de "consultando" sai de cena
+        // a tela já mostra o resultado: o recado de "verificando" sai de cena
         // sem virar uma legenda de sucesso permanente
         setStatus('', '');
         if (j.watch) openWatch();
@@ -994,7 +991,6 @@
       if (state.scanning && state.session) {
         scanIncomplete('busca interrompida: o saldo pode estar incompleto. ' +
           (e && e.message ? e.message : String(e)));
-        setStatus('error', 'busca interrompida.');
       } else {
         setStatus('error', e && e.message ? e.message : String(e));
       }
