@@ -50,6 +50,14 @@
   function fmtInt(v) {
     return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   }
+  /* Percentual da taxa sobre o valor enviado, com casas suficientes para
+     taxas pequenas não virarem 0. */
+  function fmtPercent(part, whole) {
+    var pct = Number(part) / Number(whole) * 100;
+    if (!isFinite(pct) || pct <= 0) return '0';
+    var digits = pct >= 10 ? 0 : pct >= 1 ? 1 : pct >= 0.1 ? 2 : 3;
+    return pct.toFixed(digits);
+  }
   /* Só chave estendida pública de conta: xpub, zpub ou ypub. O campo nem
      aceita outra coisa: o filtro abaixo bloqueia a digitação/colagem que não
      case com um dos três prefixos e só deixa passar caracteres do alfabeto
@@ -265,6 +273,7 @@
     if (clean.length > AMOUNT_DIGITS_MAX) clean = clean.slice(0, AMOUNT_DIGITS_MAX);
     state.amountDigits = clean;
     renderAmountInput();
+    scheduleLimits(true);
   }
 
   function syncAmountFromValue() {
@@ -302,10 +311,20 @@
       problem = 'valor abaixo do mínimo: ' + DUST_SATS + ' sats.';
     } else if (state.limits) {
       var max = Number(state.limits.max_send_sats) || 0;
+      var fee = Number(state.limits.fee_sats);
       hintText = 'máximo ' + fmtBtc(max) + ' BTC · ' + fmtInt(max) + ' sats.';
       if (max < DUST_SATS) problem = 'saldo insuficiente para enviar com essa taxa.';
       else if (amount > max) {
         problem = 'valor acima do máximo enviável: ' + fmtBtc(max) + ' BTC (' + fmtInt(max) + ' sats).';
+      } else if (amount > 0) {
+        /* a taxa do valor digitado vem do mesmo preview que calcula o máximo;
+           enquanto ela não chega, a legenda não mostra número velho */
+        if (state.limits.amount_sats === amount && fee > 0) {
+          hintText = 'envio ' + fmtBtc(amount) + ' BTC · taxa ' + fmtBtc(fee) +
+            ' BTC (' + fmtPercent(fee, amount) + '% do valor)';
+        } else {
+          hintText = 'calculando a taxa…';
+        }
       }
     } else if (state.limitsError) {
       hintText = 'máximo indisponível: ' + state.limitsError;
@@ -335,26 +354,33 @@
   /* O máximo depende do destino (tamanho do script) e da taxa. A consulta é
      curta, no mesmo Worker/sessão do envio, e o resultado vira o limite que
      bloqueia o botão antes de qualquer tentativa. */
-  function scheduleLimits() {
+  /* `keep` mantém o limite já carregado enquanto só o valor mudou: o máximo
+     continua bloqueando o botão e a legenda troca para "calculando a taxa…". */
+  function scheduleLimits(keep) {
     if (state.limitsTimer) clearTimeout(state.limitsTimer);
     state.limitsTimer = 0;
     state.limitsSeq++;
-    state.limits = null;
-    state.limitsError = '';
+    if (!keep) {
+      state.limits = null;
+      state.limitsError = '';
+    }
     updateSendAvailability();
     var address = $('#send-address') ? $('#send-address').value.trim() : '';
     var rate = feeRateOf(state.feeLevel);
+    var amount = amountSats();
     if (!state.xpub || !addressLooksValid(address) || !Number.isInteger(rate) || rate < 1) return;
+    if (keep && !amount) return;
     state.limitsTimer = setTimeout(function () {
       state.limitsTimer = 0;
-      loadLimits(address, rate);
+      loadLimits(address, rate, amount);
     }, 350);
   }
 
-  async function loadLimits(address, rate) {
+  async function loadLimits(address, rate, amount) {
     var seq = ++state.limitsSeq;
     var xpub = state.xpub;
     var body = { xpub: xpub, address: address, fee_rate: rate, preview: true };
+    if (amount > 0) body.amount_sats = amount;
     if (state.session) body.session = state.session;
     try {
       var r = await fetch('/api/psbt', {

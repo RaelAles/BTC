@@ -102,7 +102,8 @@ function sessionId(value) {
   return /^[0-9a-f]{64}$/.test(s) ? s : '';
 }
 
-/* Parâmetros do envio validados antes de consultar o Electrum. */
+/* Parâmetros do envio validados antes de consultar o Electrum. O valor é
+   opcional: no preview ele só acrescenta a taxa daquele valor à resposta. */
 function sendTarget(body) {
   const address = String(body.address || '').trim();
   if (!address) throw new Error('informe o endereço de destino');
@@ -112,15 +113,21 @@ function sendTarget(body) {
   if (!Number.isInteger(feeRate) || feeRate < 1 || feeRate > 10000) {
     throw new Error('taxa inválida: use de 1 a 10 000 sat/vB');
   }
-  return { address, feeRate };
+  return { address, feeRate, amountSats: amountSatsOf(body) };
 }
 
-function sendParams(body) {
-  const target = sendTarget(body);
+function amountSatsOf(body) {
+  if (body.amount_sats == null || body.amount_sats === '') return null;
   const amountSats = Number(body.amount_sats);
   if (!Number.isInteger(amountSats) || amountSats <= 0) throw new Error('valor inválido');
   if (amountSats > 2100000000000000) throw new Error('valor acima do limite do bitcoin');
-  return { ...target, amountSats };
+  return amountSats;
+}
+
+function sendParams(body) {
+  const params = sendTarget(body);
+  if (params.amountSats == null) throw new Error('valor inválido');
+  return params;
 }
 
 async function handlePsbt(request, env) {

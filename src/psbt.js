@@ -92,7 +92,7 @@ export function selectCoins(utxos, amountSats, feeRate, recipientScript, changeS
    menos a taxa da transação que gasta todas as entradas e manda todo o
    resto ao destino (sem troco). É exatamente o maior valor que
    selectCoins aceita; abaixo disso sempre existe uma seleção válida. */
-export function sendLimits({ utxos, address, feeRate }) {
+export function sendLimits({ utxos, address, feeRate, amountSats, changeScript }) {
   if (!Number.isInteger(feeRate) || feeRate < 1 || feeRate > 10000) {
     throw new Error('taxa inválida: use de 1 a 10 000 sat/vB');
   }
@@ -101,7 +101,7 @@ export function sendLimits({ utxos, address, feeRate }) {
   const vsize = BTC.estimateVsize(utxos.map(u => u.row.kind), [recipientScript]);
   const feeAtMax = Math.ceil(feeRate * vsize);
   const max = available - feeAtMax;
-  return {
+  const limits = {
     recipient: address,
     available_sats: available,
     min_sats: DUST_SATS,
@@ -110,6 +110,25 @@ export function sendLimits({ utxos, address, feeRate }) {
     vsize_at_max: vsize,
     fee_rate: feeRate
   };
+  /* Com o valor em mãos, o preview devolve a taxa (e o troco) exatos da
+     seleção que o PSBT usaria, para a tela mostrar a taxa ao lado do valor
+     antes de montar qualquer coisa. Valor que não couber fica sem taxa. */
+  if (Number.isInteger(amountSats) && amountSats > 0 && changeScript) {
+    limits.amount_sats = amountSats;
+    try {
+      const pick = selectCoins(utxos, amountSats, feeRate, recipientScript, changeScript);
+      limits.fee_sats = pick.fee;
+      limits.change_sats = pick.change;
+      limits.vsize = pick.vsize;
+      limits.inputs_used = pick.selected.length;
+    } catch (e) {
+      limits.fee_sats = null;
+      limits.change_sats = null;
+      limits.vsize = null;
+      limits.inputs_used = null;
+    }
+  }
+  return limits;
 }
 
 /* Monta o PSBT. `utxos` vem do scanner com a linha de origem já anexada;

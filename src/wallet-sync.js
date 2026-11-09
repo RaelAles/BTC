@@ -313,13 +313,21 @@ export class WalletScanner {
       .filter(u => u.row);
   }
 
-  /* Maior valor que a carteira consegue enviar para este destino e taxa. */
-  limits({ address, feeRate }) {
+  /* Maior valor que a carteira consegue enviar para este destino e taxa.
+     Com `amountSats`, devolve também a taxa (e o troco) daquele valor. */
+  limits({ address, feeRate, amountSats }) {
     if (this.errors && this.errors.size) {
       throw new Error('histórico incompleto (faltou transação do servidor); atualize a carteira e tente de novo');
     }
     if (!this.utxos) throw new Error('carteira ainda não sincronizada');
-    return sendLimits({ utxos: this.prepareUtxos(), address, feeRate });
+    const changeRow = this.nextChangeRow(this.chooseType());
+    return sendLimits({
+      utxos: this.prepareUtxos(),
+      address,
+      feeRate,
+      amountSats,
+      changeScript: changeRow ? BTC.hexToBytes(changeRow.script) : null
+    });
   }
 
   async prepare({ address, amountSats, feeRate }) {

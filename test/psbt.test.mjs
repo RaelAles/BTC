@@ -194,6 +194,24 @@ function mapFind(map, type) {
     rawTxFor: async () => null
   });
 
+  /* preview com o valor: devolve a taxa e o troco exatos do PSBT, para a tela
+     mostrar a taxa ao lado do valor antes de montar qualquer coisa. */
+  const atAmount = sendLimits({
+    utxos, address: destination, feeRate: 4, amountSats: 120000,
+    changeScript: change.script
+  });
+  assert.equal(atAmount.amount_sats, 120000);
+  assert.equal(atAmount.fee_sats, prepared.fee_sats);
+  assert.equal(atAmount.change_sats, prepared.change.value);
+  assert.equal(atAmount.inputs_used, 1);
+
+  /* valor acima do máximo fica sem taxa no preview (a tela já mostra o erro) */
+  const overMax = sendLimits({
+    utxos, address: destination, feeRate: 4, amountSats: 200000,
+    changeScript: change.script
+  });
+  assert.equal(overMax.fee_sats, null);
+
   /* no máximo não sobra troco: a taxa da transação sem saída de troco é
      exatamente a devolvida pelo preview. */
   const atMax = await preparePsbt({

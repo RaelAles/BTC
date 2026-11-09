@@ -298,6 +298,19 @@ assert.equal(watcher.idleTimer, null, 'tela aberta cancela o descarte');
   assert.equal(preview.max_send_sats, 9000 - preview.fee_sats_at_max);
   assert.ok(preview.max_send_sats > 0);
 
+  /* o mesmo preview com o valor acrescenta a taxa daquele envio */
+  const previewAmount = await (await worker.fetch(new Request('https://x/api/psbt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      xpub: USER, session: payload.session, address: dest,
+      fee_rate: 6, preview: true, amount_sats: 5000
+    })
+  }), env2)).json();
+  assert.equal(previewAmount.amount_sats, 5000);
+  assert.ok(previewAmount.fee_sats > 0, JSON.stringify(previewAmount));
+  assert.equal(previewAmount.max_send_sats, preview.max_send_sats);
+
   const psbtRes = await worker.fetch(new Request('https://x/api/psbt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -309,6 +322,7 @@ assert.equal(watcher.idleTimer, null, 'tela aberta cancela o descarte');
   const psbt = await psbtRes.json();
   assert.equal(psbtRes.status, 200, JSON.stringify(psbt));
   assert.equal(psbt.amount_sats, 5000);
+  assert.equal(psbt.fee_sats, previewAmount.fee_sats, 'a taxa do preview é a do PSBT');
   assert.ok(psbt.change.value > 0);
   console.log('ok   Worker usa sessão aleatória, taxa e PSBT pela mesma conexão');
 }
