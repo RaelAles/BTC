@@ -34,8 +34,12 @@ tela mostra:
    servidor para o destino e a taxa escolhidos.
    O PSBT sai sem assinatura, com troco, em base64, e fica disponível só
    como arquivo em **baixar .psbt**; a tela mostra os detalhes (txid,
-   entrada, saída, taxa, vsize e troco) na mesma tabela de leitura do
-   "receber", sem o base64 como campo.
+   entrada, saída, destino, troco, todas as saídas, taxa e vsize) na mesma
+   tabela de leitura do "receber", sem o base64 como campo. Destino e saídas
+   são o que o servidor diz ter montado — o navegador não lê o base64 —, então
+   a tabela serve para comparar: se o destino ou o valor montados diferirem do
+   formulário, ou se aparecer mais de uma saída externa, surge um aviso
+   apontando para a revisão do `chave-btc.html`, que é a conferência que vale.
    Quem assina é o `chave-btc.html` (projeto 1), offline; o projeto 2 nunca
    vê chave privada.
 
@@ -585,6 +589,10 @@ o Electrum cai. Sessão sem xpub responde 409 (a tela reenvia a xpub em
   leva a origem BIP32 com a impressão digital da conta, o caminho completo, os
   UTXOs e o troco; o `chave-btc.html` confere conta, chave, script, saídas e
   taxa antes de assinar. Nada é transmitido à rede por aqui.
+- O resumo do PSBT na tela não é prova: o arquivo é montado no Worker/DO e o
+  navegador só baixa o base64. A tabela mostra o destino e todas as saídas para
+  comparar com o formulário, e avisa quando divergem; a conferência que vale é
+  a do `chave-btc.html`, que recalcula a taxa e classifica cada saída.
 - Para valor alto, hardware wallet + nó/Electrum próprio.
 
 ## Testes

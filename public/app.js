@@ -1169,12 +1169,21 @@
   }
 
   /* Os detalhes do PSBT usam o mesmo desenho de leitura do "receber":
-     uma tabela de rótulo e valor, com uma informação por linha. */
+     uma tabela de rótulo e valor, com uma informação por linha. O resumo é o
+     que o SERVIDOR diz ter montado: o navegador não lê o base64, então esta
+     tabela é conveniência, não prova. Por isso o destino e todas as saídas
+     ficam à vista — para comparar com o formulário agora e com a revisão do
+     "chave-btc.html" antes de assinar — e uma divergência entre o que foi
+     montado e o que está digitado vira aviso (o caso clássico é o coordenador
+     trocar o endereço de destino). */
   function renderSendMeta(j) {
     var values = {
       '#send-meta-txid': j.txid,
       '#send-meta-inputs': fmtInt(j.inputs.length),
       '#send-meta-outputs': fmtInt(j.outputs.length),
+      '#send-meta-recipient': j.recipient
+        ? fmtBtc(j.recipient.value) + ' BTC em ' + j.recipient.address
+        : '',
       '#send-meta-fee': fmtBtc(j.fee_sats) + ' BTC (' + Number(j.fee_rate).toFixed(2) + ' sat/vB)',
       '#send-meta-vsize': '~' + fmtInt(j.vsize) + ' vB'
     };
@@ -1190,6 +1199,40 @@
     }
     var changeRow = $('#send-meta-change-row');
     if (changeRow) changeRow.hidden = !j.change;
+
+    /* Todas as saídas, uma por linha: é o que revela uma saída que o resumo
+       de cima não menciona. O rótulo copia o vocabulário da revisão do
+       chave-btc.html (troco / externo) para a conferência ser lado a lado. */
+    var list = $('#send-meta-output-list');
+    if (list) {
+      list.textContent = '';
+      (j.outputs || []).forEach(function (out, i) {
+        if (i) list.appendChild(document.createElement('br'));
+        list.appendChild(document.createTextNode(
+          fmtBtc(out.value) + ' BTC em ' + out.address + ' · ' + (out.own ? 'troco' : 'externo')
+        ));
+      });
+    }
+
+    /* Divergência entre o PSBT e o formulário. Não é prova de nada (o
+       servidor pode mentir igual nos dois), mas pega troca acidental, bug e
+       coordenador que não devolve o que recebeu. */
+    var warn = [];
+    var typedAddress = $('#send-address') ? $('#send-address').value.trim() : '';
+    if (j.recipient && j.recipient.address !== typedAddress) {
+      warn.push('o destino no psbt difere do campo de destino');
+    }
+    if (j.recipient && Number(j.recipient.value) !== amountSats()) {
+      warn.push('o valor no psbt difere do campo de quantidade');
+    }
+    var externos = (j.outputs || []).filter(function (out) { return !out.own; });
+    if (externos.length > 1) warn.push('o psbt tem ' + externos.length + ' saídas externas');
+    var warnEl = $('#send-meta-warn');
+    if (warnEl) {
+      warnEl.textContent = warn.length
+        ? '[ atenção ] ' + warn.join('; ') + ' — confira o arquivo no chave-btc.html antes de assinar.'
+        : '';
+    }
   }
 
   async function createPsbt() {

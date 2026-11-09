@@ -1794,6 +1794,14 @@
   /* "entrada" ocupa os 7ch da coluna e encostaria no valor: a coluna ganha
      dois caracteres a mais para manter o respiro do "receber". */
   #send-meta tbody th { width: 9ch; }
+  /* Aviso do resumo: só existe quando o PSBT montado no servidor não bate
+     com o formulário (ver renderSendMeta em app.js). Em --error porque é
+     divergência, não informação. */
+  #send-meta-warn {
+    margin: var(--space-3) 0 0;
+    color: var(--error);
+  }
+  #send-meta-warn:empty { display: none; }
 
   /* Histórico: o resumo e a explicação são notas de apoio, e a lista começa
      depois do vão da régua do título. */
