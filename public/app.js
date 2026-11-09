@@ -670,7 +670,9 @@
       $('#send-psbt').textContent = j.psbt;
       $('#send-meta').textContent = sendMeta(j);
       $('#send-out').hidden = false;
-      setSendStatus('ok', 'psbt criado. confira no chave-btc.html antes de assinar.');
+      // sem recado de sucesso: o próprio psbt na tela confirma (a frase de
+      // "montando" não pode ficar parada embaixo do resultado)
+      setSendStatus('', '');
       updateScroll();
     } catch (e) {
       setSendStatus('error', e && e.message ? e.message : String(e));
