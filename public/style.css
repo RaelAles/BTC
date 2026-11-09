@@ -1817,10 +1817,10 @@
   #send-meta {
     margin: var(--space-4) 0 0;
     text-align: left;
+    white-space: pre-line;
     hyphens: none;
     overflow-wrap: anywhere;
   }
-  #send-hint { margin: var(--space-3) 0 0; }
 
   /* Histórico: o resumo e a explicação são notas de apoio, e a lista começa
      depois do vão da régua do título. */
