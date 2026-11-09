@@ -1766,6 +1766,10 @@
     gap: var(--space-2);
     min-height: var(--target-size);
   }
+  /* Nível escondido: caiu na mesma taxa de um mais rápido (ver
+     visibleFeeLevels em app.js). O atributo precisa da regra porque
+     .fee-level define display: flex. */
+  .fee-level[hidden] { display: none; }
   .fee-level-cost {
     margin-left: auto;
     color: var(--fg);

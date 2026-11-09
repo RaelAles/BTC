@@ -803,6 +803,50 @@
     return Number(levels[level]) || 0;
   }
 
+  /* Níveis que a tela mostra. Quando dois níveis caem na mesma taxa — o
+     servidor devolve o mesmo inteiro para alvos vizinhos, e o arredondamento
+     para cima junta os que ficam abaixo de 1 sat/vB —, fica só o mais rápido:
+     a taxa é a mesma, então o mais lento não acrescenta escolha. Sem nenhuma
+     estimativa, os quatro continuam visíveis (vazios e desabilitados), para
+     a seção não ficar sem opção nenhuma. */
+  function visibleFeeLevels() {
+    var levels = (state.fees && state.fees.levels) || {};
+    var visible = {};
+    var seen = {};
+    var any = false;
+    for (var i = FEE_ORDER.length - 1; i >= 0; i--) { // do mais rápido ao mais lento
+      var key = FEE_ORDER[i];
+      var rate = Number(levels[key]) || 0;
+      if (!(rate > 0) || seen[rate]) { visible[key] = false; continue; }
+      seen[rate] = true;
+      visible[key] = true;
+      any = true;
+    }
+    if (!any) FEE_ORDER.forEach(function (key) { visible[key] = true; });
+    return visible;
+  }
+
+  /* A escolha precisa cair num nível visível: se o nível selecionado foi
+     escondido por ter a mesma taxa de um mais rápido, a seleção passa para
+     esse mais rápido (a taxa não muda, então o PSBT também não); se ele
+     perdeu a estimativa, vale a ordem de preferência. */
+  function normalizeFeeLevel() {
+    var visible = visibleFeeLevels();
+    if (visible[state.feeLevel]) return;
+    var levels = (state.fees && state.fees.levels) || {};
+    var rate = Number(levels[state.feeLevel]) || 0;
+    if (rate > 0) {
+      for (var i = FEE_ORDER.length - 1; i >= 0; i--) {
+        var key = FEE_ORDER[i];
+        if (visible[key] && (Number(levels[key]) || 0) === rate) { state.feeLevel = key; return; }
+      }
+    }
+    for (var j = 0; j < FEE_PREF.length; j++) {
+      var preferred = FEE_PREF[j];
+      if (visible[preferred] && Number(levels[preferred]) > 0) { state.feeLevel = preferred; return; }
+    }
+  }
+
   /* Valor em BTC com máscara de 8 casas: o usuário digita só dígitos e o
      ponto entra sozinho, da direita para a esquerda (1 → 0.00000001). O
      valor guardado é o inteiro de satoshis, sem zeros à esquerda, então o
@@ -987,17 +1031,22 @@
   /* Desenha a taxa: o custo em BTC e o percentual de cada nível nas opções.
      O grupo de rádio é nativo: o navegador guarda a escolha, anda com as
      setas e leva o foco ao marcador; o JavaScript só reflete o estado da
-     estimativa. */
+     estimativa. Nível escondido também fica desabilitado, para as setas e o
+     Tab não pararem num rádio fora da tela. */
   function renderFees() {
     var levels = (state.fees && state.fees.levels) || {};
+    normalizeFeeLevel();
+    var visible = visibleFeeLevels();
     FEE_ORDER.forEach(function (key) {
       var input = $('input[name="fee-level"][value="' + key + '"]');
       if (!input) return;
       var available = Number(levels[key]) > 0;
-      input.disabled = !available;
+      input.disabled = !available || !visible[key];
       input.checked = state.feeLevel === key;
       var label = input.closest ? input.closest('.fee-level') : null;
-      if (label) label.classList.toggle('is-empty', !available);
+      if (!label) return;
+      label.hidden = !visible[key];
+      label.classList.toggle('is-empty', !available);
     });
     renderFeeLevels();
     var upd = $('#fee-updated');
@@ -1015,8 +1064,8 @@
   /* Custo e percentual de cada nível para o valor que está no formulário. Só
      vale quando o preview respondeu para o mesmo valor e o mesmo destino;
      fora disso a opção fica em `—`, como manda a regra da tela. Níveis que
-     caem na mesma taxa mostram o mesmo custo: o valor é do sat/vB, não do
-     nome. */
+     caem na mesma taxa compartilham o custo (e a tela mostra só o mais
+     rápido deles): o valor é do sat/vB, não do nome. */
   function feeQuotes() {
     var cached = state.feeQuotes;
     var amount = amountSats();
@@ -1059,10 +1108,7 @@
       var before = feeRateOf(state.feeLevel);
       state.fees = j;
       state.feesError = false;
-      if (!(Number(j.levels[state.feeLevel]) > 0)) {
-        state.feeLevel = FEE_PREF.find(function (k) { return Number(j.levels[k]) > 0; }) || state.feeLevel;
-      }
-      renderFees();
+      renderFees(); // normaliza a escolha e esconde os níveis de taxa repetida
       /* taxa escolhida mudou: o máximo é recalculado sem manter o antigo.
          Só os níveis mudaram: mantém o máximo e refaz as cotas das opções. */
       if (!state.limits || feeRateOf(state.feeLevel) !== before) scheduleLimits();

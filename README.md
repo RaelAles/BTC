@@ -19,7 +19,10 @@ tela mostra:
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e taxa em um
    **grupo de níveis** rotulado pelo **prazo médio de confirmação** — `1 dia`,
    `1 hora`, `30 minutos` e `10 minutos` —, cada um com o **custo em BTC e o
-   percentual sobre o valor**, para o valor e o destino digitados. A taxa de cada nível vem **ao vivo** pelo `/api/fees`.
+   percentual sobre o valor**, para o valor e o destino digitados. Quando dois
+   níveis caem na mesma taxa (o servidor devolve o mesmo inteiro para alvos
+   vizinhos), a tela mostra só o mais rápido: a taxa é idêntica, então o nível
+   mais lento não acrescenta escolha. A taxa de cada nível vem **ao vivo** pelo `/api/fees`.
    O seletor só aparece quando há valor e destino válidos; sem os dois, o
    custo não teria o que cotar. Os níveis são rádios nativos: clique ou
    setas escolhem, e o PSBT usa a taxa do nível escolhido. A quantidade usa
@@ -539,7 +542,8 @@ sat/vB inteiro, arredondado para cima; se o servidor
 não estimar um nível, ele vem `null` e a tela desabilita aquele nível. Nada
 é somado para separar níveis: estimativas que caem no mesmo inteiro (1,003 e
 1,076 sat/vB viram 2 as duas) aparecem com o mesmo sat/vB e o mesmo custo em
-BTC, porque o dado é do servidor, não do nome do nível.
+BTC, porque o dado é do servidor, não do nome do nível — e a tela esconde o
+nível mais lento de cada taxa repetida, deixando só o mais rápido.
 
 ```json
 {
