@@ -9,7 +9,7 @@
 import { chainNode, deriveChild, TYPE_INFO } from './derivation.js';
 import { historiesMany, transactionsMany } from './electrum.js';
 import { totalsForScripts, utxosForScripts } from './address-totals.js';
-import { preparePsbt } from './psbt.js';
+import { preparePsbt, sendLimits } from './psbt.js';
 import BTC from './btc-core.js';
 
 const DEFAULT_GAP = 50;
@@ -307,6 +307,21 @@ export class WalletScanner {
 
   /* Monta o PSBT de envio com os UTXOs desta sessão. A transação não é
      assinada nem enviada; o resultado é o arquivo para o projeto 1. */
+  prepareUtxos() {
+    return this.utxos
+      .map(u => ({ ...u, row: this.byScript.get(u.script) }))
+      .filter(u => u.row);
+  }
+
+  /* Maior valor que a carteira consegue enviar para este destino e taxa. */
+  limits({ address, feeRate }) {
+    if (this.errors && this.errors.size) {
+      throw new Error('histórico incompleto (faltou transação do servidor); atualize a carteira e tente de novo');
+    }
+    if (!this.utxos) throw new Error('carteira ainda não sincronizada');
+    return sendLimits({ utxos: this.prepareUtxos(), address, feeRate });
+  }
+
   async prepare({ address, amountSats, feeRate }) {
     if (this.errors && this.errors.size) {
       throw new Error('histórico incompleto (faltou transação do servidor); atualize a carteira e tente de novo');
@@ -314,9 +329,7 @@ export class WalletScanner {
     if (!this.utxos) throw new Error('carteira ainda não sincronizada');
     const type = this.chooseType();
     const changeRow = this.nextChangeRow(type);
-    const utxos = this.utxos
-      .map(u => ({ ...u, row: this.byScript.get(u.script) }))
-      .filter(u => u.row);
+    const utxos = this.prepareUtxos();
     const rawTxFor = async txid => {
       const cached = this.txCache.get(txid);
       if (cached) return BTC.hexToBytes(cached);

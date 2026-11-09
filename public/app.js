@@ -33,6 +33,11 @@
     feeLevel: 'medium', // baixa | medium | high | custom
     feeCustom: '',      // sat/vB digitado
     feeTimer: 0,        // reconsulta periódica da taxa
+    amountDigits: '',   // satoshis digitados (o ponto é só desenho)
+    limits: null,       // máximo enviável para o destino e a taxa
+    limitsError: '',
+    limitsTimer: 0,
+    limitsSeq: 0,
     sendBusy: false,
     psbt: null          // PSBT criado (texto e resumo)
   };
@@ -231,6 +236,146 @@
     return Number(levels[level]) || 0;
   }
 
+  /* Valor em BTC com máscara de 8 casas: o usuário digita só dígitos e o
+     ponto entra sozinho, da direita para a esquerda (1 → 0.00000001). O
+     valor guardado é o inteiro de satoshis, sem zeros à esquerda, então o
+     backspace remove o último dígito de verdade. */
+  var AMOUNT_DIGITS_MAX = 15;
+  var DUST_SATS = 546;
+
+  function amountSats() {
+    return state.amountDigits ? Number(BigInt(state.amountDigits)) : 0;
+  }
+
+  function amountDisplay(digits) {
+    if (!digits) return '';
+    var padded = String(digits).padStart(9, '0');
+    return padded.slice(0, -8) + '.' + padded.slice(-8);
+  }
+
+  function renderAmountInput() {
+    var input = $('#send-amount');
+    if (input) input.value = amountDisplay(state.amountDigits);
+    updateSendAvailability();
+  }
+
+  function setAmountDigits(digits) {
+    var clean = String(digits == null ? '' : digits).replace(/\D/g, '');
+    clean = clean.replace(/^0+(?=\d)/, '');
+    if (clean.length > AMOUNT_DIGITS_MAX) clean = clean.slice(0, AMOUNT_DIGITS_MAX);
+    state.amountDigits = clean;
+    renderAmountInput();
+  }
+
+  function syncAmountFromValue() {
+    var input = $('#send-amount');
+    if (!input) return;
+    var v = input.value.trim();
+    if (!v) { setAmountDigits(''); return; }
+    var sats = null;
+    if (/[.,]/.test(v)) sats = parseBtcSats(v);
+    else {
+      var d = v.replace(/\D/g, '');
+      sats = d ? Number(BigInt(d)) : 0;
+    }
+    if (sats == null) { renderAmountInput(); return; }
+    setAmountDigits(String(sats));
+  }
+
+  function addressLooksValid(address) {
+    var s = String(address || '').trim();
+    if (/^bc1[02-9ac-hj-np-z]{11,87}$/i.test(s)) return true;
+    return /^[13][1-9A-HJ-NP-Za-km-z]{25,34}$/.test(s);
+  }
+
+  function updateSendAvailability() {
+    var amount = amountSats();
+    var address = $('#send-address') ? $('#send-address').value.trim() : '';
+    var rate = feeRateOf(state.feeLevel);
+    var hint = $('#send-amount-hint');
+    var box = $('#send-amount-box');
+    var input = $('#send-amount');
+    var problem = '';
+    var hintText = 'o ponto entra sozinho: até 8 casas decimais. a taxa entra além do valor.';
+
+    if (amount > 0 && amount < DUST_SATS) {
+      problem = 'valor abaixo do mínimo: ' + DUST_SATS + ' sats.';
+    } else if (state.limits) {
+      var max = Number(state.limits.max_send_sats) || 0;
+      hintText = 'máximo ' + fmtBtc(max) + ' BTC · ' + fmtInt(max) + ' sats.';
+      if (max < DUST_SATS) problem = 'saldo insuficiente para enviar com essa taxa.';
+      else if (amount > max) {
+        problem = 'valor acima do máximo enviável: ' + fmtBtc(max) + ' BTC (' + fmtInt(max) + ' sats).';
+      }
+    } else if (state.limitsError) {
+      hintText = 'máximo indisponível: ' + state.limitsError;
+    }
+
+    if (box) box.classList.toggle('is-invalid', !!problem);
+    if (input) {
+      if (problem) input.setAttribute('aria-invalid', 'true');
+      else input.removeAttribute('aria-invalid');
+    }
+    if (hint) {
+      hint.textContent = problem || hintText;
+      hint.classList.toggle('is-error', !!problem);
+    }
+    var disabled = state.sendBusy || !amount || amount < DUST_SATS ||
+      !addressLooksValid(address) || !Number.isInteger(rate) || rate < 1 ||
+      !state.limits || Number(state.limits.max_send_sats) < DUST_SATS ||
+      amount > Number(state.limits.max_send_sats);
+    var btn = $('#send-submit');
+    if (btn) {
+      if (disabled) btn.setAttribute('aria-disabled', 'true');
+      else btn.removeAttribute('aria-disabled');
+    }
+    state.sendBlocked = disabled;
+  }
+
+  /* O máximo depende do destino (tamanho do script) e da taxa. A consulta é
+     curta, no mesmo Worker/sessão do envio, e o resultado vira o limite que
+     bloqueia o botão antes de qualquer tentativa. */
+  function scheduleLimits() {
+    if (state.limitsTimer) clearTimeout(state.limitsTimer);
+    state.limitsTimer = 0;
+    state.limitsSeq++;
+    state.limits = null;
+    state.limitsError = '';
+    updateSendAvailability();
+    var address = $('#send-address') ? $('#send-address').value.trim() : '';
+    var rate = feeRateOf(state.feeLevel);
+    if (!state.xpub || !addressLooksValid(address) || !Number.isInteger(rate) || rate < 1) return;
+    state.limitsTimer = setTimeout(function () {
+      state.limitsTimer = 0;
+      loadLimits(address, rate);
+    }, 350);
+  }
+
+  async function loadLimits(address, rate) {
+    var seq = ++state.limitsSeq;
+    var xpub = state.xpub;
+    var body = { xpub: xpub, address: address, fee_rate: rate, preview: true };
+    if (state.session) body.session = state.session;
+    try {
+      var r = await fetch('/api/psbt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      var j = await r.json();
+      if (seq !== state.limitsSeq || state.xpub !== xpub) return;
+      if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+      if (!Number.isInteger(j.max_send_sats)) throw new Error('resposta sem limite de envio');
+      state.limits = j;
+      state.limitsError = '';
+    } catch (e) {
+      if (seq !== state.limitsSeq) return;
+      state.limits = null;
+      state.limitsError = e && e.message ? e.message : String(e);
+    }
+    updateSendAvailability();
+  }
+
   function renderFees() {
     var options = $('#fee-options');
     if (!options) return;
@@ -266,11 +411,13 @@
       if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
       if (!j.levels) throw new Error('resposta sem níveis de taxa');
       if (state.xpub !== xpub) return;
+      var before = feeRateOf(state.feeLevel);
       state.fees = j;
       if (state.feeLevel !== 'custom' && !(Number(j.levels[state.feeLevel]) > 0)) {
         state.feeLevel = ['medium', 'high', 'low'].find(function (k) { return Number(j.levels[k]) > 0; }) || 'custom';
       }
       renderFees();
+      if (!state.limits || feeRateOf(state.feeLevel) !== before) scheduleLimits();
     } catch (e) {
       var upd = $('#fee-updated');
       if (upd) upd.textContent = 'estimativa indisponível';
@@ -306,19 +453,27 @@
     state.fees = null;
     state.feeLevel = 'medium';
     state.feeCustom = '';
+    state.amountDigits = '';
+    state.limits = null;
+    state.limitsError = '';
+    state.limitsSeq++;
+    if (state.limitsTimer) clearTimeout(state.limitsTimer);
+    state.limitsTimer = 0;
     stopFeeTimer();
-    ['#send-amount', '#send-address', '#fee-custom'].forEach(function (sel) {
+    ['#send-address', '#fee-custom'].forEach(function (sel) {
       var el = $(sel);
       if (el) el.value = '';
     });
+    var amount = $('#send-amount');
+    if (amount) amount.value = '';
     var btn = $('#send-submit');
     if (btn) {
-      btn.removeAttribute('aria-disabled');
       btn.removeAttribute('aria-busy');
       btn.textContent = 'criar psbt';
     }
     setSendStatus('', '');
     renderFees();
+    renderAmountInput();
   }
 
   function sendMeta(j) {
@@ -334,14 +489,14 @@
   async function createPsbt() {
     if (state.sendBusy) return;
     invalidatePsbt();
-    var amount = parseBtcSats($('#send-amount').value);
+    var amount = amountSats();
     if (!amount) {
-      setSendStatus('error', 'valor inválido: use BTC com até 8 casas decimais.');
+      setSendStatus('error', 'digite o valor em BTC.');
       $('#send-amount').focus();
       return;
     }
-    if (amount < 546) {
-      setSendStatus('error', 'valor abaixo do pó: o mínimo é 546 sats.');
+    if (amount < DUST_SATS) {
+      setSendStatus('error', 'valor abaixo do mínimo: ' + DUST_SATS + ' sats.');
       $('#send-amount').focus();
       return;
     }
@@ -351,13 +506,36 @@
       $('#send-address').focus();
       return;
     }
+    if (!addressLooksValid(address)) {
+      setSendStatus('error', 'endereço de destino inválido.');
+      $('#send-address').focus();
+      return;
+    }
     var rate = feeRateOf(state.feeLevel);
     if (!Number.isInteger(rate) || rate < 1 || rate > 10000) {
       setSendStatus('error', 'escolha uma taxa de 1 a 10 000 sat/vB (ou digite a personalizada).');
       if (state.feeLevel === 'custom') $('#fee-custom').focus();
       return;
     }
+    if (!state.limits) {
+      setSendStatus('error', state.limitsError
+        ? 'não foi possível calcular o máximo: ' + state.limitsError
+        : 'aguarde o cálculo do máximo enviável.');
+      return;
+    }
+    if (Number(state.limits.max_send_sats) < DUST_SATS) {
+      setSendStatus('error', 'saldo insuficiente para enviar com essa taxa.');
+      return;
+    }
+    if (amount > Number(state.limits.max_send_sats)) {
+      setSendStatus('error', 'valor acima do máximo enviável: ' +
+        fmtBtc(state.limits.max_send_sats) + ' BTC (' +
+        fmtInt(state.limits.max_send_sats) + ' sats).');
+      $('#send-amount').focus();
+      return;
+    }
     state.sendBusy = true;
+    updateSendAvailability();
     var btn = $('#send-submit');
     if (btn) {
       btn.setAttribute('aria-disabled', 'true');
@@ -401,10 +579,10 @@
     } finally {
       state.sendBusy = false;
       if (btn) {
-        btn.removeAttribute('aria-disabled');
         btn.removeAttribute('aria-busy');
         btn.textContent = 'criar psbt';
       }
+      updateSendAvailability();
     }
   }
 
@@ -574,6 +752,8 @@
     renderHistory();
     $('#addresses-empty').hidden = rows.length > 0;
     $('#out').hidden = false;
+    // saldo novo pode mudar o máximo enviável
+    scheduleLimits();
     updateScroll();
   }
 
@@ -959,6 +1139,7 @@
       state.feeLevel = level;
       renderFees();
       invalidatePsbt();
+      scheduleLimits();
       if (state.feeLevel === 'custom') {
         var custom = $('#fee-custom');
         if (custom) custom.focus();
@@ -971,16 +1152,70 @@
       state.feeCustom = clean;
       renderFees();
       invalidatePsbt();
+      scheduleLimits();
     });
-    ['#send-amount', '#send-address'].forEach(function (sel) {
-      var el = $(sel);
-      if (el) el.addEventListener('input', invalidatePsbt);
+
+    /* Máscara de satoshis: dígitos entram da direita, o ponto é automático,
+       backspace apaga o último dígito e colar aceita BTC com ponto/vírgula. */
+    var amountInput = $('#send-amount');
+    if (amountInput) {
+      amountInput.addEventListener('keydown', function (ev) {
+        if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+        if (/^[0-9]$/.test(ev.key)) {
+          ev.preventDefault();
+          var all = amountInput.selectionStart === 0 &&
+            amountInput.selectionEnd === amountInput.value.length;
+          setAmountDigits((all ? '' : state.amountDigits) + ev.key);
+          invalidatePsbt();
+          return;
+        }
+        if (ev.key === 'Backspace' || ev.key === 'Delete') {
+          ev.preventDefault();
+          var whole = amountInput.selectionStart === 0 &&
+            amountInput.selectionEnd === amountInput.value.length;
+          setAmountDigits(whole ? '' : state.amountDigits.slice(0, -1));
+          invalidatePsbt();
+          return;
+        }
+        if (ev.key === '.' || ev.key === ',') ev.preventDefault();
+      });
+      amountInput.addEventListener('input', function (ev) {
+        if (amountInput.value === amountDisplay(state.amountDigits)) {
+          updateSendAvailability();
+          return;
+        }
+        if (ev.inputType === 'deleteContentBackward' || ev.inputType === 'deleteContentForward') {
+          setAmountDigits(state.amountDigits.slice(0, -1));
+        } else {
+          syncAmountFromValue();
+        }
+        invalidatePsbt();
+      });
+      amountInput.addEventListener('paste', function (ev) {
+        var text = '';
+        try { text = (ev.clipboardData || window.clipboardData).getData('text') || ''; } catch (e) {}
+        if (!text.trim()) return;
+        ev.preventDefault();
+        var sats = /[.,]/.test(text) ? parseBtcSats(text) : (function () {
+          var d = text.replace(/\D/g, '');
+          return d ? Number(BigInt(d)) : 0;
+        })();
+        if (sats == null) return;
+        setAmountDigits(String(sats));
+        invalidatePsbt();
+      });
+    }
+    var addressInput = $('#send-address');
+    if (addressInput) addressInput.addEventListener('input', function () {
+      invalidatePsbt();
+      scheduleLimits();
     });
     var sendCopy = $('#send-copy');
     if (sendCopy) sendCopy.addEventListener('click', function () { copyPsbt(sendCopy); });
     var sendDownload = $('#send-download');
     if (sendDownload) sendDownload.addEventListener('click', downloadPsbt);
     renderFees();
+    renderAmountInput();
 
     var sc = $('#content-scroll');
     if (sc) sc.addEventListener('scroll', updateScroll);

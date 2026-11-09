@@ -284,6 +284,20 @@ assert.equal(watcher.idleTimer, null, 'tela aberta cancela o descarte');
   assert.deepEqual(fees.levels, { low: 2, medium: 6, high: 12 });
 
   const dest = (await deriveAddress('bip44', ua, 0, 0)).address;
+  const previewRes = await worker.fetch(new Request('https://x/api/psbt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      xpub: USER, session: payload.session, address: dest,
+      fee_rate: 6, preview: true
+    })
+  }), env2);
+  const preview = await previewRes.json();
+  assert.equal(previewRes.status, 200, JSON.stringify(preview));
+  assert.equal(preview.available_sats, 9000);
+  assert.equal(preview.max_send_sats, 9000 - preview.fee_sats_at_max);
+  assert.ok(preview.max_send_sats > 0);
+
   const psbtRes = await worker.fetch(new Request('https://x/api/psbt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

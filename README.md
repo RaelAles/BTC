@@ -18,10 +18,14 @@ tela mostra:
    um, cinco por página, na tela **histórico**;
 4. **enviar BTC** abaixo dos endereços: valor, endereço de destino e taxa em
    quatro escolhas — baixa, média, alta ou personalizada —, com a taxa em
-   sat/vB estimada **ao vivo** pelo Electrum. O botão **criar psbt** monta a
-   transação sem assinatura, com troco, e entrega o PSBT em base64 para
-   copiar ou baixar. Quem assina é o `chave-btc.html` (projeto 1), offline;
-   o projeto 2 nunca vê chave privada.
+   sat/vB estimada **ao vivo** pelo Electrum. O valor usa máscara de satoshis:
+   o usuário digita só dígitos e o ponto entra sozinho, da direita para a
+   esquerda (`1` → `0.00000001`, `12345678` → `0.12345678`). O botão **criar
+   psbt** fica bloqueado abaixo de 546 sats e acima do máximo enviável
+   (saldo − taxa), calculado no servidor para o destino e a taxa escolhidos.
+   O PSBT sai sem assinatura, com troco, em base64 para copiar ou baixar.
+   Quem assina é o `chave-btc.html` (projeto 1), offline; o projeto 2 nunca
+   vê chave privada.
 
 Nada fica guardado: nem a xpub no navegador, nem endereços, transações ou
 saldo no Cloudflare. Enquanto a tela está aberta o saldo é acompanhado em
@@ -437,6 +441,20 @@ de 1 a 10 000 sat/vB; valor abaixo de 546 sats é recusado como pó. Entradas
 confirmadas são escolhidas antes das pendentes e, dentro de cada grupo, as
 maiores primeiro.
 
+Com `"preview": true` e sem `amount_sats`, a rota não monta nada: devolve o
+limite que a tela usa para bloquear o envio antes da tentativa.
+
+```json
+{ "recipient": "bc1...", "available_sats": 15000, "min_sats": 546,
+  "max_send_sats": 13656, "fee_sats_at_max": 1344,
+  "vsize_at_max": 224, "fee_rate": 6 }
+```
+
+`max_send_sats` é o total disponível menos a taxa da transação que gasta todas
+as entradas e manda todo o resto ao destino (sem troco). É exatamente o maior
+valor que `selectCoins` aceita; abaixo dele sempre existe uma seleção válida,
+e acima o envio é recusado. No máximo não há saída de troco.
+
 Resposta (resumida):
 
 ```json
@@ -554,11 +572,13 @@ re-sincronizar no mesmo instante) sem apagar a sessão nova.
 
 O `psbt.test.mjs` deriva uma carteira dos 256 bits (a mesma do projeto 1),
 serve UTXOs por um Electrum falso e verifica: taxa ao vivo nos três níveis,
-escolha de entradas para cobrir o valor, troco no próximo índice `/1`, PSBT v0
-com origem da conta, `non_witness_utxo` no p2pkh e `tap_bip32_derivation` no
+escolha de entradas para cobrir o valor, troco no próximo índice `/1`, o
+limite `max_send_sats` (incluindo o envio no máximo, sem troco), PSBT v0 com
+origem da conta, `non_witness_utxo` no p2pkh e `tap_bip32_derivation` no
 taproot, recusa de endereço/taxa/saldo inválidos, e a **assinatura do PSBT no
 próprio `btc-core`** com um índice 120 — fora do fallback de 100 — provando a
-compatibilidade com o `chave-btc.html`.
+compatibilidade com o `chave-btc.html`. O `watcher.test.mjs` também cobre o
+`preview` do máximo pela mesma sessão/conexão do envio.
 
 O `worker.test.mjs` monta transações com o próprio `btc-core` e cobre:
 endereço que recebeu e gastou (`recebido 10000 / enviado 10000 / saldo 0`),

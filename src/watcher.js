@@ -86,11 +86,16 @@ export class WalletWatcher {
         if (this.scanning || !this.lastPayload) await this.sync(xpub, true);
         else await scanner.recompute();
         try {
-          const payload = await scanner.prepare({
+          const target = {
             address: String(body.address || ''),
-            amountSats: Number(body.amountSats),
             feeRate: Number(body.feeRate)
-          });
+          };
+          const payload = body.preview === true
+            ? scanner.limits(target)
+            : await scanner.prepare({
+              ...target,
+              amountSats: Number(body.amountSats)
+            });
           return json(payload);
         } catch (e) {
           return json({ error: e && e.message ? e.message : String(e) }, 400);

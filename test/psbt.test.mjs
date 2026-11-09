@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import worker from '../src/worker.js';
 import { deriveAddress, parseXpub } from '../src/derivation.js';
 import { scripthash, setConnectOverride } from '../src/electrum.js';
-import { preparePsbt } from '../src/psbt.js';
+import { preparePsbt, sendLimits } from '../src/psbt.js';
 import BTC from '../src/btc-core.js';
 import { startFakeElectrum, nodeConnect } from './fake-electrum.mjs';
 import { makeTx } from './tx-fixture.mjs';
@@ -174,18 +174,36 @@ function mapFind(map, type) {
     address: x.address, path: x.path, script: BTC.bytesToHex(x.script),
     pub: BTC.bytesToHex(x.pub), kind: 'p2tr', account_type: 'bip86', chain, idx
   });
+  const utxos = [{
+    txid: '30'.repeat(32), vout: 0, value: 200000,
+    script: BTC.bytesToHex(a.script), height: 800200,
+    row: row(a, 0, 150)
+  }];
+  const destination = BTC.derive('01' + '0'.repeat(254)).addresses.p2tr;
+  const limits = sendLimits({ utxos, address: destination, feeRate: 4 });
+  assert.equal(limits.available_sats, 200000);
+  assert.equal(limits.max_send_sats, 200000 - limits.fee_sats_at_max);
+  assert.equal(limits.min_sats, 546);
+
   const prepared = await preparePsbt({
     account,
-    utxos: [{
-      txid: '30'.repeat(32), vout: 0, value: 200000,
-      script: BTC.bytesToHex(a.script), height: 800200,
-      row: row(a, 0, 150)
-    }],
-    address: BTC.derive('01' + '0'.repeat(254)).addresses.p2tr,
+    utxos,
+    address: destination,
     amountSats: 120000, feeRate: 4,
     changeRow: row(change, 1, 0),
     rawTxFor: async () => null
   });
+
+  /* no máximo não sobra troco: a taxa da transação sem saída de troco é
+     exatamente a devolvida pelo preview. */
+  const atMax = await preparePsbt({
+    account, utxos, address: destination,
+    amountSats: limits.max_send_sats, feeRate: 4,
+    changeRow: row(change, 1, 0), rawTxFor: async () => null
+  });
+  assert.equal(atMax.change, null);
+  assert.equal(atMax.fee_sats, limits.fee_sats_at_max);
+  assert.equal(atMax.total_out, limits.max_send_sats);
   const psbt = BTC.parsePsbt(BTC.psbtParseInput(prepared.psbt));
   const tap = mapFind(psbt.inputs[0], 0x16);
   assert.ok(tap, 'entrada taproot leva tap_bip32_derivation');

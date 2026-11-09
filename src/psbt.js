@@ -88,6 +88,30 @@ export function selectCoins(utxos, amountSats, feeRate, recipientScript, changeS
   throw error;
 }
 
+/* Limite de envio para a taxa escolhida: o máximo é o total disponível
+   menos a taxa da transação que gasta todas as entradas e manda todo o
+   resto ao destino (sem troco). É exatamente o maior valor que
+   selectCoins aceita; abaixo disso sempre existe uma seleção válida. */
+export function sendLimits({ utxos, address, feeRate }) {
+  if (!Number.isInteger(feeRate) || feeRate < 1 || feeRate > 10000) {
+    throw new Error('taxa inválida: use de 1 a 10 000 sat/vB');
+  }
+  const recipientScript = BTC.scriptFromAddress(address);
+  const available = utxos.reduce((sum, u) => sum + u.value, 0);
+  const vsize = BTC.estimateVsize(utxos.map(u => u.row.kind), [recipientScript]);
+  const feeAtMax = Math.ceil(feeRate * vsize);
+  const max = available - feeAtMax;
+  return {
+    recipient: address,
+    available_sats: available,
+    min_sats: DUST_SATS,
+    max_send_sats: max >= DUST_SATS ? max : 0,
+    fee_sats_at_max: feeAtMax,
+    vsize_at_max: vsize,
+    fee_rate: feeRate
+  };
+}
+
 /* Monta o PSBT. `utxos` vem do scanner com a linha de origem já anexada;
    `changeRow` é o próximo endereço livre do ramo de troco; `rawTxFor` devolve
    a transação anterior crua (só o p2pkh precisa dela). */

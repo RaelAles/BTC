@@ -1713,6 +1713,7 @@
      com o valor ao lado; a personalizada abre a mesma caixa dos outros
      campos. O PSBT é leitura, no bloco de código que já existe. */
   #send-amount-hint { margin: var(--space-2) 0 0; }
+  #send-amount-hint.is-error { color: var(--error); }
   .fee-options { margin-top: var(--space-3); }
   #fee-note { margin: var(--space-3) 0 0; }
   #send-psbt { margin-bottom: 0; }

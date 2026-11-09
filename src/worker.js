@@ -103,19 +103,24 @@ function sessionId(value) {
 }
 
 /* Parâmetros do envio validados antes de consultar o Electrum. */
-function sendParams(body) {
+function sendTarget(body) {
   const address = String(body.address || '').trim();
   if (!address) throw new Error('informe o endereço de destino');
   try { BTC.scriptFromAddress(address); }
   catch (e) { throw new Error('endereço de destino: ' + e.message); }
-  const amountSats = Number(body.amount_sats);
-  if (!Number.isInteger(amountSats) || amountSats <= 0) throw new Error('valor inválido');
-  if (amountSats > 2100000000000000) throw new Error('valor acima do limite do bitcoin');
   const feeRate = Number(body.fee_rate);
   if (!Number.isInteger(feeRate) || feeRate < 1 || feeRate > 10000) {
     throw new Error('taxa inválida: use de 1 a 10 000 sat/vB');
   }
-  return { address, amountSats, feeRate };
+  return { address, feeRate };
+}
+
+function sendParams(body) {
+  const target = sendTarget(body);
+  const amountSats = Number(body.amount_sats);
+  if (!Number.isInteger(amountSats) || amountSats <= 0) throw new Error('valor inválido');
+  if (amountSats > 2100000000000000) throw new Error('valor acima do limite do bitcoin');
+  return { ...target, amountSats };
 }
 
 async function handlePsbt(request, env) {
@@ -126,8 +131,9 @@ async function handlePsbt(request, env) {
   let account;
   try { account = parseXpub(xpub); }
   catch (e) { return fail(xpubHint(xpub) || e.message); }
+  const preview = body.preview === true;
   let params;
-  try { params = sendParams(body); }
+  try { params = preview ? sendTarget(body) : sendParams(body); }
   catch (e) { return fail(e.message); }
 
   const session = sessionId(body.session);
@@ -136,7 +142,7 @@ async function handlePsbt(request, env) {
     const res = await stub.fetch('https://watch/prepare', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ xpub, ...params })
+      body: JSON.stringify({ xpub, preview, ...params })
     });
     const payload = await res.json();
     // sessão despejada: refaz a varredura avulsa e monta o PSBT do mesmo jeito
@@ -154,7 +160,7 @@ async function handlePsbt(request, env) {
   try {
     const scanner = await new WalletScanner({ env, xpub, account, client }).init();
     await scanner.fullSync();
-    return json(await scanner.prepare(params));
+    return json(preview ? scanner.limits(params) : await scanner.prepare(params));
   } catch (e) {
     return fail(e && e.message ? e.message : String(e), 400);
   } finally {
