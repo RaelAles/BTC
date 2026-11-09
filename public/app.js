@@ -312,7 +312,7 @@
     var box = $('#send-amount-box');
     var input = $('#send-amount');
     var problem = '';
-    var hintText = 'o ponto entra sozinho: até 8 casas decimais. a taxa entra além do valor.';
+    var hintText = '';
 
     if (amount > 0 && amount < DUST_SATS) {
       problem = 'valor abaixo do mínimo: ' + fmtBtc(DUST_SATS) + ' BTC.';

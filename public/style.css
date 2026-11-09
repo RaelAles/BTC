@@ -1781,6 +1781,7 @@
      inteira fica escondida. O PSBT é leitura, no bloco de código que já
      existe. */
   #send-amount-hint { margin: var(--space-2) 0 0; }
+  #send-amount-hint:empty { display: none; }
   #send-amount-hint.is-error { color: var(--error); }
   #fee-section[hidden] { display: none; }
   /* Uma opção por linha: o marcador e o nome ocupam a esquerda e o custo
