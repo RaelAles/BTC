@@ -903,8 +903,9 @@
      o próximo passo, em vez de esperar tudo numa resposta só. */
   function scanText(progress) {
     var p = progress || {};
-    return 'verificando endereços: ' + fmtInt(p.scanned || 0) + ' · ' +
-      fmtInt(p.used || 0) + ' com atividade';
+    var scanned = p.scanned || 0;
+    return 'verificando ' + fmtInt(scanned) +
+      (scanned === 1 ? ' endereço' : ' endereços');
   }
 
   function showScan(progress) {
