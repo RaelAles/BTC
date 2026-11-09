@@ -68,3 +68,36 @@ export function totalsForScripts(entries, scripts) {
   }
   return out;
 }
+
+/* Saídas ainda não gastas que pagam um script da carteira.
+
+   Mesma entrada de totalsForScripts. Uma saída nossa só deixa de ser UTXO
+   quando alguma transação conhecida (do histórico dos nossos scripts) a
+   gasta; é o mesmo conjunto de transações que fecha o saldo, então os dois
+   números não divergem. `height` 0 é mempool. */
+export function utxosForScripts(entries, scripts) {
+  const own = new Map();
+  for (const tx of entries) {
+    for (let vout = 0; vout < tx.outputs.length; vout++) {
+      const out = tx.outputs[vout];
+      const script = hex(out.script);
+      if (!scripts.has(script)) continue;
+      const key = tx.txid + ':' + vout;
+      own.set(key, {
+        txid: tx.txid, vout, value: Number(out.value) || 0,
+        script, height: tx.height || 0
+      });
+    }
+  }
+  const spent = new Set();
+  for (const tx of entries) {
+    for (const input of tx.inputs) {
+      const key = input.txid + ':' + input.vout;
+      if (own.has(key)) spent.add(key);
+    }
+  }
+  return [...own.entries()]
+    .filter(([key]) => !spent.has(key))
+    .map(([, utxo]) => utxo)
+    .sort((a, b) => (a.height === 0 ? 1 : 0) - (b.height === 0 ? 1 : 0) || b.value - a.value);
+}

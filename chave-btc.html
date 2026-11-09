@@ -3585,11 +3585,25 @@ var BTC = (function () {
       if (kind === 'p2tr' && d.value[0] !== 0) continue;
       if (d.value.length < 4 + offset + 4) continue;
       var fp = bytesToHex(d.value.subarray(offset, offset + 4));
-      if (fp !== session.hd.fingerprint) continue;
       var num = (d.value.length - 4 - offset) / 4;
       if (num < 1 || num % 1 !== 0) continue;
       var idxs = [];
       for (j = 0; j < num; j++) idxs.push(readLE32(d.value, 4 + offset + j * 4));
+      /* O PSBT do projeto 2 carrega a impressão digital da CONTA (a única
+         chave que o lado watch-only tem), não a da raiz. O caminho continua
+         sendo o completo; se a raiz não casar, confere a conta dos três
+         primeiros níveis. A chave e o script são verificados abaixo, então
+         aceitar a conta não afrouxa a checagem. */
+      if (fp !== session.hd.fingerprint) {
+        if (idxs.length < 3) continue;
+        var accPath = pathText(idxs.slice(0, 3));
+        session.fpCache = session.fpCache || {};
+        if (!session.fpCache[accPath]) {
+          session.fpCache[accPath] = bytesToHex(fingerprintOf(
+            await derivePath(session.hd.master, accPath)));
+        }
+        if (session.fpCache[accPath] !== fp) continue;
+      }
       var node = await derivePath(session.hd.master, pathText(idxs));
       var Q = pointFromD(node.d);
       var pub = pubCompressed(Q);

@@ -307,6 +307,31 @@ var BTC = (function () {
     var check = sha256(sha256(payload)).subarray(0, 4);
     return base58Encode(concatBytes(payload, check));
   }
+  function base58Decode(text) {
+    var s = String(text == null ? '' : text).trim();
+    if (!s) throw new Error('endereço vazio');
+    var n = 0n;
+    for (var i = 0; i < s.length; i++) {
+      var d = B58.indexOf(s[i]);
+      if (d < 0) throw new Error('endereço com caractere inválido');
+      n = n * 58n + BigInt(d);
+    }
+    var h = n.toString(16);
+    if (h.length % 2) h = '0' + h;
+    var out = n ? hexToBytes(h) : new Uint8Array(0);
+    var zeros = 0;
+    while (zeros < s.length && s[zeros] === '1') zeros++;
+    return concatBytes(new Uint8Array(zeros), out);
+  }
+  function base58checkDecode(text) {
+    var raw = base58Decode(text);
+    if (raw.length < 5) throw new Error('endereço base58 truncado');
+    var payload = raw.subarray(0, raw.length - 4);
+    var check = raw.subarray(raw.length - 4);
+    var want = sha256(sha256(payload)).subarray(0, 4);
+    if (bytesToHex(check) !== bytesToHex(want)) throw new Error('checksum do endereço inválido');
+    return payload;
+  }
   function wif(d, compressed) {
     var key = pad32(d);
     return base58check(concatBytes(new Uint8Array([0x80]), key, compressed ? new Uint8Array([1]) : new Uint8Array(0)));
@@ -363,6 +388,39 @@ var BTC = (function () {
   }
   function p2tr(xonly) {
     return segwitAddress('bc', 1, xonly);
+  }
+  function segwitDecode(address) {
+    var s = String(address == null ? '' : address).trim();
+    if (!s) throw new Error('endereço vazio');
+    var lower = s.toLowerCase();
+    if (s !== lower && s !== s.toUpperCase()) {
+      throw new Error('endereço com maiúsculas e minúsculas misturadas');
+    }
+    var cut = lower.lastIndexOf('1');
+    if (cut < 1) throw new Error('endereço bech32 inválido');
+    var hrp = lower.slice(0, cut);
+    if (hrp !== 'bc') throw new Error('endereço não é da mainnet (bc1)');
+    var part = lower.slice(cut + 1);
+    if (part.length < 7) throw new Error('endereço bech32 truncado');
+    var data = [];
+    for (var i = 0; i < part.length; i++) {
+      var d = B32.indexOf(part[i]);
+      if (d < 0) throw new Error('endereço bech32 com caractere inválido');
+      data.push(d);
+    }
+    var version = data[0];
+    if (version > 16) throw new Error('versão de witness inválida');
+    var constant = version === 0 ? 1 : 0x2bc830a3;
+    if (bechPolymod(bechHrpExpand(hrp).concat(data)) !== constant) {
+      throw new Error('checksum do endereço inválido');
+    }
+    var program = convertBits(data.slice(1, data.length - 6), 5, 8, false);
+    if (!program) throw new Error('programa witness inválido');
+    if (program.length < 2 || program.length > 40) throw new Error('programa witness inválido');
+    if (version === 0 && program.length !== 20 && program.length !== 32) {
+      throw new Error('programa witness v0 inválido');
+    }
+    return { version: version, program: new Uint8Array(program) };
   }
 
   /* ---------------------------------------------------------- ECDSA RFC6979 */
@@ -850,6 +908,34 @@ var BTC = (function () {
     }
     return bytesToHex(script);
   }
+  /* Endereço de pagamento → scriptPubKey. Só mainnet e os tipos que o
+     projeto já deriva/assina: p2pkh, p2sh-p2wpkh, p2wpkh e p2tr. */
+  function scriptFromAddress(address) {
+    var s = String(address == null ? '' : address).trim();
+    if (!s) throw new Error('informe o endereço de destino');
+    if (/^bc1/i.test(s)) {
+      var seg = segwitDecode(s);
+      if (seg.version === 0 && seg.program.length === 20) {
+        return concatBytes(new Uint8Array([0x00, 0x14]), seg.program);
+      }
+      if (seg.version === 0 && seg.program.length === 32) {
+        return concatBytes(new Uint8Array([0x00, 0x20]), seg.program);
+      }
+      if (seg.version === 1 && seg.program.length === 32) {
+        return concatBytes(new Uint8Array([0x51, 0x20]), seg.program);
+      }
+      throw new Error('tipo de endereço segwit não suportado');
+    }
+    var payload = base58checkDecode(s);
+    if (payload.length !== 21) throw new Error('endereço base58 inválido');
+    if (payload[0] === 0x00) {
+      return concatBytes(new Uint8Array([0x76, 0xa9, 0x14]), payload.subarray(1), new Uint8Array([0x88, 0xac]));
+    }
+    if (payload[0] === 0x05) {
+      return concatBytes(new Uint8Array([0xa9, 0x14]), payload.subarray(1), new Uint8Array([0x87]));
+    }
+    throw new Error('endereço não é da mainnet');
+  }
   function parsePath(text) {
     var parts = String(text).split('/');
     if (parts[0] !== 'm') throw new Error('caminho inválido');
@@ -979,6 +1065,86 @@ var BTC = (function () {
     psbt.outputs.forEach(function (m) { parts.push(writeMap(m)); });
     return concatBytes.apply(null, parts);
   }
+
+  /* PSBT v0 sem assinatura, pronto para o projeto 1.
+
+     spec.inputs: [{ txid, vout, value, script (bytes), kind, pub (bytes),
+                     path ("m/..."), fingerprint (hex), rawTx? (bytes) }]
+     spec.outputs: [{ value (sats), script (bytes), origin?: { pub, path,
+                      fingerprint } }]
+
+     Cada entrada leva witness_utxo e a origem BIP32 (bip32/tap_bip32) para
+     o assinante achar a chave sem varrer a carteira. O p2pkh leva também o
+     non_witness_utxo, porque sem ele o valor da entrada não pode ser
+     conferido; o p2sh-p2wpkh leva o redeem_script. A saída de troco leva a
+     origem da conta para o assinante reconhecê-la como interna. */
+  function buildPsbt(spec) {
+    var inputs = spec.inputs || [];
+    var outputs = spec.outputs || [];
+    if (!inputs.length) throw new Error('a transação não tem entradas');
+    if (!outputs.length) throw new Error('a transação não tem saídas');
+    var tx = {
+      version: spec.version || 2,
+      inputs: inputs.map(function (inp) {
+        return {
+          txid: inp.txid, vout: inp.vout >>> 0,
+          scriptSig: new Uint8Array(0),
+          sequence: inp.sequence == null ? 0xffffffff : (inp.sequence >>> 0)
+        };
+      }),
+      outputs: outputs.map(function (out) {
+        return { value: BigInt(out.value), script: out.script };
+      }),
+      witnesses: [], locktime: spec.locktime || 0, segwit: false
+    };
+    var global = [{ key: new Uint8Array([0x00]), value: writeTx(tx, false) }];
+    var originOf = function (o) {
+      if (!o || !o.fingerprint || !o.path) throw new Error('origem BIP32 ausente');
+      return concatBytes(hexToBytes(o.fingerprint), pathBytes(parsePath(o.path)));
+    };
+    var inputMaps = inputs.map(function (inp) {
+      var kind = normalizeKind(inp.kind || scriptKind(inp.script));
+      var map = [];
+      var witnessUtxo = concatBytes(le64(BigInt(inp.value)), writeVarInt(inp.script.length), inp.script);
+      if (kind === 'p2pkh') {
+        if (!inp.rawTx) throw new Error('entrada p2pkh sem a transação anterior (non_witness_utxo)');
+        map.push({ key: new Uint8Array([0x00]), value: inp.rawTx });
+      }
+      map.push({ key: new Uint8Array([0x01]), value: witnessUtxo });
+      if (kind === 'p2sh-p2wpkh') {
+        map.push({ key: new Uint8Array([0x04]), value: p2wpkhScript(inp.pub) });
+      }
+      if (!inp.pub) throw new Error('entrada sem chave pública');
+      var origin = originOf(inp);
+      if (kind === 'p2tr') {
+        var xonly = inp.pub.subarray(1);
+        map.push({ key: concatBytes(new Uint8Array([0x16]), xonly), value: concatBytes(new Uint8Array([0x00]), origin) });
+      } else {
+        map.push({ key: concatBytes(new Uint8Array([0x06]), inp.pub), value: origin });
+      }
+      return map;
+    });
+    var outputMaps = outputs.map(function (out) {
+      var map = [];
+      if (out.origin) {
+        var origin = originOf(out.origin);
+        if (scriptKind(out.script) === 'p2tr') {
+          map.push({ key: concatBytes(new Uint8Array([0x07]), out.origin.pub.subarray(1)),
+            value: concatBytes(new Uint8Array([0x00]), origin) });
+        } else {
+          map.push({ key: concatBytes(new Uint8Array([0x02]), out.origin.pub), value: origin });
+        }
+      }
+      return map;
+    });
+    var psbt = { global: global, inputs: inputMaps, outputs: outputMaps, tx: tx, version: 0 };
+    var bytes = writePsbt(psbt);
+    return {
+      psbt: psbt, bytes: bytes, base64: b64encode(bytes), tx: tx, txid: txidOf(tx),
+      vsize: estimateVsize(inputs.map(function (i) { return normalizeKind(i.kind || scriptKind(i.script)); }),
+        outputs.map(function (o) { return o.script; }))
+    };
+  }
   function psbtParseInput(text) {
     var compact = String(text).replace(/\s+/g, '');
     if (!compact) throw new Error('PSBT vazio');
@@ -1040,11 +1206,25 @@ var BTC = (function () {
       if (kind === 'p2tr' && d.value[0] !== 0) continue;
       if (d.value.length < 4 + offset + 4) continue;
       var fp = bytesToHex(d.value.subarray(offset, offset + 4));
-      if (fp !== session.hd.fingerprint) continue;
       var num = (d.value.length - 4 - offset) / 4;
       if (num < 1 || num % 1 !== 0) continue;
       var idxs = [];
       for (j = 0; j < num; j++) idxs.push(readLE32(d.value, 4 + offset + j * 4));
+      /* O PSBT do projeto 2 carrega a impressão digital da CONTA (a única
+         chave que o lado watch-only tem), não a da raiz. O caminho continua
+         sendo o completo; se a raiz não casar, confere a conta dos três
+         primeiros níveis. A chave e o script são verificados abaixo, então
+         aceitar a conta não afrouxa a checagem. */
+      if (fp !== session.hd.fingerprint) {
+        if (idxs.length < 3) continue;
+        var accPath = pathText(idxs.slice(0, 3));
+        session.fpCache = session.fpCache || {};
+        if (!session.fpCache[accPath]) {
+          session.fpCache[accPath] = bytesToHex(fingerprintOf(
+            await derivePath(session.hd.master, accPath)));
+        }
+        if (session.fpCache[accPath] !== fp) continue;
+      }
       var node = await derivePath(session.hd.master, pathText(idxs));
       var Q = pointFromD(node.d);
       var pub = pubCompressed(Q);
@@ -1483,7 +1663,9 @@ var BTC = (function () {
     readTx: readTx, writeTx: writeTx, txidOf: txidOf, readTxOut: readTxOut,
     scriptForKind: scriptForKind, scriptKind: scriptKind, addressFromScript: addressFromScript,
     b64encode: b64encode, b64decode: b64decode,
-    parsePsbt: parsePsbt, writePsbt: writePsbt, psbtParseInput: psbtParseInput,
+    parsePsbt: parsePsbt, writePsbt: writePsbt, buildPsbt: buildPsbt, psbtParseInput: psbtParseInput,
+    scriptFromAddress: scriptFromAddress, segwitDecode: segwitDecode, base58checkDecode: base58checkDecode,
+    estimateVsize: estimateVsize,
     sighashLegacy: sighashLegacy, sighashV0: sighashV0, sighashTaproot: sighashTaproot,
     bip340Sign: bip340Sign, bip340Verify: bip340Verify, tweakPrivate: tweakPrivate,
     analyzePsbt: analyzePsbt, signPsbt: signPsbt, formatSats: formatSats,

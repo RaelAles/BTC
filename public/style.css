@@ -1708,6 +1708,22 @@
   .wallet-balance[hidden],
   .wallet-updated[hidden] { display: none; }
 
+  /* Envio: o bloco segue o desenho do formulário (rótulo, caixa, recado) e
+     não inventa controle. A taxa é um grupo de botões de assunto (VG-BOT-01)
+     com o valor ao lado; a personalizada abre a mesma caixa dos outros
+     campos. O PSBT é leitura, no bloco de código que já existe. */
+  #send-amount-hint { margin: var(--space-2) 0 0; }
+  .fee-options { margin-top: var(--space-3); }
+  #fee-note { margin: var(--space-3) 0 0; }
+  #send-psbt { margin-bottom: 0; }
+  #send-meta {
+    margin: var(--space-4) 0 0;
+    text-align: left;
+    hyphens: none;
+    overflow-wrap: anywhere;
+  }
+  #send-hint { margin: var(--space-3) 0 0; }
+
   /* Histórico: o resumo e a explicação são notas de apoio, e a lista começa
      depois do vão da régua do título. */
   #history-summary { margin: 0 0 var(--space-3); }

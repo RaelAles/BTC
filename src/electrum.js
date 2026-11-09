@@ -310,3 +310,31 @@ export async function transactionsMany(client, txids, opts) {
   await Promise.all(workers);
   return { raw, errors };
 }
+
+/* Taxa ao vivo: `blockchain.estimatefee` devolve BTC/kvB para um alvo em
+   blocos. Três alvos cobrem a escolha da tela: baixa (144 blocos ≈ 1 dia),
+   média (6 blocos ≈ 1 h) e alta (1 bloco). O valor vira sat/vB inteiro,
+   arredondado para cima; servidor que responde -1 fica sem estimativa
+   naquele nível (null), e a tela deixa a taxa personalizada. */
+export const FEE_TARGETS = { low: 144, medium: 6, high: 1 };
+
+export async function estimateFees(client) {
+  const keys = Object.keys(FEE_TARGETS);
+  // um nível que o servidor não estima não derruba os outros: cada pedido
+  // falha isolado e vira null (a tela oferece a taxa personalizada)
+  const values = await Promise.all(keys.map(k =>
+    client.request('blockchain.estimatefee', [FEE_TARGETS[k]]).catch(() => null)
+  ));
+  const levels = {};
+  keys.forEach((k, i) => {
+    const v = Number(values[i]);
+    levels[k] = Number.isFinite(v) && v > 0 ? Math.max(1, Math.ceil(v * 100000)) : null;
+  });
+  return {
+    levels,
+    targets: { ...FEE_TARGETS },
+    unit: 'sat/vB',
+    source: 'electrum',
+    updated_at: new Date().toISOString()
+  };
+}

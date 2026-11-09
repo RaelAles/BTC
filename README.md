@@ -15,7 +15,13 @@ tela mostra:
 3. **lista de endereços já usados** (recebimento e troco), do uso mais
    recente para o mais antigo, com **recebido** (com sinal `+`, no verde do
    sucesso), **enviado** (com sinal `-`, no tom do erro) e **saldo** de cada
-   um, cinco por página, na tela **histórico**.
+   um, cinco por página, na tela **histórico**;
+4. **enviar BTC** abaixo dos endereços: valor, endereço de destino e taxa em
+   quatro escolhas — baixa, média, alta ou personalizada —, com a taxa em
+   sat/vB estimada **ao vivo** pelo Electrum. O botão **criar psbt** monta a
+   transação sem assinatura, com troco, e entrega o PSBT em base64 para
+   copiar ou baixar. Quem assina é o `chave-btc.html` (projeto 1), offline;
+   o projeto 2 nunca vê chave privada.
 
 Nada fica guardado: nem a xpub no navegador, nem endereços, transações ou
 saldo no Cloudflare. Enquanto a tela está aberta o saldo é acompanhado em
@@ -62,6 +68,17 @@ blockchain.info, nem chave privada em lugar nenhum.
   parse local e soma saídas que pagam a carteira menos as saídas já gastas.
   `recebido` é a soma das saídas, `enviado` a soma das gastas; mempool entra
   no saldo como não confirmado.
+- **UTXOs e PSBT**: a mesma conta guarda as saídas ainda não gastas. Com
+  elas, `POST /api/psbt` escolhe entradas (confirmadas antes das pendentes,
+  maiores primeiro), calcula a taxa pela vsize estimada, deriva o próximo
+  endereço de troco e monta um **PSBT v0** sem assinatura. Cada entrada leva
+  `witness_utxo` e a origem BIP32; p2pkh leva também o `non_witness_utxo` e
+  p2sh-p2wpkh leva o `redeem_script`. O pó (abaixo de 546 sats) não vira
+  saída de troco: é somado à taxa.
+- **Taxa ao vivo**: `GET /api/fees` pergunta `blockchain.estimatefee` para
+  144, 6 e 1 bloco (baixa, média, alta) e converte BTC/kvB em sat/vB inteiro.
+  A tela reconsulta a cada 60 s enquanto está aberta; a personalizada aceita
+  de 1 a 10 000 sat/vB.
 - **Todos os endereços usados** dos quatro tipos vão para a resposta; os
   outros tipos também entram no saldo total (união), não só o detectado.
 - **Sem cache durável**: cada consulta deriva e consulta de novo. Enquanto a
@@ -235,6 +252,15 @@ backend de Durable Object disponível no plano free).
   procura do índice 0 até a margem de 50 em cada ramo. Se a busca for
   interrompida (erro de rede/Electrum), a tela avisa que o saldo pode estar
   incompleto e oferece continuar.
+- **PSBT é um retrato do último estado**: a escolha de UTXO usa o que a
+  sessão já sincronizou. Não há reserva de moeda nem reconsulta forçada no
+  momento de montar; se outra carteira gastar uma dessas saídas antes da
+  assinatura/transmissão, a rede recusa a transação e é preciso criar outro
+  PSBT. Se a sessão estiver em modo avulso, a varredura completa é refeita
+  antes de montar.
+- **Taxa é estimativa do servidor**: `blockchain.estimatefee` é um palpite do
+  Electrum, não a mempool local. Servidor sem estimativa deixa o nível em
+  `null`; a personalizada continua disponível.
 - O servidor Electrum vê os scripthashes consultados (com TLS o caminho da
   rede não vê). Privacidade, não custódia: a xpub não gasta nada.
 - Um vazamento da xpub é perda de privacidade, não de fundos.
@@ -252,10 +278,11 @@ src/
   derivation.js       CKDpub, xpub, endereços dos 4 tipos
   electrum.js         cliente Electrum (JSON-RPC 1.4) sobre cloudflare:sockets
   address-totals.js   conta de UTXO: recebido/enviado/saldo por script
+  psbt.js             escolha de UTXOs, taxa, troco e PSBT de envio
   wallet-sync.js      varredura por margem de 50, em passos, e payload (só memória)
   watcher.js          Durable Object: socket + assinaturas + WebSocket, sem storage
   config.js           env (servidores, timeout) e helpers
-  worker.js           rotas: /api/wallet, /api/events, /api/health
+  worker.js           rotas: /api/wallet, /api/psbt, /api/fees, /api/events, /api/health
 public/
   index.html          UI ASCII (página publicada)
   app.js              cliente (xpub, carga automática, render, update a cada 30 s)
@@ -264,6 +291,7 @@ test/
   electrum.test.mjs   cliente Electrum contra servidor falso
   worker.test.mjs     ponta a ponta: saldo/recebido/enviado, gap, erros
   watcher.test.mjs    Durable Object: assinatura, aviso → push, descarte total
+  psbt.test.mjs       taxa, escolha de UTXO, PSBT e assinatura no btc-core
   fake-electrum.mjs   servidor Electrum falso (TCP em 127.0.0.1, com notify)
   tx-fixture.mjs      transações cruas montadas com o btc-core
 ```
@@ -393,6 +421,78 @@ id aleatório do Durable Object: mande de volta no próximo `POST` para
 reaproveitar a sessão enquanto a tela estiver aberta. Se ele não existir mais
 (objeto despejado), o `/sync` refaz a varredura com a xpub enviada.
 
+### `POST /api/psbt`
+
+```json
+{ "xpub": "xpub...", "session": "opcional",
+  "address": "bc1...", "amount_sats": 50000, "fee_rate": 6 }
+```
+
+Monta o PSBT v0 **sem assinatura** com os UTXOs da carteira, a taxa pedida
+em sat/vB e o troco no próximo endereço livre do ramo `/1` do tipo detectado.
+Com o binding `WATCH`, quem monta é o Durable Object da sessão, reaproveitando
+a conexão, os endereços e o cache; sem ele (ou com a sessão perdida), o Worker
+faz a varredura avulsa. O valor é inteiro em sats (`amount_sats`); a taxa vai
+de 1 a 10 000 sat/vB; valor abaixo de 546 sats é recusado como pó. Entradas
+confirmadas são escolhidas antes das pendentes e, dentro de cada grupo, as
+maiores primeiro.
+
+Resposta (resumida):
+
+```json
+{
+  "psbt": "cHNidP8BAH0CAAAA...",
+  "txid": "2fbb9a49...",
+  "vsize": 142,
+  "fee_sats": 852,
+  "fee_rate": 6,
+  "fee_rate_requested": 6,
+  "total_in": 8000,
+  "total_out": 7148,
+  "amount_sats": 5000,
+  "change": { "address": "bc1p...", "value": 2148, "path": "m/86'/0'/0'/1/0" },
+  "recipient": { "address": "bc1q...", "value": 5000 },
+  "inputs": [
+    { "txid": "7e964b27...", "vout": 1, "value": 8000,
+      "address": "bc1p...", "path": "m/86'/0'/0'/0/1",
+      "type": "bip86", "pending": false }
+  ],
+  "outputs": [
+    { "address": "bc1q...", "value": 5000, "own": false },
+    { "address": "bc1p...", "value": 2148, "own": true, "path": "m/86'/0'/0'/1/0" }
+  ]
+}
+```
+
+O PSBT carrega `witness_utxo` e a origem BIP32 (`bip32_derivation` ou
+`tap_bip32_derivation`) em cada entrada; p2pkh carrega `non_witness_utxo`
+(a transação anterior inteira) e p2sh-p2wpkh carrega o `redeem_script`. A
+origem usa a **impressão digital da conta**, e não a da raiz: com só a xpub,
+é o máximo que o lado watch-only conhece. O caminho é completo
+(`m/84'/0'/0'/0/120`) e o `chave-btc.html` confere a conta, deriva o caminho,
+confere a chave pública e o script antes de assinar. Nenhuma chave privada
+entra no Worker nem na resposta.
+
+### `GET /api/fees?session=<id opcional>`
+
+Taxa ao vivo pelo `blockchain.estimatefee` do Electrum, em três alvos:
+144 blocos (baixa), 6 (média) e 1 (alta). O valor vira sat/vB inteiro,
+arredondado para cima; se o servidor não estimar um nível, ele vem `null` e
+a tela oferece a taxa personalizada.
+
+```json
+{
+  "levels": { "low": 2, "medium": 6, "high": 12 },
+  "targets": { "low": 144, "medium": 6, "high": 1 },
+  "unit": "sat/vB",
+  "source": "electrum",
+  "updated_at": "2026-11-09T03:27:02.667Z"
+}
+```
+
+Com `session`, a consulta usa a conexão já aberta do Durable Object; sem ela,
+o Worker abre uma conexão avulsa e fecha ao terminar.
+
 ### `GET /api/events?session=<id da sessão>`
 
 Upgrade para WebSocket no Durable Object. Mensagens: `{ "type": "payload",
@@ -416,14 +516,19 @@ o Electrum cai. Sessão sem xpub responde 409 (a tela reenvia a xpub em
   enquanto a tela estava aberta.
 - O HTML/JS é servido pelo Cloudflare. O projeto 1 confere entradas, saídas e
   taxa antes de assinar.
+- O PSBT sai **sem assinatura**: o projeto 2 só monta a transação. O arquivo
+  leva a origem BIP32 com a impressão digital da conta, o caminho completo, os
+  UTXOs e o troco; o `chave-btc.html` confere conta, chave, script, saídas e
+  taxa antes de assinar. Nada é transmitido à rede por aqui.
 - Para valor alto, hardware wallet + nó/Electrum próprio.
 
 ## Testes
 
 ```bash
-npm test                        # electrum + worker + watcher, sem rede
+npm test                        # electrum + worker + psbt + watcher, sem rede
 node test/electrum.test.mjs     # protocolo contra servidor falso
 node test/worker.test.mjs       # ponta a ponta, sem D1 no env
+node test/psbt.test.mjs         # taxas, escolha de UTXO, PSBT e assinatura
 node test/watcher.test.mjs      # Durable Object, timers e descarte total
 node test/dev-server.mjs        # UI local em http://127.0.0.1:8787/ (sem DO)
 node test/cdp-ui.mjs            # opcional: Chromium headless + screenshot
@@ -433,7 +538,11 @@ A validação do campo foi conferida em Chromium headless (CDP `Input.insertText
 endereço, `xprv` e texto solto deixam o campo vazio com aviso; `xpub`, `zpub`
 e `ypub` de 111 caracteres entram, disparam a consulta sozinha e carregam a
 carteira. A página abre sempre com o campo vazio, inclusive depois de
-recarregar.
+recarregar. O bloco **enviar** também foi conferido no Chromium: os três
+níveis aparecem com o valor do Electrum falso, a personalizada aceita o
+número, o PSBT aparece em base64 e some ao editar o formulário. Um PSBT gerado
+pelo montador (bip84 e troco) foi analisado e assinado pelo próprio código do
+`chave-btc.html` em Chromium headless, com o troco reconhecido como interno.
 
 O `watcher.test.mjs` usa um par de WebSocket mínimo e um `storage` que lança
 em qualquer acesso para exercitar o Durable Object sem Cloudflare: assinatura
@@ -442,6 +551,14 @@ da cauda de gap com novas assinaturas, cache de transações em memória, queda
 do Electrum com reconexão e reassinatura, o descarte de
 conexão/endereços/xpub quando a última tela fecha e a recarga (fechar e
 re-sincronizar no mesmo instante) sem apagar a sessão nova.
+
+O `psbt.test.mjs` deriva uma carteira dos 256 bits (a mesma do projeto 1),
+serve UTXOs por um Electrum falso e verifica: taxa ao vivo nos três níveis,
+escolha de entradas para cobrir o valor, troco no próximo índice `/1`, PSBT v0
+com origem da conta, `non_witness_utxo` no p2pkh e `tap_bip32_derivation` no
+taproot, recusa de endereço/taxa/saldo inválidos, e a **assinatura do PSBT no
+próprio `btc-core`** com um índice 120 — fora do fallback de 100 — provando a
+compatibilidade com o `chave-btc.html`.
 
 O `worker.test.mjs` monta transações com o próprio `btc-core` e cobre:
 endereço que recebeu e gastou (`recebido 10000 / enviado 10000 / saldo 0`),
@@ -486,4 +603,8 @@ saldo daquele endereço, agora com o enviado explícito.
   o oposto do desenho atual.
 - Cache opcional (D1/KV) para abrir mais rápido, se o tempo de varredura
   incomodar; seria opt-in e voltaria a guardar endereços derivados.
-- Envio: o projeto 2 só exibe; o projeto 1 assina o PSBT.
+- Transmissão: hoje o projeto 2 para no PSBT. Publicar a transação final
+  exigiria uma rota própria (Electrum `blockchain.transaction.broadcast`) e
+  uma decisão explícita sobre confiar a transmissão ao servidor.
+- Política de taxa mais fina (RBF, CPFP, arredondamento por faixa) e escolha
+  de moedas por privacidade, se a maior-primeiro incomodar.

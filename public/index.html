@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#2e2d2b">
-  <meta name="description" content="Projeto 2 — Fase 1: xpub como credencial, endereços derivados na hora e saldo consultado em fontes públicas. Nada é guardado: nem a xpub, nem endereços. Sem chave privada.">
+  <meta name="description" content="Projeto 2 — xpub como credencial, saldo e endereços derivados na hora, e envio de BTC em PSBT sem assinatura. Nada é guardado: nem a xpub, nem endereços. Sem chave privada.">
   <title>Projeto 2 — carteira</title>
   <link rel="stylesheet" href="/style.css">
 </head>
@@ -70,6 +70,72 @@
             </table>
 
             <p class="note" id="v-warnings"></p>
+
+            <div class="rule rule-dots" aria-hidden="true"></div>
+
+            <div class="prose app-block" id="send-heading">
+              <h3><span class="prompt" aria-hidden="true">##</span> enviar</h3>
+            </div>
+
+            <form id="send-form" class="app-block" novalidate>
+              <label class="field-label" for="send-amount">valor em BTC</label>
+              <div class="field-box" id="send-amount-box">
+                <div class="edge" aria-hidden="true"></div>
+                <input id="send-amount" name="amount" type="text" inputmode="decimal"
+                       autocomplete="off" spellcheck="false" placeholder="0,00000000"
+                       aria-describedby="send-amount-hint">
+                <div class="edge" aria-hidden="true"></div>
+              </div>
+              <p class="note" id="send-amount-hint">até 8 casas decimais. a taxa entra além do valor.</p>
+
+              <label class="field-label" for="send-address">endereço de destino</label>
+              <div class="field-box" id="send-address-box">
+                <div class="edge" aria-hidden="true"></div>
+                <input id="send-address" name="address" type="text" inputmode="text"
+                       autocomplete="off" spellcheck="false" autocapitalize="off"
+                       placeholder="bc1… / 1… / 3…">
+                <div class="edge" aria-hidden="true"></div>
+              </div>
+
+              <div class="field-row">
+                <span class="field-label" id="fee-label">taxa</span>
+                <span class="field-meta" id="fee-updated">calculando…</span>
+              </div>
+              <div class="chips fee-options" id="fee-options" role="group" aria-labelledby="fee-label">
+                <button type="button" data-level="low" aria-pressed="false">baixa —</button>
+                <span class="dot-sep" aria-hidden="true">·</span>
+                <button type="button" data-level="medium" aria-pressed="false">média —</button>
+                <span class="dot-sep" aria-hidden="true">·</span>
+                <button type="button" data-level="high" aria-pressed="false">alta —</button>
+                <span class="dot-sep" aria-hidden="true">·</span>
+                <button type="button" data-level="custom" aria-pressed="false">personalizada</button>
+              </div>
+              <div class="field-box is-masked app-gap" id="fee-custom-box" hidden>
+                <div class="edge" aria-hidden="true"></div>
+                <input id="fee-custom" name="fee_rate" type="text" inputmode="numeric"
+                       autocomplete="off" spellcheck="false" placeholder="sat/vB"
+                       aria-label="taxa personalizada em sat/vB">
+                <div class="edge" aria-hidden="true"></div>
+              </div>
+              <p class="note" id="fee-note">taxa estimada ao vivo pelo servidor Electrum: baixa prioridade, média ou alta. personalizada aceita de 1 a 10 000 sat/vB.</p>
+
+              <button type="submit" class="form-submit" id="send-submit">criar psbt</button>
+              <p class="status-msg is-reserved" id="send-status" role="status"></p>
+            </form>
+
+            <div id="send-out" hidden>
+              <div class="prose app-block">
+                <h3><span class="prompt" aria-hidden="true">##</span> psbt</h3>
+              </div>
+              <pre class="code-block is-scroll" id="send-psbt" aria-label="psbt criado, em base64"></pre>
+              <div class="chips app-gap keys-actions" role="group" aria-label="Exportar PSBT">
+                <button type="button" id="send-copy">copiar psbt</button>
+                <span class="dot-sep" aria-hidden="true">·</span>
+                <button type="button" id="send-download">baixar .psbt</button>
+              </div>
+              <p class="note app-gap" id="send-meta"></p>
+              <p class="note" id="send-hint">sem assinatura. importe o arquivo no chave-btc.html, confira entradas, saídas e taxa, e assine.</p>
+            </div>
           </div>
         </section>
 

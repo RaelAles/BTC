@@ -28,7 +28,13 @@
     watchTimer: 0,      // timeout do handshake do WebSocket
     autoTimer: 0,       // debounce da consulta automática
     scanning: false,    // varredura em passos em andamento
-    page: 1             // página da lista do histórico
+    page: 1,            // página da lista do histórico
+    fees: null,         // estimativa ao vivo do Electrum
+    feeLevel: 'medium', // baixa | medium | high | custom
+    feeCustom: '',      // sat/vB digitado
+    feeTimer: 0,        // reconsulta periódica da taxa
+    sendBusy: false,
+    psbt: null          // PSBT criado (texto e resumo)
   };
 
   function esc(s) {
@@ -104,6 +110,18 @@
     while (s.length < 9) s = '0' + s;
     return (neg ? '-' : '') + s.slice(0, -8) + '.' + s.slice(-8);
   }
+  /* Valor digitado em BTC → sats inteiros. Aceita vírgula ou ponto e até 8
+     casas; qualquer outra coisa (ou zero) devolve null. */
+  function parseBtcSats(text) {
+    var s = String(text == null ? '' : text).trim().replace(/\s+/g, '').replace(',', '.');
+    if (!/^\d+(\.\d{0,8})?$/.test(s)) return null;
+    var parts = s.split('.');
+    var whole = BigInt(parts[0] || '0');
+    var frac = (parts[1] || '').padEnd(8, '0');
+    var sats = whole * 100000000n + BigInt(frac || '0');
+    if (sats <= 0n || sats > 2100000000000000n) return null;
+    return Number(sats);
+  }
   /* Marcador do recado (VG-FRM-06): o estado vem antes do texto, em caixa
      baixa e entre colchetes, como no gerador. O neutro é o mesmo sinal do
      carregamento e some quando a consulta termina. */
@@ -116,6 +134,9 @@
   }
   function setStatus(kind, text) {
     setStatusTo($('#status'), kind, text);
+  }
+  function setSendStatus(kind, text) {
+    setStatusTo($('#send-status'), kind, text);
   }
   var SCREEN_TITLES = {
     carteira: 'Projeto 2 — carteira',
@@ -199,6 +220,222 @@
     });
     $('#receive-table').hidden = types.length === 0;
     $('#receive-heading').hidden = types.length === 0;
+  }
+
+  /* ---------------------------------------------------------- enviar */
+  var FEE_LABEL = { low: 'baixa', medium: 'média', high: 'alta' };
+
+  function feeRateOf(level) {
+    if (level === 'custom') return Number(state.feeCustom) || 0;
+    var levels = (state.fees && state.fees.levels) || {};
+    return Number(levels[level]) || 0;
+  }
+
+  function renderFees() {
+    var options = $('#fee-options');
+    if (!options) return;
+    $$('button[data-level]', options).forEach(function (b) {
+      var level = b.getAttribute('data-level');
+      var rate = feeRateOf(level);
+      var text = level === 'custom' ? 'personalizada' : FEE_LABEL[level];
+      b.textContent = text + (rate > 0 ? ' ' + rate + ' sat/vB' : (level === 'custom' ? '' : ' —'));
+      b.setAttribute('aria-pressed', level === state.feeLevel ? 'true' : 'false');
+    });
+    var custom = $('#fee-custom-box');
+    if (custom) custom.hidden = state.feeLevel !== 'custom';
+    var upd = $('#fee-updated');
+    if (!upd) return;
+    var levels = (state.fees && state.fees.levels) || {};
+    var any = ['low', 'medium', 'high'].some(function (k) { return Number(levels[k]) > 0; });
+    upd.textContent = !state.fees
+      ? 'calculando…'
+      : any
+        ? 'atualizado ' + new Date(state.fees.updated_at).toLocaleTimeString('pt-BR')
+        : 'estimativa indisponível';
+  }
+
+  /* Taxa ao vivo: a rota usa a conexão da sessão quando ela existe e o
+     Worker abre uma consulta avulsa quando não existe (dev/testes). */
+  async function loadFees() {
+    if (!state.xpub) return;
+    var xpub = state.xpub;
+    var url = '/api/fees' + (state.session ? '?session=' + encodeURIComponent(state.session) : '');
+    try {
+      var r = await fetch(url);
+      var j = await r.json();
+      if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+      if (!j.levels) throw new Error('resposta sem níveis de taxa');
+      if (state.xpub !== xpub) return;
+      state.fees = j;
+      if (state.feeLevel !== 'custom' && !(Number(j.levels[state.feeLevel]) > 0)) {
+        state.feeLevel = ['medium', 'high', 'low'].find(function (k) { return Number(j.levels[k]) > 0; }) || 'custom';
+      }
+      renderFees();
+    } catch (e) {
+      var upd = $('#fee-updated');
+      if (upd) upd.textContent = 'estimativa indisponível';
+    }
+  }
+
+  function stopFeeTimer() {
+    if (state.feeTimer) clearInterval(state.feeTimer);
+    state.feeTimer = 0;
+  }
+
+  function startFeeTimer() {
+    stopFeeTimer();
+    state.feeTimer = setInterval(function () {
+      if (!document.hidden) loadFees();
+    }, 60000);
+  }
+
+  function invalidatePsbt() {
+    if (!state.psbt) return;
+    state.psbt = null;
+    var out = $('#send-out');
+    if (out) out.hidden = true;
+    var pre = $('#send-psbt');
+    if (pre) pre.textContent = '';
+    var meta = $('#send-meta');
+    if (meta) meta.textContent = '';
+  }
+
+  function resetSend() {
+    invalidatePsbt();
+    state.sendBusy = false;
+    state.fees = null;
+    state.feeLevel = 'medium';
+    state.feeCustom = '';
+    stopFeeTimer();
+    ['#send-amount', '#send-address', '#fee-custom'].forEach(function (sel) {
+      var el = $(sel);
+      if (el) el.value = '';
+    });
+    var btn = $('#send-submit');
+    if (btn) {
+      btn.removeAttribute('aria-disabled');
+      btn.removeAttribute('aria-busy');
+      btn.textContent = 'criar psbt';
+    }
+    setSendStatus('', '');
+    renderFees();
+  }
+
+  function sendMeta(j) {
+    var parts = [];
+    parts.push(fmtInt(j.inputs.length) + (j.inputs.length === 1 ? ' entrada' : ' entradas'));
+    parts.push(fmtInt(j.outputs.length) + (j.outputs.length === 1 ? ' saída' : ' saídas'));
+    parts.push('taxa ' + fmtBtc(j.fee_sats) + ' BTC (' + Number(j.fee_rate).toFixed(2) + ' sat/vB)');
+    parts.push('vsize ~' + fmtInt(j.vsize) + ' vB');
+    if (j.change) parts.push('troco ' + fmtBtc(j.change.value) + ' BTC em ' + j.change.address);
+    return 'txid ' + j.txid + ' · ' + parts.join(' · ');
+  }
+
+  async function createPsbt() {
+    if (state.sendBusy) return;
+    invalidatePsbt();
+    var amount = parseBtcSats($('#send-amount').value);
+    if (!amount) {
+      setSendStatus('error', 'valor inválido: use BTC com até 8 casas decimais.');
+      $('#send-amount').focus();
+      return;
+    }
+    if (amount < 546) {
+      setSendStatus('error', 'valor abaixo do pó: o mínimo é 546 sats.');
+      $('#send-amount').focus();
+      return;
+    }
+    var address = $('#send-address').value.trim();
+    if (!address) {
+      setSendStatus('error', 'informe o endereço de destino.');
+      $('#send-address').focus();
+      return;
+    }
+    var rate = feeRateOf(state.feeLevel);
+    if (!Number.isInteger(rate) || rate < 1 || rate > 10000) {
+      setSendStatus('error', 'escolha uma taxa de 1 a 10 000 sat/vB (ou digite a personalizada).');
+      if (state.feeLevel === 'custom') $('#fee-custom').focus();
+      return;
+    }
+    state.sendBusy = true;
+    var btn = $('#send-submit');
+    if (btn) {
+      btn.setAttribute('aria-disabled', 'true');
+      btn.setAttribute('aria-busy', 'true');
+      btn.textContent = 'criando';
+    }
+    setSendStatus('', 'montando o psbt...');
+    try {
+      var xpub = state.xpub;
+      var body = { xpub: xpub, address: address, amount_sats: amount, fee_rate: rate };
+      if (state.session) body.session = state.session;
+      var r = await fetch('/api/psbt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      var j = await r.json();
+      // sessão do Durable Object caiu: reenvia a xpub (a tela já tem o dado)
+      // e tenta uma vez com a sessão nova
+      if (r.status === 409) {
+        await load(true);
+        if (state.xpub !== xpub) throw new Error('a carteira mudou; tente de novo.');
+        if (!state.session) throw new Error('sessão expirada; recarregue a carteira.');
+        body.session = state.session;
+        r = await fetch('/api/psbt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        j = await r.json();
+      }
+      if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+      state.psbt = j;
+      $('#send-psbt').textContent = j.psbt;
+      $('#send-meta').textContent = sendMeta(j);
+      $('#send-out').hidden = false;
+      setSendStatus('ok', 'psbt criado. confira no chave-btc.html antes de assinar.');
+      updateScroll();
+    } catch (e) {
+      setSendStatus('error', e && e.message ? e.message : String(e));
+    } finally {
+      state.sendBusy = false;
+      if (btn) {
+        btn.removeAttribute('aria-disabled');
+        btn.removeAttribute('aria-busy');
+        btn.textContent = 'criar psbt';
+      }
+    }
+  }
+
+  function copyPsbt(button) {
+    if (!state.psbt || !button) return;
+    if (button.getAttribute('aria-disabled') === 'true') return;
+    navigator.clipboard.writeText(state.psbt.psbt).then(function () {
+      button.textContent = 'copiado';
+      button.setAttribute('aria-disabled', 'true');
+      if (button._copyTimer) clearTimeout(button._copyTimer);
+      button._copyTimer = setTimeout(function () {
+        button.textContent = 'copiar psbt';
+        button.removeAttribute('aria-disabled');
+        button._copyTimer = 0;
+      }, 1400);
+    }).catch(function () {
+      setSendStatus('error', 'não foi possível copiar o psbt.');
+    });
+  }
+
+  function downloadPsbt() {
+    if (!state.psbt) return;
+    var blob = new Blob([state.psbt.psbt], { type: 'text/plain' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'projeto2-' + String(state.psbt.txid || 'psbt').slice(0, 8) + '.psbt';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 0);
   }
 
   /* Linha de valor com sinal (VG-COR-16): o sinal vai no texto e a cor só
@@ -373,6 +610,7 @@
     if (empty) empty.hidden = true;
     var summary = $('#history-summary');
     if (summary) summary.textContent = 'cole a xpub, zpub ou ypub na carteira para ver o histórico.';
+    resetSend();
     setStatus('', '');
     updateScroll();
   }
@@ -469,6 +707,8 @@
         setStatus('', '');
         if (j.watch) openWatch();
         else closeWatch();
+        loadFees();
+        startFeeTimer();
         schedule();
         break;
       }
@@ -647,6 +887,7 @@
       // seguem; só sair da página (pagehide) encerra tudo
       if (!document.hidden && state.xpub && state.data &&
           (!state.watch || state.watch.readyState > 1)) load(true);
+      if (!document.hidden && state.xpub) loadFees();
     });
     window.addEventListener('pagehide', closeWatch);
     $('#theme-toggle').addEventListener('click', function () {
@@ -696,6 +937,50 @@
     if (scanContinue) scanContinue.addEventListener('click', function () {
       if (!state.busy) load(false);
     });
+
+    /* ---------------------------------------------------------- enviar */
+    var sendForm = $('#send-form');
+    if (sendForm) sendForm.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      createPsbt();
+    });
+    var feeOptions = $('#fee-options');
+    if (feeOptions) feeOptions.addEventListener('click', function (ev) {
+      var b = ev.target.closest ? ev.target.closest('button[data-level]') : null;
+      if (!b) return;
+      var level = b.getAttribute('data-level');
+      if (level === 'custom' && !state.feeCustom) {
+        // parte da taxa média (ou da que existir) para o usuário ajustar
+        var seed = feeRateOf('medium') || feeRateOf('high') || feeRateOf('low') || 1;
+        state.feeCustom = String(seed);
+        var customInput = $('#fee-custom');
+        if (customInput) customInput.value = state.feeCustom;
+      }
+      state.feeLevel = level;
+      renderFees();
+      invalidatePsbt();
+      if (state.feeLevel === 'custom') {
+        var custom = $('#fee-custom');
+        if (custom) custom.focus();
+      }
+    });
+    var feeCustom = $('#fee-custom');
+    if (feeCustom) feeCustom.addEventListener('input', function () {
+      var clean = feeCustom.value.replace(/[^0-9]/g, '').slice(0, 5);
+      if (clean !== feeCustom.value) feeCustom.value = clean;
+      state.feeCustom = clean;
+      renderFees();
+      invalidatePsbt();
+    });
+    ['#send-amount', '#send-address'].forEach(function (sel) {
+      var el = $(sel);
+      if (el) el.addEventListener('input', invalidatePsbt);
+    });
+    var sendCopy = $('#send-copy');
+    if (sendCopy) sendCopy.addEventListener('click', function () { copyPsbt(sendCopy); });
+    var sendDownload = $('#send-download');
+    if (sendDownload) sendDownload.addEventListener('click', downloadPsbt);
+    renderFees();
 
     var sc = $('#content-scroll');
     if (sc) sc.addEventListener('scroll', updateScroll);

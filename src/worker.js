@@ -1,8 +1,9 @@
 import { parseXpub } from './derivation.js';
-import { openElectrum } from './electrum.js';
+import { openElectrum, estimateFees } from './electrum.js';
 import { WalletScanner } from './wallet-sync.js';
 import { electrumConfig, fail, json } from './config.js';
 import { WalletWatcher } from './watcher.js';
+import BTC from './btc-core.js';
 
 /* Projeto 2 — rotas HTTP.
 
@@ -11,6 +12,11 @@ import { WalletWatcher } from './watcher.js';
                          Durable Object de tempo real (conexão Electrum
                          reaproveitada + assinaturas); sem ele, a consulta
                          é avulsa (dev/testes).
+   `POST /api/psbt`    → monta o PSBT de envio (sem assinatura) com os UTXOs
+                         da carteira e a taxa escolhida. A chave privada
+                         não passa por aqui; quem assina é o projeto 1.
+   `GET  /api/fees`    → taxa estimada pelo Electrum em três níveis
+                         (baixa, média, alta), em sat/vB.
    `GET  /api/events?session=…` → WebSocket do Durable Object, que empurra
                          o estado novo quando um scripthash muda.
    `GET  /api/health`  → configuração efetiva.
@@ -91,6 +97,93 @@ async function handleEvents(request, env, url) {
   return await stub.fetch(request);
 }
 
+function sessionId(value) {
+  const s = String(value || '').trim();
+  return /^[0-9a-f]{64}$/.test(s) ? s : '';
+}
+
+/* Parâmetros do envio validados antes de consultar o Electrum. */
+function sendParams(body) {
+  const address = String(body.address || '').trim();
+  if (!address) throw new Error('informe o endereço de destino');
+  try { BTC.scriptFromAddress(address); }
+  catch (e) { throw new Error('endereço de destino: ' + e.message); }
+  const amountSats = Number(body.amount_sats);
+  if (!Number.isInteger(amountSats) || amountSats <= 0) throw new Error('valor inválido');
+  if (amountSats > 2100000000000000) throw new Error('valor acima do limite do bitcoin');
+  const feeRate = Number(body.fee_rate);
+  if (!Number.isInteger(feeRate) || feeRate < 1 || feeRate > 10000) {
+    throw new Error('taxa inválida: use de 1 a 10 000 sat/vB');
+  }
+  return { address, amountSats, feeRate };
+}
+
+async function handlePsbt(request, env) {
+  let body;
+  try { body = await request.json(); } catch (e) { return fail('json inválido'); }
+  const xpub = String(body.xpub || '').trim();
+  if (!xpub) return fail('informe a xpub');
+  let account;
+  try { account = parseXpub(xpub); }
+  catch (e) { return fail(xpubHint(xpub) || e.message); }
+  let params;
+  try { params = sendParams(body); }
+  catch (e) { return fail(e.message); }
+
+  const session = sessionId(body.session);
+  if (env.WATCH && session) {
+    const stub = env.WATCH.get(env.WATCH.idFromString(session));
+    const res = await stub.fetch('https://watch/prepare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ xpub, ...params })
+    });
+    const payload = await res.json();
+    // sessão despejada: refaz a varredura avulsa e monta o PSBT do mesmo jeito
+    if (res.status !== 409) return json(payload, res.status);
+  }
+
+  const cfg = electrumConfig(env);
+  if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
+  let client;
+  try {
+    client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
+  } catch (e) {
+    return fail('Electrum indisponível: ' + (e && e.message ? e.message : e), 502);
+  }
+  try {
+    const scanner = await new WalletScanner({ env, xpub, account, client }).init();
+    await scanner.fullSync();
+    return json(await scanner.prepare(params));
+  } catch (e) {
+    return fail(e && e.message ? e.message : String(e), 400);
+  } finally {
+    try { await client.close(); } catch (e) {}
+  }
+}
+
+async function handleFees(env, url) {
+  const session = sessionId(url.searchParams.get('session'));
+  if (env.WATCH && session) {
+    const stub = env.WATCH.get(env.WATCH.idFromString(session));
+    const res = await stub.fetch('https://watch/fees');
+    if (res.status === 200) return new Response(res.body, res);
+  }
+  const cfg = electrumConfig(env);
+  if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
+  let client;
+  try {
+    client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
+  } catch (e) {
+    return fail('Electrum indisponível: ' + (e && e.message ? e.message : e), 502);
+  }
+  try {
+    return json(await estimateFees(client));
+  } finally {
+    try { await client.close(); } catch (e) {}
+  }
+}
+
 export { WalletWatcher };
 
 export default {
@@ -113,6 +206,11 @@ export default {
         if (request.method !== 'POST') return fail('use POST', 405);
         return await handleWallet(request, env);
       }
+      if (url.pathname === '/api/psbt') {
+        if (request.method !== 'POST') return fail('use POST', 405);
+        return await handlePsbt(request, env);
+      }
+      if (url.pathname === '/api/fees') return await handleFees(env, url);
       if (url.pathname === '/api/events') return await handleEvents(request, env, url);
       if (url.pathname.startsWith('/api/')) return fail('rota não encontrada', 404);
       if (env.ASSETS) return await env.ASSETS.fetch(request);

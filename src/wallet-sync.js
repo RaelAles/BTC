@@ -8,7 +8,8 @@
    e a próxima abertura refaz a varredura do zero. */
 import { chainNode, deriveChild, TYPE_INFO } from './derivation.js';
 import { historiesMany, transactionsMany } from './electrum.js';
-import { totalsForScripts } from './address-totals.js';
+import { totalsForScripts, utxosForScripts } from './address-totals.js';
+import { preparePsbt } from './psbt.js';
 import BTC from './btc-core.js';
 
 const DEFAULT_GAP = 50;
@@ -111,7 +112,8 @@ export class WalletScanner {
     const a = await deriveChild(type, cn, chain, idx);
     return {
       account_type: type, chain, idx, address: a.address, path: a.path,
-      script: BTC.bytesToHex(a.script),
+      script: BTC.bytesToHex(a.script), pub: BTC.bytesToHex(a.pub),
+      kind: (TYPE_INFO[type] || {}).kind || 'p2wpkh',
       used: 0, balance: 0, received: 0, spent: 0, tx_count: 0,
       heights: new Map(), txids: [], stale: false
     };
@@ -152,6 +154,7 @@ export class WalletScanner {
 
     let totals = new Map();
     const errors = new Map();
+    let entries = [];
     if (heights.size) {
       const cached = new Map();
       for (const txid of heights.keys()) {
@@ -165,7 +168,6 @@ export class WalletScanner {
       for (const [txid, raw] of fetched.raw) this.txCache.set(txid, raw);
       for (const [txid, msg] of fetched.errors) errors.set(txid, msg);
 
-      const entries = [];
       for (const [txid, raw] of [...cached, ...fetched.raw]) {
         try {
           const tx = BTC.readTx(BTC.hexToBytes(raw));
@@ -176,6 +178,9 @@ export class WalletScanner {
       }
       totals = totalsForScripts(entries, scripts);
     }
+    /* UTXOs = saídas nossas que nenhuma transação conhecida gastou. Só são
+       usados para montar PSBT; se faltou transação, prepare() recusa. */
+    this.utxos = utxosForScripts(entries, scripts);
 
     for (const r of this.byScript.values()) {
       if (r.txids.some(t => errors.has(t))) {
@@ -289,6 +294,40 @@ export class WalletScanner {
     const next = lastUsed + 1;
     const row = rows.get(next);
     return { chain, next, lastUsed, address: row ? row.address : null, path: row ? row.path : null };
+  }
+
+  /* Próxima linha do ramo de troco (já derivada pela varredura): é o
+     endereço que recebe o troco do PSBT. */
+  nextChangeRow(type) {
+    const rows = this.rows.get(rowKey(type, 1));
+    if (!rows) return null;
+    const { lastUsed } = this.lastUsedOf(rows);
+    return rows.get(lastUsed + 1) || null;
+  }
+
+  /* Monta o PSBT de envio com os UTXOs desta sessão. A transação não é
+     assinada nem enviada; o resultado é o arquivo para o projeto 1. */
+  async prepare({ address, amountSats, feeRate }) {
+    if (this.errors && this.errors.size) {
+      throw new Error('histórico incompleto (faltou transação do servidor); atualize a carteira e tente de novo');
+    }
+    if (!this.utxos) throw new Error('carteira ainda não sincronizada');
+    const type = this.chooseType();
+    const changeRow = this.nextChangeRow(type);
+    const utxos = this.utxos
+      .map(u => ({ ...u, row: this.byScript.get(u.script) }))
+      .filter(u => u.row);
+    const rawTxFor = async txid => {
+      const cached = this.txCache.get(txid);
+      if (cached) return BTC.hexToBytes(cached);
+      const got = await transactionsMany(this.client, [txid], { concurrency: 1 });
+      const raw = got.raw.get(txid);
+      if (raw) this.txCache.set(txid, raw);
+      return raw ? BTC.hexToBytes(raw) : null;
+    };
+    return await preparePsbt({
+      account: this.account, utxos, address, amountSats, feeRate, changeRow, rawTxFor
+    });
   }
 
   typeUsed(type) {

@@ -15,7 +15,7 @@
    - como não há cache durável, cada abertura de tela refaz a varredura
      com margem de 50; é o preço de não guardar nada. */
 import { parseXpub } from './derivation.js';
-import { openElectrum } from './electrum.js';
+import { openElectrum, estimateFees } from './electrum.js';
 import { WalletScanner } from './wallet-sync.js';
 import { electrumConfig, json } from './config.js';
 
@@ -70,6 +70,32 @@ export class WalletWatcher {
         return json(payload);
       }
       if (url.pathname === '/events' || url.pathname === '/api/events') return await this.events(request);
+      if (url.pathname === '/fees') {
+        const client = await this.ensureClient();
+        const fees = await estimateFees(client);
+        // sem tela aberta, a conexão aberta só para a taxa não fica solta
+        if (!this.sockets.size) this.armIdleClose();
+        return json(fees);
+      }
+      if (url.pathname === '/prepare' && request.method === 'POST') {
+        let body = {};
+        try { body = await request.json(); } catch (e) {}
+        const xpub = String(body.xpub || '').trim();
+        if (!xpub) return json({ error: 'informe a xpub' }, 400);
+        const scanner = await this.ensureScanner(xpub);
+        if (this.scanning || !this.lastPayload) await this.sync(xpub, true);
+        else await scanner.recompute();
+        try {
+          const payload = await scanner.prepare({
+            address: String(body.address || ''),
+            amountSats: Number(body.amountSats),
+            feeRate: Number(body.feeRate)
+          });
+          return json(payload);
+        } catch (e) {
+          return json({ error: e && e.message ? e.message : String(e) }, 400);
+        }
+      }
       if (url.pathname === '/state') {
         if (this.scanning) return json({ scanning: true, has_more: true, progress: this.progress });
         if (!this.lastPayload) {

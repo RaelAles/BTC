@@ -276,7 +276,27 @@ assert.equal(watcher.idleTimer, null, 'tela aberta cancela o descarte');
   /* o WebSocket vai por /api/events?session=… e valida o id */
   const bad = await worker.fetch(new Request('https://x/api/events?session=xyz'), env2);
   assert.equal(bad.status, 400);
-  console.log('ok   Worker usa sessão aleatória, reaproveita e valida o WebSocket');
+
+  /* taxa e PSBT reaproveitam a conexão e os endereços já derivados */
+  const feesRes = await worker.fetch(new Request('https://x/api/fees?session=' + payload.session), env2);
+  const fees = await feesRes.json();
+  assert.equal(feesRes.status, 200);
+  assert.deepEqual(fees.levels, { low: 2, medium: 6, high: 12 });
+
+  const dest = (await deriveAddress('bip44', ua, 0, 0)).address;
+  const psbtRes = await worker.fetch(new Request('https://x/api/psbt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      xpub: USER, session: payload.session, address: dest,
+      amount_sats: 5000, fee_rate: 6
+    })
+  }), env2);
+  const psbt = await psbtRes.json();
+  assert.equal(psbtRes.status, 200, JSON.stringify(psbt));
+  assert.equal(psbt.amount_sats, 5000);
+  assert.ok(psbt.change.value > 0);
+  console.log('ok   Worker usa sessão aleatória, taxa e PSBT pela mesma conexão');
 }
 
 await fake.close();

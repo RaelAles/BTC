@@ -68,6 +68,10 @@ export async function startFakeElectrum(opts) {
           result = true;
         } else if (req.method === 'server.ping') {
           result = null;
+        } else if (req.method === 'blockchain.estimatefee') {
+          const table = o.fees || { 1: 0.00012, 6: 0.00006, 144: 0.00002 };
+          const value = table[Number(arg)];
+          result = value === undefined ? -1 : value;
         } else if (req.method === 'blockchain.transaction.get') {
           const hex = txs.get(arg);
           if (typeof hex !== 'string') {

@@ -53,20 +53,16 @@ const types = {
 const server = http.createServer(async (req, res) => {
   try {
     const u = new URL(req.url, 'http://localhost');
-    if (u.pathname === '/api/wallet') {
+    if (u.pathname.startsWith('/api/')) {
       let body = '';
       for await (const chunk of req) body += chunk;
-      const request = new Request('http://localhost/api/wallet', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+      const headers = {};
+      if (body) headers['Content-Type'] = req.headers['content-type'] || 'application/json';
+      const request = new Request('http://localhost' + u.pathname + u.search, {
+        method: req.method, headers, body: body || undefined
       });
       const response = await worker.fetch(request, env);
-      res.writeHead(response.status, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(await response.text());
-      return;
-    }
-    if (u.pathname === '/api/health') {
-      const response = await worker.fetch(new Request('http://localhost/api/health'), env);
-      res.writeHead(response.status, { 'Content-Type': 'application/json' });
+      res.writeHead(response.status, { 'Content-Type': response.headers.get('Content-Type') || 'application/json; charset=utf-8' });
       res.end(await response.text());
       return;
     }
