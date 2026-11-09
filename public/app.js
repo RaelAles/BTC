@@ -953,7 +953,7 @@
     state.busy = true;
     stopScan();
     closeWatch();
-    if (!quiet) setStatus('', 'verificando endereços...');
+    if (!quiet) setStatus('', scanText());
     try {
       // A xpub vai no corpo a cada consulta: o servidor não guarda nada,
       // então ela nunca fica armazenada. O session só reaproveita a conexão
