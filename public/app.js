@@ -718,10 +718,25 @@
     clearInterval(grain.timer);
     grain.timer = 0;
   }
-  function syncGrainTheme() {
+  /* O filtro do tema é o único ajuste do grão que anima (VG-EFE-07). No
+     arranque, porém, ele precisa entrar sem transição e antes do primeiro
+     desenho: senão a tinta clara aparece por um quadro e escurece animando,
+     que é a piscada branca/preto na abertura. */
+  function syncGrainTheme(immediate) {
     if (!grain.canvas) return;
     var light = document.documentElement.dataset.theme === 'light';
-    grain.canvas.style.filter = light ? 'brightness(1)' : 'brightness(' + grain.ratio.toFixed(4) + ')';
+    var value = light ? 'brightness(1)' : 'brightness(' + grain.ratio.toFixed(4) + ')';
+    var canvas = grain.canvas;
+    if (!immediate) {
+      canvas.style.filter = value;
+      return;
+    }
+    canvas.style.transition = 'none';
+    canvas.style.filter = value;
+    // aplica o valor antes de religar a transição, para o primeiro quadro já
+    // sair na tinta do tema
+    void canvas.offsetWidth;
+    canvas.style.transition = '';
   }
   function initGrain() {
     var canvas = $('#grain');
@@ -743,8 +758,8 @@
     grain.font = font;
     grain.ink = 'rgb(' + [lightInk.r, lightInk.g, lightInk.b].join(', ') + ')';
     grain.canvas = canvas;
+    syncGrainTheme(true);
     resizeGrain();
-    syncGrainTheme();
     if (!prefersReducedMotion()) startGrain();
   }
 
