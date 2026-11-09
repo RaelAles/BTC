@@ -9,6 +9,7 @@
      blockchain.scripthash.get_history
      blockchain.scripthash.get_mempool
      blockchain.scripthash.subscribe
+     blockchain.estimatefee
      blockchain.transaction.get
    Uma conexão responde a muitas consultas (pipelining), então não há o
    limite de subrequests do fetch. */
@@ -317,16 +318,25 @@ export async function transactionsMany(client, txids, opts) {
    urgente (1 bloco ≈ 10 min; o Bitcoin Core trata o alvo 1 como 2, o menor
    que ele estima). A tela mostra essas chaves como prazo médio, sem citar
    bloco: o tempo é alvo × 10 min, a média do intervalo entre blocos, não uma
-   previsão do `estimatefee`. O valor vira sat/vB inteiro, arredondado para
-   cima; servidor que
-   responde -1 fica sem estimativa naquele nível (null) e a tela desabilita
-   aquele nível.
+   previsão do `estimatefee`. Servidor que responde -1 fica sem estimativa
+   naquele nível (null) e a tela desabilita aquele nível.
 
-   Nada é inventado para separar níveis: se o servidor devolve a mesma taxa
-   para dois alvos, os dois mostram o mesmo sat/vB e o mesmo custo em BTC.
-   Num mempool quase vazio, 1 e 1 ou 2 e 2 é o resultado correto — a escada
-   artificial de +1 sat/vB que existia antes escondia isso. */
+   O valor NÃO é arredondado: BTC/kvB × 1e8 dá sat/kvB inteiro exato (é a
+   unidade em que o servidor de fato responde: 1926, 970, 112), e `sat_per_vb`
+   é só a leitura ÷1000. Arredondar a taxa antes de multiplicar pela vsize
+   erra sempre para cima, então o PSBT recebe o valor exato e arredonda
+   apenas a taxa final, em satoshis (ver `feeSats` em psbt.js).
+
+   Abaixo do piso de relay do Bitcoin Core (1000 sat/kvB = 1 sat/vB) a
+   transação não entra no mempool padrão: o nível continua visível com o
+   valor que o servidor deu em `sat_per_vb`, mas `levels` (o que a tela
+   escolhe e o PSBT usa) fica no piso e `floored` marca o nível. Num mempool
+   quase vazio, vários alvos caem abaixo do piso — é o resultado correto, e a
+   escada artificial de +1 sat/vB que existia antes escondia isso. */
 export const FEE_TARGETS = { minimum: 144, standard: 6, high: 3, urgent: 1 };
+
+/* Piso de relay do Bitcoin Core (`-minrelaytxfee` padrão): 1000 sat/kvB. */
+export const RELAY_MIN_KVB = 1000;
 
 export async function estimateFees(client) {
   const keys = Object.keys(FEE_TARGETS);
@@ -336,13 +346,26 @@ export async function estimateFees(client) {
     client.request('blockchain.estimatefee', [FEE_TARGETS[k]]).catch(() => null)
   ));
   const levels = {};
+  const satPerKvb = {};
+  const satPerVb = {};
+  const floored = {};
   keys.forEach((k, i) => {
     const v = Number(values[i]);
-    levels[k] = Number.isFinite(v) && v > 0 ? Math.max(1, Math.ceil(v * 100000)) : null;
+    // × 1e8 em vez de × 1e5: sat/kvB é inteiro e exato; 0.0000097 * 1e5 daria
+    // 0.9700000000000001, e sat/vB só existe para a tela
+    const kvb = Number.isFinite(v) && v > 0 ? Math.round(v * 1e8) : null;
+    satPerKvb[k] = kvb;
+    satPerVb[k] = kvb === null ? null : kvb / 1000;
+    floored[k] = kvb !== null && kvb < RELAY_MIN_KVB;
+    levels[k] = kvb === null ? null : Math.max(RELAY_MIN_KVB, kvb) / 1000;
   });
   return {
     levels,
     targets: { ...FEE_TARGETS },
+    sat_per_kvb: satPerKvb,
+    sat_per_vb: satPerVb,
+    floored,
+    relay_min_kvb: RELAY_MIN_KVB,
     unit: 'sat/vB',
     source: 'electrum',
     updated_at: new Date().toISOString()

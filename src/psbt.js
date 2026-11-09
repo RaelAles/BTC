@@ -16,6 +16,30 @@ import BTC from './btc-core.js';
    p2tr, que é menor. */
 const DUST_SATS = 546;
 
+/* Faixa aceita para a taxa, em sat/vB. O estimador responde em sat/kvB, então
+   a taxa pode ter casas decimais; a conta é feita em sat/kvB inteiro e só o
+   valor final da taxa vira satoshi inteiro (ver `feeSats`). */
+export const FEE_RATE_MIN = 1;
+export const FEE_RATE_MAX = 10000;
+
+/* sat/vB (com casas, se vier do estimador) → sat/kvB inteiro, que é a unidade
+   exata do dado. Recusa o que está fora da faixa ou não é número. */
+export function feeRateKvb(rate) {
+  const n = Number(rate);
+  if (!Number.isFinite(n) || n < FEE_RATE_MIN || n > FEE_RATE_MAX) {
+    throw new Error('taxa inválida: use de 1 a 10 000 sat/vB');
+  }
+  return Math.round(n * 1000);
+}
+
+/* Taxa em satoshis: sat/kvB × vsize ÷ 1000, arredondada para cima só aqui.
+   O produto (kvb ≤ 1e7, vsize de alguns milhares) é exato em double, e manter
+   a taxa sem arredondar evita pagar a mais: 1,926 sat/vB em 141 vB custa 272
+   sats, e não os 282 que 2 sat/vB custariam. */
+export function feeSats(kvb, vsize) {
+  return Math.ceil(kvb * vsize / 1000);
+}
+
 function hex(bytes) { return BTC.bytesToHex(bytes); }
 
 /* Endereço de troco → linha do scanner (já derivada), no mesmo formato das
@@ -53,6 +77,7 @@ function estimateFor(selected, scripts) {
    o saldo cobre o valor + taxa com troco acima do pó; se o troco ficaria
    pó, ele é somado à taxa (saída única). */
 export function selectCoins(utxos, amountSats, feeRate, recipientScript, changeScript) {
+  const rateKvb = feeRateKvb(feeRate);
   const sorted = [...utxos].sort((a, b) =>
     (a.height === 0 ? 1 : 0) - (b.height === 0 ? 1 : 0) || b.value - a.value
   );
@@ -65,8 +90,8 @@ export function selectCoins(utxos, amountSats, feeRate, recipientScript, changeS
     const withChange = [recipientScript, changeScript];
     const vsizeNoChange = estimateFor(selected, noChange);
     const vsizeWithChange = estimateFor(selected, withChange);
-    const feeNoChange = Math.ceil(feeRate * vsizeNoChange);
-    const feeWithChange = Math.ceil(feeRate * vsizeWithChange);
+    const feeNoChange = feeSats(rateKvb, vsizeNoChange);
+    const feeWithChange = feeSats(rateKvb, vsizeWithChange);
     if (total < amountSats + feeNoChange) continue;
     const change = total - amountSats - feeWithChange;
     if (change >= DUST_SATS) {
@@ -95,13 +120,11 @@ export function selectCoins(utxos, amountSats, feeRate, recipientScript, changeS
    Com `quoteRates`, devolve também `quotes`: a taxa de cada nível estimado
    para o mesmo valor, que a legenda do seletor mostra em BTC. */
 export function sendLimits({ utxos, address, feeRate, amountSats, changeScript, quoteRates }) {
-  if (!Number.isInteger(feeRate) || feeRate < 1 || feeRate > 10000) {
-    throw new Error('taxa inválida: use de 1 a 10 000 sat/vB');
-  }
+  const rateKvb = feeRateKvb(feeRate);
   const recipientScript = BTC.scriptFromAddress(address);
   const available = utxos.reduce((sum, u) => sum + u.value, 0);
   const vsize = BTC.estimateVsize(utxos.map(u => u.row.kind), [recipientScript]);
-  const feeAtMax = Math.ceil(feeRate * vsize);
+  const feeAtMax = feeSats(rateKvb, vsize);
   const max = available - feeAtMax;
   const limits = {
     recipient: address,
@@ -110,7 +133,8 @@ export function sendLimits({ utxos, address, feeRate, amountSats, changeScript, 
     max_send_sats: max >= DUST_SATS ? max : 0,
     fee_sats_at_max: feeAtMax,
     vsize_at_max: vsize,
-    fee_rate: feeRate
+    fee_rate: feeRate,
+    fee_rate_kvb: rateKvb
   };
   /* Com o valor em mãos, o preview devolve a taxa (e o troco) exatos da
      seleção que o PSBT usaria, para a tela mostrar a taxa ao lado do valor
@@ -156,9 +180,7 @@ export async function preparePsbt({
   if (!Number.isInteger(amountSats) || amountSats <= 0) {
     throw new Error('valor inválido');
   }
-  if (!Number.isInteger(feeRate) || feeRate < 1 || feeRate > 10000) {
-    throw new Error('taxa inválida: use de 1 a 10 000 sat/vB');
-  }
+  const rateKvb = feeRateKvb(feeRate);
   if (amountSats < DUST_SATS) {
     throw new Error('valor abaixo do pó: o mínimo é ' + DUST_SATS + ' sats');
   }
@@ -201,6 +223,7 @@ export async function preparePsbt({
     fee_sats: pick.fee,
     fee_rate: pick.vsize ? pick.fee / pick.vsize : 0,
     fee_rate_requested: feeRate,
+    fee_rate_kvb: rateKvb,
     total_in: pick.total,
     total_out: amountSats + (pick.withChange ? pick.change : 0),
     amount_sats: amountSats,

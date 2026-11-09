@@ -140,6 +140,14 @@
     while (s.length < 9) s = '0' + s;
     return (neg ? '-' : '') + s.slice(0, -8) + '.' + s.slice(-8);
   }
+  /* Taxa em sat/vB do jeito que o servidor deu: o valor exato é sat/kvB, então
+     o sat/vB tem no máximo três casas (1,926; 0,97; 0,112). Vírgula decimal,
+     como o resto da tela. */
+  function fmtRate(n, digits) {
+    var v = Number(n);
+    if (!isFinite(v)) return '—';
+    return v.toLocaleString('pt-BR', { maximumFractionDigits: digits || 3 });
+  }
   /* Valor digitado em BTC → sats inteiros. Aceita vírgula ou ponto e até 8
      casas; qualquer outra coisa (ou zero) devolve null. */
   function parseBtcSats(text) {
@@ -804,8 +812,8 @@
   }
 
   /* Níveis que a tela mostra. Quando dois níveis caem na mesma taxa — o
-     servidor devolve o mesmo inteiro para alvos vizinhos, e o arredondamento
-     para cima junta os que ficam abaixo de 1 sat/vB —, fica só o mais rápido:
+     servidor devolve a mesma estimativa para alvos vizinhos, e o piso de
+     relay junta os que ficam abaixo de 1 sat/vB —, fica só o mais rápido:
      a taxa é a mesma, então o mais lento não acrescenta escolha. Sem nenhuma
      estimativa, os quatro continuam visíveis (vazios e desabilitados), para
      a seção não ficar sem opção nenhuma. */
@@ -1028,11 +1036,14 @@
     updateSendAvailability();
   }
 
-  /* Desenha a taxa: o custo em BTC e o percentual de cada nível nas opções.
-     O grupo de rádio é nativo: o navegador guarda a escolha, anda com as
-     setas e leva o foco ao marcador; o JavaScript só reflete o estado da
-     estimativa. Nível escondido também fica desabilitado, para as setas e o
-     Tab não pararem num rádio fora da tela. */
+  /* Desenha a taxa: o valor que o servidor estimou, o custo em BTC e o
+     percentual de cada nível nas opções. A taxa mostrada é a de `sat_per_vb`
+     (o dado exato, sem arredondar); quando ela fica abaixo do piso de relay, a
+     linha mostra também o piso, porque é ele que o PSBT vai usar. O grupo de
+     rádio é nativo: o navegador guarda a escolha, anda com as setas e leva o
+     foco ao marcador; o JavaScript só reflete o estado da estimativa. Nível
+     escondido também fica desabilitado, para as setas e o Tab não pararem num
+     rádio fora da tela. */
   function renderFees() {
     var levels = (state.fees && state.fees.levels) || {};
     normalizeFeeLevel();
@@ -1077,6 +1088,8 @@
 
   function renderFeeLevels() {
     var levels = (state.fees && state.fees.levels) || {};
+    var exact = (state.fees && state.fees.sat_per_vb) || {};
+    var floored = (state.fees && state.fees.floored) || {};
     var quotes = feeQuotes();
     var amount = amountSats();
     FEE_ORDER.forEach(function (key) {
@@ -1084,6 +1097,13 @@
       if (!label) return;
       var rate = Number(levels[key]) || 0;
       var fee = rate > 0 ? quotes[rate] : null;
+      var rateEl = $('.fee-level-rate', label);
+      if (rateEl) {
+        var shown = Number(exact[key]);
+        rateEl.textContent = rate > 0 && isFinite(shown)
+          ? fmtRate(shown) + ' sat/vB' + (floored[key] ? ' · piso ' + fmtRate(rate) : '')
+          : '';
+      }
       var btc = $('.fee-level-btc', label);
       var pct = $('.fee-level-pct', label);
       if (btc) btc.textContent = fee > 0 ? fmtBtc(fee) + ' BTC' : '—';
@@ -1184,7 +1204,7 @@
       '#send-meta-recipient': j.recipient
         ? fmtBtc(j.recipient.value) + ' BTC em ' + j.recipient.address
         : '',
-      '#send-meta-fee': fmtBtc(j.fee_sats) + ' BTC (' + Number(j.fee_rate).toFixed(2) + ' sat/vB)',
+      '#send-meta-fee': fmtBtc(j.fee_sats) + ' BTC (' + fmtRate(j.fee_rate, 2) + ' sat/vB)',
       '#send-meta-vsize': '~' + fmtInt(j.vsize) + ' vB'
     };
     Object.keys(values).forEach(function (sel) {

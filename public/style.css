@@ -1776,6 +1776,10 @@
     text-transform: none;
     white-space: nowrap;
   }
+  /* Taxa exata do servidor ao lado do prazo. É o valor de `sat_per_vb`, sem
+     arredondar; quando o estimador fica abaixo do piso de relay a linha mostra
+     o piso junto (0,97 sat/vB · piso 1), porque é o piso que o PSBT usa. */
+  .fee-level-rate { color: var(--dim); white-space: nowrap; }
   /* O percentual é do valor enviado, não do custo: fica em --dim ao lado do
      BTC para o número principal continuar sendo o custo. */
   .fee-level-pct { color: var(--dim); }

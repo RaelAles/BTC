@@ -39,27 +39,37 @@ function mapFind(map, type) {
   const r = await reqFees(env);
   assert.equal(r.status, 200);
   assert.deepEqual(r.j.levels, { minimum: 2, standard: 6, high: 9, urgent: 12 },
-    'BTC/kvB → sat/vB inteiro');
+    'o sat/vB da taxa é o exato, não arredondado');
+  assert.deepEqual(r.j.sat_per_kvb, { minimum: 2000, standard: 6000, high: 9000, urgent: 12000 },
+    'BTC/kvB × 1e8 dá o sat/kvB inteiro, sem perda');
+  assert.deepEqual(r.j.sat_per_vb, { minimum: 2, standard: 6, high: 9, urgent: 12 });
+  assert.deepEqual(r.j.floored, { minimum: false, standard: false, high: false, urgent: false });
+  assert.equal(r.j.relay_min_kvb, 1000);
   assert.deepEqual(r.j.targets, { minimum: 144, standard: 6, high: 3, urgent: 1 });
   assert.equal(r.j.source, 'electrum');
   console.log('ok   taxa ao vivo em quatro níveis (1 dia, 1 h, 30 min, 10 min)');
   await fake.close();
 }
 
-/* ---------------- 1b. estimativas iguais continuam iguais ---------------- */
+/* ---------------- 1b. casas decimais e piso de relay ---------------- */
 {
-  /* 1,003, 1,076 e 1,299 sat/vB viram 2 no teto inteiro: os três níveis
-     mostram 2, sem a escada artificial de +1 sat/vB. A de 1 dia, 0,113
-     sat/vB, continua em 1. */
+  /* 1,299, 1,076 e 1,003 sat/vB ficam exatamente assim: nada de arredondar
+     para 2 antes de multiplicar pela vsize. A de 1 dia, 0,113 sat/vB, fica
+     abaixo do piso de relay (1 sat/vB): o valor exato continua na resposta,
+     mas `levels` (o que a tela escolhe e o PSBT usa) fica no piso. */
   const fake = await startFakeElectrum({
     fees: { 1: 0.00001299, 3: 0.00001076, 6: 0.00001003, 144: 0.00000113 }
   });
   const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const r = await reqFees(env);
   assert.equal(r.status, 200);
-  assert.deepEqual(r.j.levels, { minimum: 1, standard: 2, high: 2, urgent: 2 },
-    'a estimativa é do sat/vB, não do nome do nível');
-  console.log('ok   níveis iguais continuam iguais, sem escada artificial');
+  assert.deepEqual(r.j.sat_per_kvb, { minimum: 113, standard: 1003, high: 1076, urgent: 1299 });
+  assert.deepEqual(r.j.sat_per_vb, { minimum: 0.113, standard: 1.003, high: 1.076, urgent: 1.299 },
+    'o sat/vB é só a leitura do sat/kvB, sem arredondar');
+  assert.deepEqual(r.j.levels, { minimum: 1, standard: 1.003, high: 1.076, urgent: 1.299 });
+  assert.deepEqual(r.j.floored, { minimum: true, standard: false, high: false, urgent: false },
+    'abaixo de 1000 sat/kvB a transação não entra no mempool padrão');
+  console.log('ok   casas decimais preservadas e piso de relay marcado');
   await fake.close();
 }
 
@@ -73,6 +83,9 @@ function mapFind(map, type) {
   assert.equal(r.status, 200);
   assert.deepEqual(r.j.levels, { minimum: 2, standard: 6, high: null, urgent: 12 },
     'servidor que responde -1 deixa o nível sem estimativa');
+  assert.deepEqual(r.j.sat_per_kvb, { minimum: 2000, standard: 6000, high: null, urgent: 12000 });
+  assert.deepEqual(r.j.floored, { minimum: false, standard: false, high: false, urgent: false },
+    'nível sem estimativa não é nível no piso');
   console.log('ok   nível sem estimativa vem null e a tela o desabilita');
   await fake.close();
 }
@@ -165,6 +178,27 @@ function mapFind(map, type) {
   assert.equal(lowFee.status, 400);
   assert.match(lowFee.j.error, /taxa inválida/);
 
+  /* a taxa com casas atravessa a rota inteira: o worker aceita, o PSBT usa
+     sat/kvB exato, e abaixo do piso de relay (1 sat/vB) é recusada */
+  const fracRate = await reqPsbt({
+    xpub: hd.accounts.bip84.xpub, address: destination,
+    amount_sats: 50000, fee_rate: 1.926
+  }, env);
+  assert.equal(fracRate.status, 200, JSON.stringify(fracRate.j));
+  assert.equal(fracRate.j.fee_rate_requested, 1.926);
+  assert.equal(fracRate.j.fee_rate_kvb, 1926);
+  const belowFloor = await reqPsbt({
+    xpub: hd.accounts.bip84.xpub, address: destination,
+    amount_sats: 50000, fee_rate: 0.97
+  }, env);
+  assert.equal(belowFloor.status, 400);
+  assert.match(belowFloor.j.error, /taxa inválida/);
+  const bigRate = await reqPsbt({
+    xpub: hd.accounts.bip84.xpub, address: destination,
+    amount_sats: 50000, fee_rate: 10000.5
+  }, env);
+  assert.equal(bigRate.status, 400, 'taxa acima de 10 000 sat/vB é recusada');
+
   console.log('ok   psbt bip84 com troco, origem da conta e assinatura no btc-core');
   await fake.close();
 }
@@ -216,6 +250,22 @@ function mapFind(map, type) {
   assert.equal(limits.available_sats, 200000);
   assert.equal(limits.max_send_sats, 200000 - limits.fee_sats_at_max);
   assert.equal(limits.min_sats, 546);
+
+  /* taxa com casas decimais: a conta é sat/kvB × vsize ÷ 1000, sem arredondar
+     a taxa para inteiro antes de multiplicar (1,926 não vira 2) */
+  const frac = sendLimits({
+    utxos, address: destination, feeRate: 1.926, amountSats: 120000,
+    changeScript: change.script
+  });
+  assert.equal(frac.fee_rate_kvb, 1926);
+  assert.equal(frac.fee_sats, Math.ceil(1926 * frac.vsize / 1000));
+  assert.ok(frac.fee_sats < Math.ceil(2 * frac.vsize), 'a taxa não é arredondada para 2 antes de multiplicar');
+
+  /* abaixo do piso de relay (1 sat/vB) é recusado: a transação não entraria
+     no mempool padrão */
+  assert.throws(() => sendLimits({
+    utxos, address: destination, feeRate: 0.97, changeScript: change.script
+  }), /taxa inválida/);
 
   const prepared = await preparePsbt({
     account,

@@ -2,6 +2,7 @@ import { parseXpub } from './derivation.js';
 import { openElectrum, estimateFees } from './electrum.js';
 import { WalletScanner } from './wallet-sync.js';
 import { electrumConfig, fail, json } from './config.js';
+import { feeRateKvb } from './psbt.js';
 import { WalletWatcher } from './watcher.js';
 import BTC from './btc-core.js';
 
@@ -112,9 +113,9 @@ function sendTarget(body) {
   try { BTC.scriptFromAddress(address); }
   catch (e) { throw new Error('endereço de destino: ' + e.message); }
   const feeRate = Number(body.fee_rate);
-  if (!Number.isInteger(feeRate) || feeRate < 1 || feeRate > 10000) {
-    throw new Error('taxa inválida: use de 1 a 10 000 sat/vB');
-  }
+  // valida a faixa (aceita as casas decimais do estimador); a conversão para
+  // sat/kvB e a conta da taxa acontecem em psbt.js
+  feeRateKvb(feeRate);
   return {
     address,
     feeRate,
@@ -131,9 +132,7 @@ function quoteRatesOf(body) {
   const rates = [];
   for (const value of body.quote_rates) {
     const rate = Number(value);
-    if (!Number.isInteger(rate) || rate < 1 || rate > 10000) {
-      throw new Error('taxa inválida: use de 1 a 10 000 sat/vB');
-    }
+    feeRateKvb(rate);
     if (!rates.includes(rate)) rates.push(rate);
   }
   return rates.length ? rates : null;
