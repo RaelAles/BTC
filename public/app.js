@@ -468,6 +468,32 @@
     updatePager(max);
   }
 
+  /* Altura do conteúdo fora do gesto de rolagem: a taxa, o PSBT e os demais
+     blocos entram e saem conforme o formulário, e isso não dispara 'scroll'.
+     Sem reavaliar, o degradê e a seta de baixo continuam anunciando uma
+     rolagem que já não existe. O observador cobre o que está dentro do
+     .content-scroll (blocos que aparecem ou somem, texto que muda de tamanho)
+     e reavalia uma vez por quadro. */
+  function watchContentHeight() {
+    var el = $('#content-scroll');
+    if (!el || typeof MutationObserver !== 'function') return;
+    var frame = 0;
+    var schedule = function () {
+      if (frame) return;
+      frame = requestAnimationFrame(function () {
+        frame = 0;
+        updateScroll();
+      });
+    };
+    new MutationObserver(schedule).observe(el, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['hidden', 'class', 'style']
+    });
+  }
+
   /* Rolagem única (VG-LAY-12): quando a janela fica abaixo do piso do card
      mais os respiros, a página é a única a rolar e o card cresce. O piso e os
      respiros são lidos já em px, e o 100dvh vem do .vh-probe, que mede o
@@ -2048,6 +2074,7 @@
 
     var sc = $('#content-scroll');
     if (sc) sc.addEventListener('scroll', updateScroll);
+    watchContentHeight();
 
     var resizeTimer = 0;
     window.addEventListener('resize', function () {
