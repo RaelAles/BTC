@@ -36,20 +36,20 @@ tela mostra:
    (0.00000546 BTC) e acima do máximo enviável (saldo − taxa), calculado no
    servidor para o destino e a taxa escolhidos.
    O PSBT sai sem assinatura, com troco, em base64, e fica disponível só
-   como arquivo em **baixar .psbt**; a tela mostra os detalhes (txid,
-   saídas, taxa, pó e vsize) na mesma tabela de leitura do "receber", sem o
-   base64 como campo. A linha **pó** só aparece quando o
-   troco não foi criado: ela mostra quanto do valor ficou na taxa por isso,
-   para a taxa (que já inclui esse resto) não parecer erro, e
-   fica sem sinal porque é uma parte da taxa, não uma segunda saída. Os outros
-   valores usam a marcação de valor do sistema (VG-COR-16): o que sai (destino,
-   taxa e saídas externas) leva `-` em `--error` e o que volta (troco) leva `+`
+   como arquivo em **baixar .psbt**; a tela mostra os detalhes (saída,
+   destino, troco, endereço, pó, taxa, vsize e txid) na mesma tabela de
+   leitura do "receber", sem o base64 como campo. A linha **pó** só aparece
+   quando o troco não foi criado: ela mostra quanto do valor ficou na taxa
+   por isso, para a taxa (que já inclui esse resto) não parecer erro, e fica
+   sem sinal porque é uma parte da taxa, não uma segunda saída. Os outros
+   valores usam a marcação de valor do sistema (VG-COR-16): o que sai (saída
+   e taxa) leva `-` em `--error` e o que volta (troco) leva `+`
    em `--success`, com o sinal no texto para a cor ser reforço, não o único
-   sinal. As saídas são o que o servidor diz ter montado — o navegador não lê
-   o base64 —, então a tabela serve para comparar: se o destino ou o valor
-   montados diferirem do formulário, ou se aparecer mais de uma saída
-   externa, surge um aviso apontando para a revisão do `chave-btc.html`, que
-   é a conferência que vale.
+   sinal. O destino e o troco são o que o servidor diz ter montado — o
+   navegador não lê o base64 —, então a tabela serve para comparar: se o
+   destino ou o valor montados diferirem do formulário, ou se aparecer mais
+   de uma saída externa, surge um aviso apontando para a revisão do
+   `chave-btc.html`, que é a conferência que vale.
    Quem assina é o `chave-btc.html` (projeto 1), offline; o projeto 2 nunca
    vê chave privada.
 
@@ -464,7 +464,9 @@ do tipo (soma dos endereços usados dele) e o próximo endereço livre do ramo
 de recebimento (`último usado + 1`, ou o índice 0 se o tipo nunca foi usado).
 A soma de `types[].balance` é o `balance.total`. A tela usa `types` inteiro
 (os quatro) no bloco **receber**, que exibe o próximo endereço livre de cada
-tipo.
+tipo e, abaixo deles, o endereço de troco do tipo detectado
+(`change_address`, o `último usado + 1` do ramo `/1`), sem botão de copiar,
+para comparar com o endereço que o PSBT montou.
 
 `watch: true` avisa a UI para abrir o WebSocket de tempo real. `session` é o
 id aleatório do Durable Object: mande de volta no próximo `POST` para

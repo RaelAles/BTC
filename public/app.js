@@ -774,7 +774,10 @@
   /* Um endereço de recebimento por tipo — sempre o primeiro índice sem uso
      daquele ramo (`último usado + 1`) —, inclusive os tipos sem saldo, para
      o usuário escolher o que o pagador aceita. O rótulo é o tipo da conta e
-     o botão de copiar fica ao lado do endereço. */
+     o botão de copiar fica ao lado do endereço. Abaixo deles vem o endereço
+     de troco do tipo detectado — o ramo /1, que é o que o PSBT usa —, sem
+     botão de copiar: ele serve para comparar com a linha "endereço" dos
+     detalhes do PSBT, não para compartilhar. */
   function renderReceive(d) {
     var body = $('#receive-table tbody');
     if (!body) return;
@@ -791,6 +794,15 @@
         '</span></td>';
       body.appendChild(tr);
     });
+    var detected = types.filter(function (t) { return t.detected; })[0];
+    var change = detected && detected.change_address;
+    if (change) {
+      var tr = document.createElement('tr');
+      tr.id = 'receive-change-row';
+      tr.innerHTML = '<th scope="row">troco</th>' +
+        '<td><span class="receive-line"><code>' + esc(change) + '</code></span></td>';
+      body.appendChild(tr);
+    }
     $('#receive-table').hidden = types.length === 0;
     $('#receive-heading').hidden = types.length === 0;
   }
@@ -1199,13 +1211,13 @@
   }
 
   /* Os detalhes do PSBT usam o mesmo desenho de leitura do "receber":
-     uma tabela de rótulo e valor, com uma informação por linha. O resumo é o
-     que o SERVIDOR diz ter montado: o navegador não lê o base64, então esta
-     tabela é conveniência, não prova. Por isso todas as saídas ficam à vista
-     — para comparar com o formulário agora e com a revisão do
-     "chave-btc.html" antes de assinar — e uma divergência entre o que foi
-     montado e o que está digitado vira aviso (o caso clássico é o coordenador
-     trocar o endereço de destino). */
+     uma tabela de rótulo e valor. O resumo é o que o SERVIDOR diz ter
+     montado: o navegador não lê o base64, então esta tabela é conveniência,
+     não prova. O pagamento e o troco aparecem em par — valor e endereço —,
+     para comparar com o formulário agora e com a revisão do "chave-btc.html"
+     antes de assinar; uma divergência entre o que foi montado e o que está
+     digitado vira aviso (o caso clássico é o coordenador trocar o endereço
+     de destino). */
   function renderSendMeta(j) {
     var values = {
       '#send-meta-txid': j.txid,
@@ -1215,10 +1227,21 @@
       var el = $(sel);
       if (el) el.textContent = values[sel];
     });
-    /* A taxa usa a marcação de valor do sistema (VG-COR-16): sai, então `-`
-       em `--error`. O pó fica sem sinal, porque ele é uma parte da taxa que
-       já está contada na linha de cima — marcar de novo sugeriria uma
-       segunda saída. */
+    /* A marcação de valor do sistema (VG-COR-16) fica só nas linhas de valor,
+       com o sinal no texto e a cor reforçando: o que sai leva `-`, o que volta
+       leva `+`. Endereço é texto puro. O pó fica sem sinal, porque ele é uma
+       parte da taxa que já está contada na linha de cima — marcar de novo
+       sugeriria uma segunda saída. */
+    var outValue = $('#send-meta-out-value');
+    if (outValue) outValue.innerHTML = j.recipient ? signedBtc(j.recipient.value, 'out') : '';
+    var outAddress = $('#send-meta-out-address');
+    if (outAddress) outAddress.textContent = j.recipient ? j.recipient.address : '';
+    var changeValue = $('#send-meta-change-value');
+    if (changeValue) changeValue.innerHTML = j.change ? signedBtc(j.change.value, 'in') : '';
+    var changeAddress = $('#send-meta-change-address');
+    if (changeAddress) changeAddress.textContent = j.change ? j.change.address : '';
+    [$('#send-meta-change-value-row'), $('#send-meta-change-address-row')]
+      .forEach(function (row) { if (row) row.hidden = !j.change; });
     var fee = $('#send-meta-fee');
     if (fee) fee.innerHTML = signedBtc(j.fee_sats, 'out');
     var dust = Number(j.dust_sats) || 0;
@@ -1226,18 +1249,6 @@
     if (dustRow) dustRow.hidden = !(dust > 0);
     var dustCell = $('#send-meta-dust');
     if (dustCell) dustCell.textContent = dust > 0 ? fmtBtc(dust) : '';
-    /* Todas as saídas, uma por linha, e a única visão delas: o destino e o
-       troco não ganham linha própria para não repetir endereço e valor. O
-       rótulo copia o vocabulário da revisão do chave-btc.html (troco /
-       externo) para a conferência ser lado a lado, e a direção segue a linha
-       de valor do sistema: externo sai (`-`), troco volta (`+`). */
-    var list = $('#send-meta-output-list');
-    if (list) {
-      list.innerHTML = (j.outputs || []).map(function (out) {
-        return signedBtc(out.value, out.own ? 'in' : 'out') + ' em ' +
-          esc(out.address) + ' · ' + (out.own ? 'troco' : 'externo');
-      }).join('<br>');
-    }
 
     /* Divergência entre o PSBT e o formulário. Não é prova de nada (o
        servidor pode mentir igual nos dois), mas pega troca acidental, bug e

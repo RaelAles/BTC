@@ -377,11 +377,14 @@ export class WalletScanner {
        bloco receber; o saldo total é a soma das linhas. */
     const types = TYPES.map(t => {
       const br = this.branch(t, 0);
+      const ch = this.branch(t, 1);
       return {
         type: t,
         label: (TYPE_INFO[t] || { label: t }).label,
         address: br.address,
         path: br.path,
+        change_address: ch.address,
+        change_path: ch.path,
         balance: totalOf(t),
         tx_count: usedRows.filter(r => r.account_type === t).reduce((s, r) => s + r.tx_count, 0),
         detected: t === type

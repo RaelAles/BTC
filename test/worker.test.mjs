@@ -76,6 +76,9 @@ setConnectOverride(nodeConnect);
   const det = r.j.types.find(t => t.detected);
   assert.equal(det.address, (await addr('bip84', 0, 2)).address, 'próximo = último usado + 1');
   assert.equal(det.path, "m/84'/0'/0'/0/2");
+  assert.equal(det.change_address, (await addr('bip84', 1, 0)).address,
+    'troco = próximo do ramo /1, mesmo tipo');
+  assert.equal(det.change_path, "m/84'/0'/0'/1/0");
   assert.equal(fake.count('blockchain.transaction.get'), 2, 'uma busca por transação');
 
   /* sem cache durável, uma nova consulta refaz a varredura e o download */

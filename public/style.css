@@ -1795,6 +1795,18 @@
     width: 100%;
     margin: var(--space-4) 0 0;
   }
+  /* "endereço" tem 8ch e, na coluna de 7ch herdada do key-readout, encostaria
+     no valor — o rótulo não quebra (white-space: nowrap). A coluna ganha três
+     caracteres para manter o respiro do "receber". */
+  #send-meta tbody th { width: 10ch; }
+  /* O resumo se lê em blocos — valor e endereço do pagamento, valor e
+     endereço do troco, custo e txid: a última linha de cada bloco abre o vão
+     do próximo. O vão desaparece junto com a linha quando ela está oculta
+     (sem troco, sem pó), porque a linha oculta não desenha respiro. */
+  #send-meta tbody tr.group-end th,
+  #send-meta tbody tr.group-end td {
+    padding-bottom: var(--space-5);
+  }
   /* Aviso do resumo: só existe quando o PSBT montado no servidor não bate
      com o formulário (ver renderSendMeta em app.js). Em --error porque é
      divergência, não informação. */
