@@ -1231,7 +1231,7 @@
     var dustCell = $('#send-meta-dust');
     if (dustCell) {
       dustCell.textContent = dust > 0
-        ? fmtBtc(dust) + ' BTC (' + fmtInt(dust) + ' sats) incluídos na taxa — troco abaixo do mínimo'
+        ? fmtBtc(dust) + ' BTC (troco convertido para taxa)'
         : '';
     }
     var change = $('#send-meta-change');
