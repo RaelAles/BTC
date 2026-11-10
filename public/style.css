@@ -60,9 +60,6 @@
     --field-line: rgba(232, 192, 125, .46);
     --field-edge-size: var(--text-sm);
     --on-strong: #2e2d2b;
-    /* `color-scheme` alinha os controles nativos (cursor, seleção padrão,
-       autofill) ao tema; sem ele o navegador pinta tudo como claro. */
-    color-scheme: dark;
     /* O corpo vem embutido (fontes.css): o Liberation Mono recortado, uma
        fonte só para o projeto. Como o arquivo viaja junto, o desenho é o
        mesmo em qualquer sistema. A pilha do sistema continua atrás, na ordem
@@ -216,8 +213,18 @@
        controle (ver VG-COR-12). No escuro o 46% já dá 3,03:1. */
     --field-line: rgb(93.0523 61.0343 0 / .62);
     --on-strong: rgb(234.7075 231.9462 225.5033);
-    color-scheme: light;
   }
+
+  /* `color-scheme` alinha os controles nativos (cursor, seleção padrão,
+     autofill) ao tema; sem ele o navegador pinta tudo como claro. Ele fica
+     fora dos tokens, num atributo próprio (data-scheme), porque precisa
+     trocar num recálculo separado, antes do crossfade (ver setTheme):
+     trocado no mesmo quadro que as cores, ele muda a cor padrão do navegador
+     junto e reinicia a transição de color de cada elemento a cada quadro —
+     o texto só terminava de escurecer depois de o fundo já ter clareado, que
+     era a piscada clara do conteúdo no meio da troca. */
+  html[data-scheme="dark"] { color-scheme: dark; }
+  html[data-scheme="light"] { color-scheme: light; }
 
   /* Troca de tema: a classe theme-fx existe só durante o crossfade
      (--motion-theme) e liga a transição de cor em todos os elementos, para

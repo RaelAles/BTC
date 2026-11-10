@@ -445,21 +445,32 @@
   var themeSwapTimer = 0;
   function setTheme(theme, opts) {
     var t = theme === 'light' ? 'light' : 'dark';
-    var changed = document.documentElement.dataset.theme !== t;
+    var root = document.documentElement;
+    var changed = root.dataset.theme !== t;
     /* Crossfade de tema (VG-EFE-07): a classe theme-fx existe só durante
        --motion-theme e faz fundo, card, moldura, texto e controles passarem
        juntos; o grão acompanha pelo filtro de brilho, no compositor. Com
        menos movimento, a troca é direta. */
     var animate = changed && !(opts && opts.immediate) && !prefersReducedMotion();
+    /* O color-scheme nativo entra antes do crossfade e num recálculo só dele:
+       trocado no mesmo quadro que as cores, ele reinicia a transição de color
+       de cada elemento a cada quadro e o texto termina de escurecer bem
+       depois do fundo — a piscada do conteúdo no meio da troca (ver
+       style.css). A leitura de layout abaixo é o que separa os dois
+       recálculos; sem ela, os dois caem no mesmo. */
+    if (root.dataset.scheme !== t) {
+      root.dataset.scheme = t;
+      if (animate) void root.offsetWidth;
+    }
     if (animate) {
-      document.documentElement.classList.add('theme-fx');
+      root.classList.add('theme-fx');
       if (themeSwapTimer) clearTimeout(themeSwapTimer);
       themeSwapTimer = setTimeout(function () {
         themeSwapTimer = 0;
-        document.documentElement.classList.remove('theme-fx');
+        root.classList.remove('theme-fx');
       }, motionMs('--motion-theme', 150) + 50);
     }
-    document.documentElement.dataset.theme = t;
+    root.dataset.theme = t;
     try { localStorage.setItem('projeto2-fase1-theme', t); } catch (e) {}
     var b = $('#theme-toggle');
     if (b) {

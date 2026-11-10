@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR" data-theme="dark">
+<html lang="pt-BR" data-theme="dark" data-scheme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -11,10 +11,13 @@
   <link rel="stylesheet" href="/style.css">
   <script>
     /* Tema antes da primeira pintura (VG-MET-06): o escuro é o padrão; a
-       escolha salva vai para o <html> antes de o CSS ser aplicado. */
+       escolha salva vai para o <html> antes de o CSS ser aplicado. O
+       data-scheme (color-scheme nativo) acompanha o data-theme no arranque;
+       na troca em uso ele entra um recálculo antes (ver setTheme). */
     try {
-      document.documentElement.dataset.theme =
-        localStorage.getItem("projeto2-fase1-theme") === "light" ? "light" : "dark";
+      var root = document.documentElement;
+      root.dataset.theme = localStorage.getItem("projeto2-fase1-theme") === "light" ? "light" : "dark";
+      root.dataset.scheme = root.dataset.theme;
     } catch (e) {}
   </script>
 </head>
