@@ -797,10 +797,15 @@
      divisor do "receber" é o primeiro filho desse grupo, então o reset
      acima não o alcança e o subtítulo somaria a própria margem de 44 px aos
      16 px do divisor. Com o mesmo reset aqui, o vão fica só com os 16 px do
-     divisor, como no gerador e no projeto portfólio. */
+     divisor, como no gerador e no projeto portfólio.
+     O bloco do PSBT repete o caso dentro do próprio grupo: o divisor do
+     "psbt" abre o #send-out e o subtítulo seguinte não pode somar margem. */
   #out > .rule + *,
   #out > .rule + * > :first-child,
-  #out > .rule + * > :first-child > :first-child {
+  #out > .rule + * > :first-child > :first-child,
+  #send-out > .rule + *,
+  #send-out > .rule + * > :first-child,
+  #send-out > .rule + * > :first-child > :first-child {
     margin-top: 0;
   }
 

@@ -158,11 +158,10 @@
             </form>
 
             <div id="send-out" hidden>
+              <div class="rule rule-dots" aria-hidden="true"></div>
+
               <div class="prose app-block">
                 <h3><span class="prompt" aria-hidden="true">##</span> psbt</h3>
-              </div>
-              <div class="chips app-gap keys-actions" role="group" aria-label="Exportar PSBT">
-                <button type="button" id="send-download" aria-disabled="true">baixar .psbt</button>
               </div>
               <table class="data-table key-readout" id="send-meta">
                 <tbody>
@@ -177,6 +176,9 @@
                 </tbody>
               </table>
               <p class="note" id="send-meta-warn"></p>
+              <div class="chips app-gap keys-actions" role="group" aria-label="Exportar PSBT">
+                <button type="button" id="send-download" aria-disabled="true">baixar .psbt</button>
+              </div>
             </div>
           </div>
         </section>
