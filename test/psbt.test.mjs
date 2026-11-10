@@ -332,4 +332,50 @@ function mapFind(map, type) {
   console.log('ok   psbt taproot (bip86) com troco e assinatura');
 }
 
+/* ---------------- 5. a taxa cobrada nunca cai abaixo da pedida ---------------- */
+{
+  /* A taxa é preço × vsize ESTIMADA, e a transação só existe depois de
+     assinar. Se a estimativa for curta, a taxa efetiva fica abaixo da pedida
+     e, no piso de relay, a transação é recusada. Aqui cada tipo de entrada é
+     montado e assinado: a estimativa tem de cobrir o tamanho real (com folga
+     de no máximo 1 vB por transação de uma entrada, que é o preço do pior
+     caso de assinatura) e a taxa paga tem de cobrir a real à taxa pedida. */
+  const cases = [
+    ['bip84', 'p2wpkh'], ['bip49', 'p2sh-p2wpkh'], ['bip44', 'p2pkh'], ['bip86', 'p2tr']
+  ];
+  for (const [acct, kind] of cases) {
+    const account = parseXpub(hd.accounts[acct].xpub);
+    const a = await deriveAddress(acct, account, 0, 0);
+    const change = await deriveAddress(acct, account, 1, 0);
+    const prev = makeTx([{ txid: '11'.repeat(32), vout: 0 }], [{ value: 30000, script: a.script }]);
+    const rowOf = (x, chain, idx) => ({
+      address: x.address, path: x.path, script: BTC.bytesToHex(x.script),
+      pub: BTC.bytesToHex(x.pub), kind, account_type: acct, chain, idx
+    });
+    const utxos = [{
+      txid: prev.txid, vout: 0, value: 30000,
+      script: BTC.bytesToHex(a.script), height: 800000, row: rowOf(a, 0, 0)
+    }];
+    const destination = BTC.derive('10' + '0'.repeat(254)).addresses.p2wpkh;
+    for (const rate of [1, 1.926]) {
+      const p = await preparePsbt({
+        account, utxos, address: destination, amountSats: 10000, feeRate: rate,
+        changeRow: rowOf(change, 1, 0),
+        rawTxFor: async () => BTC.hexToBytes(prev.raw)
+      });
+      const signedTx = await BTC.signPsbt(BTC.psbtParseInput(p.psbt), hd, new Uint8Array(32));
+      const realVsize = signedTx.vsize;
+      assert.ok(p.vsize >= realVsize,
+        kind + ': estimativa (' + p.vsize + ') menor que a tx assinada (' + realVsize + ')');
+      assert.ok(p.vsize - realVsize <= 1,
+        kind + ': folga da estimativa acima de 1 vB (' + (p.vsize - realVsize) + ')');
+      const need = Math.ceil(rate * realVsize);
+      assert.ok(p.fee_sats >= need,
+        kind + ': taxa ' + p.fee_sats + ' abaixo do mínimo ' + need + ' para ' + rate + ' sat/vB');
+      assert.ok(p.fee_sats - need <= Math.ceil(rate), 'a folga da taxa é de no máximo 1 vB');
+    }
+  }
+  console.log('ok   taxa paga cobre a taxa pedida nos quatro tipos, sem estimativa curta');
+}
+
 console.log('\ntestes de envio/psbt passaram');

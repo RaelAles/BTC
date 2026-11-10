@@ -93,7 +93,8 @@ blockchain.info, nem chave privada em lugar nenhum.
   no saldo como não confirmado.
 - **UTXOs e PSBT**: a mesma conta guarda as saídas ainda não gastas. Com
   elas, `POST /api/psbt` escolhe entradas (confirmadas antes das pendentes,
-  maiores primeiro), calcula a taxa pela vsize estimada, deriva o próximo
+  maiores primeiro), calcula a taxa pela vsize estimada (um limite superior do
+  tamanho real, ver “a vsize é um limite superior” abaixo), deriva o próximo
   endereço de troco e monta um **PSBT v0** sem assinatura. Cada entrada leva
   `witness_utxo` e a origem BIP32; p2pkh leva também o `non_witness_utxo` e
   p2sh-p2wpkh leva o `redeem_script`. O pó (abaixo de 0.00000546 BTC) não vira
@@ -292,12 +293,15 @@ backend de Durable Object disponível no plano free).
   piso continua visível com o valor exato, mas o PSBT usa o piso (1 sat/vB).
   Num mempool quase vazio isso acontece com vários alvos ao mesmo tempo — e é
   o resultado correto, não um erro de estimativa.
-- **A vsize é estimada**: `estimateVsize` (btc-core.js) conta 272 wu por
-  entrada p2wpkh e não soma os 2 wu do marcador/flag do witness, então a
-  transação assinada pode sair 1 vB maior que a conta. Medido: 1 entrada +
-  2 saídas dá 140 vB na conta e 141 vB na tx assinada. Com taxa acima do piso
-  a diferença é absorvida; pedida exatamente no piso, a taxa efetiva fica em
-  0,993 sat/vB e o nó padrão recusa. Ainda não corrigido.
+- **A vsize é um limite superior**: `estimateVsize` (btc-core.js) conta o
+  pior caso de assinatura (72 bytes no ECDSA, 65 no taproot), os 2 wu do
+  marcador/flag do witness e o varint real das contagens. Com isso a
+  estimativa nunca fica menor que a transação assinada, e a taxa paga é
+  `ceil(preço × vsize) ≥ preço × vsize real` — no piso de 1 sat/vB a
+  transação não cai abaixo do mínimo de relay. O preço disso é uma folga de
+  no máximo 1 vB por transação (1 sat no piso): assinaturas de 71 bytes e
+  taproot com `SIGHASH_DEFAULT` gastam menos que o pior caso, e a diferença
+  fica na taxa.
 - O servidor Electrum vê os scripthashes consultados (com TLS o caminho da
   rede não vê). Privacidade, não custódia: a xpub não gasta nada.
 - Um vazamento da xpub é perda de privacidade, não de fundos.
@@ -471,7 +475,9 @@ Com o binding `WATCH`, quem monta é o Durable Object da sessão, reaproveitando
 a conexão, os endereços e o cache; sem ele (ou com a sessão perdida), o Worker
 faz a varredura avulsa. O valor é inteiro em sats (`amount_sats`); a taxa vai
 de 1 a 10 000 sat/vB e aceita as casas decimais do estimador (1,926), porque a
-conta é feita em sat/kvB (`Math.ceil(sat/kvB × vsize ÷ 1000)`); valor abaixo
+conta é feita em sat/kvB (`Math.ceil(sat/kvB × vsize ÷ 1000)`) sobre a vsize
+estimada — que é um limite superior do tamanho real, então a taxa efetiva
+nunca fica abaixo da pedida; valor abaixo
 de 546 sats é recusado como pó. Entradas
 confirmadas são escolhidas antes das pendentes e, dentro de cada grupo, as
 maiores primeiro.
@@ -669,7 +675,11 @@ seletor), PSBT v0 com
 origem da conta, `non_witness_utxo` no p2pkh e `tap_bip32_derivation` no
 taproot, recusa de endereço/taxa/saldo inválidos, e a **assinatura do PSBT no
 próprio `btc-core`** com um índice 120 — fora do fallback de 100 — provando a
-compatibilidade com o `chave-btc.html`. O `watcher.test.mjs` também cobre o
+compatibilidade com o `chave-btc.html`. A taxa também é conferida depois da
+assinatura, nos quatro tipos de entrada (p2wpkh, p2sh-p2wpkh, p2pkh e p2tr) e
+em duas taxas (1 e 1,926 sat/vB): a vsize estimada tem de cobrir o tamanho
+real da transação assinada e a taxa paga tem de cobrir a taxa pedida. O
+`watcher.test.mjs` também cobre o
 `preview` do máximo e o `preview` com `amount_sats` (taxa igual à do PSBT)
 pela mesma sessão/conexão do envio.
 

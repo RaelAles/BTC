@@ -1395,11 +1395,33 @@ var BTC = (function () {
     while (frac.length < 8) frac = '0' + frac;
     return (neg ? '-' : '') + whole.toString() + '.' + frac;
   }
+  /* Tamanho estimado da transação, em vB, ANTES de assinar: é o número que
+     vira taxa (taxa = preço × vsize), então ele precisa ser um limite
+     superior do tamanho real — estimativa curta faria a transação cair abaixo
+     do preço pedido, e no piso de relay isso é recusa.
+
+     - peso de cada entrada é o do pior caso de assinatura (72 bytes no ECDSA,
+       65 no taproot, que é o SIGHASH_ALL: o SIGHASH_DEFAULT usa 64);
+     - `marker` + `flag` do witness (2 wu) entram quando há entrada segwit —
+       sem eles a conta dava 1 vB a menos em toda transação segwit;
+     - as contagens usam o varint de verdade (1, 3, 5 ou 9 bytes), não uma
+       aproximação: uma transação com 253+ entradas é 8 wu maior que a conta
+       antiga.
+
+     O preço efetivo pode ficar um fio acima do pedido — no pior caso ~1 vB a
+     cada 4 entradas —, mas nunca abaixo. */
   function estimateVsize(inputKinds, scripts) {
-    var weight = 4 * (4 + 4) + 4 * 2; /* versão, locktime, contagens (aprox.) */
+    var varIntSize = function (n) {
+      return n < 0xfd ? 1 : n <= 0xffff ? 3 : n <= 0xffffffff ? 5 : 9;
+    };
+    var weight = 4 * (4 + 4) + /* versão e locktime */
+      4 * (varIntSize(inputKinds.length) + varIntSize(scripts.length));
+    var segwit = false;
     inputKinds.forEach(function (kind) {
-      weight += kind === 'p2pkh' ? 592 : kind === 'p2sh-p2wpkh' ? 364 : kind === 'p2wpkh' ? 272 : 230;
+      if (kind !== 'p2pkh') segwit = true;
+      weight += kind === 'p2pkh' ? 592 : kind === 'p2sh-p2wpkh' ? 364 : kind === 'p2wpkh' ? 272 : 231;
     });
+    if (segwit) weight += 2; /* marker + flag, contados como witness */
     scripts.forEach(function (script) {
       weight += 4 * (8 + (script.length < 0xfd ? 1 : 3) + script.length);
     });
