@@ -652,7 +652,10 @@ recarregar. O bloco **enviar** também foi conferido no Chromium: o seletor
 de taxa só aparece depois de valor e destino válidos, os quatro níveis
 mostram a taxa do servidor, o custo em BTC e o percentual do Electrum falso, a
 escolha por rádio muda a taxa do PSBT, os detalhes do PSBT aparecem na tabela
-de leitura (sem o base64 na tela) e somem ao editar o formulário.
+de leitura (sem o base64 na tela) e somem ao editar o formulário. Com taxa
+fracionária (1,076 sat/vB, que é o caso normal) o preview responde e os quatro
+níveis ganham custo em BTC: a tela não pode tratar sat/vB como inteiro, senão
+o preview nunca dispara e o botão fica bloqueado.
 Um PSBT gerado pelo montador (bip84 e troco) foi analisado e assinado pelo
 próprio código do `chave-btc.html` em Chromium headless, com o troco
 reconhecido como interno.

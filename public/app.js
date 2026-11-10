@@ -811,6 +811,16 @@
     return Number(levels[level]) || 0;
   }
 
+  /* A taxa vem do servidor em sat/vB e PODE ter casas (1,075; 1,926): o
+     valor exato é sat/kvB. O que não pode é faltar, ser zero ou passar do
+     teto — a faixa fina (piso de relay, teto de 10 000) é conferida no
+     servidor, em psbt.js. Comparar com inteiro aqui deixaria a tela sem
+     preview e o botão bloqueado sempre que a estimativa não fosse redonda. */
+  function feeRateOk(rate) {
+    var n = Number(rate);
+    return isFinite(n) && n >= 1 && n <= FEE_MAX;
+  }
+
   /* Níveis que a tela mostra. Quando dois níveis caem na mesma taxa — o
      servidor devolve a mesma estimativa para alvos vizinhos, e o piso de
      relay junta os que ficam abaixo de 1 sat/vB —, fica só o mais rápido:
@@ -943,7 +953,7 @@
       hint.classList.toggle('is-error', !!problem);
     }
     var disabled = state.sendBusy || !amount || amount < DUST_SATS ||
-      !addressLooksValid(address) || !Number.isInteger(rate) || rate < 1 ||
+      !addressLooksValid(address) || !feeRateOk(rate) ||
       !state.limits || Number(state.limits.max_send_sats) < DUST_SATS ||
       amount > Number(state.limits.max_send_sats);
     var btn = $('#send-submit');
@@ -986,7 +996,7 @@
     var address = $('#send-address') ? $('#send-address').value.trim() : '';
     var rate = feeRateOf(state.feeLevel);
     var amount = amountSats();
-    if (!state.xpub || !addressLooksValid(address) || !Number.isInteger(rate) || rate < 1) return;
+    if (!state.xpub || !addressLooksValid(address) || !feeRateOk(rate)) return;
     if (keep && !amount) return;
     state.limitsTimer = setTimeout(function () {
       state.limitsTimer = 0;
@@ -1281,7 +1291,7 @@
       return;
     }
     var rate = feeRateOf(state.feeLevel);
-    if (!Number.isInteger(rate) || rate < 1 || rate > FEE_MAX) {
+    if (!feeRateOk(rate)) {
       setSendStatus('error', 'escolha um nível de taxa disponível.');
       var chosen = $('input[name="fee-level"]:checked');
       if (chosen) chosen.focus();
