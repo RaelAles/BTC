@@ -37,19 +37,19 @@ tela mostra:
    servidor para o destino e a taxa escolhidos.
    O PSBT sai sem assinatura, com troco, em base64, e fica disponível só
    como arquivo em **baixar .psbt**; a tela mostra os detalhes (txid,
-   entrada, saída, destino, troco, todas as saídas, taxa, pó e vsize) na mesma
-   tabela de leitura do "receber", sem o base64 como campo. A linha **pó** só
-   aparece quando o troco não foi criado: ela mostra quanto do valor ficou na
-   taxa por isso, para a taxa (que já inclui esse resto) não parecer erro, e
+   entrada, saída, saídas, taxa, pó e vsize) na mesma tabela de leitura do
+   "receber", sem o base64 como campo. A linha **pó** só aparece quando o
+   troco não foi criado: ela mostra quanto do valor ficou na taxa por isso,
+   para a taxa (que já inclui esse resto) não parecer erro, e
    fica sem sinal porque é uma parte da taxa, não uma segunda saída. Os outros
    valores usam a marcação de valor do sistema (VG-COR-16): o que sai (destino,
    taxa e saídas externas) leva `-` em `--error` e o que volta (troco) leva `+`
    em `--success`, com o sinal no texto para a cor ser reforço, não o único
-   sinal. Destino e saídas
-   são o que o servidor diz ter montado — o navegador não lê o base64 —, então
-   a tabela serve para comparar: se o destino ou o valor montados diferirem do
-   formulário, ou se aparecer mais de uma saída externa, surge um aviso
-   apontando para a revisão do `chave-btc.html`, que é a conferência que vale.
+   sinal. As saídas são o que o servidor diz ter montado — o navegador não lê
+   o base64 —, então a tabela serve para comparar: se o destino ou o valor
+   montados diferirem do formulário, ou se aparecer mais de uma saída
+   externa, surge um aviso apontando para a revisão do `chave-btc.html`, que
+   é a conferência que vale.
    Quem assina é o `chave-btc.html` (projeto 1), offline; o projeto 2 nunca
    vê chave privada.
 

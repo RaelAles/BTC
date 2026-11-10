@@ -1201,8 +1201,8 @@
   /* Os detalhes do PSBT usam o mesmo desenho de leitura do "receber":
      uma tabela de rótulo e valor, com uma informação por linha. O resumo é o
      que o SERVIDOR diz ter montado: o navegador não lê o base64, então esta
-     tabela é conveniência, não prova. Por isso o destino e todas as saídas
-     ficam à vista — para comparar com o formulário agora e com a revisão do
+     tabela é conveniência, não prova. Por isso todas as saídas ficam à vista
+     — para comparar com o formulário agora e com a revisão do
      "chave-btc.html" antes de assinar — e uma divergência entre o que foi
      montado e o que está digitado vira aviso (o caso clássico é o coordenador
      trocar o endereço de destino). */
@@ -1217,17 +1217,10 @@
       var el = $(sel);
       if (el) el.textContent = values[sel];
     });
-    /* Quanto sai e quanto volta, com a marcação de valor do sistema
-       (VG-COR-16): sinal no texto e cor só reforçando. O destino e a taxa
-       levam `-`; o troco leva `+`. O pó fica sem sinal, porque ele é uma
-       parte da taxa que já está contada na linha de cima — marcar de novo
-       sugeriria uma segunda saída. */
-    var recipient = $('#send-meta-recipient');
-    if (recipient) {
-      recipient.innerHTML = j.recipient
-        ? signedBtc(j.recipient.value, 'out') + ' em ' + esc(j.recipient.address)
-        : '';
-    }
+    /* A taxa usa a marcação de valor do sistema (VG-COR-16): sai, então `-`
+       em `--error`. O pó fica sem sinal, porque ele é uma parte da taxa que
+       já está contada na linha de cima — marcar de novo sugeriria uma
+       segunda saída. */
     var fee = $('#send-meta-fee');
     if (fee) fee.innerHTML = signedBtc(j.fee_sats, 'out');
     var dust = Number(j.dust_sats) || 0;
@@ -1235,20 +1228,11 @@
     if (dustRow) dustRow.hidden = !(dust > 0);
     var dustCell = $('#send-meta-dust');
     if (dustCell) dustCell.textContent = dust > 0 ? fmtBtc(dust) : '';
-    var change = $('#send-meta-change');
-    if (change) {
-      change.innerHTML = j.change
-        ? signedBtc(j.change.value, 'in') + ' em ' + esc(j.change.address)
-        : '';
-    }
-    var changeRow = $('#send-meta-change-row');
-    if (changeRow) changeRow.hidden = !j.change;
-
-    /* Todas as saídas, uma por linha: é o que revela uma saída que o resumo
-       de cima não menciona. O rótulo copia o vocabulário da revisão do
-       chave-btc.html (troco / externo) para a conferência ser lado a lado, e
-       a direção segue a linha de valor do sistema: externo sai (`-`), troco
-       volta (`+`). */
+    /* Todas as saídas, uma por linha, e a única visão delas: o destino e o
+       troco não ganham linha própria para não repetir endereço e valor. O
+       rótulo copia o vocabulário da revisão do chave-btc.html (troco /
+       externo) para a conferência ser lado a lado, e a direção segue a linha
+       de valor do sistema: externo sai (`-`), troco volta (`+`). */
     var list = $('#send-meta-output-list');
     if (list) {
       list.innerHTML = (j.outputs || []).map(function (out) {
