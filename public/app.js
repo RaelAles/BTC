@@ -1116,7 +1116,7 @@
       }
       var btc = $('.fee-level-btc', label);
       var pct = $('.fee-level-pct', label);
-      if (btc) btc.textContent = fee > 0 ? fmtBtc(fee) + ' BTC' : '—';
+      if (btc) btc.textContent = fee > 0 ? fmtBtc(fee) : '—';
       if (pct) pct.textContent = fee > 0 && amount > 0
         ? ' · ' + fmtPercent(fee, amount) + '%'
         : '';
@@ -1225,20 +1225,20 @@
     var recipient = $('#send-meta-recipient');
     if (recipient) {
       recipient.innerHTML = j.recipient
-        ? signedBtc(j.recipient.value, 'out') + ' BTC em ' + esc(j.recipient.address)
+        ? signedBtc(j.recipient.value, 'out') + ' em ' + esc(j.recipient.address)
         : '';
     }
     var fee = $('#send-meta-fee');
-    if (fee) fee.innerHTML = signedBtc(j.fee_sats, 'out') + ' BTC';
+    if (fee) fee.innerHTML = signedBtc(j.fee_sats, 'out');
     var dust = Number(j.dust_sats) || 0;
     var dustRow = $('#send-meta-dust-row');
     if (dustRow) dustRow.hidden = !(dust > 0);
     var dustCell = $('#send-meta-dust');
-    if (dustCell) dustCell.textContent = dust > 0 ? fmtBtc(dust) + ' BTC' : '';
+    if (dustCell) dustCell.textContent = dust > 0 ? fmtBtc(dust) : '';
     var change = $('#send-meta-change');
     if (change) {
       change.innerHTML = j.change
-        ? signedBtc(j.change.value, 'in') + ' BTC em ' + esc(j.change.address)
+        ? signedBtc(j.change.value, 'in') + ' em ' + esc(j.change.address)
         : '';
     }
     var changeRow = $('#send-meta-change-row');
@@ -1252,7 +1252,7 @@
     var list = $('#send-meta-output-list');
     if (list) {
       list.innerHTML = (j.outputs || []).map(function (out) {
-        return signedBtc(out.value, out.own ? 'in' : 'out') + ' BTC em ' +
+        return signedBtc(out.value, out.own ? 'in' : 'out') + ' em ' +
           esc(out.address) + ' · ' + (out.own ? 'troco' : 'externo');
       }).join('<br>');
     }
