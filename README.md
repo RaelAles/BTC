@@ -535,9 +535,9 @@ A taxa vem separada em duas partes: `fee_sats_at_rate` é o que a tarifa
 pedida cobraria sozinha na transação montada e `dust_sats` é o que sobrou e
 não virou troco (o troco ficaria abaixo do pó de 546 sats, ou criar a saída de
 troco custaria mais que esse resto). `fee_sats` é a soma das duas — é o valor
-que o PSBT paga de fato, e é ele que a tela mostra na linha `taxa`, com o pó
-na linha seguinte. Com troco, `dust_sats` é 0 e os dois primeiros campos são
-iguais.
+que o PSBT paga de fato. A tela mostra `fee_sats_at_rate` na linha `taxa` e,
+logo abaixo, o pó com sinal `-`: a soma das duas linhas volta a ser `fee_sats`.
+Com troco, `dust_sats` é 0, a linha do pó some e a taxa é a única mostrada.
 
 Resposta (resumida):
 

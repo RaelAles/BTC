@@ -1229,9 +1229,8 @@
     });
     /* A marcação de valor do sistema (VG-COR-16) fica só nas linhas de valor,
        com o sinal no texto e a cor reforçando: o que sai leva `-`, o que volta
-       leva `+`. Endereço é texto puro. O pó fica sem sinal, porque ele é uma
-       parte da taxa que já está contada na linha de cima — marcar de novo
-       sugeriria uma segunda saída. */
+       leva `+`. Endereço é texto puro. A taxa aparece sem o pó, que vem logo
+       abaixo com `-`: a soma das duas é o que o PSBT paga (`fee_sats`). */
     var outValue = $('#send-meta-out-value');
     if (outValue) outValue.innerHTML = j.recipient ? signedBtc(j.recipient.value, 'out') : '';
     var outAddress = $('#send-meta-out-address');
@@ -1242,13 +1241,15 @@
     if (changeAddress) changeAddress.textContent = j.change ? j.change.address : '';
     [$('#send-meta-change-value-row'), $('#send-meta-change-address-row')]
       .forEach(function (row) { if (row) row.hidden = !j.change; });
-    var fee = $('#send-meta-fee');
-    if (fee) fee.innerHTML = signedBtc(j.fee_sats, 'out');
+    /* O pó é a parte do resto que não virou troco e a transação soma à taxa:
+       a linha `taxa` mostra a tarifa sem ele e a linha seguinte o desconta. */
     var dust = Number(j.dust_sats) || 0;
+    var fee = $('#send-meta-fee');
+    if (fee) fee.innerHTML = signedBtc((Number(j.fee_sats) || 0) - dust, 'out');
     var dustRow = $('#send-meta-dust-row');
     if (dustRow) dustRow.hidden = !(dust > 0);
     var dustCell = $('#send-meta-dust');
-    if (dustCell) dustCell.textContent = dust > 0 ? fmtBtc(dust) : '';
+    if (dustCell) dustCell.innerHTML = dust > 0 ? signedBtc(dust, 'out') : '';
 
     /* Divergência entre o PSBT e o formulário. Não é prova de nada (o
        servidor pode mentir igual nos dois), mas pega troca acidental, bug e
