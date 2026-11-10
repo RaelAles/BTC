@@ -61,6 +61,7 @@
     psbtPendingKey: '', // pedido da montagem em voo (evita pedido dobrado)
     screen: 'carteira', // tela em vigor (carteira | historico)
     langOpen: false,    // a tela de idiomas está aberta
+    langAuto: true,     // idioma automático em vigor (só há conteúdo em português)
     historyState: 'idle', // idle | loading | error | ready
     langScroll: 0       // ponto de leitura devolvido pelo voltar da tela de idiomas
   };
@@ -401,6 +402,20 @@
       var b = $('#lang-btn');
       if (b) b.focus();
     }
+  }
+  /* Idioma em vigor (VG-IDI-03): a opção escolhida fica marcada e sai do
+     clique e da ordem do Tab; as demais voltam a responder. O automático é
+     a opção inicial até uma escolha manual. */
+  function selectLanguage(button) {
+    if (!button || button.disabled) return;
+    state.langAuto = button.getAttribute('data-lang') === 'auto';
+    $$('.lang-list .lang-item[data-lang]').forEach(function (item) {
+      if (item.disabled) return;
+      var current = item === button;
+      item.setAttribute('aria-pressed', current ? 'true' : 'false');
+      if (current) item.setAttribute('tabindex', '-1');
+      else item.removeAttribute('tabindex');
+    });
   }
   function fillFrames() {
     $$('.edge').forEach(function (el) {
@@ -1863,6 +1878,11 @@
        o voltar, o Esc ou o botão que a abriu. */
     var langBtn = $('#lang-btn');
     if (langBtn) langBtn.addEventListener('click', showLanguage);
+    var langList = $('.lang-list');
+    if (langList) langList.addEventListener('click', function (ev) {
+      var item = ev.target.closest ? ev.target.closest('.lang-item[data-lang]') : null;
+      if (item) selectLanguage(item);
+    });
     var langBack = $('#lang-back');
     if (langBack) langBack.addEventListener('click', function () { closeLanguage(); });
     document.addEventListener('keydown', function (ev) {
