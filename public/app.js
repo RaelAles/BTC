@@ -1211,33 +1211,34 @@
       '#send-meta-txid': j.txid,
       '#send-meta-inputs': fmtInt(j.inputs.length),
       '#send-meta-outputs': fmtInt(j.outputs.length),
-      '#send-meta-recipient': j.recipient
-        ? fmtBtc(j.recipient.value) + ' BTC em ' + j.recipient.address
-        : '',
-      '#send-meta-fee': fmtBtc(j.fee_sats) + ' BTC (' + fmtRate(j.fee_rate, 2) + ' sat/vB)',
       '#send-meta-vsize': '~' + fmtInt(j.vsize) + ' vB'
     };
     Object.keys(values).forEach(function (sel) {
       var el = $(sel);
       if (el) el.textContent = values[sel];
     });
-    /* O que sobrou e não virou troco (troco abaixo do pó de 546 sats) já está
-       dentro da taxa, então sai como linha própria: a taxa sozinha mostra a
-       tarifa pedida e o resto vem aqui, para o número maior não parecer erro.
-       As duas linhas somam o valor de `fee_sats`. */
+    /* Quanto sai e quanto volta, com a marcação de valor do sistema
+       (VG-COR-16): sinal no texto e cor só reforçando. O destino e a taxa
+       levam `-`; o troco leva `+`. O pó fica sem sinal, porque ele é uma
+       parte da taxa que já está contada na linha de cima — marcar de novo
+       sugeriria uma segunda saída. */
+    var recipient = $('#send-meta-recipient');
+    if (recipient) {
+      recipient.innerHTML = j.recipient
+        ? signedBtc(j.recipient.value, 'out') + ' BTC em ' + esc(j.recipient.address)
+        : '';
+    }
+    var fee = $('#send-meta-fee');
+    if (fee) fee.innerHTML = signedBtc(j.fee_sats, 'out') + ' BTC';
     var dust = Number(j.dust_sats) || 0;
     var dustRow = $('#send-meta-dust-row');
     if (dustRow) dustRow.hidden = !(dust > 0);
     var dustCell = $('#send-meta-dust');
-    if (dustCell) {
-      dustCell.textContent = dust > 0
-        ? fmtBtc(dust) + ' BTC (troco convertido para taxa)'
-        : '';
-    }
+    if (dustCell) dustCell.textContent = dust > 0 ? fmtBtc(dust) + ' BTC' : '';
     var change = $('#send-meta-change');
     if (change) {
-      change.textContent = j.change
-        ? fmtBtc(j.change.value) + ' BTC em ' + j.change.address
+      change.innerHTML = j.change
+        ? signedBtc(j.change.value, 'in') + ' BTC em ' + esc(j.change.address)
         : '';
     }
     var changeRow = $('#send-meta-change-row');
@@ -1245,16 +1246,15 @@
 
     /* Todas as saídas, uma por linha: é o que revela uma saída que o resumo
        de cima não menciona. O rótulo copia o vocabulário da revisão do
-       chave-btc.html (troco / externo) para a conferência ser lado a lado. */
+       chave-btc.html (troco / externo) para a conferência ser lado a lado, e
+       a direção segue a linha de valor do sistema: externo sai (`-`), troco
+       volta (`+`). */
     var list = $('#send-meta-output-list');
     if (list) {
-      list.textContent = '';
-      (j.outputs || []).forEach(function (out, i) {
-        if (i) list.appendChild(document.createElement('br'));
-        list.appendChild(document.createTextNode(
-          fmtBtc(out.value) + ' BTC em ' + out.address + ' · ' + (out.own ? 'troco' : 'externo')
-        ));
-      });
+      list.innerHTML = (j.outputs || []).map(function (out) {
+        return signedBtc(out.value, out.own ? 'in' : 'out') + ' BTC em ' +
+          esc(out.address) + ' · ' + (out.own ? 'troco' : 'externo');
+      }).join('<br>');
     }
 
     /* Divergência entre o PSBT e o formulário. Não é prova de nada (o
