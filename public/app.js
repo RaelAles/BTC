@@ -1209,8 +1209,6 @@
   function renderSendMeta(j) {
     var values = {
       '#send-meta-txid': j.txid,
-      '#send-meta-inputs': fmtInt(j.inputs.length),
-      '#send-meta-outputs': fmtInt(j.outputs.length),
       '#send-meta-vsize': '~' + fmtInt(j.vsize) + ' vB'
     };
     Object.keys(values).forEach(function (sel) {

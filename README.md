@@ -37,8 +37,8 @@ tela mostra:
    servidor para o destino e a taxa escolhidos.
    O PSBT sai sem assinatura, com troco, em base64, e fica disponível só
    como arquivo em **baixar .psbt**; a tela mostra os detalhes (txid,
-   entrada, saída, saídas, taxa, pó e vsize) na mesma tabela de leitura do
-   "receber", sem o base64 como campo. A linha **pó** só aparece quando o
+   saídas, taxa, pó e vsize) na mesma tabela de leitura do "receber", sem o
+   base64 como campo. A linha **pó** só aparece quando o
    troco não foi criado: ela mostra quanto do valor ficou na taxa por isso,
    para a taxa (que já inclui esse resto) não parecer erro, e
    fica sem sinal porque é uma parte da taxa, não uma segunda saída. Os outros
