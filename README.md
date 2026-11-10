@@ -37,8 +37,11 @@ tela mostra:
    servidor para o destino e a taxa escolhidos.
    O PSBT sai sem assinatura, com troco, em base64, e fica disponível só
    como arquivo em **baixar .psbt**; a tela mostra os detalhes (txid,
-   entrada, saída, destino, troco, todas as saídas, taxa e vsize) na mesma
-   tabela de leitura do "receber", sem o base64 como campo. Destino e saídas
+   entrada, saída, destino, troco, todas as saídas, taxa, pó e vsize) na mesma
+   tabela de leitura do "receber", sem o base64 como campo. A linha **pó** só
+   aparece quando o troco não foi criado: ela mostra quanto do valor ficou na
+   taxa por isso, para a taxa (que já inclui esse resto) não parecer erro.
+   Destino e saídas
    são o que o servidor diz ter montado — o navegador não lê o base64 —, então
    a tabela serve para comparar: se o destino ou o valor montados diferirem do
    formulário, ou se aparecer mais de uma saída externa, surge um aviso
@@ -98,7 +101,9 @@ blockchain.info, nem chave privada em lugar nenhum.
   endereço de troco e monta um **PSBT v0** sem assinatura. Cada entrada leva
   `witness_utxo` e a origem BIP32; p2pkh leva também o `non_witness_utxo` e
   p2sh-p2wpkh leva o `redeem_script`. O pó (abaixo de 0.00000546 BTC) não vira
-  saída de troco: é somado à taxa.
+  saída de troco: é somado à taxa, e a resposta separa esse resto
+  (`dust_sats`) da tarifa (`fee_sats_at_rate`) para a tela explicar a
+  diferença.
 - **Taxa ao vivo**: `GET /api/fees` pergunta `blockchain.estimatefee` para
   144, 6, 3 e 1 bloco, que a tela mostra como prazo médio de 1 dia, 1 hora,
   30 minutos e 10 minutos (a 10 min por bloco), e converte BTC/kvB em sat/kvB
@@ -520,6 +525,14 @@ as entradas e manda todo o resto ao destino (sem troco). É exatamente o maior
 valor que `selectCoins` aceita; abaixo dele sempre existe uma seleção válida,
 e acima o envio é recusado. No máximo não há saída de troco.
 
+A taxa vem separada em duas partes: `fee_sats_at_rate` é o que a tarifa
+pedida cobraria sozinha na transação montada e `dust_sats` é o que sobrou e
+não virou troco (o troco ficaria abaixo do pó de 546 sats, ou criar a saída de
+troco custaria mais que esse resto). `fee_sats` é a soma das duas — é o valor
+que o PSBT paga de fato, e é ele que a tela mostra na linha `taxa`, com o pó
+na linha seguinte. Com troco, `dust_sats` é 0 e os dois primeiros campos são
+iguais.
+
 Resposta (resumida):
 
 ```json
@@ -528,6 +541,8 @@ Resposta (resumida):
   "txid": "2fbb9a49...",
   "vsize": 142,
   "fee_sats": 852,
+  "fee_sats_at_rate": 852,
+  "dust_sats": 0,
   "fee_rate": 6,
   "fee_rate_requested": 6,
   "fee_rate_kvb": 6000,

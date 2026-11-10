@@ -216,11 +216,19 @@ export async function preparePsbt({
 
   const built = BTC.buildPsbt({ inputs, outputs });
   const paths = pick.selected.map(u => u.row.path);
+  /* A taxa paga (`fee_sats`) é a da transação montada. `fee_sats_at_rate` é a
+     que a tarifa pedida sozinha cobraria nela; a diferença é o valor que
+     sobrou e não virou troco — porque o troco ficaria abaixo do pó (546) ou
+     porque criar a saída custaria mais do que esse resto — e que a transação
+     paga de taxa. Com troco, os dois números são iguais. */
+  const feeAtRate = feeSats(rateKvb, pick.vsize);
   return {
     psbt: built.base64,
     txid: built.txid,
     vsize: built.vsize,
     fee_sats: pick.fee,
+    fee_sats_at_rate: feeAtRate,
+    dust_sats: pick.fee - feeAtRate,
     fee_rate: pick.vsize ? pick.fee / pick.vsize : 0,
     fee_rate_requested: feeRate,
     fee_rate_kvb: rateKvb,

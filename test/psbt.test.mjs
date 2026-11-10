@@ -275,6 +275,9 @@ function mapFind(map, type) {
     changeRow: row(change, 1, 0),
     rawTxFor: async () => null
   });
+  /* com troco, a taxa é só a tarifa: nada foi absorvido */
+  assert.equal(prepared.dust_sats, 0);
+  assert.equal(prepared.fee_sats, prepared.fee_sats_at_rate);
 
   /* preview com o valor: devolve a taxa e o troco exatos do PSBT, para a tela
      mostrar a taxa ao lado do valor antes de montar qualquer coisa. */
@@ -320,6 +323,20 @@ function mapFind(map, type) {
   assert.equal(atMax.change, null);
   assert.equal(atMax.fee_sats, limits.fee_sats_at_max);
   assert.equal(atMax.total_out, limits.max_send_sats);
+  assert.equal(atMax.dust_sats, 0, 'no máximo não há taxa pedida a separar: o resto é a própria tarifa');
+
+  /* troco abaixo do pó: o valor não vira saída e a resposta separa a tarifa
+     (`fee_sats_at_rate`) do resto (`dust_sats`), que é o que a tela mostra
+     como pó incluído na taxa. Aqui sobram 300 sats depois da tarifa. */
+  const dusty = await preparePsbt({
+    account, utxos, address: destination,
+    amountSats: limits.available_sats - limits.fee_sats_at_max - 300, feeRate: 4,
+    changeRow: row(change, 1, 0), rawTxFor: async () => null
+  });
+  assert.equal(dusty.change, null, 'troco abaixo de 546 não vira saída');
+  assert.equal(dusty.dust_sats, 300, 'o resto não virou troco e ficou na taxa');
+  assert.equal(dusty.fee_sats, dusty.fee_sats_at_rate + dusty.dust_sats);
+  assert.equal(dusty.fee_sats_at_rate, limits.fee_sats_at_max);
   const psbt = BTC.parsePsbt(BTC.psbtParseInput(prepared.psbt));
   const tap = mapFind(psbt.inputs[0], 0x16);
   assert.ok(tap, 'entrada taproot leva tap_bip32_derivation');

@@ -1221,6 +1221,19 @@
       var el = $(sel);
       if (el) el.textContent = values[sel];
     });
+    /* O que sobrou e não virou troco (troco abaixo do pó de 546 sats) já está
+       dentro da taxa, então sai como linha própria: a taxa sozinha mostra a
+       tarifa pedida e o resto vem aqui, para o número maior não parecer erro.
+       As duas linhas somam o valor de `fee_sats`. */
+    var dust = Number(j.dust_sats) || 0;
+    var dustRow = $('#send-meta-dust-row');
+    if (dustRow) dustRow.hidden = !(dust > 0);
+    var dustCell = $('#send-meta-dust');
+    if (dustCell) {
+      dustCell.textContent = dust > 0
+        ? fmtBtc(dust) + ' BTC (' + fmtInt(dust) + ' sats) incluídos na taxa — troco abaixo do mínimo'
+        : '';
+    }
     var change = $('#send-meta-change');
     if (change) {
       change.textContent = j.change
