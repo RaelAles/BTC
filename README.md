@@ -32,11 +32,13 @@ tela mostra:
    máscara de BTC: o usuário digita só dígitos e o ponto entra sozinho, da
    direita para a esquerda (`1` → `0.00000001`, `12345678` → `0.12345678`).
    A nota abaixo do campo mostra o máximo enviável para o destino e a taxa
-   escolhidos. O botão **criar psbt** fica bloqueado abaixo do pó
-   (0.00000546 BTC) e acima do máximo enviável (saldo − taxa), calculado no
-   servidor para o destino e a taxa escolhidos.
-   O PSBT sai sem assinatura, com troco, em base64, e fica disponível só
-   como arquivo em **baixar .psbt**; a tela mostra os detalhes (saída,
+   escolhidos. O PSBT é montado sozinho assim que destino, valor e taxa
+   formam um pedido válido, e é remontado a cada mudança (com um respiro de
+   digitação); fora do intervalo válido não há o que montar: abaixo do pó
+   (0.00000546 BTC) ou acima do máximo enviável (saldo − taxa), a nota do
+   valor explica o motivo. O PSBT sai sem assinatura, com troco, em base64,
+   e aparece só quando a montagem termina, disponível como arquivo em
+   **baixar .psbt**; a tela mostra os detalhes (saída,
    destino, troco, endereço, pó, taxa, vsize e txid) na mesma tabela de
    leitura do "receber", sem o base64 como campo. A linha **pó** só aparece
    quando o troco não foi criado: ela mostra quanto do valor ficou na taxa
@@ -673,10 +675,12 @@ recarregar. O bloco **enviar** também foi conferido no Chromium: o seletor
 de taxa só aparece depois de valor e destino válidos, os quatro níveis
 mostram a taxa do servidor, o custo em BTC e o percentual do Electrum falso, a
 escolha por rádio muda a taxa do PSBT, os detalhes do PSBT aparecem na tabela
-de leitura (sem o base64 na tela) e somem ao editar o formulário. Com taxa
+de leitura (sem o base64 na tela) e somem ao editar o formulário, voltando
+sozinhos quando a nova montagem termina (o bloco não tem botão de envio: o
+PSBT acompanha o formulário). Com taxa
 fracionária (1,076 sat/vB, que é o caso normal) o preview responde e os quatro
 níveis ganham custo em BTC: a tela não pode tratar sat/vB como inteiro, senão
-o preview nunca dispara e o botão fica bloqueado.
+o preview nunca dispara e o PSBT nunca é montado.
 Um PSBT gerado pelo montador (bip84 e troco) foi analisado e assinado pelo
 próprio código do `chave-btc.html` em Chromium headless, com o troco
 reconhecido como interno.

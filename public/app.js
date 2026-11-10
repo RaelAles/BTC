@@ -52,7 +52,13 @@
     limitsTimer: 0,
     limitsSeq: 0,
     sendBusy: false,
-    psbt: null,         // PSBT criado (texto e resumo)
+    psbt: null,         // PSBT montado (texto e resumo)
+    psbtKey: '',        // destino|valor|taxa do PSBT na tela
+    psbtTimer: 0,       // debounce da montagem automática
+    psbtSeq: 0,         // descarta resposta de um PSBT que já saiu da tela
+    psbtPending: false, // há uma montagem em voo (frase "montando")
+    psbtFailKey: '',    // pedido que falhou: não repete sozinho em laço
+    psbtPendingKey: '', // pedido da montagem em voo (evita pedido dobrado)
     screen: 'carteira', // tela em vigor (carteira | historico)
     langOpen: false,    // a tela de idiomas está aberta
     historyState: 'idle', // idle | loading | error | ready
@@ -964,20 +970,23 @@
       hint.textContent = problem || hintText;
       hint.classList.toggle('is-error', !!problem);
     }
-    var disabled = state.sendBusy || !amount || amount < DUST_SATS ||
-      !addressLooksValid(address) || !feeRateOk(rate) ||
-      !state.limits || Number(state.limits.max_send_sats) < DUST_SATS ||
-      amount > Number(state.limits.max_send_sats);
-    var btn = $('#send-submit');
+    var ready = !!amount && amount >= DUST_SATS &&
+      addressLooksValid(address) && feeRateOk(rate) &&
+      !!state.limits && Number(state.limits.max_send_sats) >= DUST_SATS &&
+      amount <= Number(state.limits.max_send_sats);
+    state.sendBlocked = !ready;
+    var btn = $('#send-download');
     if (btn) {
-      if (disabled) btn.setAttribute('aria-disabled', 'true');
-      else btn.removeAttribute('aria-disabled');
+      if (state.psbt) btn.removeAttribute('aria-disabled');
+      else btn.setAttribute('aria-disabled', 'true');
     }
-    state.sendBlocked = disabled;
     updateFeeVisibility();
     /* o custo de cada nível depende do valor, do destino e do preview que
        acabou de mudar; é o único lugar em que todos os três se encontram */
     renderFeeLevels();
+    /* formulário completo: o PSBT se monta sozinho, com o respiro da
+       digitação (é aqui que destino, valor, taxa e máximo se encontram) */
+    schedulePsbt();
   }
 
   /* O seletor de taxa só aparece quando há valor e destino válidos: é quando
@@ -1173,7 +1182,22 @@
     }, 60000);
   }
 
+  /* Qualquer mudança no formulário vence o pedido em voo: a resposta que
+     chegar de um retrato antigo é descartada pela sequência, e o resultado
+     já desenhado sai da tela para não ser confundido com o novo. A montagem
+     agendada não é cancelada aqui: quando ela disparar, a chave e o
+     `psbtReady` já são os do formulário novo (e fora do intervalo válido ela
+     não monta nada). */
   function invalidatePsbt() {
+    state.psbtSeq++;
+    state.sendBusy = false;
+    if (state.psbtPending) {
+      state.psbtPending = false;
+      state.psbtPendingKey = '';
+      setSendStatus('', ''); // a frase de "montando" não sobrevive à edição
+    }
+    state.psbtKey = '';
+    state.psbtFailKey = ''; // edição é o gatilho para tentar de novo
     if (!state.psbt) return;
     state.psbt = null;
     var out = $('#send-out');
@@ -1200,11 +1224,6 @@
     });
     var amount = $('#send-amount');
     if (amount) amount.value = '';
-    var btn = $('#send-submit');
-    if (btn) {
-      btn.removeAttribute('aria-busy');
-      btn.textContent = 'criar psbt';
-    }
     setSendStatus('', '');
     renderFees();
     renderAmountInput();
@@ -1272,62 +1291,55 @@
     }
   }
 
-  async function createPsbt() {
-    if (state.sendBusy) return;
-    invalidatePsbt();
+  /* O PSBT é um retrato do formulário: assim que destino, valor e taxa
+     formam um pedido válido, ele é montado sozinho e remontado a cada
+     mudança. A chave identifica o pedido (destino, valor e taxa) para não
+     refazer o mesmo PSBT quando só o máximo ou as cotas foram recalculados;
+     a sequência descarta a resposta de um retrato que já não está na tela.
+     Fora do intervalo válido nada é montado: o aviso fica na nota do valor. */
+  function psbtKey() {
+    var address = $('#send-address') ? $('#send-address').value.trim() : '';
+    return address + '|' + amountSats() + '|' + feeRateOf(state.feeLevel);
+  }
+
+  function psbtReady() {
     var amount = amountSats();
-    if (!amount) {
-      setSendStatus('error', 'digite o valor em BTC.');
-      $('#send-amount').focus();
-      return;
-    }
-    if (amount < DUST_SATS) {
-      setSendStatus('error', 'valor abaixo do mínimo: ' + fmtBtc(DUST_SATS) + ' BTC.');
-      $('#send-amount').focus();
-      return;
-    }
+    var address = $('#send-address') ? $('#send-address').value.trim() : '';
+    return amount >= DUST_SATS && addressLooksValid(address) &&
+      feeRateOk(feeRateOf(state.feeLevel)) &&
+      !!state.limits && Number(state.limits.max_send_sats) >= DUST_SATS &&
+      amount <= Number(state.limits.max_send_sats);
+  }
+
+  function schedulePsbt() {
+    if (state.psbtTimer) clearTimeout(state.psbtTimer);
+    state.psbtTimer = 0;
+    if (!psbtReady()) return;
+    var key = psbtKey();
+    if (state.psbt && state.psbtKey === key) return;
+    /* um pedido que já falhou não se repete sozinho: sem esta marca, o
+       `updateSendAvailability` do fim da tentativa agendaria outra, e o
+       erro do servidor viraria uma consulta a cada 300 ms. A próxima
+       edição (ou taxa nova) muda a chave e libera a tentativa. */
+    if (state.psbtFailKey && state.psbtFailKey === key) return;
+    state.psbtTimer = setTimeout(function () {
+      state.psbtTimer = 0;
+      buildPsbt();
+    }, 300);
+  }
+
+  async function buildPsbt() {
+    if (!psbtReady()) return;
+    var key = psbtKey();
+    if (state.psbt && state.psbtKey === key) return;
+    if (state.psbtPending && state.psbtPendingKey === key) return;
+    var seq = ++state.psbtSeq;
+    var amount = amountSats();
     var address = $('#send-address').value.trim();
-    if (!address) {
-      setSendStatus('error', 'informe o endereço de destino.');
-      $('#send-address').focus();
-      return;
-    }
-    if (!addressLooksValid(address)) {
-      setSendStatus('error', 'endereço de destino inválido.');
-      $('#send-address').focus();
-      return;
-    }
     var rate = feeRateOf(state.feeLevel);
-    if (!feeRateOk(rate)) {
-      setSendStatus('error', 'escolha um nível de taxa disponível.');
-      var chosen = $('input[name="fee-level"]:checked');
-      if (chosen) chosen.focus();
-      return;
-    }
-    if (!state.limits) {
-      setSendStatus('error', state.limitsError
-        ? 'não foi possível calcular o máximo: ' + state.limitsError
-        : 'aguarde o cálculo do máximo enviável.');
-      return;
-    }
-    if (Number(state.limits.max_send_sats) < DUST_SATS) {
-      setSendStatus('error', 'saldo insuficiente para enviar com essa taxa.');
-      return;
-    }
-    if (amount > Number(state.limits.max_send_sats)) {
-      setSendStatus('error', 'valor acima do máximo enviável: ' +
-        fmtBtc(state.limits.max_send_sats) + ' BTC.');
-      $('#send-amount').focus();
-      return;
-    }
     state.sendBusy = true;
-    updateSendAvailability();
-    var btn = $('#send-submit');
-    if (btn) {
-      btn.setAttribute('aria-disabled', 'true');
-      btn.setAttribute('aria-busy', 'true');
-      btn.textContent = 'criando';
-    }
+    state.psbtPending = true;
+    state.psbtPendingKey = key;
     setSendStatus('', 'montando o psbt...');
     try {
       var xpub = state.xpub;
@@ -1354,7 +1366,11 @@
         j = await r.json();
       }
       if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+      // o formulário mudou enquanto o servidor montava: este retrato venceu
+      if (seq !== state.psbtSeq || key !== psbtKey()) return;
       state.psbt = j;
+      state.psbtKey = key;
+      state.psbtFailKey = '';
       renderSendMeta(j);
       $('#send-out').hidden = false;
       // sem recado de sucesso: o download e os detalhes na tela confirmam
@@ -1362,14 +1378,16 @@
       setSendStatus('', '');
       updateScroll();
     } catch (e) {
+      if (seq !== state.psbtSeq) return;
+      state.psbtFailKey = key;
       setSendStatus('error', e && e.message ? e.message : String(e));
     } finally {
-      state.sendBusy = false;
-      if (btn) {
-        btn.removeAttribute('aria-busy');
-        btn.textContent = 'criar psbt';
+      if (seq === state.psbtSeq) {
+        state.psbtPending = false;
+        state.psbtPendingKey = '';
+        state.sendBusy = false;
+        updateSendAvailability();
       }
-      updateSendAvailability();
     }
   }
 
@@ -1950,10 +1968,12 @@
     });
 
     /* ---------------------------------------------------------- enviar */
+    /* Sem botão de envio: o PSBT se monta sozinho. O Enter no formulário
+       só antecipa a montagem; a página não navega nem recarrega. */
     var sendForm = $('#send-form');
     if (sendForm) sendForm.addEventListener('submit', function (ev) {
       ev.preventDefault();
-      createPsbt();
+      schedulePsbt();
     });
     /* A taxa é um grupo de rádio nativo: o navegador guarda a escolha e
        anda com as setas; aqui só o estado da tela e o preview acompanham. */
