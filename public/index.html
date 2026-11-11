@@ -143,41 +143,43 @@
                        aria-describedby="send-amount-hint">
                 <div class="edge" aria-hidden="true"></div>
               </div>
-              <p class="note" id="send-amount-hint"></p>
+              <div class="send-limit-row">
+                <p class="note" id="send-amount-hint"></p>
 
-              <div id="fee-section" hidden>
-                <!-- O prazo é a média de FEE_TARGETS (src/electrum.js), a
-                     10 min por bloco: 1 bloco ≈ 10 min (urgent), 3 ≈
-                     30 min (high), 6 ≈ 1 h (standard), 144 ≈ 1 dia
-                     (minimum). É ordem de grandeza, não promessa. Os
-                     botões vão do mais rápido ao mais lento, alinhados à
-                     direita, com o percentual da taxa sobre o valor
-                     enviado à direita de cada prazo e um "|" entre eles. -->
-                <div class="field-checks fee-levels" id="fee-levels" role="radiogroup"
-                     aria-label="taxa · prazo médio">
-                  <label class="field-choice fee-level" data-level="urgent">
-                    <input type="radio" name="fee-level" value="urgent">
-                    <span class="fee-level-name">~10m</span>
-                    <span class="fee-level-pct">—</span>
-                  </label>
-                  <label class="field-choice fee-level" data-level="high">
-                    <input type="radio" name="fee-level" value="high">
-                    <span class="fee-level-sep" aria-hidden="true">|</span>
-                    <span class="fee-level-name">~30m</span>
-                    <span class="fee-level-pct">—</span>
-                  </label>
-                  <label class="field-choice fee-level" data-level="standard">
-                    <input type="radio" name="fee-level" value="standard" checked>
-                    <span class="fee-level-sep" aria-hidden="true">|</span>
-                    <span class="fee-level-name">~1h</span>
-                    <span class="fee-level-pct">—</span>
-                  </label>
-                  <label class="field-choice fee-level" data-level="minimum">
-                    <input type="radio" name="fee-level" value="minimum">
-                    <span class="fee-level-sep" aria-hidden="true">|</span>
-                    <span class="fee-level-name">~1d</span>
-                    <span class="fee-level-pct">—</span>
-                  </label>
+                <div id="fee-section" hidden>
+                  <!-- O prazo é a média de FEE_TARGETS (src/electrum.js), a
+                       10 min por bloco: 1 bloco ≈ 10 min (urgent), 3 ≈
+                       30 min (high), 6 ≈ 1 h (standard), 144 ≈ 1 dia
+                       (minimum). É ordem de grandeza, não promessa. Os
+                       botões vão do mais rápido ao mais lento, alinhados à
+                       direita, com o percentual da taxa sobre o valor
+                       enviado à direita de cada prazo e um "|" entre eles. -->
+                  <div class="field-checks fee-levels" id="fee-levels" role="radiogroup"
+                       aria-label="taxa · prazo médio">
+                    <label class="field-choice fee-level" data-level="urgent">
+                      <input type="radio" name="fee-level" value="urgent">
+                      <span class="fee-level-name">~10m</span>
+                      <span class="fee-level-pct">—</span>
+                    </label>
+                    <label class="field-choice fee-level" data-level="high">
+                      <input type="radio" name="fee-level" value="high">
+                      <span class="fee-level-sep" aria-hidden="true">|</span>
+                      <span class="fee-level-name">~30m</span>
+                      <span class="fee-level-pct">—</span>
+                    </label>
+                    <label class="field-choice fee-level" data-level="standard">
+                      <input type="radio" name="fee-level" value="standard" checked>
+                      <span class="fee-level-sep" aria-hidden="true">|</span>
+                      <span class="fee-level-name">~1h</span>
+                      <span class="fee-level-pct">—</span>
+                    </label>
+                    <label class="field-choice fee-level" data-level="minimum">
+                      <input type="radio" name="fee-level" value="minimum">
+                      <span class="fee-level-sep" aria-hidden="true">|</span>
+                      <span class="fee-level-name">~1d</span>
+                      <span class="fee-level-pct">—</span>
+                    </label>
+                  </div>
                 </div>
               </div>
 

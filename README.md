@@ -18,10 +18,11 @@ tela mostra:
    um, cinco por página, na tela **histórico**;
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e taxa em um
    **grupo de níveis** rotulado pelo **prazo médio de confirmação** —
-   `~10m`, `~30m`, `~1h` e `~1d` —, alinhado à direita logo abaixo do recado
-   do máximo e desenhado como os botões **copiar** dos endereços: caixa
-   alta, `--accent` em repouso, `--fg` no hover e `--support` no escolhido,
-   sem moldura. Cada nível traz o **percentual da taxa sobre o valor
+   `~10m`, `~30m`, `~1h` e `~1d` —, na mesma linha do recado do máximo (o
+   recado à esquerda e a taxa à direita; em tela estreita a taxa desce e
+   continua à direita), desenhado como os botões **copiar** dos endereços:
+   caixa alta, `--accent` em repouso, `--fg` no hover e `--support` no
+   escolhido, sem moldura. Cada nível traz o **percentual da taxa sobre o valor
    enviado** à direita do prazo, em `--dim`, e um `|` em `--sep` separa dois
    níveis. Quando dois níveis caem na mesma taxa (o
    servidor devolve a mesma estimativa para alvos vizinhos, ou os dois ficam
