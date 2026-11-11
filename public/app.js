@@ -42,8 +42,7 @@
     scanning: false,    // varredura em passos em andamento
     page: 1,            // página da lista do histórico
     fees: null,         // estimativa ao vivo do Electrum
-    feesError: false,   // a última consulta da taxa falhou
-    feeQuotes: null,    // custo em BTC de cada nível para o valor atual
+    feeQuotes: null,    // custo de cada nível para o valor atual
     feeLevel: 'standard', // minimum | standard | high | urgent
     feeTimer: 0,        // reconsulta periódica da taxa
     amountDigits: '',   // satoshis digitados (o ponto é só desenho)
@@ -1009,11 +1008,11 @@
   }
 
   /* ---------------------------------------------------------- enviar */
-  /* FEE_ORDER é a ordem das chaves na tela, do prazo mais longo ao mais
-     curto; o rótulo que aparece é o prazo médio ("1 dia", "1 hora",
-     "30 minutos", "10 minutos"). A taxa de cada nível vem do /api/fees e o
-     custo em BTC, do preview do valor e do destino digitados. */
-  var FEE_ORDER = ['minimum', 'standard', 'high', 'urgent'];
+  /* FEE_ORDER é a ordem das chaves na tela, do prazo mais curto ao mais
+     longo; o rótulo que aparece é o prazo médio ("~10m", "~30m", "~1h",
+     "~1d"). A taxa de cada nível vem do /api/fees e o percentual sobre o
+     valor enviado, do preview do valor e do destino digitados. */
+  var FEE_ORDER = ['urgent', 'high', 'standard', 'minimum'];
   /* Ordem de preferência quando o nível escolhido deixa de ter estimativa:
      o padrão (1 h) é a escolha natural; a de 1 dia é o último recurso. */
   var FEE_PREF = ['standard', 'high', 'urgent', 'minimum'];
@@ -1045,7 +1044,7 @@
     var visible = {};
     var seen = {};
     var any = false;
-    for (var i = FEE_ORDER.length - 1; i >= 0; i--) { // do mais rápido ao mais lento
+    for (var i = 0; i < FEE_ORDER.length; i++) { // do mais rápido ao mais lento
       var key = FEE_ORDER[i];
       var rate = Number(levels[key]) || 0;
       if (!(rate > 0) || seen[rate]) { visible[key] = false; continue; }
@@ -1067,7 +1066,7 @@
     var levels = (state.fees && state.fees.levels) || {};
     var rate = Number(levels[state.feeLevel]) || 0;
     if (rate > 0) {
-      for (var i = FEE_ORDER.length - 1; i >= 0; i--) {
+      for (var i = 0; i < FEE_ORDER.length; i++) { // do mais rápido ao mais lento
         var key = FEE_ORDER[i];
         if (visible[key] && (Number(levels[key]) || 0) === rate) { state.feeLevel = key; return; }
       }
@@ -1274,7 +1273,9 @@
      do servidor; o grupo de rádio é nativo: o navegador guarda a escolha,
      anda com as setas e leva o foco ao marcador; o JavaScript só reflete o
      estado da estimativa. Nível escondido também fica desabilitado, para as
-     setas e o Tab não pararem num rádio fora da tela. */
+     setas e o Tab não pararem num rádio fora da tela. O "|" fica dentro do
+     botão da direita (some junto com ele e quebra de linha junto), e o do
+     primeiro botão visível sai: sem isso a linha começaria com o divisor. */
   function renderFees() {
     var levels = (state.fees && state.fees.levels) || {};
     normalizeFeeLevel();
@@ -1290,17 +1291,13 @@
       label.hidden = !visible[key];
       label.classList.toggle('is-empty', !available);
     });
+    var first = true;
+    $$('#fee-levels .fee-level').forEach(function (label) {
+      var sep = label.querySelector('.fee-level-sep');
+      if (sep) sep.hidden = first;
+      if (!label.hidden) first = false;
+    });
     renderFeeLevels();
-    var upd = $('#fee-updated');
-    if (!upd) return;
-    var any = FEE_ORDER.some(function (k) { return Number(levels[k]) > 0; });
-    upd.textContent = state.fees
-      ? any
-        ? 'atualizado ' + new Date(state.fees.updated_at).toLocaleTimeString('pt-BR')
-        : 'estimativa indisponível'
-      : state.feesError
-        ? 'estimativa indisponível'
-        : 'calculando…';
   }
 
   /* Percentual de cada nível para o valor que está no formulário. Só vale
@@ -1347,14 +1344,12 @@
       if (state.xpub !== xpub) return;
       var before = feeRateOf(state.feeLevel);
       state.fees = j;
-      state.feesError = false;
       renderFees(); // normaliza a escolha e esconde os níveis de taxa repetida
       /* taxa escolhida mudou: o máximo é recalculado sem manter o antigo.
          Só os níveis mudaram: mantém o máximo e refaz as cotas das opções. */
       if (!state.limits || feeRateOf(state.feeLevel) !== before) scheduleLimits();
       else scheduleLimits(true);
     } catch (e) {
-      state.feesError = true;
       renderFees();
     }
   }
@@ -1410,7 +1405,6 @@
     }
     state.sendBusy = false;
     state.fees = null;
-    state.feesError = false;
     state.feeQuotes = null;
     state.feeLevel = 'standard';
     state.amountDigits = '';

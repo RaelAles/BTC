@@ -1715,53 +1715,58 @@
   #send-amount-hint { margin: var(--space-2) 0 0; }
   #send-amount-hint:empty { display: none; }
   #fee-section[hidden] { display: none; }
-  /* Os níveis ficam lado a lado, do mais rápido ao mais lento, e cada um
-     divide a largura por igual: o prazo é o botão e o percentual sobre o
-     valor enviado fica logo abaixo dele. Nível escondido sai do fluxo (o
-     atributo precisa da regra porque .field-choice define display) e os
-     demais repartem a linha inteira. O grupo herda o desenho do
-     .field-checks/.field-choice; aqui só a coluna e o percentual ganham
+  /* A taxa fecha o bloco, alinhada à direita logo abaixo do recado do
+     máximo, no desenho dos botões de copiar: caixa alta, --accent em
+     repouso, --fg no hover e --support no escolhido, sem moldura. Cada
+     botão traz o prazo e, à direita dele, o percentual sobre o valor
+     enviado em --dim. O "|" em --sep separa dois botões, como na linha de
+     dados do histórico. O grupo herda o desenho do
+     .field-checks/.field-choice; aqui só a linha e o percentual ganham
      regra. */
   .fee-levels {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: baseline;
     gap: var(--space-2) var(--space-3);
+    margin: var(--space-3) 0 0;
+    font-size: var(--text-sm);
   }
   .fee-level {
-    flex: 1 1 0;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-1);
-    min-height: var(--target-size);
+    align-items: baseline;
+    gap: var(--space-3);
     padding: var(--space-2) 0;
-    text-align: center;
-    text-transform: none;
   }
+  /* Nível escondido (ver visibleFeeLevels em app.js) sai do fluxo; o
+     atributo precisa da regra porque .field-choice define display. */
   .fee-level[hidden] { display: none; }
-  /* O prazo responde ao clique como os botões de assunto: disponível em
-     --accent, hover em --fg e escolhido em --support, sem preenchimento nem
-     moldura. O foco tracejado cai na célula inteira, e não no rádio
-     escondido. */
+  /* O divisor fica dentro do botão da direita para não se soltar dele na
+     quebra de linha; o primeiro botão visível fica sem (ver renderFees). */
+  .fee-level-sep { color: var(--sep); }
+  .fee-level-sep[hidden] { display: none; }
+  /* O prazo responde ao clique como os botões de copiar: disponível em
+     --accent, hover em --fg, escolhido e no aperto em --support, sem
+     preenchimento nem moldura. O foco tracejado envolve o botão inteiro,
+     prazo e percentual, e não o rádio escondido. */
   .fee-level-name { color: var(--accent); white-space: nowrap; }
   .fee-level:hover .fee-level-name { color: var(--fg); }
   .fee-level input:checked ~ .fee-level-name,
-  .fee-level:hover input:checked ~ .fee-level-name { color: var(--support); }
+  .fee-level:hover input:checked ~ .fee-level-name,
+  .fee-level:active input:checked ~ .fee-level-name,
+  .fee-level:active .fee-level-name { color: var(--support); }
   .fee-level:focus-within {
     outline: 1px dashed var(--accent);
     outline-offset: 2px;
   }
-  /* O percentual é do valor enviado: fica em --dim, menor que o prazo, para
-     o botão continuar sendo o que responde ao clique. Sem a cota do
-     servidor (valor e destino ainda incompletos), fica em `—`. */
-  .fee-level-pct {
-    color: var(--dim);
-    font-size: var(--text-sm);
-    white-space: nowrap;
-  }
+  /* O percentual é do valor enviado e fica em --dim, ao lado do prazo. Sem a
+     cota do servidor (valor e destino ainda incompletos), fica em `—`. */
+  .fee-level-pct { color: var(--dim); white-space: nowrap; }
   .fee-level.is-empty,
   .fee-level.is-empty:hover { color: var(--dim); cursor: default; }
-  .fee-level.is-empty .fee-level-name { color: var(--dim); }
-  .fee-level.is-empty .fee-level-pct { color: var(--dim); }
+  .fee-level.is-empty .fee-level-name,
+  .fee-level.is-empty:hover .fee-level-name,
+  .fee-level.is-empty:active .fee-level-name,
+  .fee-level.is-empty input:checked ~ .fee-level-name { color: var(--dim); }
   /* Detalhes do PSBT: mesmo desenho de leitura do "receber" — rótulo em
      --dim à esquerda, valor no --fg e uma informação por linha —, ocupando a
      coluna inteira. */

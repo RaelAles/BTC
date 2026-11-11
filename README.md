@@ -17,10 +17,13 @@ tela mostra:
    sucesso), **enviado** (com sinal `-`, no tom do erro) e **saldo** de cada
    um, cinco por página, na tela **histórico**;
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e taxa em um
-   **grupo de níveis lado a lado** rotulado pelo **prazo médio de
-   confirmação** — `~10m`, `~30m`, `~1h` e `~1d` —, cada um com o
-   **percentual da taxa sobre o valor enviado** logo abaixo do prazo, para o
-   valor e o destino digitados. Quando dois níveis caem na mesma taxa (o
+   **grupo de níveis** rotulado pelo **prazo médio de confirmação** —
+   `~10m`, `~30m`, `~1h` e `~1d` —, alinhado à direita logo abaixo do recado
+   do máximo e desenhado como os botões **copiar** dos endereços: caixa
+   alta, `--accent` em repouso, `--fg` no hover e `--support` no escolhido,
+   sem moldura. Cada nível traz o **percentual da taxa sobre o valor
+   enviado** à direita do prazo, em `--dim`, e um `|` em `--sep` separa dois
+   níveis. Quando dois níveis caem na mesma taxa (o
    servidor devolve a mesma estimativa para alvos vizinhos, ou os dois ficam
    no piso de relay), a tela mostra só o mais rápido: a taxa é idêntica, então
    o nível mais lento não acrescenta escolha. A taxa de cada nível vem **ao
@@ -111,8 +114,8 @@ blockchain.info, nem chave privada em lugar nenhum.
   (`dust_sats`) da tarifa (`fee_sats_at_rate`) para a tela explicar a
   diferença.
 - **Taxa ao vivo**: `GET /api/fees` pergunta `blockchain.estimatefee` para
-  144, 6, 3 e 1 bloco, que a tela mostra como prazo médio de 1 dia, 1 hora,
-  30 minutos e 10 minutos (a 10 min por bloco), e converte BTC/kvB em sat/kvB
+  144, 6, 3 e 1 bloco, que a tela mostra como prazo médio (`~1d`, `~1h`,
+  `~30m` e `~10m`, a 10 min por bloco), e converte BTC/kvB em sat/kvB
   inteiro — o valor exato que o servidor devolve, sem arredondar. A tela
   reconsulta a cada 60 s enquanto está aberta e mostra o percentual de cada
   nível para o valor e o destino digitados.
