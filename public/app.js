@@ -494,6 +494,15 @@
        juntos; o grão acompanha pelo filtro de brilho, no compositor. Com
        menos movimento, a troca é direta. */
     var animate = changed && !(opts && opts.immediate) && !prefersReducedMotion();
+    /* O `color-scheme` nativo precisa ser trocado num recálculo separado,
+       antes do crossfade: trocado no mesmo quadro que as cores, ele reinicia
+       a transição de `color` de cada elemento e o texto termina de mudar
+       depois do fundo — a piscada do conteúdo no meio da troca. A leitura de
+       layout força o recálculo antes de a classe theme-fx entrar. */
+    if (root.style.colorScheme !== t) {
+      root.style.colorScheme = t;
+      if (animate) void root.offsetWidth;
+    }
     if (animate) {
       root.classList.add('theme-fx');
       if (themeSwapTimer) clearTimeout(themeSwapTimer);
