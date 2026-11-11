@@ -476,6 +476,7 @@
   .field-select-mark,
   .field-choice-mark,
   .field-upload-pick,
+  .fee-level-name,
   .scroll-arrow,
   .pager {
     transition:
@@ -493,6 +494,7 @@
     .field-select-mark,
     .field-choice-mark,
     .field-upload-pick,
+    .fee-level-name,
     .scroll-arrow,
     .pager {
       transition: none;
@@ -1713,43 +1715,53 @@
   #send-amount-hint { margin: var(--space-2) 0 0; }
   #send-amount-hint:empty { display: none; }
   #fee-section[hidden] { display: none; }
-  /* Uma opção por linha: o marcador e o nome ocupam a esquerda e o custo
-     com o percentual encosta na direita, alinhado pela base como as linhas
-     de dados. O grupo herda o desenho do .field-checks/.field-choice; aqui
-     só a coluna e o custo ganham regra. */
+  /* Os níveis ficam lado a lado, do mais rápido ao mais lento, e cada um
+     divide a largura por igual: o prazo é o botão e o percentual sobre o
+     valor enviado fica logo abaixo dele. Nível escondido sai do fluxo (o
+     atributo precisa da regra porque .field-choice define display) e os
+     demais repartem a linha inteira. O grupo herda o desenho do
+     .field-checks/.field-choice; aqui só a coluna e o percentual ganham
+     regra. */
   .fee-levels {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: var(--space-2);
+    display: flex;
+    gap: var(--space-2) var(--space-3);
   }
   .fee-level {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-2);
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
     min-height: var(--target-size);
-  }
-  /* Nível escondido: caiu na mesma taxa de um mais rápido (ver
-     visibleFeeLevels em app.js). O atributo precisa da regra porque
-     .fee-level define display: flex. */
-  .fee-level[hidden] { display: none; }
-  .fee-level-cost {
-    margin-left: auto;
-    color: var(--fg);
+    padding: var(--space-2) 0;
+    text-align: center;
     text-transform: none;
+  }
+  .fee-level[hidden] { display: none; }
+  /* O prazo responde ao clique como os botões de assunto: disponível em
+     --accent, hover em --fg e escolhido em --support, sem preenchimento nem
+     moldura. O foco tracejado cai na célula inteira, e não no rádio
+     escondido. */
+  .fee-level-name { color: var(--accent); white-space: nowrap; }
+  .fee-level:hover .fee-level-name { color: var(--fg); }
+  .fee-level input:checked ~ .fee-level-name,
+  .fee-level:hover input:checked ~ .fee-level-name { color: var(--support); }
+  .fee-level:focus-within {
+    outline: 1px dashed var(--accent);
+    outline-offset: 2px;
+  }
+  /* O percentual é do valor enviado: fica em --dim, menor que o prazo, para
+     o botão continuar sendo o que responde ao clique. Sem a cota do
+     servidor (valor e destino ainda incompletos), fica em `—`. */
+  .fee-level-pct {
+    color: var(--dim);
+    font-size: var(--text-sm);
     white-space: nowrap;
   }
-  /* Taxa exata do servidor ao lado do prazo. É o valor de `sat_per_vb`, sem
-     arredondar; quando o estimador fica abaixo do piso de relay a linha mostra
-     o piso junto (0,97 sat/vB · piso 1), porque é o piso que o PSBT usa. */
-  .fee-level-rate { color: var(--dim); white-space: nowrap; }
-  /* O percentual é do valor enviado, não do custo: fica em --dim ao lado do
-     BTC para o número principal continuar sendo o custo. */
-  .fee-level-pct { color: var(--dim); }
   .fee-level.is-empty,
   .fee-level.is-empty:hover { color: var(--dim); cursor: default; }
-  .fee-level.is-empty .fee-level-cost { color: var(--dim); }
-  .fee-level.is-empty:hover .field-choice-mark { color: var(--dim); }
+  .fee-level.is-empty .fee-level-name { color: var(--dim); }
+  .fee-level.is-empty .fee-level-pct { color: var(--dim); }
   /* Detalhes do PSBT: mesmo desenho de leitura do "receber" — rótulo em
      --dim à esquerda, valor no --fg e uma informação por linha —, ocupando a
      coluna inteira. */

@@ -154,14 +154,6 @@
     while (s.length < 9) s = '0' + s;
     return (neg ? '-' : '') + s.slice(0, -8) + '.' + s.slice(-8);
   }
-  /* Taxa em sat/vB do jeito que o servidor deu: o valor exato é sat/kvB, então
-     o sat/vB tem no máximo três casas (1,926; 0,97; 0,112). Vírgula decimal,
-     como o resto da tela. */
-  function fmtRate(n, digits) {
-    var v = Number(n);
-    if (!isFinite(v)) return '—';
-    return v.toLocaleString('pt-BR', { maximumFractionDigits: digits || 3 });
-  }
   /* Valor digitado em BTC → sats inteiros. Aceita vírgula ou ponto e até 8
      casas; qualquer outra coisa (ou zero) devolve null. */
   function parseBtcSats(text) {
@@ -1278,14 +1270,11 @@
     updateSendAvailability();
   }
 
-  /* Desenha a taxa: o valor que o servidor estimou, o custo em BTC e o
-     percentual de cada nível nas opções. A taxa mostrada é a de `sat_per_vb`
-     (o dado exato, sem arredondar); quando ela fica abaixo do piso de relay, a
-     linha mostra também o piso, porque é ele que o PSBT vai usar. O grupo de
-     rádio é nativo: o navegador guarda a escolha, anda com as setas e leva o
-     foco ao marcador; o JavaScript só reflete o estado da estimativa. Nível
-     escondido também fica desabilitado, para as setas e o Tab não pararem num
-     rádio fora da tela. */
+  /* Desenha a taxa: o percentual de cada nível nas opções. A taxa em si é a
+     do servidor; o grupo de rádio é nativo: o navegador guarda a escolha,
+     anda com as setas e leva o foco ao marcador; o JavaScript só reflete o
+     estado da estimativa. Nível escondido também fica desabilitado, para as
+     setas e o Tab não pararem num rádio fora da tela. */
   function renderFees() {
     var levels = (state.fees && state.fees.levels) || {};
     normalizeFeeLevel();
@@ -1314,11 +1303,11 @@
         : 'calculando…';
   }
 
-  /* Custo e percentual de cada nível para o valor que está no formulário. Só
-     vale quando o preview respondeu para o mesmo valor e o mesmo destino;
-     fora disso a opção fica em `—`, como manda a regra da tela. Níveis que
-     caem na mesma taxa compartilham o custo (e a tela mostra só o mais
-     rápido deles): o valor é do sat/vB, não do nome. */
+  /* Percentual de cada nível para o valor que está no formulário. Só vale
+     quando o preview respondeu para o mesmo valor e o mesmo destino; fora
+     disso a opção fica em `—`, como manda a regra da tela. Níveis que caem
+     na mesma taxa compartilham a cota (e a tela mostra só o mais rápido
+     deles): o valor é do sat/vB, não do nome. */
   function feeQuotes() {
     var cached = state.feeQuotes;
     var amount = amountSats();
@@ -1330,8 +1319,6 @@
 
   function renderFeeLevels() {
     var levels = (state.fees && state.fees.levels) || {};
-    var exact = (state.fees && state.fees.sat_per_vb) || {};
-    var floored = (state.fees && state.fees.floored) || {};
     var quotes = feeQuotes();
     var amount = amountSats();
     FEE_ORDER.forEach(function (key) {
@@ -1339,19 +1326,10 @@
       if (!label) return;
       var rate = Number(levels[key]) || 0;
       var fee = rate > 0 ? quotes[rate] : null;
-      var rateEl = $('.fee-level-rate', label);
-      if (rateEl) {
-        var shown = Number(exact[key]);
-        rateEl.textContent = rate > 0 && isFinite(shown)
-          ? fmtRate(shown) + ' sat/vB' + (floored[key] ? ' · piso ' + fmtRate(rate) : '')
-          : '';
-      }
-      var btc = $('.fee-level-btc', label);
       var pct = $('.fee-level-pct', label);
-      if (btc) btc.textContent = fee > 0 ? fmtBtc(fee) : '—';
       if (pct) pct.textContent = fee > 0 && amount > 0
-        ? ' · ' + fmtPercent(fee, amount) + '%'
-        : '';
+        ? fmtPercent(fee, amount) + '%'
+        : '—';
     });
   }
 

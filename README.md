@@ -17,15 +17,15 @@ tela mostra:
    sucesso), **enviado** (com sinal `-`, no tom do erro) e **saldo** de cada
    um, cinco por página, na tela **histórico**;
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e taxa em um
-   **grupo de níveis** rotulado pelo **prazo médio de confirmação** — `1 dia`,
-   `1 hora`, `30 minutos` e `10 minutos` —, cada um com o **custo em BTC e o
-   percentual sobre o valor**, para o valor e o destino digitados. Cada nível
-   mostra também a taxa exata que o servidor deu (`1,926 sat/vB`) e, quando ela
-   fica abaixo do piso de relay, o piso que o PSBT vai usar
-   (`0,97 sat/vB · piso 1`). Quando dois níveis caem na mesma taxa (o servidor
-   devolve a mesma estimativa para alvos vizinhos, ou os dois ficam no piso), a
-   tela mostra só o mais rápido: a taxa é idêntica, então o nível mais lento
-   não acrescenta escolha. A taxa de cada nível vem **ao vivo** pelo `/api/fees`.
+   **grupo de níveis lado a lado** rotulado pelo **prazo médio de
+   confirmação** — `~10m`, `~30m`, `~1h` e `~1d` —, cada um com o
+   **percentual da taxa sobre o valor enviado** logo abaixo do prazo, para o
+   valor e o destino digitados. Quando dois níveis caem na mesma taxa (o
+   servidor devolve a mesma estimativa para alvos vizinhos, ou os dois ficam
+   no piso de relay), a tela mostra só o mais rápido: a taxa é idêntica, então
+   o nível mais lento não acrescenta escolha. A taxa de cada nível vem **ao
+   vivo** pelo `/api/fees` e é ela que o PSBT usa; o piso de relay entra no
+   lugar da estimativa quando ela fica abaixo dele.
    O seletor só aparece quando há valor e destino válidos; sem os dois, o
    custo não teria o que cotar. Os níveis são rádios nativos: clique ou
    setas escolhem, e o PSBT usa a taxa do nível escolhido. A quantidade usa
@@ -114,8 +114,8 @@ blockchain.info, nem chave privada em lugar nenhum.
   144, 6, 3 e 1 bloco, que a tela mostra como prazo médio de 1 dia, 1 hora,
   30 minutos e 10 minutos (a 10 min por bloco), e converte BTC/kvB em sat/kvB
   inteiro — o valor exato que o servidor devolve, sem arredondar. A tela
-  reconsulta a cada 60 s enquanto está aberta e mostra a taxa de cada nível,
-  o custo em BTC e o percentual para o valor e o destino digitados.
+  reconsulta a cada 60 s enquanto está aberta e mostra o percentual de cada
+  nível para o valor e o destino digitados.
 - **Todos os endereços usados** dos quatro tipos vão para a resposta; os
   outros tipos também entram no saldo total (união), não só o detectado.
 - **Sem cache durável**: cada consulta deriva e consulta de novo. Enquanto a
@@ -301,7 +301,7 @@ backend de Durable Object disponível no plano free).
   bloqueado e a leitura avisa que a estimativa está indisponível.
 - **Abaixo de 1 sat/vB não propaga**: o relay padrão do Bitcoin Core aceita
   no máximo `-minrelaytxfee` = 1000 sat/kvB, então nível estimado abaixo do
-  piso continua visível com o valor exato, mas o PSBT usa o piso (1 sat/vB).
+  piso entra no lugar da estimativa, e o PSBT usa o piso (1 sat/vB).
   Num mempool quase vazio isso acontece com vários alvos ao mesmo tempo — e é
   o resultado correto, não um erro de estimativa.
 - **A vsize é um limite superior**: `estimateVsize` (btc-core.js) conta o
@@ -676,13 +676,13 @@ e `ypub` de 111 caracteres entram, disparam a consulta sozinha e carregam a
 carteira. A página abre sempre com o campo vazio, inclusive depois de
 recarregar. O bloco **enviar** também foi conferido no Chromium: o seletor
 de taxa só aparece depois de valor e destino válidos, os quatro níveis
-mostram a taxa do servidor, o custo em BTC e o percentual do Electrum falso, a
+mostram o percentual do Electrum falso, a
 escolha por rádio muda a taxa do PSBT, os detalhes do PSBT aparecem na tabela
 de leitura (sem o base64 na tela) e somem ao editar o formulário, voltando
 sozinhos quando a nova montagem termina (o bloco não tem botão de envio: o
 PSBT acompanha o formulário). Com taxa
 fracionária (1,076 sat/vB, que é o caso normal) o preview responde e os quatro
-níveis ganham custo em BTC: a tela não pode tratar sat/vB como inteiro, senão
+níveis ganham percentual: a tela não pode tratar sat/vB como inteiro, senão
 o preview nunca dispara e o PSBT nunca é montado.
 Um PSBT gerado pelo montador (bip84 e troco) foi analisado e assinado pelo
 próprio código do `chave-btc.html` em Chromium headless, com o troco
