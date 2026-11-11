@@ -53,6 +53,7 @@
     limitsSeq: 0,
     sendBusy: false,
     psbt: null,         // PSBT montado (texto e resumo)
+    psbtStale: false,   // o PSBT na tela é de um pedido anterior ao formulário
     psbtKey: '',        // destino|valor|taxa do PSBT na tela
     psbtTimer: 0,       // debounce da montagem automática
     psbtSeq: 0,         // descarta resposta de um PSBT que já saiu da tela
@@ -1029,7 +1030,9 @@
     state.sendBlocked = !ready;
     var btn = $('#send-download');
     if (btn) {
-      if (state.psbt) btn.removeAttribute('aria-disabled');
+      // o retrato antigo continua na tela, mas não pode ser baixado enquanto
+      // o formulário já não é o que o gerou
+      if (state.psbt && !state.psbtStale) btn.removeAttribute('aria-disabled');
       else btn.setAttribute('aria-disabled', 'true');
     }
     updateFeeVisibility();
@@ -1235,11 +1238,13 @@
   }
 
   /* Qualquer mudança no formulário vence o pedido em voo: a resposta que
-     chegar de um retrato antigo é descartada pela sequência, e o resultado
-     já desenhado sai da tela para não ser confundido com o novo. A montagem
-     agendada não é cancelada aqui: quando ela disparar, a chave e o
-     `psbtReady` já são os do formulário novo (e fora do intervalo válido ela
-     não monta nada). */
+     chegar de um retrato antigo é descartada pela sequência. O retrato já
+     desenhado NÃO sai da tela: o bloco do PSBT é alto, e removê-lo a cada
+     tecla encolhia a página e mexia no topo e no rodapé. Ele fica visível,
+     marcado como antigo (`psbtStale`, download bloqueado), até a resposta do
+     formulário novo o substituir. A montagem agendada não é cancelada aqui:
+     quando ela disparar, a chave e o `psbtReady` já são os do formulário novo
+     (e fora do intervalo válido ela não monta nada). */
   function invalidatePsbt() {
     state.psbtSeq++;
     state.sendBusy = false;
@@ -1251,13 +1256,24 @@
     state.psbtKey = '';
     state.psbtFailKey = ''; // edição é o gatilho para tentar de novo
     if (!state.psbt) return;
-    state.psbt = null;
+    state.psbtStale = true;
     var out = $('#send-out');
-    if (out) out.hidden = true;
+    if (out) {
+      out.removeAttribute('aria-busy');
+      out.setAttribute('data-stale', 'true');
+    }
   }
 
   function resetSend() {
     invalidatePsbt();
+    state.psbt = null;
+    state.psbtStale = false;
+    var out = $('#send-out');
+    if (out) {
+      out.hidden = true;
+      out.removeAttribute('aria-busy');
+      out.removeAttribute('data-stale');
+    }
     state.sendBusy = false;
     state.fees = null;
     state.feesError = false;
@@ -1389,10 +1405,23 @@
     var amount = amountSats();
     var address = $('#send-address').value.trim();
     var rate = feeRateOf(state.feeLevel);
+    // No primeiro retrato a frase de "montando" ocupa a linha reservada; numa
+    // remontagem o retrato anterior fica na tela, então a linha não muda de
+    // altura (era ela que empurrava o rodapé a cada mudança).
+    var hasOld = !!state.psbt && !!$('#send-out') && !$('#send-out').hidden;
+    // o retrato na tela já não é o deste pedido (a taxa pode ter mudado
+    // sozinha): ele fica visível, mas sem download até a resposta nova
+    if (hasOld && state.psbtKey !== key) {
+      state.psbtStale = true;
+      $('#send-out').setAttribute('data-stale', 'true');
+      var oldBtn = $('#send-download');
+      if (oldBtn) oldBtn.setAttribute('aria-disabled', 'true');
+    }
     state.sendBusy = true;
     state.psbtPending = true;
     state.psbtPendingKey = key;
-    setSendStatus('', 'montando o psbt...');
+    if (hasOld) $('#send-out').setAttribute('aria-busy', 'true');
+    if (!hasOld) setSendStatus('', 'montando o psbt...');
     try {
       var xpub = state.xpub;
       var body = { xpub: xpub, address: address, amount_sats: amount, fee_rate: rate };
@@ -1422,9 +1451,13 @@
       if (seq !== state.psbtSeq || key !== psbtKey()) return;
       state.psbt = j;
       state.psbtKey = key;
+      state.psbtStale = false;
       state.psbtFailKey = '';
       renderSendMeta(j);
-      $('#send-out').hidden = false;
+      var out = $('#send-out');
+      out.hidden = false;
+      out.removeAttribute('aria-busy');
+      out.removeAttribute('data-stale');
       // sem recado de sucesso: o download e os detalhes na tela confirmam
       // (a frase de "montando" não pode ficar parada embaixo do resultado)
       setSendStatus('', '');
@@ -1438,13 +1471,15 @@
         state.psbtPending = false;
         state.psbtPendingKey = '';
         state.sendBusy = false;
+        var panel = $('#send-out');
+        if (panel) panel.removeAttribute('aria-busy');
         updateSendAvailability();
       }
     }
   }
 
   function downloadPsbt() {
-    if (!state.psbt) return;
+    if (!state.psbt || state.psbtStale) return;
     var blob = new Blob([state.psbt.psbt], { type: 'text/plain' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -1659,13 +1694,20 @@
       (scanned === 1 ? ' endereço' : ' endereços');
   }
 
-  function showScan(progress) {
+  /* `keepView` é a atualização da MESMA xpub que já está na tela (polling,
+     reabertura do tempo real, sessão expirada): o retrato anterior continua
+     visível e só é substituído quando a varredura termina. Sem isso, cada
+     passo da busca escondia saldo, endereços e histórico, e a tela piscava
+     vazia mesmo sem a chave ter mudado. */
+  function showScan(progress, keepView, quiet) {
     state.scanning = true;
-    // o progresso ocupa a mesma linha que anunciava a consulta
-    setStatus('', scanText(progress));
+    // o progresso ocupa a mesma linha que anunciava a consulta; numa
+    // atualização silenciosa a linha atual fica como está
+    if (!keepView || !quiet) setStatus('', scanText(progress));
     var btn = $('#scan-continue');
     if (btn) btn.hidden = true;
-    // durante a busca o saldo anterior não é apresentado como final
+    if (keepView) return;
+    // durante a primeira busca o saldo anterior não é apresentado como final
     var total = $('#v-total');
     if (total) total.hidden = true;
     var updated = $('#v-updated');
@@ -1699,6 +1741,8 @@
     var xpub = $('#xpub').value.trim();
     // nunca mostra o estado de uma xpub que não está mais no campo
     syncViewToInput();
+    // mesma chave já desenhada: a busca pode correr por baixo sem limpar a tela
+    var keepView = !!(state.data && state.xpub === xpub);
     var problem = xpubProblem(xpub);
     if (problem) {
       setStatus('error', problem);
@@ -1732,7 +1776,7 @@
         state.xpub = xpub;
         state.session = j.session || '';
         if (j.scanning) {
-          showScan(j.progress);
+          showScan(j.progress, keepView, quiet);
           continue;
         }
         stopScan();
