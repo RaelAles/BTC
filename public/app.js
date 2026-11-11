@@ -43,7 +43,7 @@
     page: 1,            // página da lista do histórico
     fees: null,         // estimativa ao vivo do Electrum
     feeQuotes: null,    // custo de cada nível para o valor atual
-    feeLevel: 'standard', // minimum | standard | high | urgent
+    feeLevel: 'minimum', // minimum | standard | high | urgent
     feeTimer: 0,        // reconsulta periódica da taxa
     amountDigits: '',   // satoshis digitados (o ponto é só desenho)
     limits: null,       // máximo enviável para o destino e a taxa
@@ -1013,9 +1013,6 @@
      "~1d"). A taxa de cada nível vem do /api/fees e o percentual sobre o
      valor enviado, do preview do valor e do destino digitados. */
   var FEE_ORDER = ['urgent', 'high', 'standard', 'minimum'];
-  /* Ordem de preferência quando o nível escolhido deixa de ter estimativa:
-     o padrão (1 h) é a escolha natural; a de 1 dia é o último recurso. */
-  var FEE_PREF = ['standard', 'high', 'urgent', 'minimum'];
   var FEE_MAX = 10000;
 
   function feeRateOf(level) {
@@ -1059,7 +1056,7 @@
   /* A escolha precisa cair num nível visível: se o nível selecionado foi
      escondido por ter a mesma taxa de um mais rápido, a seleção passa para
      esse mais rápido (a taxa não muda, então o PSBT também não); se ele
-     perdeu a estimativa, vale a ordem de preferência. */
+     perdeu a estimativa, vale o nível de menor taxa entre os visíveis. */
   function normalizeFeeLevel() {
     var visible = visibleFeeLevels();
     if (visible[state.feeLevel]) return;
@@ -1071,10 +1068,27 @@
         if (visible[key] && (Number(levels[key]) || 0) === rate) { state.feeLevel = key; return; }
       }
     }
-    for (var j = 0; j < FEE_PREF.length; j++) {
-      var preferred = FEE_PREF[j];
-      if (visible[preferred] && Number(levels[preferred]) > 0) { state.feeLevel = preferred; return; }
+    var lowest = lowestFeeLevel();
+    if (lowest) state.feeLevel = lowest;
+  }
+
+  /* Menor taxa entre os níveis visíveis, a escolha padrão do envio. Empate
+     fica com o mais rápido — FEE_ORDER já vem nessa ordem, e é o único que a
+     tela mostra quando duas taxas coincidem. Sem estimativa nenhuma devolve
+     vazio, e a escolha atual não muda. */
+  function lowestFeeLevel() {
+    var visible = visibleFeeLevels();
+    var levels = (state.fees && state.fees.levels) || {};
+    var best = '';
+    var bestRate = Infinity;
+    for (var i = 0; i < FEE_ORDER.length; i++) {
+      var key = FEE_ORDER[i];
+      var rate = Number(levels[key]) || 0;
+      if (!visible[key] || !(rate > 0) || rate >= bestRate) continue;
+      best = key;
+      bestRate = rate;
     }
+    return best;
   }
 
   /* Valor em BTC com máscara de 8 casas: o usuário digita só dígitos e o
@@ -1406,7 +1420,7 @@
     state.sendBusy = false;
     state.fees = null;
     state.feeQuotes = null;
-    state.feeLevel = 'standard';
+    state.feeLevel = 'minimum';
     state.amountDigits = '';
     state.limits = null;
     state.limitsError = '';

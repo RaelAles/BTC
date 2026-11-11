@@ -32,7 +32,10 @@ tela mostra:
    lugar da estimativa quando ela fica abaixo dele.
    O seletor só aparece quando há valor e destino válidos; sem os dois, o
    custo não teria o que cotar. Os níveis são rádios nativos: clique ou
-   setas escolhem, e o PSBT usa a taxa do nível escolhido. A quantidade usa
+   setas escolhem, e o PSBT usa a taxa do nível escolhido. A escolha começa
+   no nível de menor taxa (`~1d`) e, quando ele perde a estimativa, passa
+   para o de menor taxa entre os disponíveis; a escolha feita à mão continua
+   valendo enquanto aquele nível existir. A quantidade usa
    máscara de BTC: o usuário digita só dígitos e o ponto entra sozinho, da
    direita para a esquerda (`1` → `0.00000001`, `12345678` → `0.12345678`).
    A nota abaixo do campo mostra o máximo enviável para o destino e a taxa
