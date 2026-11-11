@@ -314,11 +314,24 @@
      esquerda para a direita e cada bloco sobe 12 px enquanto o desfoque se
      resolve, escalonado. Não repete na troca de tema; com menos movimento, o
      conteúdo aparece direto. */
+  // Os blocos entram deslocados 12 px para baixo, e a transformação entra na
+  // conta do scrollHeight: enquanto a entrada roda, updateScroll() desconta
+  // esse deslocamento para não acender a seta de baixo numa tela que cabe
+  // inteira. No fim da entrada a medida volta ao normal e é reavaliada.
+  var REVEAL_RISE = 12;
+  var revealLift = 0;
+  var revealRun = 0;
   function runReveal(screen) {
-    if (!screen || prefersReducedMotion() || !Element.prototype.animate) return;
+    if (!screen || prefersReducedMotion() || !Element.prototype.animate) {
+      revealLift = 0;
+      return;
+    }
     var title = screen.querySelector('h2');
     var rule = screen.querySelector('.rule:not(.rule-dots)');
-    if (!title || !rule) return;
+    if (!title || !rule) {
+      revealLift = 0;
+      return;
+    }
     var blocks = Array.prototype.filter.call(screen.children, function (el) {
       return el !== title && el !== rule && !el.hidden && el.getClientRects().length;
     });
@@ -342,7 +355,7 @@
     });
     blocks.forEach(function (el, i) {
       el.animate([
-        { opacity: 0, transform: 'translateY(12px)', filter: 'blur(3px)' },
+        { opacity: 0, transform: 'translateY(' + REVEAL_RISE + 'px)', filter: 'blur(3px)' },
         { opacity: 1, transform: 'translateY(0)', filter: 'blur(0px)' }
       ], {
         duration: motionMs('--motion-reveal', 250),
@@ -351,11 +364,16 @@
         fill: 'both'
       });
     });
+    var runId = ++revealRun;
+    revealLift = REVEAL_RISE;
     screen.setAttribute('aria-busy', 'true');
     if (screen._revealTimer) clearTimeout(screen._revealTimer);
     screen._revealTimer = setTimeout(function () {
       screen._revealTimer = 0;
       screen.removeAttribute('aria-busy');
+      if (revealRun !== runId) return;
+      revealLift = 0;
+      updateScroll();
     }, motionMs('--motion-reveal-total', 1000));
   }
 
@@ -611,8 +629,13 @@
     var c = $('#content');
     if (!el || !c) return;
     var max = el.scrollHeight - el.clientHeight;
+    // Durante a entrada em foco os blocos ficam REVEAL_RISE abaixo e isso entra
+    // no scrollHeight; descontar o deslocamento evita acender a seta de baixo
+    // numa tela que cabe inteira. O paginador continua com a medida sem
+    // desconto, para não aparecer antes de o fim da lista estar à vista.
+    var scrollable = max - revealLift;
     c.classList.toggle('can-scroll-up', max > 2 && el.scrollTop > 2);
-    c.classList.toggle('can-scroll-down', max > 2 && el.scrollTop < max - 2);
+    c.classList.toggle('can-scroll-down', scrollable > 2 && el.scrollTop < scrollable - 2);
     updatePager(max);
     handOffBottomFocus();
   }
