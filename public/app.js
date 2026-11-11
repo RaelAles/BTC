@@ -63,6 +63,7 @@
     sendValidationError: '', // erro de campo no #send-status, separado do PSBT
     screen: 'carteira', // tela em vigor (carteira | historico)
     langOpen: false,    // a tela de idiomas está aberta
+    lang: 'pt',         // idioma em vigor (só há conteúdo em português)
     langAuto: true,     // idioma automático em vigor (só há conteúdo em português)
     historyState: 'idle', // idle | loading | error | ready
     langScroll: 0       // ponto de leitura devolvido pelo voltar da tela de idiomas
@@ -466,20 +467,27 @@
     var b = $('#lang-btn');
     if (b) b.focus({ preventScroll: true });
   }
-  /* Idioma em vigor (VG-IDI-03): a opção escolhida fica marcada e sai do
-     clique e da ordem do Tab; as demais voltam a responder. O automático é
-     a opção inicial até uma escolha manual. Escolher qualquer item, inclusive
-     o que já está em vigor, fecha a tela e devolve à origem (VG-IDI-05). */
-  function selectLanguage(button) {
-    if (!button || button.disabled) return;
-    state.langAuto = button.getAttribute('data-lang') === 'auto';
+  /* Idioma em vigor (VG-IDI-02/03): o automático fica marcado quando está em
+     vigor e, como ele resolve para o idioma atual, esse idioma também aparece
+     marcado — a tela mostra a escolha e o resultado ao mesmo tempo. Escolher
+     um idioma manual desmarca o automático. Os marcados saem do clique e da
+     ordem do Tab; os demais voltam a responder. */
+  function markLanguage() {
     $$('.lang-list .lang-item[data-lang]').forEach(function (item) {
       if (item.disabled) return;
-      var current = item === button;
+      var code = item.getAttribute('data-lang');
+      var current = code === 'auto' ? state.langAuto : code === state.lang;
       item.setAttribute('aria-pressed', current ? 'true' : 'false');
       if (current) item.setAttribute('tabindex', '-1');
       else item.removeAttribute('tabindex');
     });
+  }
+  /* A escolha aplica a marca (VG-IDI-02/03) e fecha a tela, devolvendo à
+     origem (VG-IDI-05). */
+  function selectLanguage(button) {
+    if (!button || button.disabled) return;
+    state.langAuto = button.getAttribute('data-lang') === 'auto';
+    markLanguage();
     closeLanguage();
   }
   function fillFrames() {
@@ -2034,6 +2042,7 @@
 
   function wire() {
     fillFrames();
+    markLanguage();
     var themeParam = themeFromUrl();
     var savedTheme = 'dark';
     try { savedTheme = localStorage.getItem('projeto2-fase1-theme') || 'dark'; } catch (e) {}
