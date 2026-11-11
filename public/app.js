@@ -133,7 +133,7 @@
   function xpubProblem(value) {
     var s = String(value || '').trim();
     if (!s) {
-      return 'chave inválida: use a xpub, zpub ou ypub da conta (' + XPUB_TOTAL + ' caracteres).';
+      return 'chave inválida: use a xpub, zpub ou ypub da conta.';
     }
     if (EXT_PRIVATE.test(s)) {
       return 'chave inválida: isso é uma chave privada (xprv/yprv/zprv), nunca cole a privada aqui; use a xpub, zpub ou ypub da conta.';
@@ -142,7 +142,7 @@
       return 'chave inválida: isso é um endereço Bitcoin; use a xpub, zpub ou ypub da conta.';
     }
     if (s.length !== XPUB_TOTAL || !EXT_PUBLIC_RE.test(s)) {
-      return 'chave inválida: use a xpub, zpub ou ypub da conta (' + XPUB_TOTAL + ' caracteres).';
+      return 'chave inválida: use a xpub, zpub ou ypub da conta.';
     }
     return '';
   }
