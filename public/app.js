@@ -411,39 +411,65 @@
     if (!opts.noUrl) pushScreenUrl();
   }
 
+  /* Ponto de leitura (VG-LAY-12): na rolagem única quem rola é a página, e a
+     posição é a da janela; na janela normal, é a do .content-scroll. Guardar e
+     devolver pelo mesmo lugar mantém o voltar da tela de idiomas coerente nos
+     dois modos. */
+  function readingTop() {
+    var page = $('.page');
+    if (page && page.classList.contains('is-page-scroll')) {
+      return window.pageYOffset || document.documentElement.scrollTop || 0;
+    }
+    var sc = $('#content-scroll');
+    return sc ? sc.scrollTop : 0;
+  }
+  function setReadingTop(top) {
+    var page = $('.page');
+    if (page && page.classList.contains('is-page-scroll')) {
+      window.scrollTo(window.pageXOffset || 0, top);
+      return;
+    }
+    var sc = $('#content-scroll');
+    if (sc) sc.scrollTop = top;
+  }
+
   /* A tela de idiomas é uma tela, não um modal (VG-ABS-06): o menu perde a
      marca, o botão PT fica em vigor e o voltar/Esc devolve a tela de origem
      no mesmo ponto de leitura. Ela não entra no endereço (VG-MET-10). */
   function showLanguage() {
-    var sc = $('#content-scroll');
-    state.langScroll = sc ? sc.scrollTop : 0;
+    // O botão em vigor não age (VG-IDI-01): a tela já está aberta e se fecha
+    // pelo voltar, pelo Esc ou pela escolha de um item. O guarda também evita
+    // que a rolagem da própria tela sobrescreva o ponto de leitura guardado.
+    if (state.langOpen) return;
+    state.langScroll = readingTop();
     state.langOpen = true;
     setScreenVisible('language');
     markCurrent('language');
     document.title = SCREEN_TITLES.language;
+    // A tela de idiomas começa no alto, qualquer que seja a rolagem da tela
+    // de origem (VG-IDI-01); o voltar devolve a origem ao ponto guardado.
+    setReadingTop(0);
     updateScroll();
     runReveal($('#screen-language'));
   }
-  function closeLanguage(opts) {
-    opts = opts || {};
+  function closeLanguage() {
     state.langOpen = false;
     showScreen(state.screen, {
       page: state.page,
       keepScroll: true,
-      noUrl: true,
-      noReveal: true
+      noUrl: true
     });
-    var sc = $('#content-scroll');
-    if (sc) sc.scrollTop = state.langScroll;
+    setReadingTop(state.langScroll);
     updateScroll();
-    if (opts.focus !== false) {
-      var b = $('#lang-btn');
-      if (b) b.focus();
-    }
+    // preventScroll mantém o ponto de leitura: o foco não arrasta a página
+    // até o rodapé na rolagem única (VG-LAY-12).
+    var b = $('#lang-btn');
+    if (b) b.focus({ preventScroll: true });
   }
   /* Idioma em vigor (VG-IDI-03): a opção escolhida fica marcada e sai do
      clique e da ordem do Tab; as demais voltam a responder. O automático é
-     a opção inicial até uma escolha manual. */
+     a opção inicial até uma escolha manual. Escolher qualquer item, inclusive
+     o que já está em vigor, fecha a tela e devolve à origem (VG-IDI-05). */
   function selectLanguage(button) {
     if (!button || button.disabled) return;
     state.langAuto = button.getAttribute('data-lang') === 'auto';
@@ -454,6 +480,7 @@
       if (current) item.setAttribute('tabindex', '-1');
       else item.removeAttribute('tabindex');
     });
+    closeLanguage();
   }
   function fillFrames() {
     $$('.edge').forEach(function (el) {
