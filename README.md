@@ -338,7 +338,10 @@ src/
 public/
   index.html          UI ASCII (página publicada)
   app.js              cliente (xpub, carga automática, render, update a cada 30 s)
-  style.css           CSS/fonte do projeto 2
+  style.css           CSS do projeto 2
+  fontes.css          fonte embutida (Liberation Mono)
+  manifest.webmanifest / icon-*.png / apple-touch-icon.png / og-image.png
+                      instalação, ícone de atalho e cartão de compartilhamento
 test/
   electrum.test.mjs   cliente Electrum contra servidor falso
   worker.test.mjs     ponta a ponta: saldo/recebido/enviado, gap, erros

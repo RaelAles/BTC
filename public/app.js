@@ -60,6 +60,7 @@
     psbtPending: false, // há uma montagem em voo (frase "montando")
     psbtFailKey: '',    // pedido que falhou: não repete sozinho em laço
     psbtPendingKey: '', // pedido da montagem em voo (evita pedido dobrado)
+    sendValidationError: '', // erro de campo no #send-status, separado do PSBT
     screen: 'carteira', // tela em vigor (carteira | historico)
     langOpen: false,    // a tela de idiomas está aberta
     langAuto: true,     // idioma automático em vigor (só há conteúdo em português)
@@ -114,7 +115,7 @@
       // enquanto o texto é prefixo de xpub/zpub/ypub (x, zp, ypu…) deixa
       // digitar; se já passou disso e não casou (xprv, bc1, 1Efg…), limpa
       var partial = s.length <= EXT_PREFIX_LEN;
-      return { value: partial ? s.slice(0, keep) : '', blocked: true };
+      return { value: partial ? s.slice(0, keep) : '', blocked: !partial };
     }
     var rest = '';
     var dropped = false;
@@ -242,24 +243,60 @@
   function setSendStatus(kind, text) {
     setStatusTo($('#send-status'), kind, text);
   }
+  /* O erro de campo usa o recado geral (VG-FRM-07): o texto fica no
+     #send-status, e o campo só leva o fio/rótulo em --error e aria-invalid.
+     O sinal separado evita que a atualização automática do formulário apague
+     um erro do PSBT que não é de validação. */
+  function setSendValidation(text) {
+    if (text) {
+      state.sendValidationError = text;
+      setSendStatus('error', text);
+    } else if (state.sendValidationError) {
+      state.sendValidationError = '';
+      setSendStatus('', '');
+    }
+  }
+  function setFieldInvalid(input, invalid) {
+    if (!input) return;
+    var box = input.closest ? input.closest('.field-box') : null;
+    var label = input.id ? document.querySelector('label[for="' + input.id + '"]') : null;
+    if (box) box.classList.toggle('is-invalid', !!invalid);
+    if (label) label.classList.toggle('is-invalid', !!invalid);
+    if (invalid) input.setAttribute('aria-invalid', 'true');
+    else input.removeAttribute('aria-invalid');
+  }
+  function focusFirstInvalid(root) {
+    var field = root ? root.querySelector('[aria-invalid="true"]') : null;
+    if (field) { field.focus(); return true; }
+    return false;
+  }
   var SCREEN_TITLES = {
     carteira: 'Monitor BTC - carteira',
     historico: 'Monitor BTC - histórico',
-    language: 'Monitor BTC - idioma'
+    language: 'Monitor BTC - idioma',
+    notfound: 'Monitor BTC - 404'
   };
-  var SCREEN_IDS = ['carteira', 'historico', 'language'];
+  var SCREEN_IDS = ['carteira', 'historico', 'notfound', 'language'];
 
   /* URL e histórico (VG-MET-10): a tela e a página da lista vão para o
      endereço; a tela inicial e a primeira página ficam sem parâmetro, para o
      endereço continuar curto. A tela de idiomas fica fora do endereço. */
   function readUrl() {
     var params = new URLSearchParams(location.search);
-    var screen = params.get('screen') === 'historico' ? 'historico' : 'carteira';
+    var raw = params.get('screen');
+    var screen = raw == null || raw === 'carteira' ? 'carteira'
+      : raw === 'historico' ? 'historico'
+      : 'notfound';
+    // O link de salto usa #content; qualquer outro hash desconhecido é 404.
+    if (location.hash && location.hash !== '#content') screen = 'notfound';
     var page = parseInt(params.get('page'), 10);
     if (!isFinite(page) || page < 1) page = 1;
     return { screen: screen, page: page };
   }
   function urlFor() {
+    // A 404 preserva o endereço que falhou (VG-ABS-09); as demais telas
+    // escrevem o endereço curto normal.
+    if (state.screen === 'notfound') return location.pathname + location.search + location.hash;
     var params = new URLSearchParams();
     if (state.screen !== 'carteira') params.set('screen', state.screen);
     if (state.screen === 'historico' && state.page > 1) params.set('page', String(state.page));
@@ -443,6 +480,10 @@
       symbol.innerHTML + '</svg>';
     link.setAttribute('href', 'data:image/svg+xml,' + encodeURIComponent(svg));
   }
+  function themeFromUrl() {
+    var t = new URLSearchParams(location.search).get('theme');
+    return t === 'light' || t === 'dark' ? t : '';
+  }
   var themeSwapTimer = 0;
   function setTheme(theme, opts) {
     var t = theme === 'light' ? 'light' : 'dark';
@@ -453,16 +494,6 @@
        juntos; o grão acompanha pelo filtro de brilho, no compositor. Com
        menos movimento, a troca é direta. */
     var animate = changed && !(opts && opts.immediate) && !prefersReducedMotion();
-    /* O color-scheme nativo entra antes do crossfade e num recálculo só dele:
-       trocado no mesmo quadro que as cores, ele reinicia a transição de color
-       de cada elemento a cada quadro e o texto termina de escurecer bem
-       depois do fundo — a piscada do conteúdo no meio da troca (ver
-       style.css). A leitura de layout abaixo é o que separa os dois
-       recálculos; sem ela, os dois caem no mesmo. */
-    if (root.dataset.scheme !== t) {
-      root.dataset.scheme = t;
-      if (animate) void root.offsetWidth;
-    }
     if (animate) {
       root.classList.add('theme-fx');
       if (themeSwapTimer) clearTimeout(themeSwapTimer);
@@ -472,7 +503,9 @@
       }, motionMs('--motion-theme', 150) + 50);
     }
     root.dataset.theme = t;
-    try { localStorage.setItem('projeto2-fase1-theme', t); } catch (e) {}
+    if (!(opts && opts.save === false)) {
+      try { localStorage.setItem('projeto2-fase1-theme', t); } catch (e) {}
+    }
     var b = $('#theme-toggle');
     if (b) {
       b.innerHTML = '<span class="glyph">' +
@@ -485,6 +518,50 @@
     syncFavicon();
     syncGrainTheme();
   }
+  /* Foca agora se o controle já aceita foco; se a visibilidade ainda está
+     no fim da transição, tenta de novo depois dela. Só insiste se o foco
+     continuar no controle antigo ou no body, para não roubar um Tab do
+     leitor nesse intervalo. */
+  function focusWhenReady(el, previous) {
+    if (!el) return false;
+    el.focus();
+    if (document.activeElement === el) return true;
+    setTimeout(function () {
+      if (document.activeElement === previous || document.activeElement === document.body ||
+          document.activeElement === document.documentElement) {
+        el.focus();
+      }
+    }, motionMs('--motion-fast', 150) + 30);
+    return true;
+  }
+  /* Passagem de foco do rodapé (VG-ACR-09): o ▼ e o paginador ocupam o mesmo
+     lugar. Quando o controle que tem o foco sai de cena, o foco vai para o
+     que assumiu o lugar; sem nenhum dos dois, volta ao título da tela. */
+  function handOffBottomFocus() {
+    var down = $('.scroll-arrow-down');
+    var pager = $('#history-pager');
+    var content = $('#content');
+    var active = document.activeElement;
+    var inDown = !!down && down.contains(active);
+    var inPager = !!pager && pager.contains(active);
+    if (!inDown && !inPager) return;
+    var downTarget = !!content && content.classList.contains('can-scroll-down') &&
+      !content.classList.contains('show-pager');
+    var pagerTarget = !!pager && !pager.hidden && !!content &&
+      content.classList.contains('show-pager');
+    var heading = document.querySelector('.screen:not([hidden]) h2');
+    if (inDown && !downTarget) {
+      if (pagerTarget) {
+        var next = $('#history-next');
+        var prev = $('#history-prev');
+        var target = next && next.getAttribute('aria-disabled') !== 'true' ? next : prev;
+        focusWhenReady(target, active);
+      } else if (heading) heading.focus();
+    } else if (inPager && !pagerTarget) {
+      if (downTarget) focusWhenReady(down, active);
+      else if (heading) heading.focus();
+    }
+  }
   function updateScroll() {
     var el = $('#content-scroll');
     var c = $('#content');
@@ -493,6 +570,7 @@
     c.classList.toggle('can-scroll-up', max > 2 && el.scrollTop > 2);
     c.classList.toggle('can-scroll-down', max > 2 && el.scrollTop < max - 2);
     updatePager(max);
+    handOffBottomFocus();
   }
 
   /* Altura do conteúdo fora do gesto de rolagem: a taxa, o PSBT e os demais
@@ -575,6 +653,7 @@
     box.innerHTML = html;
   }
   function syncHistoryState() {
+    var region = $('#history-region');
     var loading = $('#history-loading');
     var skel = $('#history-skeleton');
     var err = $('#history-error');
@@ -582,6 +661,10 @@
     var empty = $('#addresses-empty');
     var ready = state.historyState === 'ready';
     var rows = historyRows();
+    if (region) {
+      if (state.historyState === 'loading') region.setAttribute('aria-busy', 'true');
+      else region.removeAttribute('aria-busy');
+    }
     if (loading) loading.hidden = state.historyState !== 'loading';
     if (skel) {
       skel.hidden = state.historyState !== 'loading';
@@ -598,11 +681,7 @@
         summary.textContent = 'cole a xpub, zpub ou ypub na carteira para ver o histórico.';
       }
     }
-    if (list) {
-      list.hidden = !(ready && rows.length > 0);
-      if (state.historyState === 'loading') list.setAttribute('aria-busy', 'true');
-      else list.removeAttribute('aria-busy');
-    }
+    if (list) list.hidden = !(ready && rows.length > 0);
     if (empty) empty.hidden = !(ready && rows.length === 0);
     updateScroll();
   }
@@ -991,22 +1070,27 @@
 
   function updateSendAvailability() {
     var amount = amountSats();
-    var address = $('#send-address') ? $('#send-address').value.trim() : '';
+    var addressInput = $('#send-address');
+    var amountInput = $('#send-amount');
+    var address = addressInput ? addressInput.value.trim() : '';
     var rate = feeRateOf(state.feeLevel);
     var hint = $('#send-amount-hint');
-    var box = $('#send-amount-box');
-    var input = $('#send-amount');
-    var problem = '';
+    var max = state.limits ? Number(state.limits.max_send_sats) || 0 : 0;
+    var amountProblem = '';
+    var addressProblem = '';
     var hintText = '';
 
+    if (address && !addressLooksValid(address)) {
+      addressProblem = 'destino inválido: use um endereço bc1…, 1… ou 3….';
+    }
     if (amount > 0 && amount < DUST_SATS) {
-      problem = 'valor abaixo do mínimo: ' + fmtBtc(DUST_SATS) + ' BTC.';
+      amountProblem = 'valor abaixo do mínimo: ' + fmtBtc(DUST_SATS) + ' BTC.';
     } else if (state.limits) {
-      var max = Number(state.limits.max_send_sats) || 0;
       hintText = 'máximo ' + fmtBtc(max) + ' BTC.';
-      if (max < DUST_SATS) problem = 'saldo insuficiente para enviar com essa taxa.';
-      else if (amount > max) {
-        problem = 'valor acima do máximo enviável: ' + fmtBtc(max) + ' BTC.';
+      if (amount > 0 && max < DUST_SATS) {
+        amountProblem = 'saldo insuficiente para enviar com essa taxa.';
+      } else if (amount > max) {
+        amountProblem = 'valor acima do máximo enviável: ' + fmtBtc(max) + ' BTC.';
       }
     } else if (state.limitsError) {
       hintText = 'máximo indisponível: ' + state.limitsError;
@@ -1014,19 +1098,20 @@
       hintText = 'calculando a taxa…';
     }
 
-    if (box) box.classList.toggle('is-invalid', !!problem);
-    if (input) {
-      if (problem) input.setAttribute('aria-invalid', 'true');
-      else input.removeAttribute('aria-invalid');
+    /* O erro fica no recado geral (VG-FRM-07), não sob o campo: o hint
+       continua só com o dado neutro, e o campo recebe o fio e o aria-invalid. */
+    setFieldInvalid(addressInput, !!addressProblem);
+    setFieldInvalid(amountInput, !!amountProblem);
+    if (addressInput) addressInput.setAttribute('aria-describedby', 'send-status');
+    if (amountInput) {
+      amountInput.setAttribute('aria-describedby', amountProblem ? 'send-status' : 'send-amount-hint');
     }
-    if (hint) {
-      hint.textContent = problem || hintText;
-      hint.classList.toggle('is-error', !!problem);
-    }
-    var ready = !!amount && amount >= DUST_SATS &&
+    if (hint) hint.textContent = hintText;
+    setSendValidation(addressProblem || amountProblem);
+
+    var ready = !addressProblem && !amountProblem && !!amount && amount >= DUST_SATS &&
       addressLooksValid(address) && feeRateOk(rate) &&
-      !!state.limits && Number(state.limits.max_send_sats) >= DUST_SATS &&
-      amount <= Number(state.limits.max_send_sats);
+      !!state.limits && max >= DUST_SATS && amount <= max;
     state.sendBlocked = !ready;
     var btn = $('#send-download');
     if (btn) {
@@ -1292,6 +1377,9 @@
     });
     var amount = $('#send-amount');
     if (amount) amount.value = '';
+    state.sendValidationError = '';
+    setFieldInvalid($('#send-address'), false);
+    setFieldInvalid($('#send-amount'), false);
     setSendStatus('', '');
     renderFees();
     renderAmountInput();
@@ -1745,9 +1833,11 @@
     var keepView = !!(state.data && state.xpub === xpub);
     var problem = xpubProblem(xpub);
     if (problem) {
+      setFieldInvalid($('#xpub'), true);
       setStatus('error', problem);
       return;
     }
+    setFieldInvalid($('#xpub'), false);
     if (state.busy) return;
     state.busy = true;
     stopScan();
@@ -1908,8 +1998,10 @@
 
   function wire() {
     fillFrames();
-    try { setTheme(localStorage.getItem('projeto2-fase1-theme') || 'dark'); }
-    catch (e) { setTheme('dark'); }
+    var themeParam = themeFromUrl();
+    var savedTheme = 'dark';
+    try { savedTheme = localStorage.getItem('projeto2-fase1-theme') || 'dark'; } catch (e) {}
+    setTheme(themeParam || savedTheme, { immediate: true, save: !themeParam });
 
     noticeWire($('#status'));
     noticeWire($('#send-status'));
@@ -1955,6 +2047,16 @@
       if (!state.busy) load(false);
     });
 
+    /* Volta da 404 (VG-ABS-09): link de prosa leva à carteira, com o foco
+       no item de menu da tela de destino. */
+    var notfoundBack = $('#notfound-back');
+    if (notfoundBack) notfoundBack.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      showScreen('carteira');
+      var b = $('.menu button[data-screen="carteira"]');
+      if (b) b.focus();
+    });
+
     /* Voltar e Avançar devolvem a tela e a página anteriores (VG-MET-10). */
     window.addEventListener('popstate', function () {
       var u = readUrl();
@@ -1965,6 +2067,7 @@
       ev.preventDefault();
       // reaproveita a sessão: se a xpub mudou, o DO reinicia sozinho
       load(false);
+      if (xpubProblem($('#xpub').value.trim())) $('#xpub').focus();
     });
     var xpubInput = $('#xpub');
     function applyXpubFilter(ev) {
@@ -1979,9 +2082,14 @@
           var pos = Math.max(0, Math.min(out.value.length, caret - removed));
           xpubInput.setSelectionRange(pos, pos);
         } catch (e) {}
-        if (out.blocked && ev && ev.type === 'input') {
+      }
+      if (out.blocked) {
+        setFieldInvalid(xpubInput, true);
+        if (ev && ev.type === 'input') {
           setStatus('error', 'este campo só aceita xpub, zpub ou ypub: endereço, chave privada e outro texto são recusados.');
         }
+      } else if (out.value && !xpubProblem(out.value)) {
+        setFieldInvalid(xpubInput, false);
       }
       scheduleAutoLoad();
     }
@@ -2000,11 +2108,24 @@
             syncViewToInput();
             scheduleAutoLoad();
           }
-          if (missing) setStatus('error', xpubProblem(data) || missing);
+          if (missing) {
+            setFieldInvalid(xpubInput, true);
+            setStatus('error', xpubProblem(data) || missing);
+          } else {
+            setFieldInvalid(xpubInput, false);
+          }
         }
       });
       xpubInput.addEventListener('blur', function () {
         applyXpubFilter(null);
+        var value = xpubInput.value.trim();
+        var problem = value ? xpubProblem(value) : '';
+        if (problem) {
+          setFieldInvalid(xpubInput, true);
+          setStatus('error', problem);
+        } else if (value) {
+          setFieldInvalid(xpubInput, false);
+        }
       });
     }
 
@@ -2074,7 +2195,8 @@
     var sendForm = $('#send-form');
     if (sendForm) sendForm.addEventListener('submit', function (ev) {
       ev.preventDefault();
-      schedulePsbt();
+      updateSendAvailability();
+      focusFirstInvalid(sendForm);
     });
     /* A taxa é um grupo de rádio nativo: o navegador guarda a escolha e
        anda com as setas; aqui só o estado da tela e o preview acompanham. */
