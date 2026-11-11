@@ -128,17 +128,21 @@
     return { value: value, blocked: dropped || rest.length > XPUB_TOTAL - EXT_PREFIX_LEN };
   }
 
+  /* Mesmo formato do recado do destino ("destino inválido: use …"):
+     "chave inválida: use …", com o motivo na frente do que é aceito. */
   function xpubProblem(value) {
     var s = String(value || '').trim();
-    if (!s) return 'cole a xpub, zpub ou ypub da conta.';
+    if (!s) {
+      return 'chave inválida: use a xpub, zpub ou ypub da conta (' + XPUB_TOTAL + ' caracteres).';
+    }
     if (EXT_PRIVATE.test(s)) {
-      return 'isso é uma chave privada (xprv/yprv/zprv). Nunca cole a privada aqui: o projeto só consulta.';
+      return 'chave inválida: isso é uma chave privada (xprv/yprv/zprv), nunca cole a privada aqui; use a xpub, zpub ou ypub da conta.';
     }
     if (/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{20,}$/.test(s)) {
-      return 'isso é um endereço Bitcoin, não uma xpub. Use a chave estendida pública da conta (xpub, zpub ou ypub).';
+      return 'chave inválida: isso é um endereço Bitcoin; use a xpub, zpub ou ypub da conta.';
     }
     if (s.length !== XPUB_TOTAL || !EXT_PUBLIC_RE.test(s)) {
-      return 'chave incompleta, com caractere inválido ou tipo não aceito: use a xpub, zpub ou ypub da conta (' + XPUB_TOTAL + ' caracteres). Confira a cópia da chave da conta.';
+      return 'chave inválida: use a xpub, zpub ou ypub da conta (' + XPUB_TOTAL + ' caracteres).';
     }
     return '';
   }
@@ -2154,7 +2158,7 @@
       if (out.blocked) {
         setFieldInvalid(xpubInput, true);
         if (ev && ev.type === 'input') {
-          setStatus('error', 'este campo só aceita xpub, zpub ou ypub: endereço, chave privada e outro texto são recusados.');
+          setStatus('error', 'chave inválida: use a xpub, zpub ou ypub da conta; endereço, chave privada e outro texto são recusados.');
         }
       } else if (out.value && !xpubProblem(out.value)) {
         setFieldInvalid(xpubInput, false);
