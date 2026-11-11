@@ -1678,6 +1678,10 @@
   .value-in { color: var(--success); }
   .value-out { color: var(--error); }
   .value-none { color: var(--dim); }
+  /* Fatia do valor sobre o saldo da conta (resumo do PSBT): é metadado da
+     linha, então fica no --dim, ao lado do valor, sem competir com o número
+     e sem quebrar entre o número e o `%`. */
+  .value-pct { color: var(--dim); white-space: nowrap; }
   /* No contato, o recado geral é a única mensagem de erro e pode juntar
      e-mail e mensagem numa frase. Ele reserva duas linhas para o texto não
      empurrar o rodapé quando aparece; o recado de apoio segue com uma. */
