@@ -4,13 +4,15 @@ Carteira watch-only e **sem armazenamento**: você entrega a **xpub**, o Worker
 deriva os endereços públicos na hora e consulta um servidor **Electrum**. A
 tela mostra:
 
-1. **saldo disponível** da carteira (soma das UTXOs confirmadas que nenhuma
-   transação conhecida gastou, de todos os tipos de conta) logo abaixo do
-   campo da xpub, centralizado em verde de sucesso, em BTC, com o horário da
-   última atualização em nota. Entrada no mempool não entra nesse número, e
-   saída no mempool — mesmo sem confirmação — já sai dele, porque o valor
-   está comprometido. O pendente aparece numa linha à parte,
-   `pendente entrada +… | saída -…`;
+1. **saldo disponível** da carteira (o que dá para gastar agora, somando
+   todos os tipos de conta) logo abaixo do campo da xpub, centralizado em
+   verde de sucesso, em BTC, com o horário da última atualização em nota.
+   Entra a saída confirmada ainda não gasta e o **troco de uma transação sua
+   ainda no mempool** — ele é uma saída da mesma transação do envio, confirma
+   junto com ela e pode ser gasto antes. Pagamento de terceiro no mempool não
+   entra: só conta depois de confirmar. A linha abaixo mostra o que está fora
+   do número: `pendente entrada +…` para terceiro a caminho e `pendente saída
+   -…` para o que já deixou a conta (destino + taxa) numa transação pendente;
 2. **um endereço de recebimento por tipo**, os quatro, inclusive os zerados:
    sempre o primeiro índice sem uso daquele ramo (`último usado + 1`), para
    escolher o que o pagador aceita. O rótulo de cada linha é só o BIP
@@ -23,8 +25,8 @@ tela mostra:
    contam só o confirmado, e o valor do mempool aparece no mesmo campo,
    marcado: `recebido +0.00012000 (pendente +0.00002000)` e
    `enviado -0.00003000 (pendente -0.00001000)` (zero não ganha marca). O
-   **saldo** é o disponível; o endereço com atividade no mempool leva ainda a
-   etiqueta `[ mempool ]`;
+   **saldo** é o disponível do endereço (inclui o troco pendente dele); o
+   endereço com atividade no mempool leva ainda a etiqueta `[ mempool ]`;
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e taxa em um
    **grupo de níveis** rotulado pelo **prazo médio de confirmação** —
    `~10m`, `~30m`, `~1h` e `~1d` —, na mesma linha do recado do máximo (o
@@ -85,7 +87,9 @@ tela mostra:
    navegador não lê o base64 —, então a tabela serve para comparar: se o
    destino ou o valor montados diferirem do formulário, ou se aparecer mais
    de uma saída externa, surge um aviso apontando para a revisão do
-   `chave-btc.html`, que é a conferência que vale.
+   `chave-btc.html`, que é a conferência que vale. Se a transação gastar
+   troco pendente (gasto encadeado), o aviso lembra que ela confirma depois —
+   e junto — da transação anterior.
    Quem assina é o `chave-btc.html` (projeto 1), offline; o projeto 2 nunca
    vê chave privada.
 5. **transmitir** abaixo do envio: o PSBT assinado volta pelo botão
@@ -142,14 +146,16 @@ blockchain.info, nem chave privada em lugar nenhum.
 - **Saldo por UTXO**: baixa as transações cruas dos endereços usados, faz o
   parse local e soma saídas que pagam a carteira menos as saídas já gastas.
   `recebido` e `enviado` são o confirmado. O saldo exibido é o **disponível**:
-  saída confirmada ainda não gasta, descontando o que uma transação pendente
-  já gasta (o valor está comprometido) e sem somar a entrada pendente. A
-  resposta separa o que ainda não virou bloco em `pending_in` e `pending_out`,
-  e a tela mostra os pendentes à parte.
+  saída confirmada ainda não gasta mais o troco de uma transação nossa ainda
+  pendente (a saída que volta na mesma transação do envio, gastável antes de
+  confirmar). Entrada de terceiro no mempool fica fora e aparece como
+  `pending_in`; o que já saiu de fato (destino + taxa) aparece como
+  `pending_out` líquido.
 - **UTXOs e PSBT**: a mesma conta guarda as saídas ainda não gastas. Com
-  elas, `POST /api/psbt` escolhe entradas **só entre as confirmadas** (o que
-  está no mempool não é saldo e não entra no envio), as maiores primeiro,
-  calcula a taxa pela vsize estimada (um limite superior do
+  elas, `POST /api/psbt` escolhe entradas entre as **confirmadas e o troco
+  pendente de uma transação sua** (gasto encadeado; pagamento de terceiro no
+  mempool não entra), as confirmadas primeiro e as maiores dentro de cada
+  grupo, calcula a taxa pela vsize estimada (um limite superior do
   tamanho real, ver “a vsize é um limite superior” abaixo), deriva o próximo
   endereço de troco e monta um **PSBT v0** sem assinatura. Cada entrada leva
   `witness_utxo` e a origem BIP32; p2pkh leva também o `non_witness_utxo` e
@@ -400,6 +406,7 @@ public/
                       instalação, ícone de atalho e cartão de compartilhamento
 test/
   electrum.test.mjs   cliente Electrum contra servidor falso
+  address-totals.test.mjs  conta de UTXO: confirmado, troco pendente, terceiro
   worker.test.mjs     ponta a ponta: saldo/recebido/enviado, gap, erros
   watcher.test.mjs    Durable Object: assinatura, aviso → push, descarte total
   psbt.test.mjs       taxa, escolha de UTXO, PSBT e assinatura no btc-core
@@ -485,7 +492,7 @@ Resposta (resumida):
 {
   "detected_type": "bip44",
   "balance": { "detected": 12835640, "total": 12862176,
-               "pending_in": 0, "pending_out": 0, "unconfirmed": 0 },
+               "pending_in": 0, "pending_out": 0 },
   "types": [
     { "type": "bip86", "label": "bip86 · taproot (p2tr)", "address": "bc1p...",
       "path": "m/86'/0'/0'/0/1", "balance": 11100, "tx_count": 1,
@@ -515,10 +522,10 @@ Resposta (resumida):
 `addresses` traz **só endereços usados** (todos os tipos), cada um com
 recebido, enviado, saldo e número de transações, na ordem do **uso mais
 recente para o mais antigo**. `received` e `spent` são o confirmado e
-`balance` é o disponível do endereço (confirmado ainda não gasto, descontando
-saída pendente). `pending_in` e `pending_out` trazem os totais do mempool
-daquele endereço (o que ainda não virou bloco, de entrada e de saída), que a
-tela mostra dentro de recebido/enviado como `(pendente …)`. A data é a
+`balance` é o disponível do endereço (confirmado ainda não gasto mais o troco
+pendente dele). `pending_in` e `pending_out` são os totais brutos do mempool
+daquele endereço (de entrada e de saída), que a tela mostra dentro de
+recebido/enviado como `(pendente …)`. A data é a
 altura do bloco em que o endereço apareceu pela última vez (`last_height`),
 que a varredura já tem, sem pedir cabeçalho ao servidor; o que está no
 mempool (`pending: true`) vem antes de
@@ -538,11 +545,13 @@ tipo e, abaixo deles, o endereço de troco do tipo detectado
 para comparar com o endereço que o PSBT montou.
 
 `balance.total` é o saldo **disponível** — a soma dos `types[].balance` —,
-e `balance.detected` é a fatia do tipo detectado. Ele já desconta a saída
-pendente e ignora a entrada pendente: é a mesma base que o envio usa.
-`balance.pending_in` e `balance.pending_out` são os totais não confirmados de
-entrada e de saída (somas dos `pending_in`/`pending_out` dos endereços), e
-`balance.unconfirmed` é a diferença entre eles.
+e `balance.detected` é a fatia do tipo detectado: confirmado não gasto mais o
+troco pendente, a mesma base que o envio usa. `balance.pending_in` é a entrada
+de terceiro que ainda não conta e `balance.pending_out` é o que já saiu de
+fato numa transação pendente (destino + taxa), líquido do troco que volta.
+Eles não são a soma dos `pending_in`/`pending_out` dos endereços, que são
+brutos para o extrato. Quando tudo confirmar, o saldo é `total + pending_in`
+(o que sai já está fora de `total`).
 
 `watch: true` avisa a UI para abrir o WebSocket de tempo real. `session` é o
 id aleatório do Durable Object: mande de volta no próximo `POST` para
@@ -565,8 +574,10 @@ de 1 a 10 000 sat/vB e aceita as casas decimais do estimador (1,926), porque a
 conta é feita em sat/kvB (`Math.ceil(sat/kvB × vsize ÷ 1000)`) sobre a vsize
 estimada — que é um limite superior do tamanho real, então a taxa efetiva
 nunca fica abaixo da pedida; valor abaixo
-de 546 sats é recusado como pó. Só entradas confirmadas entram no envio (o
-mempool não é saldo) e, entre elas, as maiores são escolhidas primeiro.
+de 546 sats é recusado como pó. Entram no envio as entradas confirmadas e o
+troco pendente de uma transação sua (gasto encadeado); pagamento de terceiro
+no mempool não entra. As confirmadas são escolhidas antes e, em cada grupo, as
+maiores primeiro.
 
 Com `"preview": true` e sem `amount_sats`, a rota não monta nada: devolve o
 limite que a tela usa para bloquear o envio antes da tentativa.
@@ -645,7 +656,9 @@ Resposta (resumida):
 }
 ```
 
-O PSBT carrega `witness_utxo` e a origem BIP32 (`bip32_derivation` ou
+Cada entrada traz `pending: true` quando é troco de uma transação ainda no
+mempool (gasto encadeado): a transação nova confirma depois — e junto — da
+anterior. O PSBT carrega `witness_utxo` e a origem BIP32 (`bip32_derivation` ou
 `tap_bip32_derivation`) em cada entrada; p2pkh carrega `non_witness_utxo`
 (a transação anterior inteira) e p2sh-p2wpkh carrega o `redeem_script`. A
 origem usa a **impressão digital da conta**, e não a da raiz: com só a xpub,
@@ -874,10 +887,14 @@ recusado pelo servidor não transmite nada e volta com mensagem clara; um
 depósito fora do retrato da sessão vira aviso e não recusa; e a sessão do
 Durable Object confere e transmite pela conexão já aberta, sem nova varredura.
 
+O `address-totals.test.mjs` cobre a classificação das saídas: confirmado,
+troco próprio pendente (inclusive troco do troco, encadeado) e pagamento de
+terceiro pendente — só os dois primeiros entram no disponível.
+
 O `worker.test.mjs` monta transações com o próprio `btc-core` e cobre:
 endereço que recebeu e gastou (`recebido 10000 / enviado 10000 / saldo 0`),
-endereço que só recebeu, próximo índice, entrada pendente fora do saldo e
-saída pendente descontada do disponível, união dos tipos,
+endereço que só recebeu, próximo índice, entrada de terceiro pendente fora do
+saldo e troco pendente dentro do disponível (e gastável), união dos tipos,
 ausência de cache entre consultas (o Electrum é consultado de novo),
 ausência de fallback quando o Electrum não responde, recusa de
 endereço/xprv/texto solto antes de consultar, a margem fixa de 50 (400

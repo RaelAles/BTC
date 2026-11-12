@@ -72,20 +72,22 @@ function estimateFor(selected, scripts) {
   );
 }
 
-/* Só saída de transação confirmada entra na escolha: o que está no mempool
-   ainda não é saldo (pode ser substituído ou nunca confirmar), então fica
-   de fora do envio e do limite. A tela mostra esse pendente à parte. */
-function confirmedUtxos(utxos) {
-  return (utxos || []).filter(u => Number(u.height) > 0);
+/* Entram na escolha a saída confirmada e o troco de uma transação nossa
+   ainda pendente (gasto encadeado). O que está no mempool por pagamento de
+   terceiro não é saldo, então fica de fora do envio e do limite. */
+function spendableUtxos(utxos) {
+  return (utxos || []).filter(u => Number(u.height) > 0 || u.own);
 }
 
-/* Escolhe só UTXOs confirmados, os maiores primeiro: menos entradas, menos
-   taxa, resultado determinístico. O laço pára quando o saldo cobre o valor +
-   taxa com troco acima do pó; se o troco ficaria pó, ele é somado à taxa
-   (saída única). */
+/* Escolhe as confirmadas antes do troco pendente e, em cada grupo, as maiores
+   primeiro: menos entradas, menos taxa, resultado determinístico. O laço pára
+   quando o saldo cobre o valor + taxa com troco acima do pó; se o troco
+   ficaria pó, ele é somado à taxa (saída única). */
 export function selectCoins(utxos, amountSats, feeRate, recipientScript, changeScript) {
   const rateKvb = feeRateKvb(feeRate);
-  const sorted = confirmedUtxos(utxos).sort((a, b) => b.value - a.value);
+  const sorted = spendableUtxos(utxos).sort((a, b) =>
+    (a.height === 0 ? 1 : 0) - (b.height === 0 ? 1 : 0) || b.value - a.value
+  );
   const selected = [];
   let total = 0;
   for (const utxo of sorted) {
@@ -111,24 +113,25 @@ export function selectCoins(utxos, amountSats, feeRate, recipientScript, changeS
     };
   }
   const available = sorted.reduce((s, u) => s + u.value, 0);
-  const error = new Error('saldo confirmado insuficiente: disponível ' + available +
+  const error = new Error('saldo disponível insuficiente: disponível ' + available +
     ' sats, precisa de ' + amountSats + ' sats + taxa' +
-    ' (o que está no mempool não entra no envio)');
+    ' (entrada de terceiro no mempool só conta depois de confirmada)');
   error.available = available;
   error.needed = amountSats;
   throw error;
 }
 
-/* Limite de envio para a taxa escolhida: o máximo é o total confirmado
-   disponível menos a taxa da transação que gasta todas as entradas e manda
-   todo o resto ao destino (sem troco). É exatamente o maior valor que
-   selectCoins aceita; abaixo disso sempre existe uma seleção válida.
+/* Limite de envio para a taxa escolhida: o máximo é o total disponível
+   (confirmado + troco nosso ainda pendente) menos a taxa da transação que
+   gasta todas as entradas e manda todo o resto ao destino (sem troco). É
+   exatamente o maior valor que selectCoins aceita; abaixo dele sempre existe
+   uma seleção válida.
    Com `quoteRates`, devolve também `quotes`: a taxa de cada nível estimado
    para o mesmo valor, que a legenda do seletor mostra em BTC. */
 export function sendLimits({ utxos, address, feeRate, amountSats, changeScript, quoteRates }) {
   const rateKvb = feeRateKvb(feeRate);
   const recipientScript = BTC.scriptFromAddress(address);
-  const spendable = confirmedUtxos(utxos);
+  const spendable = spendableUtxos(utxos);
   const available = spendable.reduce((sum, u) => sum + u.value, 0);
   const vsize = BTC.estimateVsize(spendable.map(u => u.row.kind), [recipientScript]);
   const feeAtMax = feeSats(rateKvb, vsize);

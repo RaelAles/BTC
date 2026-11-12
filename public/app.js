@@ -1538,6 +1538,15 @@
     }
     var externos = (j.outputs || []).filter(function (out) { return !out.own; });
     if (externos.length > 1) warn.push('o psbt tem ' + externos.length + ' saídas externas');
+    /* Gasto encadeado: a entrada é o troco de uma transação nossa que ainda
+       não confirmou. É permitido e é o que evita o saldo zerado, mas a nova
+       transação só confirma depois (e junto) da anterior. */
+    var pendentes = (j.inputs || []).filter(function (inp) { return inp.pending; });
+    if (pendentes.length) {
+      warn.push(pendentes.length === 1
+        ? 'o psbt gasta troco pendente de uma transação sua; ela confirma depois da anterior'
+        : 'o psbt gasta ' + pendentes.length + ' saídas pendentes de transações suas; elas confirmam depois das anteriores');
+    }
     var warnEl = $('#send-meta-warn');
     if (warnEl) {
       warnEl.textContent = warn.length
@@ -1925,17 +1934,22 @@
     return ' <span class="value-pending">(pendente ' + signedBtc(n, dir) + ')</span>';
   }
 
-  /* Totais não confirmados (mempool), de entrada e de saída: não entram no
-     saldo nem no envio, então aparecem à parte, com o sinal e a cor da
-     direção (VG-COR-16). Sem pendência, a linha não existe. */
+  /* Linha "pendente" da carteira: mostra só o que ainda não está no saldo
+     disponível — entrada de terceiro que só conta depois de confirmar e o que
+     já saiu de fato numa transação pendente (o troco que volta já está no
+     total, por isso não aparece aqui). Com o sinal e a cor da direção
+     (VG-COR-16); sem pendência, a linha não existe. */
   function pendingValues(pin, pout) {
-    var a = Number(pin) || 0;
-    var b = Number(pout) || 0;
-    if (!a && !b) return '';
+    var parts = [];
+    if (Number(pin) > 0) {
+      parts.push('<span class="value-label">entrada</span> ' + signedBtc(pin, 'in'));
+    }
+    if (Number(pout) > 0) {
+      parts.push('<span class="value-label">saída</span> ' + signedBtc(pout, 'out'));
+    }
+    if (!parts.length) return '';
     return '<span class="value-label">pendente</span> ' +
-      '<span class="value-label">entrada</span> ' + signedBtc(a, 'in') +
-      ' <span class="value-sep" aria-hidden="true">|</span> ' +
-      '<span class="value-label">saída</span> ' + signedBtc(b, 'out');
+      parts.join(' <span class="value-sep" aria-hidden="true">|</span> ');
   }
 
   /* Percentual de uma linha de valor sobre o saldo total da conta — o mesmo

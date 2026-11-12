@@ -144,7 +144,6 @@ setConnectOverride(nodeConnect);
   assert.equal(r2.j.balance.total, 12000, 'o saldo total é o disponível (confirmado não gasto)');
   assert.equal(r2.j.balance.pending_in, 1234, 'a entrada pendente aparece à parte');
   assert.equal(r2.j.balance.pending_out, 0);
-  assert.equal(r2.j.balance.unconfirmed, 1234);
   const u86 = r2.j.addresses.find(x => x.address === t86.address);
   assert.equal(u86.tx_count, 2);
   assert.equal(u86.received, 5000, 'recebido confirmado não soma o mempool');
@@ -155,7 +154,8 @@ setConnectOverride(nodeConnect);
   assert.equal(u86.last_height, 700000, 'o mempool não inventa altura');
   assert.equal(r2.j.addresses[0].address, t86.address, 'pendente vem antes de qualquer bloco confirmado');
 
-  /* saída pendente já compromete o disponível, mesmo sem confirmação */
+  /* tx nossa ainda pendente: o input confirmado sai do disponível, mas o
+     troco (4200 para t84) volta como saldo gastável antes de confirmar */
   const spendTx = makeTx([{ txid: txA.txid, vout: 0 }], [{ value: 4200, script: t84.script }]);
   fake.txs.set(spendTx.txid, spendTx.raw);
   fake.mempool.set(scripthash(t86.script), [
@@ -164,17 +164,16 @@ setConnectOverride(nodeConnect);
   ]);
   fake.mempool.set(scripthash(t84.script), [{ height: 0, tx_hash: spendTx.txid }]);
   const r3 = await run(USER, env);
-  assert.equal(r3.j.balance.total, 7000, 'a saída pendente sai do saldo disponível');
-  assert.equal(r3.j.balance.pending_out, 5000);
-  assert.equal(r3.j.balance.pending_in, 1234 + 4200, 'a entrada pendente aparece à parte');
-  assert.equal(r3.j.balance.unconfirmed, 434);
+  assert.equal(r3.j.balance.total, 11200, 'disponível = confirmado livre (7000) + troco pendente (4200)');
+  assert.equal(r3.j.balance.pending_out, 800, 'saída pendente líquida = o que de fato sai (taxa)');
+  assert.equal(r3.j.balance.pending_in, 1234, 'entrada de terceiro segue à parte, sem contar');
   const s86 = r3.j.addresses.find(x => x.address === t86.address);
-  assert.equal(s86.balance, 0, 'o saldo do endereço desconta a saída pendente');
+  assert.equal(s86.balance, 0, 'o input pendente sai do saldo do endereço');
   assert.equal(s86.received, 5000, 'recebido fica no confirmado');
-  assert.equal(s86.pending_out, 5000);
+  assert.equal(s86.pending_out, 5000, 'o extrato mostra a saída pendente bruta');
   const s84 = r3.j.addresses.find(x => x.address === t84.address);
-  assert.equal(s84.balance, 7000, 'entrada pendente não entra no saldo');
-  assert.equal(s84.pending_in, 4200);
+  assert.equal(s84.balance, 11200, 'o troco pendente entra no saldo do endereço');
+  assert.equal(s84.pending_in, 4200, 'o troco aparece como pendente no extrato');
 
   /* o total exibido é exatamente o disponível que o envio usa */
   const limitsRes = await worker.fetch(new Request('https://x/api/psbt', {

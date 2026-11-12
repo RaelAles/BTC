@@ -169,7 +169,7 @@ function mapFind(map, type) {
     amount_sats: 200000, fee_rate: 5
   }, env);
   assert.equal(poor.status, 400);
-  assert.match(poor.j.error, /saldo confirmado insuficiente/);
+  assert.match(poor.j.error, /saldo disponível insuficiente/);
 
   const lowFee = await reqPsbt({
     xpub: hd.accounts.bip84.xpub, address: destination,
@@ -261,13 +261,40 @@ function mapFind(map, type) {
   const withPending = sendLimits({
     utxos: [...utxos, pendingUtxo], address: destination, feeRate: 4
   });
-  assert.equal(withPending.available_sats, 200000, 'o mempool não entra no disponível');
+  assert.equal(withPending.available_sats, 200000, 'pagamento de terceiro no mempool não entra no disponível');
   assert.equal(withPending.max_send_sats, limits.max_send_sats);
   await assert.rejects(preparePsbt({
     account, utxos: [pendingUtxo], address: destination,
     amountSats: 10000, feeRate: 4,
     changeRow: row(change, 1, 0), rawTxFor: async () => null
-  }), /saldo confirmado insuficiente/);
+  }), /saldo disponível insuficiente/);
+
+  /* O troco de uma transação nossa ainda pendente é diferente: ele é saldo
+     disponível (gasto encadeado) e entra no limite e na escolha, depois das
+     confirmadas. */
+  const ownChange = {
+    txid: '32'.repeat(32), vout: 0, value: 50000,
+    script: BTC.bytesToHex(a.script), height: 0, own: true,
+    row: row(change, 1, 0)
+  };
+  const withOwnChange = sendLimits({
+    utxos: [...utxos, ownChange], address: destination, feeRate: 4
+  });
+  assert.equal(withOwnChange.available_sats, 250000, 'o troco pendente entra no disponível');
+  const chained = await preparePsbt({
+    account, utxos: [ownChange], address: destination,
+    amountSats: 40000, feeRate: 4,
+    changeRow: row(change, 1, 0), rawTxFor: async () => null
+  });
+  assert.equal(chained.inputs.length, 1, 'o troco pendente pode ser gasto');
+  assert.equal(chained.inputs[0].pending, true, 'a entrada do troco pendente é marcada');
+  const preferConfirmed = await preparePsbt({
+    account, utxos: [ownChange, ...utxos], address: destination,
+    amountSats: 120000, feeRate: 4,
+    changeRow: row(change, 1, 0), rawTxFor: async () => null
+  });
+  assert.equal(preferConfirmed.inputs.length, 1, 'confirmada é usada antes do troco pendente');
+  assert.equal(preferConfirmed.inputs[0].pending, false);
 
   /* taxa com casas decimais: a conta é sat/kvB × vsize ÷ 1000, sem arredondar
      a taxa para inteiro antes de multiplicar (1,926 não vira 2) */

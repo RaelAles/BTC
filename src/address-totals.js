@@ -5,9 +5,9 @@
    `received` é a soma de todas as saídas e `spent` a soma das gastas.
    A altura vem do histórico do servidor (0 = mempool): o que ainda não está
    em bloco fica separado do confirmado, tanto na entrada (received) quanto na
-   saída (spent). O confirmado é a base do saldo disponível que a tela exibe e
-   que o envio usa: a saída confirmada já gasta por transação pendente sai
-   dele, e a entrada pendente não entra.
+   saída (spent). O saldo disponível que a tela exibe (e que o envio usa) é o
+   de `utxosForScripts`: confirmado não gasto mais o troco de uma transação
+   nossa ainda pendente; pagamento de terceiro só conta depois de confirmar.
 
    Entrada:
      entries = [{ txid, height, outputs: [{value, script}], inputs: [{txid, vout}] }]
@@ -82,9 +82,16 @@ export function totalsForScripts(entries, scripts) {
    Mesma entrada de totalsForScripts. Uma saída nossa só deixa de ser UTXO
    quando alguma transação conhecida (do histórico dos nossos scripts) a
    gasta; é o mesmo conjunto de transações que fecha o saldo, então os dois
-   números não divergem. `height` 0 é mempool. */
+   números não divergem. `height` 0 é mempool.
+
+   Cada saída leva `own`: true quando a transação que a criou gasta uma saída
+   nossa que já é gastável (confirmada ou troco de uma transação nossa
+   anterior). É o troco/autotransferência de uma transação nossa ainda
+   pendente — ele pode ser gasto antes da confirmação. Pagamento de terceiro
+   também tem `height` 0, mas fica com `own` false: ainda não é saldo. */
 export function utxosForScripts(entries, scripts) {
   const own = new Map();
+  const outputsOf = new Map();
   for (const tx of entries) {
     for (let vout = 0; vout < tx.outputs.length; vout++) {
       const out = tx.outputs[vout];
@@ -93,10 +100,39 @@ export function utxosForScripts(entries, scripts) {
       const key = tx.txid + ':' + vout;
       own.set(key, {
         txid: tx.txid, vout, value: Number(out.value) || 0,
-        script, height: tx.height || 0
+        script, height: tx.height || 0, own: false
       });
+      if (!outputsOf.has(tx.txid)) outputsOf.set(tx.txid, []);
+      outputsOf.get(tx.txid).push(key);
     }
   }
+
+  const spenders = new Map();
+  for (const tx of entries) {
+    for (const input of tx.inputs) {
+      const key = input.txid + ':' + input.vout;
+      if (!own.has(key)) continue;
+      if (!spenders.has(key)) spenders.set(key, []);
+      spenders.get(key).push(tx.txid);
+    }
+  }
+
+  /* Percorre a partir das saídas confirmadas: quem gasta uma saída nossa
+     gastável é uma transação nossa (só o dono assina), e as saídas dela que
+     pagam a carteira passam a ser troco gastável. O laço cobre o gasto
+     encadeado do próprio troco (troco do troco). */
+  const ownTx = new Set();
+  const queue = [];
+  for (const [key, utxo] of own) if (utxo.height > 0) queue.push(key);
+  while (queue.length) {
+    const key = queue.pop();
+    for (const txid of spenders.get(key) || []) {
+      if (ownTx.has(txid)) continue;
+      ownTx.add(txid);
+      for (const outKey of outputsOf.get(txid) || []) queue.push(outKey);
+    }
+  }
+
   const spent = new Set();
   for (const tx of entries) {
     for (const input of tx.inputs) {
@@ -106,6 +142,6 @@ export function utxosForScripts(entries, scripts) {
   }
   return [...own.entries()]
     .filter(([key]) => !spent.has(key))
-    .map(([, utxo]) => utxo)
+    .map(([, utxo]) => ({ ...utxo, own: ownTx.has(utxo.txid) }))
     .sort((a, b) => (a.height === 0 ? 1 : 0) - (b.height === 0 ? 1 : 0) || b.value - a.value);
 }

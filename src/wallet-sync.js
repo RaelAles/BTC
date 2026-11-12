@@ -115,7 +115,7 @@ export class WalletScanner {
       script: BTC.bytesToHex(a.script), pub: BTC.bytesToHex(a.pub),
       kind: (TYPE_INFO[type] || {}).kind || 'p2wpkh',
       used: 0, balance: 0, received: 0, spent: 0, tx_count: 0,
-      confirmed: 0, unconfirmed: 0, pendingIn: 0, pendingOut: 0,
+      confirmed: 0, pendingIn: 0, pendingOut: 0, thirdIn: 0,
       heights: new Map(), txids: [], stale: false
     };
   }
@@ -183,15 +183,20 @@ export class WalletScanner {
        usados para montar PSBT; se faltou transação, prepare() recusa. */
     this.utxos = utxosForScripts(entries, scripts);
 
-    /* O saldo exibido é o disponível, a mesma base do envio: soma das saídas
-       confirmadas que nenhuma transação conhecida gastou. Uma saída
-       confirmada já gasta por transação pendente conta como saída (o valor
-       está comprometido) e fica de fora; saída pendente (height 0) nunca
-       entra. Mempool de entrada também não soma. */
+    /* Disponível = saída confirmada não gasta + troco de transação nossa
+       ainda pendente. O troco é uma saída da mesma transação do envio e some
+       do saldo até confirmar, então ele entra aqui: pode ser gasto antes
+       (gasto encadeado). Pagamento de terceiro no mempool (height 0, own
+       false) não entra: fica como pendente de entrada e só conta depois da
+       confirmação. É a mesma base que o envio usa. */
     const availableByScript = new Map();
+    const thirdInByScript = new Map();
     for (const u of this.utxos) {
-      if (!(u.height > 0)) continue;
-      availableByScript.set(u.script, (availableByScript.get(u.script) || 0) + u.value);
+      if (u.height > 0 || u.own) {
+        availableByScript.set(u.script, (availableByScript.get(u.script) || 0) + u.value);
+      } else {
+        thirdInByScript.set(u.script, (thirdInByScript.get(u.script) || 0) + u.value);
+      }
     }
 
     for (const r of this.byScript.values()) {
@@ -204,16 +209,17 @@ export class WalletScanner {
       }
       const t = totals.get(r.script);
       /* `received` e `spent` são o confirmado; `balance` é o disponível
-         (confirmado ainda não gasto, nem por transação pendente). O mempool
-         fica em pendingIn/pendingOut e aparece ao lado do campo na tela. */
+         (confirmado não gasto + troco nosso ainda pendente). O mempool fica
+         em pendingIn/pendingOut (brutos, para a tela do extrato) e
+         thirdIn (entrada de terceiro que ainda não conta). */
       r.received = t ? t.receivedConfirmed : 0;
       r.spent = t ? t.spentConfirmed : 0;
       r.balance = availableByScript.get(r.script) || 0;
       r.tx_count = t ? t.txCount : 0;
       r.confirmed = t ? t.confirmed : 0;
-      r.unconfirmed = t ? t.unconfirmed : 0;
       r.pendingIn = t ? t.unconfirmedIn : 0;
       r.pendingOut = t ? t.unconfirmedOut : 0;
+      r.thirdIn = thirdInByScript.get(r.script) || 0;
       r.used = r.tx_count ? 1 : 0;
     }
 
@@ -410,12 +416,15 @@ export class WalletScanner {
 
     const detected = totalOf(type);
     const extraTotal = types.reduce((s, t) => t.type === type ? s : s + t.balance, 0);
-    /* Mempool: somas não confirmadas de entrada e de saída, em todos os
-       endereços usados. O disponível (`total`) já desconta a saída pendente
-       e ignora a entrada pendente; a tela mostra os totais do mempool numa
-       linha à parte. */
-    const pendingIn = usedRows.reduce((s, r) => s + r.pendingIn, 0);
-    const pendingOut = usedRows.reduce((s, r) => s + r.pendingOut, 0);
+    const availableTotal = detected + extraTotal;
+    /* O que a linha "pendente" da carteira mostra é só o que ainda não está
+       no disponível: entrada de terceiro que não conta (pending_in) e o que
+       já saiu de fato numa transação pendente, isto é, a diferença para o
+       saldo confirmado descontado o troco que volta (pending_out). O troco
+       pendente já está em `total`, então não aparece como entrada. */
+    const confirmedTotal = usedRows.reduce((s, r) => s + r.confirmed, 0);
+    const thirdIn = usedRows.reduce((s, r) => s + r.thirdIn, 0);
+    const netOut = Math.max(0, confirmedTotal - availableTotal);
 
     /* Extrato na ordem do uso mais recente: a altura do bloco é a data que a
        varredura já tem, sem pedir cabeçalho ao servidor, e o mempool vem
@@ -458,10 +467,9 @@ export class WalletScanner {
       detected_type: type,
       balance: {
         detected,
-        total: detected + extraTotal,
-        pending_in: pendingIn,
-        pending_out: pendingOut,
-        unconfirmed: pendingIn - pendingOut
+        total: availableTotal,
+        pending_in: thirdIn,
+        pending_out: netOut
       },
       types,
       addresses,
