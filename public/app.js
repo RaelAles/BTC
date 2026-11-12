@@ -47,7 +47,8 @@
     feeTimer: 0,        // reconsulta periódica da taxa
     amountDigits: '',   // satoshis digitados (o ponto é só desenho)
     limits: null,       // máximo enviável para o destino e a taxa
-    limitsError: '',
+    limitsError: '',    // máximo indisponível (nota neutra, não erro de campo)
+    addressError: null, // destino recusado pelo servidor: { address, text }
     limitsTimer: 0,
     limitsSeq: 0,
     sendBusy: false,
@@ -1158,6 +1159,10 @@
 
     if (address && !addressLooksValid(address)) {
       addressProblem = 'destino inválido: use um endereço bc1…, 1… ou 3….';
+    } else if (address && state.addressError && state.addressError.address === address) {
+      /* o regex deixa passar endereço com checksum errado: quem recusa é o
+         servidor, e a recusa é erro do campo, não nota do máximo */
+      addressProblem = state.addressError.text;
     }
     if (amount > 0 && amount < DUST_SATS) {
       amountProblem = 'valor abaixo do mínimo: ' + fmtBtc(DUST_SATS) + ' BTC.';
@@ -1170,7 +1175,7 @@
       }
     } else if (state.limitsError) {
       hintText = 'máximo indisponível: ' + state.limitsError;
-    } else if (amount > 0 && addressLooksValid(address)) {
+    } else if (amount > 0 && !addressProblem && addressLooksValid(address)) {
       hintText = 'calculando a taxa…';
     }
 
@@ -1267,6 +1272,7 @@
       if (!Number.isInteger(j.max_send_sats)) throw new Error('resposta sem limite de envio');
       state.limits = j;
       state.limitsError = '';
+      state.addressError = null; // destino aceito
       /* as cotas dos níveis dependem só do valor e do destino: guardadas à
          parte, as opções não piscam para `—` quando só a taxa muda */
       if (Array.isArray(j.quotes)) {
@@ -1278,7 +1284,21 @@
       if (seq !== state.limitsSeq) return;
       state.limits = null;
       state.feeQuotes = null; // sem confirmação do servidor, as opções ficam em —
-      state.limitsError = e && e.message ? e.message : String(e);
+      var message = e && e.message ? e.message : String(e);
+      /* Destino recusado na validação do servidor (checksum, rede, tipo) é
+         erro de campo: vai para o recado, com o fio no campo, e não para a
+         nota do máximo, que continua só com o dado neutro. */
+      var rejected = /^endereço de destino:\s*(.+)$/.exec(message);
+      if (rejected) {
+        state.addressError = {
+          address: address,
+          text: 'destino inválido: ' + rejected[1].replace(/\.$/, '') + '.'
+        };
+        state.limitsError = '';
+      } else {
+        state.addressError = null;
+        state.limitsError = message;
+      }
     }
     updateSendAvailability();
   }
@@ -1424,6 +1444,7 @@
     state.amountDigits = '';
     state.limits = null;
     state.limitsError = '';
+    state.addressError = null;
     state.limitsSeq++;
     if (state.limitsTimer) clearTimeout(state.limitsTimer);
     state.limitsTimer = 0;

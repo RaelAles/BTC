@@ -43,7 +43,10 @@ tela mostra:
    formam um pedido válido, e é remontado a cada mudança (com um respiro de
    digitação); fora do intervalo válido não há o que montar: abaixo do pó
    (0.00000546 BTC) ou acima do máximo enviável (saldo − taxa), a nota do
-   valor explica o motivo. O PSBT sai sem assinatura, com troco, em base64,
+   valor explica o motivo. O destino que passa no formato mas o servidor
+   recusa (checksum, rede) não vira "máximo indisponível": é erro do campo
+   destino, no recado geral, com o campo em `aria-invalid`. O PSBT sai sem
+   assinatura, com troco, em base64,
    e aparece só quando a montagem termina, disponível como arquivo no botão
    **baixar**, ao fim do bloco; a tela mostra os detalhes (saída,
    destino, troco, endereço, pó, taxa, vsize e txid) na mesma tabela de
