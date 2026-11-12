@@ -1799,11 +1799,10 @@
     $('#v-warnings').innerHTML = (d.warnings || []).map(function (w) { return esc(w); }).join('<br>');
 
     var rows = d.addresses || [];
-    var sum = { received: 0, spent: 0, balance: 0 };
+    var sum = { received: 0, spent: 0 };
     rows.forEach(function (a) {
       sum.received += Number(a.received) || 0;
       sum.spent += Number(a.spent) || 0;
-      sum.balance += Number(a.balance) || 0;
     });
     var countLabel = rows.length === 1 ? '1 endereço usado' : fmtInt(rows.length) + ' endereços usados';
     /* O resumo é a linha de dados da tela: o total de endereços é metadado
@@ -1817,8 +1816,6 @@
         '<span class="value-label">recebido</span> ' + signedBtc(sum.received, 'in') + ' BTC' +
         ' <span class="value-sep" aria-hidden="true">|</span> ' +
         '<span class="value-label">enviado</span> ' + signedBtc(sum.spent, 'out') + ' BTC' +
-        ' <span class="value-sep" aria-hidden="true">|</span> ' +
-        '<span class="value-label">saldo</span> ' + fmtBtc(sum.balance) + ' BTC' +
       '</span>';
     state.historyState = 'ready';
     renderHistory();
