@@ -1806,10 +1806,20 @@
       sum.balance += Number(a.balance) || 0;
     });
     var countLabel = rows.length === 1 ? '1 endereço usado' : fmtInt(rows.length) + ' endereços usados';
-    $('#history-summary').textContent = countLabel +
-      ' · recebido ' + fmtBtc(sum.received) + ' BTC' +
-      ' · enviado ' + fmtBtc(sum.spent) + ' BTC' +
-      ' · saldo ' + fmtBtc(sum.balance) + ' BTC';
+    /* O resumo é a linha de dados da tela: o total de endereços é metadado
+       (· em --sep, como as tags), e os valores repetem o desenho das legendas
+       da carteira — rótulo em --dim, valor com o sinal e a cor da direção e o
+       `|` do divisor entre os campos. */
+    $('#history-summary').innerHTML =
+      '<span class="summary-line">' +
+        '<span class="summary-count">' + countLabel + '</span>' +
+        ' <span class="value-sep" aria-hidden="true">·</span> ' +
+        '<span class="value-label">recebido</span> ' + signedBtc(sum.received, 'in') + ' BTC' +
+        ' <span class="value-sep" aria-hidden="true">|</span> ' +
+        '<span class="value-label">enviado</span> ' + signedBtc(sum.spent, 'out') + ' BTC' +
+        ' <span class="value-sep" aria-hidden="true">|</span> ' +
+        '<span class="value-label">saldo</span> ' + fmtBtc(sum.balance) + ' BTC' +
+      '</span>';
     state.historyState = 'ready';
     renderHistory();
     syncHistoryState();
