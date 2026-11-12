@@ -1690,6 +1690,10 @@
      quebrar entre o número e o `%`. O `|` que a antecede usa o --sep dos
      divisores, o mesmo tom do extrato. */
   .value-pct { color: var(--dim); white-space: nowrap; }
+  /* Valor ainda no mempool, ao lado do campo a que pertence no extrato: o
+     parêntese e a palavra ficam no --dim, e o número mantém a cor da direção
+     (o sinal continua no texto, VG-COR-16). */
+  .value-pending { color: var(--dim); white-space: nowrap; }
   .value-sep { color: var(--sep); }
   /* No contato, o recado geral é a única mensagem de erro e pode juntar
      e-mail e mensagem numa frase. Ele reserva duas linhas para o texto não

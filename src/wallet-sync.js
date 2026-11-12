@@ -183,6 +183,17 @@ export class WalletScanner {
        usados para montar PSBT; se faltou transação, prepare() recusa. */
     this.utxos = utxosForScripts(entries, scripts);
 
+    /* O saldo exibido é o disponível, a mesma base do envio: soma das saídas
+       confirmadas que nenhuma transação conhecida gastou. Uma saída
+       confirmada já gasta por transação pendente conta como saída (o valor
+       está comprometido) e fica de fora; saída pendente (height 0) nunca
+       entra. Mempool de entrada também não soma. */
+    const availableByScript = new Map();
+    for (const u of this.utxos) {
+      if (!(u.height > 0)) continue;
+      availableByScript.set(u.script, (availableByScript.get(u.script) || 0) + u.value);
+    }
+
     for (const r of this.byScript.values()) {
       if (r.txids.some(t => errors.has(t))) {
         // sem a transação não fecha a conta: mantém o último valor calculado
@@ -192,12 +203,12 @@ export class WalletScanner {
         continue;
       }
       const t = totals.get(r.script);
-      /* O saldo exibido e o que o envio usa são só o que está confirmado.
-         A atividade do mempool fica em pendingIn/pendingOut e aparece à
-         parte na tela, sem entrar na conta de recebido/enviado/saldo. */
+      /* `received` e `spent` são o confirmado; `balance` é o disponível
+         (confirmado ainda não gasto, nem por transação pendente). O mempool
+         fica em pendingIn/pendingOut e aparece ao lado do campo na tela. */
       r.received = t ? t.receivedConfirmed : 0;
       r.spent = t ? t.spentConfirmed : 0;
-      r.balance = t ? t.confirmed : 0;
+      r.balance = availableByScript.get(r.script) || 0;
       r.tx_count = t ? t.txCount : 0;
       r.confirmed = t ? t.confirmed : 0;
       r.unconfirmed = t ? t.unconfirmed : 0;
@@ -378,7 +389,7 @@ export class WalletScanner {
 
     /* Um item por tipo de conta, na ordem de TYPES (do BIP mais alto para o
        mais baixo: a tecnologia mais recente primeiro), cada um com o saldo
-       confirmado do tipo e o próximo endereço livre do ramo de recebimento.
+       disponível do tipo e o próximo endereço livre do ramo de recebimento.
        O tipo detectado vem marcado, sem mudar de posição. A tela exibe os
        quatro no bloco receber; o saldo total é a soma das linhas. */
     const types = TYPES.map(t => {
@@ -400,8 +411,9 @@ export class WalletScanner {
     const detected = totalOf(type);
     const extraTotal = types.reduce((s, t) => t.type === type ? s : s + t.balance, 0);
     /* Mempool: somas não confirmadas de entrada e de saída, em todos os
-       endereços usados. Ficam fora de `total` (que é confirmado) e a tela
-       as mostra numa linha à parte; o saldo líquido é a diferença. */
+       endereços usados. O disponível (`total`) já desconta a saída pendente
+       e ignora a entrada pendente; a tela mostra os totais do mempool numa
+       linha à parte. */
     const pendingIn = usedRows.reduce((s, r) => s + r.pendingIn, 0);
     const pendingOut = usedRows.reduce((s, r) => s + r.pendingOut, 0);
 

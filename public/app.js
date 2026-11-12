@@ -1916,6 +1916,15 @@
     return '<span class="value-' + dir + '">' + (dir === 'in' ? '+' : '-') + fmtBtc(n) + '</span>';
   }
 
+  /* Valor do mempool dentro do campo a que ele pertence (recebido ou
+     enviado): o saldo total não o inclui, mas o extrato mostra o que está a
+     caminho em cada direção, marcado como pendente. Zero não vira marca. */
+  function pendingMark(sats, dir) {
+    var n = Number(sats) || 0;
+    if (!n) return '';
+    return ' <span class="value-pending">(pendente ' + signedBtc(n, dir) + ')</span>';
+  }
+
   /* Totais não confirmados (mempool), de entrada e de saída: não entram no
      saldo nem no envio, então aparecem à parte, com o sinal e a cor da
      direção (VG-COR-16). Sem pendência, a linha não existe. */
@@ -1994,7 +2003,8 @@
       }
       var purpose = TYPE_PURPOSE[a.account_type] || '?';
       var chain = a.chain === 1 ? 'troco' : '';
-      var pendingRow = pendingValues(a.pending_in, a.pending_out);
+      var pendingIn = pendingMark(a.pending_in, 'in');
+      var pendingOut = pendingMark(a.pending_out, 'out');
       var li = document.createElement('li');
       li.className = 'item';
       li.innerHTML =
@@ -2012,14 +2022,13 @@
         '</p>' +
         '<p class="item-meta history-values">' +
           '<span class="value-label">recebido</span> ' + signedBtc(a.received, 'in') +
+          pendingIn +
           ' <span class="value-sep" aria-hidden="true">|</span> ' +
           '<span class="value-label">enviado</span> ' + signedBtc(a.spent, 'out') +
+          pendingOut +
           ' <span class="value-sep" aria-hidden="true">|</span> ' +
           '<span class="value-label">saldo</span> ' + fmtBtc(a.balance) +
-        '</p>' +
-        (pendingRow
-          ? '<p class="item-meta history-values history-pending">' + pendingRow + '</p>'
-          : '');
+        '</p>';
       list.appendChild(li);
     });
   }

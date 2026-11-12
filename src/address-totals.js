@@ -5,7 +5,9 @@
    `received` é a soma de todas as saídas e `spent` a soma das gastas.
    A altura vem do histórico do servidor (0 = mempool): o que ainda não está
    em bloco fica separado do confirmado, tanto na entrada (received) quanto na
-   saída (spent). O saldo confirmado é o que a tela exibe e o que o envio usa.
+   saída (spent). O confirmado é a base do saldo disponível que a tela exibe e
+   que o envio usa: a saída confirmada já gasta por transação pendente sai
+   dele, e a entrada pendente não entra.
 
    Entrada:
      entries = [{ txid, height, outputs: [{value, script}], inputs: [{txid, vout}] }]

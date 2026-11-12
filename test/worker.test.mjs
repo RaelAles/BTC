@@ -140,20 +140,49 @@ setConnectOverride(nodeConnect);
   fake.txs.set(memTx.txid, memTx.raw);
   fake.mempool.set(scripthash(t86.script), [{ height: 0, tx_hash: memTx.txid }]);
   const r2 = await run(USER, env);
-  assert.equal(r2.j.balance.detected, 5000, 'confirmação não muda com transação no mempool');
-  assert.equal(r2.j.balance.total, 12000, 'o saldo total é só o confirmado');
+  assert.equal(r2.j.balance.detected, 5000, 'entrada pendente não entra no saldo');
+  assert.equal(r2.j.balance.total, 12000, 'o saldo total é o disponível (confirmado não gasto)');
   assert.equal(r2.j.balance.pending_in, 1234, 'a entrada pendente aparece à parte');
   assert.equal(r2.j.balance.pending_out, 0);
   assert.equal(r2.j.balance.unconfirmed, 1234);
   const u86 = r2.j.addresses.find(x => x.address === t86.address);
   assert.equal(u86.tx_count, 2);
   assert.equal(u86.received, 5000, 'recebido confirmado não soma o mempool');
-  assert.equal(u86.balance, 5000, 'saldo do endereço é só o confirmado');
+  assert.equal(u86.balance, 5000, 'saldo do endereço não soma a entrada pendente');
   assert.equal(u86.pending_in, 1234);
   assert.equal(u86.pending_out, 0);
   assert.equal(u86.pending, true, 'transação no mempool marca o endereço como pendente');
   assert.equal(u86.last_height, 700000, 'o mempool não inventa altura');
   assert.equal(r2.j.addresses[0].address, t86.address, 'pendente vem antes de qualquer bloco confirmado');
+
+  /* saída pendente já compromete o disponível, mesmo sem confirmação */
+  const spendTx = makeTx([{ txid: txA.txid, vout: 0 }], [{ value: 4200, script: t84.script }]);
+  fake.txs.set(spendTx.txid, spendTx.raw);
+  fake.mempool.set(scripthash(t86.script), [
+    { height: 0, tx_hash: memTx.txid },
+    { height: 0, tx_hash: spendTx.txid }
+  ]);
+  fake.mempool.set(scripthash(t84.script), [{ height: 0, tx_hash: spendTx.txid }]);
+  const r3 = await run(USER, env);
+  assert.equal(r3.j.balance.total, 7000, 'a saída pendente sai do saldo disponível');
+  assert.equal(r3.j.balance.pending_out, 5000);
+  assert.equal(r3.j.balance.pending_in, 1234 + 4200, 'a entrada pendente aparece à parte');
+  assert.equal(r3.j.balance.unconfirmed, 434);
+  const s86 = r3.j.addresses.find(x => x.address === t86.address);
+  assert.equal(s86.balance, 0, 'o saldo do endereço desconta a saída pendente');
+  assert.equal(s86.received, 5000, 'recebido fica no confirmado');
+  assert.equal(s86.pending_out, 5000);
+  const s84 = r3.j.addresses.find(x => x.address === t84.address);
+  assert.equal(s84.balance, 7000, 'entrada pendente não entra no saldo');
+  assert.equal(s84.pending_in, 4200);
+
+  /* o total exibido é exatamente o disponível que o envio usa */
+  const limitsRes = await worker.fetch(new Request('https://x/api/psbt', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ xpub: USER, preview: true, address: t84.address, fee_rate: 2 })
+  }), env);
+  const limits = await limitsRes.json();
+  assert.equal(limits.available_sats, r3.j.balance.total, 'total exibido = disponível do envio');
 
   console.log('ok   união dos quatro tipos, prioridade de detecção e mempool');
   await fake.close();
