@@ -1567,6 +1567,14 @@
     max-width: 100%;
     font-size: var(--text-md);
     cursor: pointer;
+    /* O input de arquivo é absoluto e escondido por clip (regra acima).
+       Sem um container posicionado, a caixa dele se ancora no .content e
+       fica abaixo da janela; ao clicar no label, o navegador rola o
+       .window (que tem overflow: hidden, mas ainda rola por script) para
+       trazer o foco à vista, e o menu sai por cima enquanto o rodapé sobe.
+       Ancorado no label, o input acompanha o "importar", que já está à
+       vista, e o foco não rola o card. */
+    position: relative;
   }
   .field-upload-pick { color: var(--accent); text-transform: uppercase; }
   .field-upload:hover .field-upload-pick { color: var(--fg); }
