@@ -1715,7 +1715,19 @@
     font-size: var(--text-xs);
     text-align: center;
   }
+  /* Mempool da carteira: totais ainda não confirmados, de entrada e de
+     saída, ficam fora do saldo e aparecem nesta linha de apoio, centralizada
+     no mesmo eixo. Os rótulos usam o --dim das linhas de dados e o `|`
+     separa os dois campos; sem pendência, a linha não existe. */
+  .wallet-pending {
+    margin: var(--space-2) 0 0;
+    font-size: var(--text-sm);
+    text-align: center;
+  }
+  .wallet-pending .value-label { color: var(--dim); }
+  .wallet-pending .value-sep { color: var(--sep); }
   .wallet-balance[hidden],
+  .wallet-pending[hidden],
   .wallet-updated[hidden] { display: none; }
 
   /* Envio: o bloco segue o desenho do formulário (rótulo, caixa, recado) e

@@ -3,13 +3,15 @@
    É a mesma conta que o Electrum e o Sparrow fazem: o saldo de um script é
    a soma das saídas que pagam esse script menos as que já foram gastas;
    `received` é a soma de todas as saídas e `spent` a soma das gastas.
-   A altura vem do histórico do servidor (0 = mempool), então o que está
-   pendente fica separado do confirmado.
+   A altura vem do histórico do servidor (0 = mempool): o que ainda não está
+   em bloco fica separado do confirmado, tanto na entrada (received) quanto na
+   saída (spent). O saldo confirmado é o que a tela exibe e o que o envio usa.
 
    Entrada:
      entries = [{ txid, height, outputs: [{value, script}], inputs: [{txid, vout}] }]
      scripts = Set de scriptPubKey em hex que pertencem à carteira
-   Saída: Map<hexScript, {received, spent, balance, confirmed, unconfirmed, txCount}> */
+   Saída: Map<hexScript, {received, spent, balance, confirmed, unconfirmed,
+     receivedConfirmed, spentConfirmed, unconfirmedIn, unconfirmedOut, txCount}> */
 import BTC from './btc-core.js';
 
 function hex(bytes) { return BTC.bytesToHex(bytes); }
@@ -63,6 +65,10 @@ export function totalsForScripts(entries, scripts) {
       balance,
       confirmed,
       unconfirmed: balance - confirmed,
+      receivedConfirmed: a.receivedConfirmed,
+      spentConfirmed: a.spentConfirmed,
+      unconfirmedIn: a.received - a.receivedConfirmed,
+      unconfirmedOut: a.spent - a.spentConfirmed,
       txCount: a.txids.size
     });
   }

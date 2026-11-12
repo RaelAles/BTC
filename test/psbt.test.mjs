@@ -169,7 +169,7 @@ function mapFind(map, type) {
     amount_sats: 200000, fee_rate: 5
   }, env);
   assert.equal(poor.status, 400);
-  assert.match(poor.j.error, /saldo insuficiente/);
+  assert.match(poor.j.error, /saldo confirmado insuficiente/);
 
   const lowFee = await reqPsbt({
     xpub: hd.accounts.bip84.xpub, address: destination,
@@ -250,6 +250,24 @@ function mapFind(map, type) {
   assert.equal(limits.available_sats, 200000);
   assert.equal(limits.max_send_sats, 200000 - limits.fee_sats_at_max);
   assert.equal(limits.min_sats, 546);
+
+  /* Saída ainda no mempool não é saldo: fica fora do disponível e da escolha
+     de entradas, mesmo sendo a maior e ainda não gasta. */
+  const pendingUtxo = {
+    txid: '31'.repeat(32), vout: 0, value: 500000,
+    script: BTC.bytesToHex(a.script), height: 0,
+    row: row(a, 0, 151)
+  };
+  const withPending = sendLimits({
+    utxos: [...utxos, pendingUtxo], address: destination, feeRate: 4
+  });
+  assert.equal(withPending.available_sats, 200000, 'o mempool não entra no disponível');
+  assert.equal(withPending.max_send_sats, limits.max_send_sats);
+  await assert.rejects(preparePsbt({
+    account, utxos: [pendingUtxo], address: destination,
+    amountSats: 10000, feeRate: 4,
+    changeRow: row(change, 1, 0), rawTxFor: async () => null
+  }), /saldo confirmado insuficiente/);
 
   /* taxa com casas decimais: a conta é sat/kvB × vsize ÷ 1000, sem arredondar
      a taxa para inteiro antes de multiplicar (1,926 não vira 2) */

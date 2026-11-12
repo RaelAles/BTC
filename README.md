@@ -4,9 +4,11 @@ Carteira watch-only e **sem armazenamento**: você entrega a **xpub**, o Worker
 deriva os endereços públicos na hora e consulta um servidor **Electrum**. A
 tela mostra:
 
-1. **saldo total** da carteira (soma das UTXOs de todos os tipos de conta)
-   logo abaixo do campo da xpub, centralizado em verde de sucesso, em BTC,
-   com o horário da última atualização em nota;
+1. **saldo confirmado** da carteira (soma das UTXOs confirmadas de todos os
+   tipos de conta) logo abaixo do campo da xpub, centralizado em verde de
+   sucesso, em BTC, com o horário da última atualização em nota. O que está
+   no mempool não entra nesse número: ele aparece numa linha à parte,
+   `pendente entrada +… | saída -…`, porque ainda não é saldo;
 2. **um endereço de recebimento por tipo**, os quatro, inclusive os zerados:
    sempre o primeiro índice sem uso daquele ramo (`último usado + 1`), para
    escolher o que o pagador aceita. O rótulo de cada linha é só o BIP
@@ -15,7 +17,9 @@ tela mostra:
 3. **lista de endereços já usados** (recebimento e troco), do uso mais
    recente para o mais antigo, com **recebido** (com sinal `+`, no verde do
    sucesso), **enviado** (com sinal `-`, no tom do erro) e **saldo** de cada
-   um, cinco por página, na tela **histórico**;
+   um, cinco por página, na tela **histórico**. Os três números contam só o
+   que está confirmado; o endereço com atividade no mempool leva a etiqueta
+   `[ mempool ]` e uma linha `pendente entrada +… | saída -…`;
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e taxa em um
    **grupo de níveis** rotulado pelo **prazo médio de confirmação** —
    `~10m`, `~30m`, `~1h` e `~1d` —, na mesma linha do recado do máximo (o
@@ -43,9 +47,10 @@ tela mostra:
    escolhidos. O PSBT é montado sozinho assim que destino, valor e taxa
    formam um pedido válido, e é remontado a cada mudança (com um respiro de
    digitação); fora do intervalo válido não há o que montar: abaixo do pó
-   (0.00000546 BTC) ou acima do máximo enviável (saldo − taxa), a nota do
-   valor explica o motivo. O destino que passa no formato mas o servidor
-   recusa (checksum, rede) não vira "máximo indisponível": é erro do campo
+   (0.00000546 BTC) ou acima do máximo enviável (saldo confirmado − taxa), a
+   nota do valor explica o motivo. O destino que passa no formato mas o
+   servidor recusa (checksum, rede) não vira "máximo indisponível": é erro do
+   campo
    destino, no recado geral, com o campo em `aria-invalid`, e esconde o
    seletor de taxa e o PSBT. Trocar o destino também tira o PSBT da tela;
    valor e taxa mantêm o retrato anterior, marcado como antigo e sem
@@ -62,9 +67,10 @@ tela mostra:
    e taxa) leva `-` em `--error` e o que volta (troco) leva `+`
    em `--success`, com o sinal no texto para a cor ser reforço, não o único
    sinal. Cada valor leva também, depois de um divisor `|`, em `--dim`, a
-   fatia que representa do saldo total da conta (o mesmo número de `v-total`):
-   a saída, o troco, a taxa e o pó usam todos essa mesma base, para a tabela
-   ler como um recorte do saldo, e aparecem como `-0.00050000 | 25.4%` e
+   fatia que representa do saldo confirmado da conta (o mesmo número de
+   `v-total`): a saída, o troco, a taxa e o pó usam todos essa mesma base,
+   para a tabela ler como um recorte do saldo, e aparecem como
+   `-0.00050000 | 25.4%` e
    `-0.00005000 | 2.54%`, com as casas pelo tamanho (uma acima de 10%, duas
    acima de 1% e três abaixo; o que arredondaria para zero fica `<0.001%`).
    A taxa sobre o valor **enviado** é outra pergunta e fica no seletor de taxa,
@@ -130,11 +136,14 @@ blockchain.info, nem chave privada em lugar nenhum.
   passo devolve o saldo final.
 - **Saldo por UTXO**: baixa as transações cruas dos endereços usados, faz o
   parse local e soma saídas que pagam a carteira menos as saídas já gastas.
-  `recebido` é a soma das saídas, `enviado` a soma das gastas; mempool entra
-  no saldo como não confirmado.
+  `recebido` é a soma das saídas, `enviado` a soma das gastas. Mempool é
+  atividade pendente e fica fora do saldo: a resposta separa o que já está
+  em bloco (saldo, recebido e enviado) do que ainda não está
+  (`pending_in` e `pending_out`), e a tela mostra os pendentes à parte.
 - **UTXOs e PSBT**: a mesma conta guarda as saídas ainda não gastas. Com
-  elas, `POST /api/psbt` escolhe entradas (confirmadas antes das pendentes,
-  maiores primeiro), calcula a taxa pela vsize estimada (um limite superior do
+  elas, `POST /api/psbt` escolhe entradas **só entre as confirmadas** (o que
+  está no mempool não é saldo e não entra no envio), as maiores primeiro,
+  calcula a taxa pela vsize estimada (um limite superior do
   tamanho real, ver “a vsize é um limite superior” abaixo), deriva o próximo
   endereço de troco e monta um **PSBT v0** sem assinatura. Cada entrada leva
   `witness_utxo` e a origem BIP32; p2pkh leva também o `non_witness_utxo` e
@@ -156,7 +165,7 @@ blockchain.info, nem chave privada em lugar nenhum.
   reconsulta a cada 60 s enquanto está aberta e mostra o percentual de cada
   nível para o valor e o destino digitados.
 - **Todos os endereços usados** dos quatro tipos vão para a resposta; os
-  outros tipos também entram no saldo total (união), não só o detectado.
+  outros tipos também entram no saldo confirmado (união), não só o detectado.
 - **Sem cache durável**: cada consulta deriva e consulta de novo. Enquanto a
   sessão do Durable Object estiver viva (tela aberta) a conexão, os endereços
   já derivados e o cache de transações ficam em memória; na consulta seguinte
@@ -469,7 +478,8 @@ Resposta (resumida):
 ```json
 {
   "detected_type": "bip44",
-  "balance": { "detected": 12835640, "total": 12862176 },
+  "balance": { "detected": 12835640, "total": 12862176,
+               "pending_in": 0, "pending_out": 0, "unconfirmed": 0 },
   "types": [
     { "type": "bip86", "label": "bip86 · taproot (p2tr)", "address": "bc1p...",
       "path": "m/86'/0'/0'/0/1", "balance": 11100, "tx_count": 1,
@@ -487,7 +497,8 @@ Resposta (resumida):
   "addresses": [
     { "account_type": "bip44", "chain": 0, "idx": 0, "address": "1Efg...",
       "used": 1, "received": 110665, "spent": 100000, "balance": 10665,
-      "tx_count": 3, "last_height": 700200, "pending": false }
+      "tx_count": 3, "last_height": 700200, "pending": false,
+      "pending_in": 0, "pending_out": 0 }
   ],
   "warnings": [ "..." ],
   "watch": true,
@@ -497,23 +508,32 @@ Resposta (resumida):
 
 `addresses` traz **só endereços usados** (todos os tipos), cada um com
 recebido, enviado, saldo e número de transações, na ordem do **uso mais
-recente para o mais antigo**. A data é a altura do bloco em que o endereço
-apareceu pela última vez (`last_height`), que a varredura já tem, sem pedir
-cabeçalho ao servidor; o que está no mempool (`pending: true`) vem antes de
+recente para o mais antigo**. Recebido, enviado e saldo contam só o que está
+confirmado; `pending_in` e `pending_out` trazem os totais do mempool daquele
+endereço (o que ainda não virou bloco, de entrada e de saída). A data é a
+altura do bloco em que o endereço apareceu pela última vez (`last_height`),
+que a varredura já tem, sem pedir cabeçalho ao servidor; o que está no
+mempool (`pending: true`) vem antes de
 qualquer bloco confirmado e leva a etiqueta `[ mempool ]` na tela. Mesma
 altura desempata pelo índice maior, para a ordem não mudar entre consultas
 iguais.
 
 `types` traz **os quatro tipos**, na ordem bip86 → bip84 → bip49 → bip44 (o
 BIP mais alto, tecnologia mais recente, primeiro) e com o detectado marcado
-por `detected`: cada um com o saldo
-do tipo (soma dos endereços usados dele) e o próximo endereço livre do ramo
-de recebimento (`último usado + 1`, ou o índice 0 se o tipo nunca foi usado).
+por `detected`: cada um com o saldo confirmado do tipo (soma dos endereços
+usados dele) e o próximo endereço livre do ramo de recebimento
+(`último usado + 1`, ou o índice 0 se o tipo nunca foi usado).
 A soma de `types[].balance` é o `balance.total`. A tela usa `types` inteiro
 (os quatro) no bloco **receber**, que exibe o próximo endereço livre de cada
 tipo e, abaixo deles, o endereço de troco do tipo detectado
 (`change_address`, o `último usado + 1` do ramo `/1`), sem botão de copiar,
 para comparar com o endereço que o PSBT montou.
+
+`balance.total` é o saldo **confirmado** — a soma dos `types[].balance` —,
+e `balance.detected` é a fatia do tipo detectado. `balance.pending_in` e
+`balance.pending_out` são os totais não confirmados de entrada e de saída
+(somas dos `pending_in`/`pending_out` dos endereços), e `balance.unconfirmed`
+é a diferença entre eles. Nada disso entra no saldo nem no envio.
 
 `watch: true` avisa a UI para abrir o WebSocket de tempo real. `session` é o
 id aleatório do Durable Object: mande de volta no próximo `POST` para
@@ -536,9 +556,8 @@ de 1 a 10 000 sat/vB e aceita as casas decimais do estimador (1,926), porque a
 conta é feita em sat/kvB (`Math.ceil(sat/kvB × vsize ÷ 1000)`) sobre a vsize
 estimada — que é um limite superior do tamanho real, então a taxa efetiva
 nunca fica abaixo da pedida; valor abaixo
-de 546 sats é recusado como pó. Entradas
-confirmadas são escolhidas antes das pendentes e, dentro de cada grupo, as
-maiores primeiro.
+de 546 sats é recusado como pó. Só entradas confirmadas entram no envio (o
+mempool não é saldo) e, entre elas, as maiores são escolhidas primeiro.
 
 Com `"preview": true` e sem `amount_sats`, a rota não monta nada: devolve o
 limite que a tela usa para bloquear o envio antes da tentativa.
@@ -573,10 +592,11 @@ valor não cabe volta com `fee_sats: null`.
 Valor acima do máximo volta com `fee_sats: null` (a tela já mostra o erro de
 limite).
 
-`max_send_sats` é o total disponível menos a taxa da transação que gasta todas
-as entradas e manda todo o resto ao destino (sem troco). É exatamente o maior
-valor que `selectCoins` aceita; abaixo dele sempre existe uma seleção válida,
-e acima o envio é recusado. No máximo não há saída de troco.
+`max_send_sats` é o total confirmado disponível menos a taxa da transação
+que gasta todas as entradas e manda todo o resto ao destino (sem troco). É
+exatamente o maior valor que `selectCoins` aceita; abaixo dele sempre existe
+uma seleção válida, e acima o envio é recusado. No máximo não há saída de
+troco.
 
 A taxa vem separada em duas partes: `fee_sats_at_rate` é o que a tarifa
 pedida cobraria sozinha na transação montada e `dust_sats` é o que sobrou e
@@ -847,7 +867,8 @@ Durable Object confere e transmite pela conexão já aberta, sem nova varredura.
 
 O `worker.test.mjs` monta transações com o próprio `btc-core` e cobre:
 endereço que recebeu e gastou (`recebido 10000 / enviado 10000 / saldo 0`),
-endereço que só recebeu, próximo índice, mempool no saldo, união dos tipos,
+endereço que só recebeu, próximo índice, mempool fora do saldo e do envio,
+união dos tipos,
 ausência de cache entre consultas (o Electrum é consultado de novo),
 ausência de fallback quando o Electrum não responde, recusa de
 endereço/xprv/texto solto antes de consultar, a margem fixa de 50 (400

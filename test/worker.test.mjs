@@ -135,14 +135,22 @@ setConnectOverride(nodeConnect);
   assert.equal(r.j.types.find(t => t.detected).path, "m/86'/0'/0'/0/1");
   assert.equal(extra.address, (await addr('bip84', 0, 4)).address);
 
-  /* mempool entra no saldo */
+  /* o mempool não entra no saldo: fica separado como pendente de entrada */
   const memTx = makeTx([{ txid: '03'.repeat(32), vout: 0 }], [{ value: 1234, script: t86.script }]);
   fake.txs.set(memTx.txid, memTx.raw);
   fake.mempool.set(scripthash(t86.script), [{ height: 0, tx_hash: memTx.txid }]);
   const r2 = await run(USER, env);
-  assert.equal(r2.j.balance.detected, 6234, 'transação no mempool conta no saldo');
+  assert.equal(r2.j.balance.detected, 5000, 'confirmação não muda com transação no mempool');
+  assert.equal(r2.j.balance.total, 12000, 'o saldo total é só o confirmado');
+  assert.equal(r2.j.balance.pending_in, 1234, 'a entrada pendente aparece à parte');
+  assert.equal(r2.j.balance.pending_out, 0);
+  assert.equal(r2.j.balance.unconfirmed, 1234);
   const u86 = r2.j.addresses.find(x => x.address === t86.address);
   assert.equal(u86.tx_count, 2);
+  assert.equal(u86.received, 5000, 'recebido confirmado não soma o mempool');
+  assert.equal(u86.balance, 5000, 'saldo do endereço é só o confirmado');
+  assert.equal(u86.pending_in, 1234);
+  assert.equal(u86.pending_out, 0);
   assert.equal(u86.pending, true, 'transação no mempool marca o endereço como pendente');
   assert.equal(u86.last_height, 700000, 'o mempool não inventa altura');
   assert.equal(r2.j.addresses[0].address, t86.address, 'pendente vem antes de qualquer bloco confirmado');

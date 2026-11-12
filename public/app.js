@@ -1916,6 +1916,19 @@
     return '<span class="value-' + dir + '">' + (dir === 'in' ? '+' : '-') + fmtBtc(n) + '</span>';
   }
 
+  /* Totais não confirmados (mempool), de entrada e de saída: não entram no
+     saldo nem no envio, então aparecem à parte, com o sinal e a cor da
+     direção (VG-COR-16). Sem pendência, a linha não existe. */
+  function pendingValues(pin, pout) {
+    var a = Number(pin) || 0;
+    var b = Number(pout) || 0;
+    if (!a && !b) return '';
+    return '<span class="value-label">pendente</span> ' +
+      '<span class="value-label">entrada</span> ' + signedBtc(a, 'in') +
+      ' <span class="value-sep" aria-hidden="true">|</span> ' +
+      '<span class="value-label">saída</span> ' + signedBtc(b, 'out');
+  }
+
   /* Percentual de uma linha de valor sobre o saldo total da conta — o mesmo
      número da tela da carteira, que é do que o envio é uma fatia —, precedido
      do separador `|` (o mesmo divisor das linhas de dados do extrato). Uma
@@ -1981,6 +1994,7 @@
       }
       var purpose = TYPE_PURPOSE[a.account_type] || '?';
       var chain = a.chain === 1 ? 'troco' : '';
+      var pendingRow = pendingValues(a.pending_in, a.pending_out);
       var li = document.createElement('li');
       li.className = 'item';
       li.innerHTML =
@@ -2002,7 +2016,10 @@
           '<span class="value-label">enviado</span> ' + signedBtc(a.spent, 'out') +
           ' <span class="value-sep" aria-hidden="true">|</span> ' +
           '<span class="value-label">saldo</span> ' + fmtBtc(a.balance) +
-        '</p>';
+        '</p>' +
+        (pendingRow
+          ? '<p class="item-meta history-values history-pending">' + pendingRow + '</p>'
+          : '');
       list.appendChild(li);
     });
   }
@@ -2058,6 +2075,12 @@
     var total = $('#v-total');
     total.textContent = fmtBtc(b.total) + ' BTC';
     total.hidden = false;
+    var pending = $('#v-pending');
+    if (pending) {
+      var pendingHtml = pendingValues(b.pending_in, b.pending_out);
+      pending.innerHTML = pendingHtml;
+      pending.hidden = !pendingHtml;
+    }
     var updated = $('#v-updated');
     updated.textContent = d.updated_at
       ? 'atualizado ' + new Date(d.updated_at).toLocaleString('pt-BR')
@@ -2105,7 +2128,7 @@
     if (out) out.hidden = true;
     // o saldo e o horário ficam fora do #out (abaixo do campo): saem da tela
     // e voltam ao travessão até a próxima consulta
-    ['#v-total', '#v-updated'].forEach(function (sel) {
+    ['#v-total', '#v-pending', '#v-updated'].forEach(function (sel) {
       var el = $(sel);
       if (!el) return;
       el.textContent = sel === '#v-total' ? '—' : '';
@@ -2164,6 +2187,8 @@
     // durante a primeira busca o saldo anterior não é apresentado como final
     var total = $('#v-total');
     if (total) total.hidden = true;
+    var pending = $('#v-pending');
+    if (pending) pending.hidden = true;
     var updated = $('#v-updated');
     if (updated) updated.hidden = true;
     var out = $('#out');

@@ -115,6 +115,7 @@ export class WalletScanner {
       script: BTC.bytesToHex(a.script), pub: BTC.bytesToHex(a.pub),
       kind: (TYPE_INFO[type] || {}).kind || 'p2wpkh',
       used: 0, balance: 0, received: 0, spent: 0, tx_count: 0,
+      confirmed: 0, unconfirmed: 0, pendingIn: 0, pendingOut: 0,
       heights: new Map(), txids: [], stale: false
     };
   }
@@ -191,12 +192,17 @@ export class WalletScanner {
         continue;
       }
       const t = totals.get(r.script);
-      r.received = t ? t.received : 0;
-      r.spent = t ? t.spent : 0;
-      r.balance = t ? t.balance : 0;
+      /* O saldo exibido e o que o envio usa são só o que está confirmado.
+         A atividade do mempool fica em pendingIn/pendingOut e aparece à
+         parte na tela, sem entrar na conta de recebido/enviado/saldo. */
+      r.received = t ? t.receivedConfirmed : 0;
+      r.spent = t ? t.spentConfirmed : 0;
+      r.balance = t ? t.confirmed : 0;
       r.tx_count = t ? t.txCount : 0;
       r.confirmed = t ? t.confirmed : 0;
       r.unconfirmed = t ? t.unconfirmed : 0;
+      r.pendingIn = t ? t.unconfirmedIn : 0;
+      r.pendingOut = t ? t.unconfirmedOut : 0;
       r.used = r.tx_count ? 1 : 0;
     }
 
@@ -371,10 +377,10 @@ export class WalletScanner {
     const totalOf = t => usedRows.filter(r => r.account_type === t).reduce((s, r) => s + r.balance, 0);
 
     /* Um item por tipo de conta, na ordem de TYPES (do BIP mais alto para o
-       mais baixo: a tecnologia mais recente primeiro), cada um com o saldo do
-       tipo e o próximo endereço livre do ramo de recebimento. O tipo
-       detectado vem marcado, sem mudar de posição. A tela exibe os quatro no
-       bloco receber; o saldo total é a soma das linhas. */
+       mais baixo: a tecnologia mais recente primeiro), cada um com o saldo
+       confirmado do tipo e o próximo endereço livre do ramo de recebimento.
+       O tipo detectado vem marcado, sem mudar de posição. A tela exibe os
+       quatro no bloco receber; o saldo total é a soma das linhas. */
     const types = TYPES.map(t => {
       const br = this.branch(t, 0);
       const ch = this.branch(t, 1);
@@ -393,6 +399,11 @@ export class WalletScanner {
 
     const detected = totalOf(type);
     const extraTotal = types.reduce((s, t) => t.type === type ? s : s + t.balance, 0);
+    /* Mempool: somas não confirmadas de entrada e de saída, em todos os
+       endereços usados. Ficam fora de `total` (que é confirmado) e a tela
+       as mostra numa linha à parte; o saldo líquido é a diferença. */
+    const pendingIn = usedRows.reduce((s, r) => s + r.pendingIn, 0);
+    const pendingOut = usedRows.reduce((s, r) => s + r.pendingOut, 0);
 
     /* Extrato na ordem do uso mais recente: a altura do bloco é a data que a
        varredura já tem, sem pedir cabeçalho ao servidor, e o mempool vem
@@ -418,7 +429,9 @@ export class WalletScanner {
         spent: r.spent,
         tx_count: r.tx_count,
         last_height: act.height,
-        pending: act.pending === 1
+        pending: act.pending === 1,
+        pending_in: r.pendingIn,
+        pending_out: r.pendingOut
       }));
 
     const warnings = [];
@@ -431,7 +444,13 @@ export class WalletScanner {
 
     return {
       detected_type: type,
-      balance: { detected, total: detected + extraTotal },
+      balance: {
+        detected,
+        total: detected + extraTotal,
+        pending_in: pendingIn,
+        pending_out: pendingOut,
+        unconfirmed: pendingIn - pendingOut
+      },
       types,
       addresses,
       warnings,
