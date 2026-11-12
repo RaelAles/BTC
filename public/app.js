@@ -1813,9 +1813,9 @@
       '<span class="summary-line">' +
         '<span class="summary-count">' + countLabel + '</span>' +
         ' <span class="value-sep" aria-hidden="true">·</span> ' +
-        '<span class="value-label">recebido</span> ' + signedBtc(sum.received, 'in') + ' BTC' +
+        '<span class="value-label">recebido</span> ' + signedBtc(sum.received, 'in') +
         ' <span class="value-sep" aria-hidden="true">|</span> ' +
-        '<span class="value-label">enviado</span> ' + signedBtc(sum.spent, 'out') + ' BTC' +
+        '<span class="value-label">enviado</span> ' + signedBtc(sum.spent, 'out') +
       '</span>';
     state.historyState = 'ready';
     renderHistory();
