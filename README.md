@@ -30,9 +30,10 @@ tela mostra:
    o nível mais lento não acrescenta escolha. A taxa de cada nível vem **ao
    vivo** pelo `/api/fees` e é ela que o PSBT usa; o piso de relay entra no
    lugar da estimativa quando ela fica abaixo dele.
-   O seletor só aparece quando há valor e destino válidos; sem os dois, o
-   custo não teria o que cotar. Os níveis são rádios nativos: clique ou
-   setas escolhem, e o PSBT usa a taxa do nível escolhido. A escolha começa
+   O seletor só aparece quando há valor e destino válidos; sem os dois, ou
+   com o destino recusado, o custo não teria o que cotar. Os níveis são
+   rádios nativos: clique ou setas escolhem, e o PSBT usa a taxa do nível
+   escolhido. A escolha começa
    no nível de menor taxa (`~1d`) e, quando ele perde a estimativa, passa
    para o de menor taxa entre os disponíveis; a escolha feita à mão continua
    valendo enquanto aquele nível existir. A quantidade usa
@@ -45,9 +46,12 @@ tela mostra:
    (0.00000546 BTC) ou acima do máximo enviável (saldo − taxa), a nota do
    valor explica o motivo. O destino que passa no formato mas o servidor
    recusa (checksum, rede) não vira "máximo indisponível": é erro do campo
-   destino, no recado geral, com o campo em `aria-invalid`. O PSBT sai sem
-   assinatura, com troco, em base64,
-   e aparece só quando a montagem termina, disponível como arquivo no botão
+   destino, no recado geral, com o campo em `aria-invalid`, e esconde o
+   seletor de taxa e o PSBT. Trocar o destino também tira o PSBT da tela;
+   valor e taxa mantêm o retrato anterior, marcado como antigo e sem
+   download, até a resposta do pedido novo. O PSBT sai sem assinatura, com
+   troco, em base64, e aparece só quando a montagem termina, disponível como
+   arquivo no botão
    **baixar**, ao fim do bloco; a tela mostra os detalhes (saída,
    destino, troco, endereço, pó, taxa, vsize e txid) na mesma tabela de
    leitura do "receber", sem o base64 como campo. A linha **pó** só aparece

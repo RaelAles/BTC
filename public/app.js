@@ -1180,7 +1180,10 @@
     }
 
     /* O erro fica no recado geral (VG-FRM-07), não sob o campo: o hint
-       continua só com o dado neutro, e o campo recebe o fio e o aria-invalid. */
+       continua só com o dado neutro, e o campo recebe o fio e o aria-invalid.
+       Destino inválido também tira o PSBT da tela: o retrato é do pedido que
+       o gerou, e não há o que baixar com um destino que o servidor recusa. */
+    if (addressProblem && state.psbt) dropPsbt();
     setFieldInvalid(addressInput, !!addressProblem);
     setFieldInvalid(amountInput, !!amountProblem);
     if (addressInput) addressInput.setAttribute('aria-describedby', 'send-status');
@@ -1201,7 +1204,7 @@
       if (state.psbt && !state.psbtStale) btn.removeAttribute('aria-disabled');
       else btn.setAttribute('aria-disabled', 'true');
     }
-    updateFeeVisibility();
+    updateFeeVisibility(addressProblem);
     /* o custo de cada nível depende do valor, do destino e do preview que
        acabou de mudar; é o único lugar em que todos os três se encontram */
     renderFeeLevels();
@@ -1212,13 +1215,13 @@
 
   /* O seletor de taxa só aparece quando há valor e destino válidos: é quando
      o preview consegue cotar cada nível em BTC. Sem os dois, a escolha não
-     teria custo para mostrar. */
-  function updateFeeVisibility() {
+     teria custo para mostrar; destino recusado também esconde o grupo. */
+  function updateFeeVisibility(addressProblem) {
     var section = $('#fee-section');
     if (!section) return;
     var amount = amountSats();
     var address = $('#send-address') ? $('#send-address').value.trim() : '';
-    section.hidden = !(amount > 0 && addressLooksValid(address));
+    section.hidden = !!addressProblem || !(amount > 0 && addressLooksValid(address));
   }
 
   /* O máximo depende do destino (tamanho do script) e da taxa. A consulta é
@@ -1402,12 +1405,14 @@
 
   /* Qualquer mudança no formulário vence o pedido em voo: a resposta que
      chegar de um retrato antigo é descartada pela sequência. O retrato já
-     desenhado NÃO sai da tela: o bloco do PSBT é alto, e removê-lo a cada
-     tecla encolhia a página e mexia no topo e no rodapé. Ele fica visível,
-     marcado como antigo (`psbtStale`, download bloqueado), até a resposta do
-     formulário novo o substituir. A montagem agendada não é cancelada aqui:
-     quando ela disparar, a chave e o `psbtReady` já são os do formulário novo
-     (e fora do intervalo válido ela não monta nada). */
+     desenhado NÃO sai da tela quando só valor ou taxa mudam: o bloco do
+     PSBT é alto, e removê-lo a cada tecla encolhia a página e mexia no topo
+     e no rodapé. Ele fica visível, marcado como antigo (`psbtStale`, download
+     bloqueado), até a resposta do formulário novo o substituir. O destino é a
+     exceção: `dropPsbt` tira o retrato, porque o endereço mostrado não pode
+     ficar na tela depois de o campo mudar. A montagem agendada não é
+     cancelada aqui: quando ela disparar, a chave e o `psbtReady` já são os do
+     formulário novo (e fora do intervalo válido ela não monta nada). */
   function invalidatePsbt() {
     state.psbtSeq++;
     state.sendBusy = false;
@@ -1427,7 +1432,9 @@
     }
   }
 
-  function resetSend() {
+  /* O retrato sai da tela quando o destino muda: o PSBT é do pedido que o
+     gerou, e o valor/taxa antigos continuam visíveis de propósito. */
+  function dropPsbt() {
     invalidatePsbt();
     state.psbt = null;
     state.psbtStale = false;
@@ -1437,6 +1444,10 @@
       out.removeAttribute('aria-busy');
       out.removeAttribute('data-stale');
     }
+  }
+
+  function resetSend() {
+    dropPsbt();
     state.sendBusy = false;
     state.fees = null;
     state.feeQuotes = null;
@@ -2380,7 +2391,7 @@
     }
     var addressInput = $('#send-address');
     if (addressInput) addressInput.addEventListener('input', function () {
-      invalidatePsbt();
+      dropPsbt(); // destino novo: o retrato anterior não fica na tela
       scheduleLimits();
     });
     var sendDownload = $('#send-download');
