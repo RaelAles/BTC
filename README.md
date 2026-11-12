@@ -54,15 +54,15 @@ tela mostra:
    valores usam a marcação de valor do sistema (VG-COR-16): o que sai (saída
    e taxa) leva `-` em `--error` e o que volta (troco) leva `+`
    em `--success`, com o sinal no texto para a cor ser reforço, não o único
-   sinal. Cada valor leva também, depois de um divisor `|`, em `--dim`, o
-   percentual que representa: a saída e o troco sobre o saldo total da conta
-   (o mesmo número de `v-total`) e a taxa e o pó sobre o valor enviado — o
-   mesmo número do seletor de taxa, já que é o envio que a tarifa acompanha.
-   Assim aparecem `-0.00005000 | 0.5%` (taxa) e `-0.00050000 | 25.4%`
-   (saída), com as casas pelo tamanho (uma acima de 10%, duas acima de 1% e
-   três abaixo; o que arredondaria para zero fica `<0.001%`). A soma das
-   linhas não fecha 100%: o que não foi escolhido para a transação continua
-   na conta. O destino e o troco são
+   sinal. Cada valor leva também, depois de um divisor `|`, em `--dim`, a
+   fatia que representa do saldo total da conta (o mesmo número de `v-total`):
+   a saída, o troco, a taxa e o pó usam todos essa mesma base, para a tabela
+   ler como um recorte do saldo, e aparecem como `-0.00050000 | 25.4%` e
+   `-0.00005000 | 2.54%`, com as casas pelo tamanho (uma acima de 10%, duas
+   acima de 1% e três abaixo; o que arredondaria para zero fica `<0.001%`).
+   A taxa sobre o valor **enviado** é outra pergunta e fica no seletor de taxa,
+   não aqui. A soma das linhas não fecha 100%: o que não foi escolhido para a
+   transação continua na conta. O destino e o troco são
    o que o servidor diz ter montado — o
    navegador não lê o base64 —, então a tabela serve para comparar: se o
    destino ou o valor montados diferirem do formulário, ou se aparecer mais

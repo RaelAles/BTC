@@ -1462,12 +1462,11 @@
     /* A marcação de valor do sistema (VG-COR-16) fica só nas linhas de valor,
        com o sinal no texto e a cor reforçando: o que sai leva `-`, o que volta
        leva `+`. Cada valor leva também, depois do separador `|`, a fatia que
-       representa (`sharePct`), em --dim: a saída e o troco, sobre o saldo da
-       conta; a taxa e o pó, sobre o valor enviado (`sent`), porque é o envio
-       que a tarifa acompanha — o mesmo número do seletor de taxa. Endereço é
-       texto puro. A taxa aparece sem o pó, que vem logo abaixo com `-`: a soma
-       das duas é o que o PSBT paga (`fee_sats`). */
-    var sent = j.recipient ? Number(j.recipient.value) || 0 : 0;
+       representa do saldo da conta (`sharePct`), em --dim: a mesma base para
+       as três linhas, para a tabela ler como um recorte do saldo. A taxa
+       sobre o valor enviado é outra pergunta e fica só no seletor de taxa.
+       Endereço é texto puro. A taxa aparece sem o pó, que vem logo abaixo com
+       `-`: a soma das duas é o que o PSBT paga (`fee_sats`). */
     var outValue = $('#send-meta-out-value');
     if (outValue) outValue.innerHTML = j.recipient ? signedBtcShare(j.recipient.value, 'out') : '';
     var outAddress = $('#send-meta-out-address');
@@ -1482,11 +1481,11 @@
        a linha `taxa` mostra a tarifa sem ele e a linha seguinte o desconta. */
     var dust = Number(j.dust_sats) || 0;
     var fee = $('#send-meta-fee');
-    if (fee) fee.innerHTML = signedBtcShare((Number(j.fee_sats) || 0) - dust, 'out', sent);
+    if (fee) fee.innerHTML = signedBtcShare((Number(j.fee_sats) || 0) - dust, 'out');
     var dustRow = $('#send-meta-dust-row');
     if (dustRow) dustRow.hidden = !(dust > 0);
     var dustCell = $('#send-meta-dust');
-    if (dustCell) dustCell.innerHTML = dust > 0 ? signedBtcShare(dust, 'out', sent) : '';
+    if (dustCell) dustCell.innerHTML = dust > 0 ? signedBtcShare(dust, 'out') : '';
 
     /* Divergência entre o PSBT e o formulário. Não é prova de nada (o
        servidor pode mentir igual nos dois), mas pega troca acidental, bug e
@@ -1649,22 +1648,17 @@
     return '<span class="value-' + dir + '">' + (dir === 'in' ? '+' : '-') + fmtBtc(n) + '</span>';
   }
 
-  /* Percentual de uma linha de valor sobre uma base, precedido do separador
-     `|` (o mesmo divisor das linhas de dados do extrato): a base padrão é o
-     saldo total da conta — o mesmo número da tela da carteira, de que o envio
-     é uma fatia —, mas a taxa e o pó passam o valor enviado, que é o que eles
-     acompanham. As casas seguem o tamanho: uma casa no valor grande (25.4%),
-     duas no médio e três no pequeno; abaixo de 0.001% o piso `<0.001%` diz que
-     é pequeno sem fingir precisão. Sem base conhecida, nenhuma linha ganha
-     percentual. */
-  function sharePct(sats, baseSats) {
-    var total;
-    if (baseSats == null) {
-      var b = state.data && state.data.balance;
-      total = b ? Number(b.total) || 0 : 0;
-    } else {
-      total = Number(baseSats) || 0;
-    }
+  /* Percentual de uma linha de valor sobre o saldo total da conta — o mesmo
+     número da tela da carteira, que é do que o envio é uma fatia —, precedido
+     do separador `|` (o mesmo divisor das linhas de dados do extrato). Uma
+     base só para todas as linhas da tabela: a taxa sobre o valor enviado é
+     outra pergunta e tem lugar próprio, o seletor de taxa. As casas seguem o
+     tamanho: uma casa no valor grande (25.4%), duas no médio e três no
+     pequeno; abaixo de 0.001% o piso `<0.001%` diz que é pequeno sem fingir
+     precisão. Sem saldo conhecido, nenhuma linha ganha percentual. */
+  function sharePct(sats) {
+    var b = state.data && state.data.balance;
+    var total = b ? Number(b.total) || 0 : 0;
     if (!(total > 0)) return '';
     var pct = (Number(sats) || 0) / total * 100;
     if (!isFinite(pct) || pct <= 0) {
@@ -1677,11 +1671,10 @@
     return ' <span class="value-sep" aria-hidden="true">|</span> <span class="value-pct">' + text + '%</span>';
   }
 
-  /* Valor com sinal seguido da fatia (resumo do PSBT): o percentual completa a
-     legenda, não compete com o valor. Sem `baseSats`, a fatia é sobre o saldo
-     da conta; com ele, sobre o valor passado (o valor enviado, na taxa). */
-  function signedBtcShare(sats, dir, baseSats) {
-    return signedBtc(sats, dir) + sharePct(sats, baseSats);
+  /* Valor com sinal seguido da fatia sobre o saldo (resumo do PSBT): o
+     percentual completa a legenda, não compete com o valor. */
+  function signedBtcShare(sats, dir) {
+    return signedBtc(sats, dir) + sharePct(sats);
   }
 
   /* Extrato (VG-LST-01): um item por endereço usado, cinco por página, na
