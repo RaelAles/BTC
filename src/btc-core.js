@@ -1154,6 +1154,44 @@ var BTC = (function () {
     return b64decode(compact);
   }
 
+  /* Transação final de um PSBT assinado (o que se publica na rede).
+
+     O BIP174 manda escrever a transação a partir dos campos finais de cada
+     entrada (`final_scriptSig` e `final_scriptWitness`), e não copiar os
+     campos de assinatura: quem transmite não precisa conhecer o script tipo
+     de cada entrada. Exige todas as entradas finalizadas; o que falta é
+     erro, e não um hex pela metade. */
+  function psbtFinalTx(psbt) {
+    var tx = psbt && psbt.tx;
+    if (!tx) throw new Error('PSBT sem a transação não assinada');
+    if (!tx.inputs.length) throw new Error('a transação não tem entradas');
+    if (!tx.outputs.length) throw new Error('a transação não tem saídas');
+    var finalInputs = [], witnesses = [];
+    for (var i = 0; i < tx.inputs.length; i++) {
+      if (tx.inputs[i].scriptSig && tx.inputs[i].scriptSig.length) {
+        throw new Error('entrada ' + i + ' já tem scriptSig na transação não assinada');
+      }
+      var map = psbt.inputs[i];
+      var fs = mapFind(map, 0x07);
+      var fw = mapFind(map, 0x08);
+      if (!fs) throw new Error('entrada ' + i + ' não está finalizada (falta final_scriptSig)');
+      finalInputs.push({
+        txid: tx.inputs[i].txid, vout: tx.inputs[i].vout,
+        scriptSig: fs.value, sequence: tx.inputs[i].sequence
+      });
+      witnesses.push(fw ? readWitness(fw.value) : []);
+    }
+    var final = {
+      version: tx.version, inputs: finalInputs, outputs: tx.outputs,
+      witnesses: witnesses, locktime: tx.locktime,
+      segwit: witnesses.some(function (w) { return w.length > 0; })
+    };
+    var bytes = writeTx(final, true);
+    /* ida e volta: o hex publicado tem de voltar como a mesma transação */
+    var parsed = readTx(bytes);
+    return { tx: parsed, hex: bytesToHex(bytes), txid: txidOf(parsed), vsize: vsizeOf(parsed) };
+  }
+
   /* ------------------------------------------------ desvios de chave */
   function createSession(hd) {
     var cache = { chain: {}, at: {} };
@@ -1690,7 +1728,8 @@ var BTC = (function () {
     estimateVsize: estimateVsize,
     sighashLegacy: sighashLegacy, sighashV0: sighashV0, sighashTaproot: sighashTaproot,
     bip340Sign: bip340Sign, bip340Verify: bip340Verify, tweakPrivate: tweakPrivate,
-    analyzePsbt: analyzePsbt, signPsbt: signPsbt, formatSats: formatSats,
+    analyzePsbt: analyzePsbt, signPsbt: signPsbt, psbtFinalTx: psbtFinalTx,
+    prevoutOf: prevoutOf, formatSats: formatSats,
     pathText: pathText, pathBytes: pathBytes, parsePath: parsePath,
     jAdd: jAdd, jMul: jMul, toAffine: toAffine, liftX: liftX,
     hmacSha512: hmacSha512, readWitness: readWitness, writeVarInt: writeVarInt,

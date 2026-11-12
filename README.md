@@ -77,10 +77,19 @@ tela mostra:
    `chave-btc.html`, que é a conferência que vale.
    Quem assina é o `chave-btc.html` (projeto 1), offline; o projeto 2 nunca
    vê chave privada.
+5. **transmitir** abaixo do envio: o PSBT assinado volta pelo botão
+   **importar psbt assinado**. Importar **não** publica: o servidor confere o
+   arquivo contra a carteira (cada entrada tem de ser sua, o valor tem de
+   bater, todas as entradas têm de estar finalizadas) e a tela mostra txid,
+   vsize, taxa real, entradas e cada saída (destino, troco ou externo). Só o
+   clique em **transmitir** publica a transação final no Electrum; depois
+   disso o botão vira **transmitida** e o resumo fica na tela. O arquivo e o
+   resumo vivem só na memória da tela, como o resto.
 
 Nada fica guardado: nem a xpub no navegador, nem endereços, transações ou
-saldo no Cloudflare. Enquanto a tela está aberta o saldo é acompanhado em
-**tempo real** (`scripthash.subscribe` + WebSocket); quando a última tela
+saldo no Cloudflare. O PSBT assinado importado também não é gravado. Enquanto
+a tela está aberta o saldo é acompanhado em **tempo real**
+(`scripthash.subscribe` + WebSocket); quando a última tela
 fecha, a conexão, as assinaturas, os endereços derivados, o cache de
 transações e a xpub são descartados. A próxima abertura começa do zero.
 
@@ -133,6 +142,13 @@ blockchain.info, nem chave privada em lugar nenhum.
   saída de troco: é somado à taxa, e a resposta separa esse resto
   (`dust_sats`) da tarifa (`fee_sats_at_rate`) para a tela explicar a
   diferença.
+- **Transmissão**: `POST /api/broadcast` recebe o PSBT assinado e confere
+  cada entrada contra os scripts/UTXOs da carteira, exige as entradas
+  finalizadas, classifica as saídas (destino, troco, externo) e calcula a
+  taxa da transação final. Sem `preview`, publica com
+  `blockchain.transaction.broadcast`; com sessão, pela conexão já aberta, e o
+  `scripthash.subscribe` atualiza o saldo em seguida. É o único ponto que
+  entrega a transação a um servidor, e só no clique em **transmitir**.
 - **Taxa ao vivo**: `GET /api/fees` pergunta `blockchain.estimatefee` para
   144, 6, 3 e 1 bloco, que a tela mostra como prazo médio (`~1d`, `~1h`,
   `~30m` e `~10m`, a 10 min por bloco), e converte BTC/kvB em sat/kvB
@@ -354,10 +370,12 @@ src/
   electrum.js         cliente Electrum (JSON-RPC 1.4) sobre cloudflare:sockets
   address-totals.js   conta de UTXO: recebido/enviado/saldo por script
   psbt.js             escolha de UTXOs, taxa, troco e PSBT de envio
+  broadcast.js        conferência do PSBT assinado e transmissão no Electrum
   wallet-sync.js      varredura por margem de 50, em passos, e payload (só memória)
   watcher.js          Durable Object: socket + assinaturas + WebSocket, sem storage
   config.js           env (servidores, timeout) e helpers
-  worker.js           rotas: /api/wallet, /api/psbt, /api/fees, /api/events, /api/health
+  worker.js           rotas: /api/wallet, /api/psbt, /api/broadcast, /api/fees,
+                      /api/events, /api/health
 public/
   index.html          UI ASCII (página publicada)
   app.js              cliente (xpub, carga automática, render, update a cada 30 s)
@@ -370,6 +388,7 @@ test/
   worker.test.mjs     ponta a ponta: saldo/recebido/enviado, gap, erros
   watcher.test.mjs    Durable Object: assinatura, aviso → push, descarte total
   psbt.test.mjs       taxa, escolha de UTXO, PSBT e assinatura no btc-core
+  broadcast.test.mjs  conferência do PSBT assinado e transmissão (Worker e DO)
   fake-electrum.mjs   servidor Electrum falso (TCP em 127.0.0.1, com notify)
   tx-fixture.mjs      transações cruas montadas com o btc-core
 ```
@@ -606,6 +625,72 @@ origem usa a **impressão digital da conta**, e não a da raiz: com só a xpub,
 confere a chave pública e o script antes de assinar. Nenhuma chave privada
 entra no Worker nem na resposta.
 
+### `POST /api/broadcast`
+
+```json
+{ "xpub": "xpub...", "session": "opcional",
+  "psbt": "cHNidP8...", "preview": true }
+```
+
+Fecha o ciclo: recebe o PSBT v0 **assinado** pelo `chave-btc.html` (base64 ou
+hex), confere contra a carteira e, sem `preview`, publica a transação final
+com o `blockchain.transaction.broadcast` do Electrum. A transmissão só sai
+depois do clique em **transmitir**; `preview: true` faz só a conferência.
+
+A conferência, antes de qualquer coisa ir para a rede:
+
+- cada entrada tem de gastar um script derivado da xpub — o PSBT de outra
+  carteira é recusado;
+- quando a saída está entre os UTXOs conhecidos da sessão, o valor declarado
+  no PSBT (`witness_utxo` ou `non_witness_utxo`) tem de bater com o da
+  carteira. O p2pkh não assina o valor, então sem essa comparação um valor
+  inventado viraria taxa falsa na tela;
+- todas as entradas têm de estar finalizadas, com `final_scriptSig` e
+  `final_scriptWitness` no formato do tipo de script. A transação final é
+  escrita a partir dos campos finais (BIP174), não dos campos de assinatura;
+- as saídas são classificadas em `troco` (ramo `/1`), `recebimento` (ramo
+  `/0`) ou `externo`, e a taxa é a diferença real entre entradas e saídas da
+  transação final, com o vsize **real**, não o estimado do envio.
+
+Resposta (resumida):
+
+```json
+{
+  "preview": true,
+  "txid": "03a8b4b8...",
+  "vsize": 141,
+  "fee_sats": 423,
+  "fee_rate": 3,
+  "total_in": 100000,
+  "total_out": 99577,
+  "psbt_bytes": 168,
+  "inputs": [
+    { "outpoint": "3a15a109...:0", "value": 100000, "kind": "p2wpkh",
+      "address": "bc1q...", "path": "m/84'/0'/0'/0/0",
+      "type": "bip84", "known": true }
+  ],
+  "outputs": [
+    { "index": 0, "address": "bc1q...", "value": 50000, "own": "externo" },
+    { "index": 1, "address": "bc1q...", "value": 49577, "own": "troco",
+      "path": "m/84'/0'/0'/1/0" }
+  ],
+  "warnings": []
+}
+```
+
+Sem `preview`, a mesma resposta ganha `"broadcast": true` e `server_txid`, e
+o hex da transação final vai ao Electrum — o hex não volta para o navegador.
+O depósito que a sessão ainda não viu vira aviso (`não está entre as saídas
+não gastas`), não recusa: a rede é quem decide, e a assinatura já foi feita.
+Taxa zero ou abaixo de 1 sat/vB, taxa acima de 500 sat/vB, saída abaixo do pó
+e mais de uma saída externa também são avisos, para a revisão da tela.
+
+Com sessão, o Durable Object usa a conexão e as assinaturas já abertas; a
+transação entra no mempool e o `scripthash.subscribe` empurra o saldo novo
+para a tela. Sem sessão (ou com a sessão perdida), o Worker faz a varredura
+avulsa. Erro de conferência e recusa do servidor voltam em 400 com a
+mensagem, sem publicar nada.
+
 ### `GET /api/fees?session=<id opcional>`
 
 Taxa ao vivo pelo `blockchain.estimatefee` do Electrum, em quatro alvos:
@@ -671,10 +756,18 @@ o Electrum cai. Sessão sem xpub responde 409 (a tela reenvia a xpub em
   enquanto a tela estava aberta.
 - O HTML/JS é servido pelo Cloudflare. O projeto 1 confere entradas, saídas e
   taxa antes de assinar.
-- O PSBT sai **sem assinatura**: o projeto 2 só monta a transação. O arquivo
-  leva a origem BIP32 com a impressão digital da conta, o caminho completo, os
-  UTXOs e o troco; o `chave-btc.html` confere conta, chave, script, saídas e
-  taxa antes de assinar. Nada é transmitido à rede por aqui.
+- O PSBT de envio sai **sem assinatura**: o projeto 2 só monta a transação. O
+  arquivo leva a origem BIP32 com a impressão digital da conta, o caminho
+  completo, os UTXOs e o troco; o `chave-btc.html` confere conta, chave,
+  script, saídas e taxa antes de assinar.
+- **A transmissão é a única saída para a rede**, e é explícita: o PSBT
+  assinado é conferido no Worker/DO (nunca no navegador) e só vai ao Electrum
+  no clique em **transmitir**. Publicar não tem volta. A transação fica
+  pública de qualquer forma, mas o servidor escolhido a vê primeiro; a
+  conferência recusa entrada que não seja desta carteira.
+- O resumo da transmissão não é prova de validade das assinaturas: o servidor
+  confere estrutura, valores e destinos; quem valida as assinaturas é a rede.
+  A conferência que vale continua sendo a do `chave-btc.html`, antes de assinar.
 - O resumo do PSBT na tela não é prova: o arquivo é montado no Worker/DO e o
   navegador só baixa o base64. A tabela mostra o destino e todas as saídas para
   comparar com o formulário, e avisa quando divergem; a conferência que vale é
@@ -688,6 +781,7 @@ npm test                        # electrum + worker + psbt + watcher, sem rede
 node test/electrum.test.mjs     # protocolo contra servidor falso
 node test/worker.test.mjs       # ponta a ponta, sem D1 no env
 node test/psbt.test.mjs         # taxas, escolha de UTXO, PSBT e assinatura
+node test/broadcast.test.mjs    # conferência e transmissão do PSBT assinado
 node test/watcher.test.mjs      # Durable Object, timers e descarte total
 node test/dev-server.mjs        # UI local em http://127.0.0.1:8787/ (sem DO)
 node test/cdp-ui.mjs            # opcional: Chromium headless + screenshot
@@ -709,7 +803,10 @@ níveis ganham percentual: a tela não pode tratar sat/vB como inteiro, senão
 o preview nunca dispara e o PSBT nunca é montado.
 Um PSBT gerado pelo montador (bip84 e troco) foi analisado e assinado pelo
 próprio código do `chave-btc.html` em Chromium headless, com o troco
-reconhecido como interno.
+reconhecido como interno. O bloco **transmitir** foi conferido no mesmo
+Chromium com um arquivo assinado de verdade: importar mostrou a revisão
+(txid, taxa, saídas) sem transmitir, e o clique em **transmitir** publicou
+o mesmo hex/txid no Electrum falso, deixando o botão em **transmitida**.
 
 O `watcher.test.mjs` usa um par de WebSocket mínimo e um `storage` que lança
 em qualquer acesso para exercitar o Durable Object sem Cloudflare: assinatura
@@ -736,6 +833,17 @@ real da transação assinada e a taxa paga tem de cobrir a taxa pedida. O
 `watcher.test.mjs` também cobre o
 `preview` do máximo e o `preview` com `amount_sats` (taxa igual à do PSBT)
 pela mesma sessão/conexão do envio.
+
+O `broadcast.test.mjs` leva o PSBT gerado pelo `/api/psbt` ao assinante do
+`btc-core` (o mesmo caminho do `chave-btc.html`), confere que a transação
+final extraída dos campos finais do PSBT é **byte a byte** o hex que o
+assinante escreveu, e verifica: `preview` devolve txid, vsize real, taxa e as
+saídas classificadas (destino externo e troco) sem transmitir; `transmitir`
+publica uma única vez, com o mesmo hex e o txid do assinante; PSBT sem
+assinatura, de outra carteira, com `witness_utxo` adulterado, sem xpub ou
+recusado pelo servidor não transmite nada e volta com mensagem clara; um
+depósito fora do retrato da sessão vira aviso e não recusa; e a sessão do
+Durable Object confere e transmite pela conexão já aberta, sem nova varredura.
 
 O `worker.test.mjs` monta transações com o próprio `btc-core` e cobre:
 endereço que recebeu e gastou (`recebido 10000 / enviado 10000 / saldo 0`),
@@ -780,8 +888,5 @@ saldo daquele endereço, agora com o enviado explícito.
   o oposto do desenho atual.
 - Cache opcional (D1/KV) para abrir mais rápido, se o tempo de varredura
   incomodar; seria opt-in e voltaria a guardar endereços derivados.
-- Transmissão: hoje o projeto 2 para no PSBT. Publicar a transação final
-  exigiria uma rota própria (Electrum `blockchain.transaction.broadcast`) e
-  uma decisão explícita sobre confiar a transmissão ao servidor.
 - Política de taxa mais fina (RBF, CPFP) e escolha de moedas por privacidade,
   se a maior-primeiro incomodar.

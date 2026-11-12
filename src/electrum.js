@@ -11,6 +11,8 @@
      blockchain.scripthash.subscribe
      blockchain.estimatefee
      blockchain.transaction.get
+     blockchain.transaction.broadcast (só na rota /api/broadcast, com o PSBT
+       assinado já conferido contra a carteira)
    Uma conexão responde a muitas consultas (pipelining), então não há o
    limite de subrequests do fetch. */
 import BTC from './btc-core.js';

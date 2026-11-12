@@ -60,6 +60,12 @@
     psbtPending: false, // há uma montagem em voo (frase "montando")
     psbtFailKey: '',    // pedido que falhou: não repete sozinho em laço
     psbtPendingKey: '', // pedido da montagem em voo (evita pedido dobrado)
+    broadcast: null,    // PSBT assinado conferido pelo servidor (nada transmitido)
+    broadcastText: '',  // texto do arquivo importado, só na memória da tela
+    broadcastName: '',  // nome do arquivo importado
+    broadcastBusy: false,
+    broadcastSent: false, // a transação já foi publicada
+    broadcastSeq: 0,    // descarta resposta de um arquivo que já saiu da tela
     sendValidationError: '', // erro de campo no #send-status, separado do PSBT
     screen: 'carteira', // tela em vigor (carteira | historico)
     langOpen: false,    // a tela de idiomas está aberta
@@ -1672,6 +1678,236 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 0);
   }
 
+  /* ------------------------------ transmitir o psbt assinado (projeto 1) */
+  /* O arquivo volta do chave-btc.html assinado. Importar NÃO transmite: o
+     servidor confere o PSBT contra esta carteira (entrada que não é sua,
+     valor inventado, entrada não finalizada, taxa fora do padrão) e devolve o
+     resumo; publicar é o clique em transmitir, porque a transmissão não tem
+     volta. O texto do arquivo fica só na memória da tela, como o PSBT do
+     envio. */
+  var BROADCAST_MAX_TEXT = 400000;
+
+  function setBroadcastStatus(kind, text) {
+    setStatusTo($('#broadcast-status'), kind, text);
+  }
+
+  function setBroadcastFile(name) {
+    var el = $('#broadcast-file-name');
+    if (!el) return;
+    el.textContent = name || 'nenhum arquivo';
+    el.classList.toggle('is-empty', !name);
+  }
+
+  function updateBroadcastActions() {
+    var send = $('#broadcast-send');
+    var clear = $('#broadcast-clear');
+    var sep = $('#broadcast-sep');
+    var loaded = !!state.broadcast;
+    var sent = !!state.broadcastSent;
+    if (send) {
+      if (loaded && !sent && !state.broadcastBusy) send.removeAttribute('aria-disabled');
+      else send.setAttribute('aria-disabled', 'true');
+      send.textContent = sent ? 'transmitida' : 'transmitir';
+    }
+    var showClear = !!state.broadcastName && !sent;
+    if (clear) clear.hidden = !showClear;
+    if (sep) sep.hidden = !showClear;
+  }
+
+  function resetBroadcast() {
+    state.broadcastSeq++;
+    state.broadcast = null;
+    state.broadcastText = '';
+    state.broadcastName = '';
+    state.broadcastBusy = false;
+    state.broadcastSent = false;
+    var out = $('#broadcast-out');
+    if (out) {
+      out.hidden = true;
+      out.removeAttribute('aria-busy');
+    }
+    var block = $('#broadcast-import-block');
+    if (block) block.removeAttribute('aria-busy');
+    var file = $('#broadcast-file');
+    if (file) file.value = '';
+    setBroadcastFile('');
+    setBroadcastStatus('', '');
+    updateBroadcastActions();
+  }
+
+  function broadcastCell(sel, text) {
+    var el = $(sel);
+    if (el) el.textContent = text == null ? '—' : text;
+  }
+
+  /* Tabela de uma entrada ou saída, no desenho de leitura do "receber":
+     rótulo na coluna, valor na primeira linha e endereço/caminho/outpoint
+     como notas. Endereço e caminho entram por textContent. */
+  function broadcastTable(label, valueHtml, lines) {
+    var table = document.createElement('table');
+    table.className = 'data-table key-readout';
+    var tbody = document.createElement('tbody');
+    var tr = document.createElement('tr');
+    var th = document.createElement('th');
+    th.setAttribute('scope', 'row');
+    th.textContent = label;
+    var td = document.createElement('td');
+    var line = document.createElement('div');
+    line.className = 'output-line';
+    line.innerHTML = valueHtml;
+    td.appendChild(line);
+    (lines || []).forEach(function (text) {
+      if (!text) return;
+      var note = document.createElement('div');
+      note.className = 'note';
+      note.textContent = text;
+      td.appendChild(note);
+    });
+    tr.appendChild(th);
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    table.appendChild(tbody);
+    return table;
+  }
+
+  /* O resumo é do servidor: destino, troco e taxa classificados a partir dos
+     scripts da carteira, e a taxa da transação FINAL (vsize real, não a
+     estimada do envio). */
+  function renderBroadcast(j) {
+    broadcastCell('#broadcast-meta-file', state.broadcastName || '—');
+    broadcastCell('#broadcast-meta-txid', j.txid);
+    broadcastCell('#broadcast-meta-inputs',
+      fmtInt((j.inputs || []).length) + ' · ' + fmtBtc(j.total_in) + ' BTC');
+    broadcastCell('#broadcast-meta-outputs',
+      fmtInt((j.outputs || []).length) + ' · ' + fmtBtc(j.total_out) + ' BTC');
+    var fee = $('#broadcast-meta-fee');
+    if (fee) fee.innerHTML = signedBtcShare(j.fee_sats, 'out');
+    broadcastCell('#broadcast-meta-rate', (Number(j.fee_rate) || 0).toFixed(2) + ' sat/vB');
+    broadcastCell('#broadcast-meta-vsize', fmtInt(j.vsize) + ' vB');
+
+    var wrapIn = $('#broadcast-inputs');
+    if (wrapIn) {
+      wrapIn.textContent = '';
+      (j.inputs || []).forEach(function (inp) {
+        wrapIn.appendChild(broadcastTable(
+          'entrada ' + inp.index,
+          fmtBtc(inp.value) + ' BTC <span class="value-pct">' +
+            esc(inp.label || inp.kind) + '</span>',
+          [inp.address, inp.path, inp.outpoint]
+        ));
+      });
+    }
+    var wrap = $('#broadcast-outputs');
+    if (wrap) {
+      wrap.textContent = '';
+      (j.outputs || []).forEach(function (out) {
+        wrap.appendChild(broadcastTable(
+          'saída ' + out.index,
+          signedBtc(out.value, out.own === 'externo' ? 'out' : 'in') +
+            ' <span class="value-pct">' + esc(out.own) + '</span>',
+          [out.address, out.path]
+        ));
+      });
+    }
+    var warn = $('#broadcast-warn');
+    var warnings = j.warnings || [];
+    if (warn) warn.textContent = warnings.length ? '[ atenção ] ' + warnings.join('; ') : '';
+    var out = $('#broadcast-out');
+    if (out) {
+      out.hidden = false;
+      out.removeAttribute('aria-busy');
+    }
+    updateScroll();
+  }
+
+  async function importSignedPsbt(file) {
+    if (!file) return;
+    var seq = ++state.broadcastSeq;
+    state.broadcast = null;
+    state.broadcastText = '';
+    state.broadcastSent = false;
+    state.broadcastName = file.name || 'psbt assinado';
+    state.broadcastBusy = true;
+    var out = $('#broadcast-out');
+    if (out) out.hidden = true;
+    var block = $('#broadcast-import-block');
+    if (block) block.setAttribute('aria-busy', 'true');
+    setBroadcastFile(state.broadcastName);
+    updateBroadcastActions();
+    setBroadcastStatus('', 'conferindo o psbt...');
+    try {
+      var text = await file.text();
+      if (seq !== state.broadcastSeq) return;
+      if (!text.trim()) throw new Error('o arquivo está vazio');
+      if (text.length > BROADCAST_MAX_TEXT) throw new Error('psbt grande demais');
+      if (!state.xpub) throw new Error('carregue a carteira antes de importar');
+      state.broadcastText = text;
+      var body = { xpub: state.xpub, psbt: text, preview: true };
+      if (state.session) body.session = state.session;
+      var r = await fetch('/api/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      var j = await r.json();
+      if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+      if (seq !== state.broadcastSeq) return;
+      state.broadcast = j;
+      renderBroadcast(j);
+      setBroadcastStatus('ok', 'o psbt assinado confere com a carteira; confira e clique em transmitir');
+    } catch (e) {
+      if (seq !== state.broadcastSeq) return;
+      state.broadcast = null;
+      state.broadcastText = '';
+      state.broadcastName = file.name || 'psbt assinado';
+      setBroadcastFile(state.broadcastName);
+      var panel = $('#broadcast-out');
+      if (panel) panel.hidden = true;
+      setBroadcastStatus('error', e && e.message ? e.message : String(e));
+    } finally {
+      if (seq === state.broadcastSeq) {
+        state.broadcastBusy = false;
+        var blk = $('#broadcast-import-block');
+        if (blk) blk.removeAttribute('aria-busy');
+        updateBroadcastActions();
+        updateScroll();
+      }
+    }
+  }
+
+  async function transmitSignedPsbt() {
+    if (!state.broadcast || !state.broadcastText || state.broadcastBusy || state.broadcastSent) return;
+    var seq = ++state.broadcastSeq;
+    state.broadcastBusy = true;
+    updateBroadcastActions();
+    setBroadcastStatus('', 'transmitindo...');
+    var body = { xpub: state.xpub, psbt: state.broadcastText };
+    if (state.session) body.session = state.session;
+    try {
+      var r = await fetch('/api/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      var j = await r.json();
+      if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+      if (seq !== state.broadcastSeq) return;
+      state.broadcast = j;
+      state.broadcastSent = true;
+      state.broadcastText = '';
+      renderBroadcast(j);
+      setBroadcastStatus('ok', 'transação transmitida: ' + (j.txid || ''));
+    } catch (e) {
+      if (seq !== state.broadcastSeq) return;
+      setBroadcastStatus('error', e && e.message ? e.message : String(e));
+    } finally {
+      if (seq === state.broadcastSeq) {
+        state.broadcastBusy = false;
+        updateBroadcastActions();
+      }
+    }
+  }
+
   /* Linha de valor com sinal (VG-COR-16): o sinal vai no texto e a cor só
      reforça; o zero não tem direção e fica no --dim da linha. */
   function signedBtc(sats, dir) {
@@ -1891,6 +2127,7 @@
     var summary = $('#history-summary');
     if (summary) summary.textContent = 'cole a xpub, zpub ou ypub na carteira para ver o histórico.';
     resetSend();
+    resetBroadcast();
     setStatus('', '');
     syncHistoryState();
     updateScroll();
@@ -2396,6 +2633,19 @@
     });
     var sendDownload = $('#send-download');
     if (sendDownload) sendDownload.addEventListener('click', downloadPsbt);
+
+    /* ------------------------------------------ transmitir (psbt assinado) */
+    var broadcastFile = $('#broadcast-file');
+    if (broadcastFile) broadcastFile.addEventListener('change', function () {
+      var file = broadcastFile.files && broadcastFile.files[0];
+      // esvazia o input para o mesmo arquivo poder ser escolhido de novo
+      broadcastFile.value = '';
+      if (file) importSignedPsbt(file);
+    });
+    var broadcastSend = $('#broadcast-send');
+    if (broadcastSend) broadcastSend.addEventListener('click', transmitSignedPsbt);
+    var broadcastClear = $('#broadcast-clear');
+    if (broadcastClear) broadcastClear.addEventListener('click', resetBroadcast);
     renderFees();
     renderAmountInput();
 

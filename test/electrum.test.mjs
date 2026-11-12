@@ -113,7 +113,8 @@ function ok(label) { passed++; console.log('ok   ' + label); }
   const c2 = await openElectrum({
     servers: [{ host: fake.host, port: fake.port, secure: false }], timeoutMs: 300
   });
-  await assert.rejects(() => c2.request('blockchain.transaction.broadcast', ['00']), /método desconhecido/);
+  await assert.rejects(() => c2.request('server.banner', []), /método desconhecido/);
+  await assert.rejects(() => c2.request('blockchain.transaction.broadcast', ['00']), /TX decode failed/);
   await c2.close();
   await assert.rejects(() => c2.request('server.ping', []), /fechada/);
   await silent.close();

@@ -208,6 +208,54 @@
                 <button type="button" id="send-download" aria-disabled="true">baixar</button>
               </div>
             </div>
+
+            <div class="rule rule-dots" aria-hidden="true"></div>
+
+            <div class="prose app-block" id="broadcast-heading">
+              <h3><span class="prompt" aria-hidden="true">##</span> transmitir</h3>
+            </div>
+
+            <!-- O PSBT assinado volta do chave-btc.html. Importar só confere
+                 (entradas, saídas, taxa) contra esta carteira; publicar é o
+                 clique em transmitir, porque a transmissão não tem volta. -->
+            <div class="app-block" id="broadcast-import-block">
+              <label class="field-upload" id="broadcast-import">
+                <input type="file" id="broadcast-file" aria-describedby="broadcast-status"
+                       accept=".psbt,.txt,application/octet-stream,text/plain">
+                <span class="field-upload-pick">importar psbt assinado</span>
+                <span class="field-upload-name is-empty" id="broadcast-file-name">nenhum arquivo</span>
+              </label>
+              <p class="note" id="broadcast-hint">o arquivo precisa vir do chave-btc.html já finalizado. a conferência cruza cada entrada com esta carteira; a transmissão só acontece no clique.</p>
+
+              <!-- A revisão fica entre o arquivo e o botão: importar só
+                   confere, e o que se lê antes do clique está acima dele. -->
+              <div id="broadcast-out" hidden>
+                <div class="prose app-block">
+                  <h3><span class="prompt" aria-hidden="true">##</span> transação assinada</h3>
+                </div>
+                <table class="data-table key-readout" id="broadcast-meta" aria-label="resumo da transação assinada">
+                  <tbody>
+                    <tr><th scope="row">arquivo</th><td id="broadcast-meta-file">—</td></tr>
+                    <tr><th scope="row">txid</th><td id="broadcast-meta-txid">—</td></tr>
+                    <tr><th scope="row">entradas</th><td id="broadcast-meta-inputs">—</td></tr>
+                    <tr><th scope="row">saídas</th><td id="broadcast-meta-outputs">—</td></tr>
+                    <tr><th scope="row">taxa</th><td id="broadcast-meta-fee">—</td></tr>
+                    <tr><th scope="row">sat/vB</th><td id="broadcast-meta-rate">—</td></tr>
+                    <tr><th scope="row">vsize</th><td id="broadcast-meta-vsize">—</td></tr>
+                  </tbody>
+                </table>
+                <div id="broadcast-inputs"></div>
+                <div id="broadcast-outputs"></div>
+                <p class="note" id="broadcast-warn"></p>
+              </div>
+
+              <div class="chips app-gap keys-actions" role="group" aria-label="Transmitir transação">
+                <button type="button" id="broadcast-clear" hidden>cancelar</button>
+                <span class="dot-sep" id="broadcast-sep" aria-hidden="true" hidden>·</span>
+                <button type="button" class="form-submit" id="broadcast-send" aria-disabled="true">transmitir</button>
+              </div>
+              <p class="status-msg is-reserved" id="broadcast-status" role="status"></p>
+            </div>
           </div>
         </section>
 

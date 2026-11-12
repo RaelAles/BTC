@@ -5,9 +5,16 @@
 import net from 'node:net';
 import { createHash } from 'node:crypto';
 import { Readable, Writable } from 'node:stream';
+import BTC from '../src/btc-core.js';
 
 function require_hash(text) {
   return createHash('sha256').update(text).digest().toString('hex').slice(0, 16);
+}
+
+/* txid de uma transação crua: sha256 duplo da serialização SEM witness
+   (o wtxid não serve para o histórico nem para o `broadcast`). */
+function txidOfHex(hex) {
+  return BTC.txidOf(BTC.readTx(BTC.hexToBytes(hex)));
 }
 
 export async function startFakeElectrum(opts) {
@@ -16,6 +23,7 @@ export async function startFakeElectrum(opts) {
   const mempool = new Map(Object.entries(o.mempool || {}));
   const txs = new Map(Object.entries(o.txs || {}));
   const requests = [];
+  const broadcasts = [];
   const sockets = new Set();
   const subsBySocket = new Map(); // socket -> Set<scripthash>
 
@@ -72,6 +80,23 @@ export async function startFakeElectrum(opts) {
           const table = o.fees || { 1: 0.00012, 2: 0.00011, 3: 0.00009, 6: 0.00006, 144: 0.00002 };
           const value = table[Number(arg)];
           result = value === undefined ? -1 : value;
+        } else if (req.method === 'blockchain.transaction.broadcast') {
+          const hex = String(arg || '').toLowerCase();
+          if (!/^[0-9a-f]+$/.test(hex) || hex.length % 2) {
+            socket.write(JSON.stringify({ id: req.id, jsonrpc: '2.0', error: { code: -22, message: 'TX decode failed' } }) + '\n');
+            continue;
+          }
+          if (o.broadcastError) {
+            socket.write(JSON.stringify({ id: req.id, jsonrpc: '2.0', error: { code: -26, message: o.broadcastError } }) + '\n');
+            continue;
+          }
+          try {
+            result = txidOfHex(hex);
+          } catch (e) {
+            socket.write(JSON.stringify({ id: req.id, jsonrpc: '2.0', error: { code: -22, message: 'TX decode failed' } }) + '\n');
+            continue;
+          }
+          broadcasts.push({ hex, txid: result });
         } else if (req.method === 'blockchain.transaction.get') {
           const hex = txs.get(arg);
           if (typeof hex !== 'string') {
@@ -98,10 +123,12 @@ export async function startFakeElectrum(opts) {
     port,
     host: '127.0.0.1',
     requests,
+    broadcasts,
     histories,
     mempool,
     txs,
     count(method) { return requests.filter(r => r.method === method).length; },
+    setBroadcastError(message) { o.broadcastError = message || ''; },
     /* Empurra uma notificação de scripthash (como o servidor real faz). */
     notify(sh) {
       const next = statusOf(sh);

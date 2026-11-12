@@ -16,6 +16,7 @@
      com margem de 50; é o preço de não guardar nada. */
 import { parseXpub } from './derivation.js';
 import { openElectrum, estimateFees } from './electrum.js';
+import { broadcastSignedPsbt, previewSignedPsbt } from './broadcast.js';
 import { WalletScanner } from './wallet-sync.js';
 import { electrumConfig, json } from './config.js';
 
@@ -99,6 +100,27 @@ export class WalletWatcher {
               amountSats: Number(body.amountSats)
             });
           return json(payload);
+        } catch (e) {
+          return json({ error: e && e.message ? e.message : String(e) }, 400);
+        }
+      }
+      if (url.pathname === '/broadcast' && request.method === 'POST') {
+        let body = {};
+        try { body = await request.json(); } catch (e) {}
+        const xpub = String(body.xpub || '').trim();
+        if (!xpub) return json({ error: 'informe a xpub' }, 400);
+        const psbt = String(body.psbt || '');
+        if (!psbt.trim()) return json({ error: 'informe o psbt assinado' }, 400);
+        const preview = body.preview === true;
+        const scanner = await this.ensureScanner(xpub);
+        // estado novo: a conferência usa os UTXOs e os scripts desta sessão
+        if (this.scanning || !this.lastPayload) await this.sync(xpub, true);
+        else await scanner.recompute();
+        const client = await this.ensureClient();
+        try {
+          return json(preview
+            ? previewSignedPsbt({ scanner, psbtText: psbt })
+            : await broadcastSignedPsbt({ client, scanner, psbtText: psbt }));
         } catch (e) {
           return json({ error: e && e.message ? e.message : String(e) }, 400);
         }

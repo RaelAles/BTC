@@ -3,6 +3,7 @@ import { openElectrum, estimateFees } from './electrum.js';
 import { WalletScanner } from './wallet-sync.js';
 import { electrumConfig, fail, json } from './config.js';
 import { feeRateKvb } from './psbt.js';
+import { broadcastSignedPsbt, previewSignedPsbt, MAX_PSBT_TEXT } from './broadcast.js';
 import { WalletWatcher } from './watcher.js';
 import BTC from './btc-core.js';
 
@@ -16,6 +17,10 @@ import BTC from './btc-core.js';
    `POST /api/psbt`    → monta o PSBT de envio (sem assinatura) com os UTXOs
                          da carteira e a taxa escolhida. A chave privada
                          não passa por aqui; quem assina é o projeto 1.
+   `POST /api/broadcast` → confere o PSBT assinado contra a carteira e
+                         (sem `preview`) publica a transação final no
+                         Electrum. Só transmite o que gasta entradas desta
+                         carteira.
    `GET  /api/fees`    → taxa estimada pelo Electrum em quatro níveis
                          (minimum, standard, high, urgent; a tela mostra o
                          prazo médio de 1 dia, 1 h, 30 min e 10 min), em sat/vB.
@@ -197,6 +202,57 @@ async function handlePsbt(request, env) {
   }
 }
 
+/* O PSBT assinado vem do projeto 1. A xpub é exigida porque a conferência
+   cruza cada entrada com os scripts/UTXOs da carteira; sem ela não há como
+   dizer que a transação é sua. Com sessão, o DO reaproveita a conexão e, ao
+   transmitir, as assinaturas já avisam a tela do estado novo. */
+async function handleBroadcast(request, env) {
+  let body;
+  try { body = await request.json(); } catch (e) { return fail('json inválido'); }
+  const xpub = String(body.xpub || '').trim();
+  if (!xpub) return fail('informe a xpub');
+  let account;
+  try { account = parseXpub(xpub); }
+  catch (e) { return fail(xpubHint(xpub) || e.message); }
+  const psbt = String(body.psbt || '');
+  if (!psbt.trim()) return fail('informe o psbt assinado');
+  if (psbt.length > MAX_PSBT_TEXT) return fail('psbt grande demais para conferir');
+  const preview = body.preview === true;
+
+  const session = sessionId(body.session);
+  if (env.WATCH && session) {
+    const stub = env.WATCH.get(env.WATCH.idFromString(session));
+    const res = await stub.fetch('https://watch/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ xpub, psbt, preview })
+    });
+    const payload = await res.json();
+    // sessão despejada: refaz a varredura avulsa e transmite do mesmo jeito
+    if (res.status !== 409) return json(payload, res.status);
+  }
+
+  const cfg = electrumConfig(env);
+  if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
+  let client;
+  try {
+    client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
+  } catch (e) {
+    return fail('Electrum indisponível: ' + (e && e.message ? e.message : e), 502);
+  }
+  try {
+    const scanner = await new WalletScanner({ env, xpub, account, client }).init();
+    await scanner.fullSync();
+    return json(preview
+      ? previewSignedPsbt({ scanner, psbtText: psbt })
+      : await broadcastSignedPsbt({ client, scanner, psbtText: psbt }));
+  } catch (e) {
+    return fail(e && e.message ? e.message : String(e), 400);
+  } finally {
+    try { await client.close(); } catch (e) {}
+  }
+}
+
 async function handleFees(env, url) {
   const session = sessionId(url.searchParams.get('session'));
   if (env.WATCH && session) {
@@ -244,6 +300,10 @@ export default {
       if (url.pathname === '/api/psbt') {
         if (request.method !== 'POST') return fail('use POST', 405);
         return await handlePsbt(request, env);
+      }
+      if (url.pathname === '/api/broadcast') {
+        if (request.method !== 'POST') return fail('use POST', 405);
+        return await handleBroadcast(request, env);
       }
       if (url.pathname === '/api/fees') return await handleFees(env, url);
       if (url.pathname === '/api/events') return await handleEvents(request, env, url);
