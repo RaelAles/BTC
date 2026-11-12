@@ -78,7 +78,7 @@ tela mostra:
    Quem assina é o `chave-btc.html` (projeto 1), offline; o projeto 2 nunca
    vê chave privada.
 5. **transmitir** abaixo do envio: o PSBT assinado volta pelo botão
-   **importar psbt assinado**. Importar **não** publica: o servidor confere o
+   botão **importar**. Importar **não** publica: o servidor confere o
    arquivo contra a carteira (cada entrada tem de ser sua, o valor tem de
    bater, todas as entradas têm de estar finalizadas) e a tela mostra txid,
    vsize, taxa real, entradas e cada saída (destino, troco ou externo). Só o
