@@ -1762,7 +1762,8 @@
   /* O prazo responde ao clique como os botões de copiar: disponível em
      --accent, hover em --fg, escolhido e no aperto em --support, sem
      preenchimento nem moldura. O foco tracejado envolve o botão inteiro,
-     prazo e percentual, e não o rádio escondido. */
+     prazo e percentual, e não o rádio escondido; ele marca só o foco de
+     teclado, para o clique não deixar o contorno preso no botão. */
   .fee-level-name { color: var(--accent); white-space: nowrap; }
   .fee-level:hover .fee-level-name { color: var(--fg); }
   .fee-level input:checked ~ .fee-level-name,
@@ -1772,6 +1773,12 @@
   .fee-level:focus-within {
     outline: 1px dashed var(--accent);
     outline-offset: 2px;
+  }
+  /* No foco de ponteiro o rádio continua sendo o elemento ativo, mas não
+     precisa do contorno: só o foco de teclado o mostra. Onde :has() não
+     existe, a regra acima segue valendo como recurso. */
+  .fee-level:has(input:not(:focus-visible)) {
+    outline: none;
   }
   /* O percentual é do valor enviado e fica em --dim, ao lado do prazo. Sem a
      cota do servidor (valor e destino ainda incompletos), fica em `—`. */
