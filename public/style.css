@@ -1757,6 +1757,25 @@
     align-items: baseline;
     gap: var(--space-2) var(--space-6);
     margin: var(--space-2) 0 0;
+    /* A linha já nasce com a altura das legendas: sem isso, quando o
+       máximo e a taxa aparecem, o recado abaixo e o PSBT descem. A altura
+       é a de uma opção de taxa (respiro em cima e embaixo mais uma linha
+       de --text-sm), a mais alta das duas legendas na mesma linha. */
+    min-height: calc(2 * var(--space-2) + 1.65 * var(--text-sm));
+  }
+  /* Em tela estreita a taxa desce para a linha de baixo (ver acima) e, em
+     telas menores ainda, os próprios níveis quebram em duas linhas. A
+     reserva acompanha as duas quebras para o conteúdo abaixo do campo não
+     saltar quando o recado e a taxa passam a existir. */
+  @media (max-width: 34.98em) {
+    .send-limit-row {
+      min-height: calc(5 * var(--space-2) + 3.3 * var(--text-sm));
+    }
+  }
+  @media (max-width: 21.37em) {
+    .send-limit-row {
+      min-height: calc(6 * var(--space-2) + 1.65 * var(--text-md) + 3.3 * var(--text-sm));
+    }
   }
   .send-limit-row #send-amount-hint { margin: 0; }
   .send-limit-row #fee-section { margin-left: auto; }
