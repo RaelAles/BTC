@@ -1647,7 +1647,7 @@
     padding: 0;
     font-size: var(--text-md);
   }
-  /* Ações do PSBT na mesma linha: importar psbt (ou cancelar) e assinar,
+  /* Ações do PSBT na mesma linha: importar psbt (ou cancelar/fechar) e assinar,
      com o ponto médio entre os controles. O grupo fica
      centralizado sob a revisão, na mesma medida da tabela de 28rem
      (VG-BOT-01/VG-BOT-05). O envio perde a margem própria, que aqui
@@ -1661,7 +1661,7 @@
   .psbt-actions .form-submit { margin: 0; }
   .psbt-actions button { font-size: var(--text-md); }
   /* O label do anexo tem display: flex próprio, então o [hidden] nativo
-     precisa vencer essa regra para o "cancelar" e os demais controles
+     precisa vencer essa regra para o "cancelar"/"fechar" e os demais controles
      tomarem o lugar dele. */
   .psbt-actions [hidden] { display: none !important; }
   /* O envio em andamento (VG-FRM-08) veste o estado geral de fora de alcance
@@ -2324,7 +2324,7 @@
               <li><b>4. leia o resultado.</b> Na 256ª jogada — ou ao usar <b>gerar bits</b> — o arquivo troca sozinho para o campo de coordenadas e deriva a chave: as 24 palavras aparecem e as tabelas de chaves se preenchem. Digitando coordenadas, a chave é derivada assim que o conjunto deixa de ser vazio. Um conjunto pequeno também gera uma chave, mas com pouca entropia — o esperado são 256 jogadas ou 256 bits sorteados.</li>
               <li><b>5. guarde a frase.</b> As 24 palavras, na ordem 01–24, são a forma portátil da mesma entropia: com elas, qualquer carteira BIP39 compatível, com passphrase vazia, chega às mesmas contas. Anote em papel ou metal e confira duas vezes; não fotografe nem cole a frase em lugar nenhum.</li>
               <li><b>6. confira as chaves.</b> Em <b>privadas</b> ficam as chaves estendidas privadas de conta; em <b>públicas</b>, as correspondentes públicas, com botão de copiar. A pública (xpub/zpub/ypub) pode ir para uma carteira watch-only; a privada (xprv/zprv/yprv) controla a conta inteira e não deve sair da máquina.</li>
-              <li><b>7. assine um PSBT, se for o caso.</b> Com a chave carregada, <b>importar psbt</b> aceita um arquivo PSBT e a revisão aparece sozinha. Confira destinos, troco, taxa e avisos, e só então clique em <b>assinar</b>, na linha de ações, ao lado do <b>cancelar</b>. O resultado é o PSBT assinado, baixado automaticamente; a revisão passa a mostrar o txid, o vsize e a taxa total da transação final, com o nome do arquivo assinado na linha <b>arquivo</b>, sem o hex da transação. O arquivo não transmite nada: quem publica a transação é você, em outro programa.</li>
+              <li><b>7. assine um PSBT, se for o caso.</b> Com a chave carregada, <b>importar psbt</b> aceita um arquivo PSBT e a revisão aparece sozinha. Confira destinos, troco, taxa e avisos, e só então clique em <b>assinar</b>, na linha de ações, ao lado do <b>cancelar</b>. O resultado é o PSBT assinado, baixado automaticamente; a revisão passa a mostrar o txid, o vsize e a taxa total da transação final, com o nome do arquivo assinado na linha <b>arquivo</b>, sem o hex da transação; o botão <b>cancelar</b> vira <b>fechar</b>, para encerrar a revisão do PSBT já assinado. O arquivo não transmite nada: quem publica a transação é você, em outro programa.</li>
               <li><b>8. para recomeçar.</b> Volte às jogadas pelo botão <b>gerar</b> (isso zera a sequência e o campo) ou recarregue a página. Não há botão de salvar: a chave existe só na memória da aba.</li>
             </ul>
 
@@ -2339,7 +2339,7 @@
               <li><b>mnemonic</b> — a frase BIP39 de 24 palavras, numeradas de 01 a 24; a grade de três colunas é só economia de espaço, e os números dão a ordem de leitura. Cada palavra é um índice de 11 bits na lista inglesa de 2048 palavras; os 256 bits mais 8 bits de checksum formam 24 grupos de 11. Sem chave, cada posição mostra <code>—</code>.</li>
               <li><b>privadas</b> — quatro linhas, uma por conta: <b>bip86</b> mostra a chave estendida privada da conta <code>m/86'/0'/0'</code> (prefixo <code>xprv</code>), <b>bip84</b> a de <code>m/84'/0'/0'</code> (<code>zprv</code>), <b>bip49</b> a de <code>m/49'/0'/0'</code> (<code>yprv</code>) e <b>bip44</b> a de <code>m/44'/0'/0'</code> (<code>xprv</code>). São chaves de conta, não de endereço: delas saem os ramos de recebimento (<code>/0/*</code>) e de troco (<code>/1/*</code>). Essas linhas não têm botão de copiar; o conteúdo aparece inteiro para conferência. Sem chave, cada célula mostra <code>—</code>.</li>
               <li><b>públicas</b> — as mesmas quatro contas em chave estendida pública: <code>xpub</code> no BIP86 e no BIP44, <code>zpub</code> no BIP84 e <code>ypub</code> no BIP49. Cada linha tem <b>copiar</b>, e o botão vira <b>copiado</b> por alguns instantes. A pública é watch-only: não gasta, mas permite reconstruir os endereços e, com eles, consultar o histórico da conta — também merece cuidado. O BIP86 e o BIP44 compartilham o prefixo <code>xpub</code>; o que distingue é o tipo de conta, então, ao importar numa carteira, informe que a conta do BIP86 é Taproot. O <code>xpub</code> do BIP86 é o que uma carteira watch-only (como o projeto 2) usa para derivar os endereços de recebimento e de troco.</li>
-              <li><b>importar psbt</b> — o anexo só responde depois que existe uma chave; com o arquivo carregado ele vira <b>cancelar</b>. O arquivo importado fica só na memória: a tela não repete o texto em base64/hex nem os metadados do arquivo (formato, tamanho ou contagem de entradas e saídas), porque não ajudam na conferência; da identificação do arquivo, só o nome aparece, na linha <b>arquivo</b> da revisão. Na mesma linha, <b>assinar</b> surge quando a revisão termina, depois dos avisos e ao lado do anexo ou do <b>cancelar</b>, desde que o PSBT ainda não tenha assinatura; se todas as entradas já estiverem assinadas, o botão não aparece e a linha de estado avisa; se só algumas tiverem assinatura, a revisão avisa que as existentes serão substituídas. Ao clicar em <b>assinar</b>, o .psbt é baixado assim que a assinatura termina e o botão sai. Abaixo dos botões, a linha de estado mostra <code>[ ... ]</code> enquanto analisa ou assina, <code>[ atenção ]</code> quando a revisão termina com avisos e <code>[ erro ]</code> com o motivo. A revisão sem avisos não escreve nada, exceto quando o PSBT já tem assinatura; a assinatura concluída também não escreve: a própria revisão passa a mostrar o resultado.</li>
+              <li><b>importar psbt</b> — o anexo só responde depois que existe uma chave; com o arquivo carregado ele vira <b>cancelar</b>. O arquivo importado fica só na memória: a tela não repete o texto em base64/hex nem os metadados do arquivo (formato, tamanho ou contagem de entradas e saídas), porque não ajudam na conferência; da identificação do arquivo, só o nome aparece, na linha <b>arquivo</b> da revisão. Na mesma linha, <b>assinar</b> surge quando a revisão termina, depois dos avisos e ao lado do anexo ou do <b>cancelar</b>, desde que o PSBT ainda não tenha assinatura; se todas as entradas já estiverem assinadas, o botão não aparece e a linha de estado avisa; se só algumas tiverem assinatura, a revisão avisa que as existentes serão substituídas. Ao clicar em <b>assinar</b>, o .psbt é baixado assim que a assinatura termina, o botão sai e o <b>cancelar</b> vira <b>fechar</b>, que encerra a revisão do PSBT assinado (antes da assinatura, o mesmo botão descarta o arquivo importado). Abaixo dos botões, a linha de estado mostra <code>[ ... ]</code> enquanto analisa ou assina, <code>[ atenção ]</code> quando a revisão termina com avisos e <code>[ erro ]</code> com o motivo. A revisão sem avisos não escreve nada, exceto quando o PSBT já tem assinatura; a assinatura concluída também não escreve: a própria revisão passa a mostrar o resultado.</li>
               <li><b>revisão</b> — aparece sozinha ao importar, numa tabela. O <b>resumo</b> traz um par <b>saída</b>/<b>destino</b> por pagamento e um par <b>troco</b>/<b>endereço</b> por troco, na ordem da transação; a taxa, o vsize estimado e o txid, e no fim a linha <b>arquivo</b>, com o nome do PSBT que está na tela. Nesse resumo, os valores levam sinal e cor: o que sai (<b>saída</b> e <b>taxa</b>) fica em <b>-</b> no tom do erro e o que volta (<b>troco</b>) em <b>+</b> no verde do sucesso. Depois, os <b>avisos</b> (taxa fora do comum, saída externa, script não padronizado). Leia antes de assinar.</li>
               <li><b>psbt assinado</b> — o PSBT com as assinaturas é baixado assim que a assinatura termina, e a revisão passa a mostrar os dados da transação final (o vsize real, não o estimado), com o nome do .psbt baixado na linha <b>arquivo</b>. O hex não aparece na tela: para publicar a transação, use o .psbt baixado em outro programa.</li>
               <li><b>rodapé</b> — <code>[ offline ] nada sai deste arquivo</code> resume a política da página; o botão redondo troca o tema.</li>
@@ -4690,6 +4690,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (psbtImport) psbtImport.hidden = !!loaded;
     if (psbtClear) psbtClear.hidden = !loaded;
   }
+  /* O mesmo botão muda de papel: "cancelar" descarta o PSBT importado e
+     "fechar" encerra a revisão do PSBT que já foi assinado. */
+  function setClearLabel(signed) {
+    if (!psbtClear) return;
+    psbtClear.textContent = signed ? 'fechar' : 'cancelar';
+    psbtClear.setAttribute('aria-label', signed
+      ? 'fechar a revisão do psbt assinado'
+      : 'cancelar o psbt importado');
+  }
   /* O PSBT só faz sentido contra uma chave derivada: sem chave, o anexo fica
      inativo (input desabilitado e rótulo no tom de fora de alcance) até a
      chave existir. */
@@ -4821,6 +4830,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       if (seq !== analyzeSeq) return;
       state.analysis = { bytes: bytes, summary: a };
       renderReview(a, psbtFileName, false);
+      /* Revisão do arquivo importado, ainda sem assinatura: o botão cancela. */
+      setClearLabel(false);
       signOut.hidden = false;
       if (a.alreadySigned) {
         signBtn.disabled = true;
@@ -4866,6 +4877,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     psbtClear.addEventListener('click', function () {
       paintPsbt('');
       psbtFileName = '';
+      setClearLabel(false);
       resetPsbtFile();
       setPsbtLoaded(false);
       invalidateSignature();
@@ -4908,8 +4920,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         signedTxid = res.txid;
         downloadSignedPsbtFile();
         /* A revisão passa a mostrar o PSBT assinado: os mesmos dados da
-           transação final, com o nome do arquivo que acabou de sair. */
+           transação final, com o nome do arquivo que acabou de sair. O
+           botão deixa de cancelar a importação e passa a fechar a revisão. */
         renderReview(res, signedFileName(res.txid), true);
+        setClearLabel(true);
         /* A assinatura já foi feita: o botão sai até o próximo PSBT. */
         signBtn.hidden = true;
         psbtSepSign.hidden = true;
