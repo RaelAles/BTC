@@ -4857,7 +4857,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function renderReview(a) {
     renderReviewOutputs(a);
     if (reviewFee) reviewFee.innerHTML = valueLine(a.fee, 'out');
-    reviewCell(reviewVsize, a.vsize + ' vB (estimado)');
+    reviewCell(reviewVsize, '~' + a.vsize + ' vB');
     reviewCell(reviewTxid, a.txid);
     if (reviewWarningsList) {
       reviewWarningsList.textContent = '';
