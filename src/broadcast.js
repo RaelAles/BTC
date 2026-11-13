@@ -144,7 +144,7 @@ export function inspectSignedPsbt({ psbtText, byScript, utxos }) {
     for (let i = 0; i < psbt.inputs.length; i++) {
       if (!mapFind(psbt.inputs[i], 0x07)) semFinal++;
     }
-    if (psbt.inputs.length && semFinal === psbt.inputs.length) throw new Error('psbt não assinado');
+    if (psbt.inputs.length && semFinal === psbt.inputs.length) throw new Error('o psbt não está assinado');
     throw new Error('entrada não finalizada: ' + (e && e.message ? e.message : e));
   }
   if (fin.vsize > MAX_TX_VSIZE) {

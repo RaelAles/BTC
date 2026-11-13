@@ -147,7 +147,7 @@ async function fixture({ acct = account, hd: signer = hd, xpub = hd.accounts.bip
     xpub, psbt: f.prepared.psbt
   }, f.env);
   assert.equal(unsigned.status, 400);
-  assert.match(unsigned.j.error, /psbt não assinado/);
+  assert.match(unsigned.j.error, /o psbt não está assinado/);
 
   /* arquivo que não é PSBT */
   const garbage = await postJson('/api/broadcast', {
