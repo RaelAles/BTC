@@ -730,13 +730,6 @@
     width: 100%;
     max-width: var(--measure);
     margin-inline: auto;
-    /* Respiro de baixo: o degradê cobre o último --fade-size da área que
-       rola e, sem este vão, o último controle da tela termina na própria
-       borda da rolagem. O botão "baixar" com foco, por exemplo, tem o traço
-       de baixo do contorno (1px + 2px de offset) cortado pela borda e some
-       no esmaecimento. O vão repete o tamanho do degradê, então a última
-       linha e o contorno ficam acima dele. */
-    padding-bottom: var(--space-8);
   }
 
   .screen[hidden] { display: none !important; }
