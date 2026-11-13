@@ -171,7 +171,7 @@ async function fixture({ acct = account, hd: signer = hd, xpub = hd.accounts.bip
     xpub, psbt: signedText(other.signed)
   }, f.env);
   assert.equal(foreign.status, 400);
-  assert.match(foreign.j.error, /não é um endereço desta carteira/);
+  assert.match(foreign.j.error, /não pertence a esta carteira/);
   assert.equal(f.fake.broadcasts.length, 0, 'nada foi transmitido nas recusas');
 
   /* witness_utxo adulterado: o valor declarado não bate com a carteira */
