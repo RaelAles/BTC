@@ -1659,18 +1659,22 @@
     padding: 0;
     font-size: var(--text-md);
   }
-  /* Ação do PSBT: só o anexo (importar psbt) fica nesta linha; o botão de
-     assinar aparece no fim da revisão. O grupo fica centralizado sob o
-     bloco, na mesma medida da tabela de 28rem (VG-BOT-01/VG-BOT-05). */
+  /* Ações do PSBT na mesma linha: importar psbt (ou cancelar), assinar e
+     baixar .psbt, com o ponto médio entre os controles. O grupo fica
+     centralizado sob a revisão, na mesma medida da tabela de 28rem
+     (VG-BOT-01/VG-BOT-05). O envio perde a margem própria, que aqui
+     pertence ao grupo. */
   .psbt-actions {
     display: flex;
     justify-content: center;
     align-items: baseline;
     margin-top: var(--space-5);
   }
+  .psbt-actions .form-submit { margin: 0; }
   .psbt-actions button { font-size: var(--text-md); }
   /* O label do anexo tem display: flex próprio, então o [hidden] nativo
-     precisa vencer essa regra para o "cancelar" tomar o lugar dele. */
+     precisa vencer essa regra para o "cancelar" e os demais controles
+     tomarem o lugar dele. */
   .psbt-actions [hidden] { display: none !important; }
   /* O envio em andamento (VG-FRM-08) veste o estado geral de fora de alcance
      (VG-BOT-09): o botão fica em --dim, sem hover e sem ponteiro, e só o
@@ -2278,17 +2282,6 @@
 
           <div class="rule rule-dots reveal-block" aria-hidden="true"></div>
 
-          <div class="psbt-actions reveal-block">
-            <label class="field-upload is-off" id="psbt-import">
-              <input type="file" id="psbt-file" aria-label="importar psbt" disabled
-                     accept=".psbt,.txt,.hex,text/plain,application/octet-stream">
-              <span class="field-upload-pick">importar psbt</span>
-            </label>
-            <button type="button" id="psbt-clear" aria-label="cancelar o psbt importado" hidden>cancelar</button>
-          </div>
-
-          <p class="status-msg is-reserved" id="sign-status" role="status"></p>
-
           <div id="sign-out" class="app-block" hidden>
             <div class="prose">
               <h3><span class="prompt" aria-hidden="true">##</span> revisão</h3>
@@ -2308,15 +2301,26 @@
               <h3><span class="prompt" aria-hidden="true">##</span> avisos</h3>
               <ul id="review-warnings-list"></ul>
             </div>
-            <button type="button" class="form-submit" id="sign-btn" disabled>assinar</button>
           </div>
+
+          <div class="psbt-actions reveal-block chips chips-dots" role="group" aria-label="Ações do PSBT">
+            <label class="field-upload is-off" id="psbt-import">
+              <input type="file" id="psbt-file" aria-label="importar psbt" disabled
+                     accept=".psbt,.txt,.hex,text/plain,application/octet-stream">
+              <span class="field-upload-pick">importar psbt</span>
+            </label>
+            <button type="button" id="psbt-clear" aria-label="cancelar o psbt importado" hidden>cancelar</button>
+            <span class="dot-sep" id="psbt-sep-sign" aria-hidden="true" hidden>·</span>
+            <button type="button" class="form-submit" id="sign-btn" disabled hidden>assinar</button>
+            <span class="dot-sep" id="psbt-sep-download" aria-hidden="true" hidden>·</span>
+            <button type="button" id="download-signed-psbt" hidden>baixar .psbt</button>
+          </div>
+
+          <p class="status-msg is-reserved" id="sign-status" role="status"></p>
 
           <div id="signed-out" hidden>
             <div class="prose app-block">
               <h3><span class="prompt" aria-hidden="true">##</span> psbt assinado</h3>
-            </div>
-            <div class="chips app-gap reveal-block keys-actions" role="group" aria-label="Exportar PSBT assinado">
-              <button type="button" id="download-signed-psbt">baixar .psbt</button>
             </div>
             <table class="data-table key-readout review-readout" id="signed-table" aria-label="transação assinada">
               <tbody>
@@ -2354,7 +2358,7 @@
               <li><b>4. leia o resultado.</b> Na 256ª jogada — ou ao usar <b>gerar bits</b> — o arquivo troca sozinho para o campo de coordenadas e deriva a chave: as 24 palavras aparecem e as tabelas de chaves se preenchem. Digitando coordenadas, a chave é derivada assim que o conjunto deixa de ser vazio. Um conjunto pequeno também gera uma chave, mas com pouca entropia — o esperado são 256 jogadas ou 256 bits sorteados.</li>
               <li><b>5. guarde a frase.</b> As 24 palavras, na ordem 01–24, são a forma portátil da mesma entropia: com elas, qualquer carteira BIP39 compatível, com passphrase vazia, chega às mesmas contas. Anote em papel ou metal e confira duas vezes; não fotografe nem cole a frase em lugar nenhum.</li>
               <li><b>6. confira as chaves.</b> Em <b>privadas</b> ficam as chaves estendidas privadas de conta; em <b>públicas</b>, as correspondentes públicas, com botão de copiar. A pública (xpub/zpub/ypub) pode ir para uma carteira watch-only; a privada (xprv/zprv/yprv) controla a conta inteira e não deve sair da máquina.</li>
-              <li><b>7. assine um PSBT, se for o caso.</b> Com a chave carregada, <b>importar psbt</b> aceita um arquivo PSBT e a revisão aparece sozinha. Confira destinos, troco, taxa e avisos, e só então clique em <b>assinar</b>, no fim da revisão. O resultado são o PSBT assinado (base64) e a transação final (hex), cada um com seu botão de copiar. O arquivo não transmite nada: quem publica a transação é você, em outro programa.</li>
+              <li><b>7. assine um PSBT, se for o caso.</b> Com a chave carregada, <b>importar psbt</b> aceita um arquivo PSBT e a revisão aparece sozinha. Confira destinos, troco, taxa e avisos, e só então clique em <b>assinar</b>, na linha de ações, ao lado do <b>cancelar</b>. O resultado são o PSBT assinado (base64) e a transação final (hex), cada um com seu botão de copiar. O arquivo não transmite nada: quem publica a transação é você, em outro programa.</li>
               <li><b>8. para recomeçar.</b> Volte às jogadas pelo botão <b>gerar</b> (isso zera a sequência e o campo) ou recarregue a página. Não há botão de salvar: a chave existe só na memória da aba.</li>
             </ul>
 
@@ -2369,9 +2373,9 @@
               <li><b>mnemonic</b> — a frase BIP39 de 24 palavras, numeradas de 01 a 24; a grade de três colunas é só economia de espaço, e os números dão a ordem de leitura. Cada palavra é um índice de 11 bits na lista inglesa de 2048 palavras; os 256 bits mais 8 bits de checksum formam 24 grupos de 11. Sem chave, cada posição mostra <code>—</code>.</li>
               <li><b>privadas</b> — quatro linhas, uma por conta: <b>bip86</b> mostra a chave estendida privada da conta <code>m/86'/0'/0'</code> (prefixo <code>xprv</code>), <b>bip84</b> a de <code>m/84'/0'/0'</code> (<code>zprv</code>), <b>bip49</b> a de <code>m/49'/0'/0'</code> (<code>yprv</code>) e <b>bip44</b> a de <code>m/44'/0'/0'</code> (<code>xprv</code>). São chaves de conta, não de endereço: delas saem os ramos de recebimento (<code>/0/*</code>) e de troco (<code>/1/*</code>). Essas linhas não têm botão de copiar; o conteúdo aparece inteiro para conferência. Sem chave, cada célula mostra <code>—</code>.</li>
               <li><b>públicas</b> — as mesmas quatro contas em chave estendida pública: <code>xpub</code> no BIP86 e no BIP44, <code>zpub</code> no BIP84 e <code>ypub</code> no BIP49. Cada linha tem <b>copiar</b>, e o botão vira <b>copiado</b> por alguns instantes. A pública é watch-only: não gasta, mas permite reconstruir os endereços e, com eles, consultar o histórico da conta — também merece cuidado. O BIP86 e o BIP44 compartilham o prefixo <code>xpub</code>; o que distingue é o tipo de conta, então, ao importar numa carteira, informe que a conta do BIP86 é Taproot. O <code>xpub</code> do BIP86 é o que uma carteira watch-only (como o projeto 2) usa para derivar os endereços de recebimento e de troco.</li>
-              <li><b>importar psbt</b> — o anexo só responde depois que existe uma chave; com o arquivo carregado ele vira <b>cancelar</b>. O arquivo importado fica só na memória: a tela não repete o texto em base64/hex nem os metadados do arquivo (nome, formato, tamanho ou contagem de entradas e saídas), porque não ajudam na conferência. Logo abaixo do anexo, a linha de estado mostra <code>[ ... ]</code> enquanto analisa ou assina, <code>[ atenção ]</code> quando a revisão termina com avisos e <code>[ erro ]</code> com o motivo. <b>assinar</b> fica desabilitado até a revisão terminar sem erro e aparece no fim dela, depois dos avisos. A revisão sem avisos e a assinatura concluída não escrevem nada: o resumo e o painel do PSBT assinado já mostram o resultado.</li>
+              <li><b>importar psbt</b> — o anexo só responde depois que existe uma chave; com o arquivo carregado ele vira <b>cancelar</b>. O arquivo importado fica só na memória: a tela não repete o texto em base64/hex nem os metadados do arquivo (nome, formato, tamanho ou contagem de entradas e saídas), porque não ajudam na conferência. Na mesma linha, <b>assinar</b> surge quando a revisão termina, depois dos avisos e ao lado do anexo ou do <b>cancelar</b>; <b>baixar .psbt</b> aparece ao lado dele depois da assinatura. Abaixo dos botões, a linha de estado mostra <code>[ ... ]</code> enquanto analisa ou assina, <code>[ atenção ]</code> quando a revisão termina com avisos e <code>[ erro ]</code> com o motivo. A revisão sem avisos e a assinatura concluída não escrevem nada: o resumo e o painel do PSBT assinado já mostram o resultado.</li>
               <li><b>revisão</b> — aparece sozinha ao importar, numa tabela. O <b>resumo</b> traz um par <b>saída</b>/<b>destino</b> por pagamento e um par <b>troco</b>/<b>endereço</b> por troco, na ordem da transação; a taxa, o vsize estimado e o txid. Nesse resumo, os valores levam sinal e cor: o que sai (<b>saída</b> e <b>taxa</b>) fica em <b>-</b> no tom do erro e o que volta (<b>troco</b>) em <b>+</b> no verde do sucesso. No fim, os <b>avisos</b> (taxa fora do comum, saída externa, script não padronizado). Leia antes de assinar.</li>
-              <li><b>psbt assinado e transação final</b> — o PSBT com as assinaturas em base64 fica disponível em <b>baixar .psbt</b>; a transação pronta em hex aparece na tela, com <b>copiar transação</b>, e a tabela acima traz o txid, o vsize e a taxa total da transação final. É esse hex que se transmite à rede.</li>
+              <li><b>psbt assinado e transação final</b> — o PSBT com as assinaturas em base64 fica disponível em <b>baixar .psbt</b>, na linha de ações; a transação pronta em hex aparece na tela, com <b>copiar transação</b>, e a tabela acima traz o txid, o vsize e a taxa total da transação final. É esse hex que se transmite à rede.</li>
               <li><b>rodapé</b> — <code>[ offline ] nada sai deste arquivo</code> resume a política da página; o botão redondo troca o tema.</li>
             </ul>
 
@@ -4111,6 +4115,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var psbtImport = $('#psbt-import');
   var psbtClear = $('#psbt-clear');
   var signBtn = $('#sign-btn');
+  var psbtSepSign = $('#psbt-sep-sign');
+  var psbtSepDownload = $('#psbt-sep-download');
+  var downloadSignedPsbt = $('#download-signed-psbt');
   var signStatus = $('#sign-status');
   var signOut = $('#sign-out');
   var reviewTableEl = $('#review-table');
@@ -4685,6 +4692,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (reviewWarningsList) reviewWarningsList.textContent = '';
     if (reviewWarnings) reviewWarnings.hidden = true;
     if (signedOut) signedOut.hidden = true;
+    if (signBtn) signBtn.hidden = true;
+    if (psbtSepSign) psbtSepSign.hidden = true;
+    if (downloadSignedPsbt) downloadSignedPsbt.hidden = true;
+    if (psbtSepDownload) psbtSepDownload.hidden = true;
     signedPsbtText = '';
     signedTxid = '';
     if (signedTx) signedTx.textContent = '';
@@ -4831,6 +4842,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     var seq = ++analyzeSeq;
     state.analysis = null;
     if (signBtn) signBtn.disabled = true;
+    if (signBtn) signBtn.hidden = true;
+    if (psbtSepSign) psbtSepSign.hidden = true;
+    if (downloadSignedPsbt) downloadSignedPsbt.hidden = true;
+    if (psbtSepDownload) psbtSepDownload.hidden = true;
     if (signOut) signOut.hidden = true;
     if (signedOut) signedOut.hidden = true;
     if (!state.hd) {
@@ -4850,6 +4865,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       renderReview(a);
       signOut.hidden = false;
       signBtn.disabled = false;
+      signBtn.hidden = false;
+      psbtSepSign.hidden = false;
       if (a.warnings.length) {
         setStatus(signStatus, 'aviso', 'psbt analisado; revise os avisos antes de assinar.');
       } else {
@@ -4859,6 +4876,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     } catch (e) {
       if (seq !== analyzeSeq) return;
       if (signOut) signOut.hidden = true;
+      if (signBtn) signBtn.hidden = true;
+      if (psbtSepSign) psbtSepSign.hidden = true;
       setStatus(signStatus, 'erro', e.message + '.');
     }
   }
@@ -4925,6 +4944,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         reviewCell(signedVsize, res.vsize + ' vB');
         if (signedFee) signedFee.innerHTML = valueLine(res.fee, 'out');
         signedOut.hidden = false;
+        if (downloadSignedPsbt) downloadSignedPsbt.hidden = false;
+        if (psbtSepDownload) psbtSepDownload.hidden = false;
         setStatus(signStatus, 'neutro', '');
         requestAnimationFrame(updateScrollState);
       } catch (e) {
@@ -4935,7 +4956,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       }
     });
   }
-  var downloadSignedPsbt = $('#download-signed-psbt');
   var copySignedTx = $('#copy-signed-tx');
   if (downloadSignedPsbt) {
     downloadSignedPsbt.addEventListener('click', function () {
