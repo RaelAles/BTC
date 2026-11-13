@@ -1171,7 +1171,7 @@
       addressProblem = state.addressError.text;
     }
     if (amount > 0 && amount < DUST_SATS) {
-      amountProblem = 'valor abaixo do mínimo: ' + fmtBtc(DUST_SATS) + ' BTC.';
+      amountProblem = 'valor abaixo do mínimo: ' + fmtBtc(DUST_SATS);
     } else if (state.limits) {
       hintText = 'máximo ' + fmtBtc(max) + ' BTC.';
       if (amount > 0 && max < DUST_SATS) {
