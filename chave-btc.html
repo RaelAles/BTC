@@ -2397,7 +2397,7 @@
               <li><b>mnemonic</b> — a frase BIP39 de 24 palavras, numeradas de 01 a 24; a grade de três colunas é só economia de espaço, e os números dão a ordem de leitura. Cada palavra é um índice de 11 bits na lista inglesa de 2048 palavras; os 256 bits mais 8 bits de checksum formam 24 grupos de 11. Sem chave, cada posição mostra <code>—</code>.</li>
               <li><b>privadas</b> — quatro linhas, uma por conta: <b>bip86</b> mostra a chave estendida privada da conta <code>m/86'/0'/0'</code> (prefixo <code>xprv</code>), <b>bip84</b> a de <code>m/84'/0'/0'</code> (<code>zprv</code>), <b>bip49</b> a de <code>m/49'/0'/0'</code> (<code>yprv</code>) e <b>bip44</b> a de <code>m/44'/0'/0'</code> (<code>xprv</code>). São chaves de conta, não de endereço: delas saem os ramos de recebimento (<code>/0/*</code>) e de troco (<code>/1/*</code>). Essas linhas não têm botão de copiar; o conteúdo aparece inteiro para conferência. Sem chave, cada célula mostra <code>—</code>.</li>
               <li><b>públicas</b> — as mesmas quatro contas em chave estendida pública: <code>xpub</code> no BIP86 e no BIP44, <code>zpub</code> no BIP84 e <code>ypub</code> no BIP49. Cada linha tem <b>copiar</b>, e o botão vira <b>copiado</b> por alguns instantes. A pública é watch-only: não gasta, mas permite reconstruir os endereços e, com eles, consultar o histórico da conta — também merece cuidado. O BIP86 e o BIP44 compartilham o prefixo <code>xpub</code>; o que distingue é o tipo de conta, então, ao importar numa carteira, informe que a conta do BIP86 é Taproot. O <code>xpub</code> do BIP86 é o que uma carteira watch-only (como o projeto 2) usa para derivar os endereços de recebimento e de troco.</li>
-              <li><b>assinar</b> — a tabela do arquivo mostra o nome, o formato, o tamanho e, depois da revisão, quantas entradas e saídas o PSBT tem; o texto em base64/hex não aparece, porque não ajuda na conferência. <b>importar</b> só responde depois que existe uma chave; com o arquivo carregado ele vira <b>cancelar</b>. <b>assinar</b> fica desabilitado até a revisão terminar sem erro. Logo abaixo dos botões, a linha de estado mostra <code>[ ... ]</code> enquanto analisa ou assina, <code>[ ok ]</code> no sucesso, <code>[ atenção ]</code> quando a revisão termina com avisos e <code>[ erro ]</code> com o motivo.</li>
+              <li><b>assinar</b> — a tabela do arquivo mostra o nome, o formato, o tamanho e, depois da revisão, quantas entradas e saídas o PSBT tem; o texto em base64/hex não aparece, porque não ajuda na conferência. <b>importar</b> só responde depois que existe uma chave; com o arquivo carregado ele vira <b>cancelar</b>. <b>assinar</b> fica desabilitado até a revisão terminar sem erro. Logo abaixo dos botões, a linha de estado mostra <code>[ ... ]</code> enquanto analisa ou assina, <code>[ atenção ]</code> quando a revisão termina com avisos, <code>[ ok ]</code> ao assinar com sucesso e <code>[ erro ]</code> com o motivo. A revisão sem avisos não escreve nada: o resumo na tela já mostra o resultado.</li>
               <li><b>revisão</b> — aparece sozinha ao importar, numa tabela. O <b>resumo</b> traz um par <b>saída</b>/<b>destino</b> por pagamento e um par <b>troco</b>/<b>endereço</b> por troco, na ordem da transação; a taxa, o vsize estimado e o txid. Nesse resumo, os valores levam sinal e cor: o que sai (<b>saída</b> e <b>taxa</b>) fica em <b>-</b> no tom do erro e o que volta (<b>troco</b>) em <b>+</b> no verde do sucesso. No fim, os <b>avisos</b> (taxa fora do comum, saída externa, script não padronizado). Leia antes de assinar.</li>
               <li><b>psbt assinado e transação final</b> — o PSBT com as assinaturas em base64 fica disponível em <b>baixar .psbt</b>; a transação pronta em hex aparece na tela, com <b>copiar transação</b>, e a tabela acima traz o txid, o vsize e a taxa total da transação final. É esse hex que se transmite à rede.</li>
               <li><b>rodapé</b> — <code>[ offline ] nada sai deste arquivo</code> resume a política da página; o botão redondo troca o tema.</li>
@@ -4908,9 +4908,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       renderReview(a);
       signOut.hidden = false;
       signBtn.disabled = false;
-      setStatus(signStatus, a.warnings.length ? 'aviso' : 'ok', a.warnings.length
-        ? 'psbt analisado; revise os avisos antes de assinar.'
-        : 'psbt confere com as chaves e os scripts deste arquivo.');
+      if (a.warnings.length) {
+        setStatus(signStatus, 'aviso', 'psbt analisado; revise os avisos antes de assinar.');
+      } else {
+        setStatus(signStatus, 'neutro', '');
+      }
       requestAnimationFrame(updateScrollState);
     } catch (e) {
       if (seq !== analyzeSeq) return;
