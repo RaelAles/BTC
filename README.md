@@ -92,7 +92,7 @@ tela mostra:
    e junto — da transação anterior.
    Quem assina é o `chave-btc.html` (projeto 1), offline; o projeto 2 nunca
    vê chave privada.
-5. **transmitir** abaixo do envio: o botão **transmitir** abre o seletor
+5. **transmitir** abaixo do envio: o botão **importar psbt** abre o seletor
    do PSBT assinado que volta do `chave-btc.html`. Escolher o arquivo **não**
    publica: o servidor confere o arquivo contra a carteira (cada entrada tem
    de ser sua, o valor tem de bater, todas as entradas têm de estar
