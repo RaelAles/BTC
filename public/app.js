@@ -1203,13 +1203,7 @@
       addressLooksValid(address) && feeRateOk(rate) &&
       !!state.limits && max >= DUST_SATS && amount <= max;
     state.sendBlocked = !ready;
-    var btn = $('#send-download');
-    if (btn) {
-      // o retrato antigo continua na tela, mas não pode ser baixado enquanto
-      // o formulário já não é o que o gerou
-      if (state.psbt && !state.psbtStale) btn.removeAttribute('aria-disabled');
-      else btn.setAttribute('aria-disabled', 'true');
-    }
+    syncDownloadButton();
     updateFeeVisibility(addressProblem);
     /* o custo de cada nível depende do valor, do destino e do preview que
        acabou de mudar; é o único lugar em que todos os três se encontram */
@@ -1436,6 +1430,21 @@
       out.removeAttribute('aria-busy');
       out.setAttribute('data-stale', 'true');
     }
+    /* A edição pode ter chegado antes de o formulário ficar inválido (o
+       `updateSendAvailability` roda antes daqui e ainda via o retrato como
+       atual): o download precisa cair já, sem esperar a próxima rodada — que
+       pode não vir, porque um valor apagado não monta PSBT nenhum. */
+    syncDownloadButton();
+  }
+
+  /* O retrato antigo continua na tela, mas não pode ser baixado enquanto o
+     formulário já não é o que o gerou (`aria-disabled` é o que o CSS desenha
+     como inativo). */
+  function syncDownloadButton() {
+    var btn = $('#send-download');
+    if (!btn) return;
+    if (state.psbt && !state.psbtStale) btn.removeAttribute('aria-disabled');
+    else btn.setAttribute('aria-disabled', 'true');
   }
 
   /* O retrato sai da tela quando o destino muda: o PSBT é do pedido que o
@@ -1610,8 +1619,7 @@
     if (hasOld && state.psbtKey !== key) {
       state.psbtStale = true;
       $('#send-out').setAttribute('data-stale', 'true');
-      var oldBtn = $('#send-download');
-      if (oldBtn) oldBtn.setAttribute('aria-disabled', 'true');
+      syncDownloadButton();
     }
     state.sendBusy = true;
     state.psbtPending = true;
