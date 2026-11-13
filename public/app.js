@@ -1789,14 +1789,35 @@
   function renderBroadcast(j) {
     broadcastCell('#broadcast-meta-file', state.broadcastName || '—');
     broadcastCell('#broadcast-meta-txid', j.txid);
-    broadcastCell('#broadcast-meta-inputs',
-      fmtInt((j.inputs || []).length) + ' · ' + fmtBtc(j.total_in) + ' BTC');
-    broadcastCell('#broadcast-meta-outputs',
-      fmtInt((j.outputs || []).length) + ' · ' + fmtBtc(j.total_out) + ' BTC');
+    broadcastCell('#broadcast-meta-vsize', fmtInt(j.vsize) + ' vB');
     var fee = $('#broadcast-meta-fee');
     if (fee) fee.innerHTML = signedBtcShare(j.fee_sats, 'out');
-    broadcastCell('#broadcast-meta-rate', (Number(j.fee_rate) || 0).toFixed(2) + ' sat/vB');
-    broadcastCell('#broadcast-meta-vsize', fmtInt(j.vsize) + ' vB');
+
+    /* As mesmas linhas do resumo do PSBT: o que sai (destino) e o que volta
+       (troco), com o valor e o endereço em par. O PSBT assinado pode pagar
+       mais de uma saída; aí a linha soma os valores e o endereço lista todas,
+       e as tabelas por saída abaixo mostram cada uma. Sem troco, as duas
+       linhas do troco somem, como no resumo do envio. */
+    var outputs = j.outputs || [];
+    var change = outputs.filter(function (out) { return out.own === 'troco'; });
+    var paid = outputs.filter(function (out) { return out.own !== 'troco'; });
+    var sum = function (list) {
+      return list.reduce(function (n, out) { return n + (Number(out.value) || 0); }, 0);
+    };
+    var addresses = function (list) {
+      return list.map(function (out) { return out.address || ''; })
+        .filter(Boolean).join(' · ');
+    };
+    var outValue = $('#broadcast-meta-out-value');
+    if (outValue) outValue.innerHTML = signedBtcShare(sum(paid), 'out');
+    var outAddress = $('#broadcast-meta-out-address');
+    if (outAddress) outAddress.textContent = addresses(paid) || '—';
+    var changeValue = $('#broadcast-meta-change-value');
+    if (changeValue) changeValue.innerHTML = signedBtcShare(sum(change), 'in');
+    var changeAddress = $('#broadcast-meta-change-address');
+    if (changeAddress) changeAddress.textContent = addresses(change) || '—';
+    [$('#broadcast-meta-change-value-row'), $('#broadcast-meta-change-address-row')]
+      .forEach(function (row) { if (row) row.hidden = !change.length; });
 
     var wrapIn = $('#broadcast-inputs');
     if (wrapIn) {

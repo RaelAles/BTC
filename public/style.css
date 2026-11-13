@@ -1832,9 +1832,12 @@
   /* O resumo se lê em blocos — valor e endereço do pagamento, valor e
      endereço do troco, custo e txid: a última linha de cada bloco abre o vão
      do próximo. O vão desaparece junto com a linha quando ela está oculta
-     (sem troco, sem pó), porque a linha oculta não desenha respiro. */
+     (sem troco, sem pó), porque a linha oculta não desenha respiro. O
+     transmitir usa o mesmo resumo, com o arquivo na frente. */
   #send-meta tbody tr.group-end th,
-  #send-meta tbody tr.group-end td {
+  #send-meta tbody tr.group-end td,
+  #broadcast-meta tbody tr.group-end th,
+  #broadcast-meta tbody tr.group-end td {
     padding-bottom: var(--space-5);
   }
   /* Aviso do resumo: só existe quando o PSBT montado no servidor não bate
@@ -1846,9 +1849,10 @@
   }
   #send-meta-warn:empty { display: none; }
 
-  /* Transmissão: mesmo desenho de leitura do PSBT, com uma tabela curta por
-     saída (valor, classificação e endereço) e o aviso de conferência no tom
-     do erro, como o do resumo do envio. */
+  /* Transmissão: mesmo resumo do PSBT (arquivo, saída/destino, troco/endereço,
+     taxa, vsize e txid), com uma tabela curta por entrada e por saída (valor,
+     classificação e endereço) e o aviso de conferência no tom do erro, como
+     o do resumo do envio. */
   #broadcast-meta {
     width: 100%;
     margin: var(--space-4) 0 0;
