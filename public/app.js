@@ -1849,7 +1849,9 @@
       if (seq !== state.broadcastSeq) return;
       state.broadcast = null;
       state.broadcastText = '';
-      state.broadcastName = file.name || 'psbt assinado';
+      /* Arquivo recusado é descartado: sem o "cancelar" pendurado, o
+         seletor volta na hora e a próxima escolha é um clique só. */
+      state.broadcastName = '';
       var panel = $('#broadcast-out');
       if (panel) panel.hidden = true;
       setBroadcastStatus('error', e && e.message ? e.message : String(e));

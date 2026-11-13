@@ -100,8 +100,10 @@ tela mostra:
    no mesmo desenho do PSBT (arquivo, um par saída/destino por pagamento e um
    par troco/endereço por troco, taxa, vsize e txid), e o botão
    **confirmar**; o botão do seletor some assim que o
-   arquivo é escolhido e, se a conferência falhar, fica só o **cancelar**,
-   que o traz de volta. Só o clique em **confirmar** publica a transação
+   arquivo é escolhido e, se a conferência falhar, o arquivo é descartado
+   com o motivo no lugar, e o seletor volta de imediato para a próxima
+   tentativa (o **cancelar** só existe com o arquivo aprovado, ao lado do
+   **confirmar**). Só o clique em **confirmar** publica a transação
    final no
    Electrum; depois disso o botão vira **transmitida** e o resumo fica na
    tela. O arquivo e o resumo vivem só na memória da tela, como o resto.
