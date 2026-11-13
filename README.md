@@ -545,9 +545,8 @@ usados dele) e o próximo endereço livre do ramo de recebimento
 (`último usado + 1`, ou o índice 0 se o tipo nunca foi usado).
 A soma de `types[].balance` é o `balance.total`. A tela usa `types` inteiro
 (os quatro) no bloco **receber**, que exibe o próximo endereço livre de cada
-tipo e, abaixo deles, o endereço de troco do tipo detectado
-(`change_address`, o `último usado + 1` do ramo `/1`), sem botão de copiar,
-para comparar com o endereço que o PSBT montou.
+tipo. O `change_address` (o `último usado + 1` do ramo `/1`) continua na
+resposta, mas não aparece na tela.
 
 `balance.total` é o saldo **disponível** — a soma dos `types[].balance` —,
 e `balance.detected` é a fatia do tipo detectado: confirmado não gasto mais o

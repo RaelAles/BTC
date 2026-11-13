@@ -981,10 +981,7 @@
   /* Um endereço de recebimento por tipo — sempre o primeiro índice sem uso
      daquele ramo (`último usado + 1`) —, inclusive os tipos sem saldo, para
      o usuário escolher o que o pagador aceita. O rótulo é o tipo da conta e
-     o botão de copiar fica ao lado do endereço. Abaixo deles vem o endereço
-     de troco do tipo detectado — o ramo /1, que é o que o PSBT usa —, sem
-     botão de copiar: ele serve para comparar com a linha "endereço" dos
-     detalhes do PSBT, não para compartilhar. */
+     o botão de copiar fica ao lado do endereço. */
   function renderReceive(d) {
     var body = $('#receive-table tbody');
     if (!body) return;
@@ -1001,15 +998,6 @@
         '</span></td>';
       body.appendChild(tr);
     });
-    var detected = types.filter(function (t) { return t.detected; })[0];
-    var change = detected && detected.change_address;
-    if (change) {
-      var tr = document.createElement('tr');
-      tr.id = 'receive-change-row';
-      tr.innerHTML = '<th scope="row">troco</th>' +
-        '<td><span class="receive-line"><code>' + esc(change) + '</code></span></td>';
-      body.appendChild(tr);
-    }
     $('#receive-table').hidden = types.length === 0;
     $('#receive-heading').hidden = types.length === 0;
   }
