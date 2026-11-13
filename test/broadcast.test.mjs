@@ -142,12 +142,12 @@ async function fixture({ acct = account, hd: signer = hd, xpub = hd.accounts.bip
   const f = await fixture();
   const xpub = hd.accounts.bip84.xpub;
 
-  /* PSBT sem assinatura: as entradas não estão finalizadas */
+  /* PSBT sem assinatura: a recusa é direta, sem o nome do campo do BIP174 */
   const unsigned = await postJson('/api/broadcast', {
     xpub, psbt: f.prepared.psbt
   }, f.env);
   assert.equal(unsigned.status, 400);
-  assert.match(unsigned.j.error, /não está finalizada/);
+  assert.match(unsigned.j.error, /psbt não assinado/);
 
   /* arquivo que não é PSBT */
   const garbage = await postJson('/api/broadcast', {

@@ -137,6 +137,14 @@ export function inspectSignedPsbt({ psbtText, byScript, utxos }) {
   try {
     fin = BTC.psbtFinalTx(psbt);
   } catch (e) {
+    /* Arquivo que ainda não passou pelo assinante: nenhuma entrada tem o
+       campo final. É o erro mais comum, e o nome do campo BIP174 só
+       atrapalha na tela; o restante das recusas mantém o detalhe. */
+    let semFinal = 0;
+    for (let i = 0; i < psbt.inputs.length; i++) {
+      if (!mapFind(psbt.inputs[i], 0x07)) semFinal++;
+    }
+    if (psbt.inputs.length && semFinal === psbt.inputs.length) throw new Error('psbt não assinado');
     throw new Error('entrada não finalizada: ' + (e && e.message ? e.message : e));
   }
   if (fin.vsize > MAX_TX_VSIZE) {
