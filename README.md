@@ -96,9 +96,9 @@ tela mostra:
    do PSBT assinado que volta do `chave-btc.html`. Escolher o arquivo **não**
    publica: o servidor confere o arquivo contra a carteira (cada entrada tem
    de ser sua, o valor tem de bater, todas as entradas têm de estar
-   finalizadas) e só então aparecem o subtítulo **transmitir**, o resumo
+   finalizadas) e só então aparecem o subtítulo **transmitir**, com o resumo
    (txid, vsize, taxa real, entradas e cada saída — destino, troco ou
-   externo) e o botão **confirmar**; antes disso a tela mostra só o botão do
+   externo), e o botão **confirmar**; antes disso a tela mostra só o botão do
    seletor. Só o clique em **confirmar** publica a transação final no
    Electrum; depois disso o botão vira **transmitida** e o resumo fica na
    tela. O arquivo e o resumo vivem só na memória da tela, como o resto.

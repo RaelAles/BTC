@@ -1856,10 +1856,9 @@
   #broadcast-outputs .data-table tbody th { width: 10ch; }
   /* O grupo de ações fica centrado como um todo (cancelar · confirmar),
      sem a margem própria do botão de envio solto. Antes do arquivo
-     conferido, o subtítulo e a confirmação saem do fluxo: o botão do
-     seletor é a única ação da tela, e o .form-submit precisa da regra
-     porque define display próprio. */
-  #broadcast-heading[hidden],
+     conferido, a confirmação sai do fluxo: o botão do seletor é a única
+     ação da tela, e o .form-submit precisa da regra porque define display
+     próprio. */
   #broadcast-send[hidden] { display: none; }
   #broadcast-import-block .chips { align-items: baseline; }
   #broadcast-import-block .chips .form-submit { margin: 0; }

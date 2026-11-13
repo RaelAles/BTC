@@ -1704,12 +1704,10 @@
     var send = $('#broadcast-send');
     var clear = $('#broadcast-clear');
     var sep = $('#broadcast-sep');
-    var heading = $('#broadcast-heading');
     var loaded = !!state.broadcast;
     var sent = !!state.broadcastSent;
-    /* Sem arquivo conferido, o único botão é o que abre o seletor: o
-       subtítulo e a confirmação só existem depois do resumo. */
-    if (heading) heading.hidden = !loaded;
+    /* Sem arquivo conferido só existe o botão que abre o seletor: a
+       confirmação nasce com o resumo. */
     if (send) {
       send.hidden = !loaded;
       if (loaded && !sent && !state.broadcastBusy) send.removeAttribute('aria-disabled');
