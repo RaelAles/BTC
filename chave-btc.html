@@ -2318,7 +2318,6 @@
           <div id="sign-out" class="app-block" hidden>
             <div class="prose">
               <h3><span class="prompt" aria-hidden="true">##</span> revisão</h3>
-              <p class="note" id="review-lede"></p>
             </div>
             <!-- O resumo usa as mesmas linhas do projeto principal: um par
                  saída/destino por pagamento e um par troco/endereço por
@@ -4144,7 +4143,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var signBtn = $('#sign-btn');
   var signStatus = $('#sign-status');
   var signOut = $('#sign-out');
-  var reviewLede = $('#review-lede');
   var reviewTableEl = $('#review-table');
   var reviewFeeRow = $('#review-fee-row');
   var reviewFee = $('#review-fee');
@@ -4713,7 +4711,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   function clearSignature() {
     if (signOut) signOut.hidden = true;
-    if (reviewLede) reviewLede.textContent = '';
     if (reviewWarningsList) reviewWarningsList.textContent = '';
     if (reviewWarnings) reviewWarnings.hidden = true;
     if (signedOut) signedOut.hidden = true;
@@ -4816,7 +4813,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (!Number(value)) return '<span class="value-none">' + text + '</span>';
     return '<span class="value-' + dir + '">' + (dir === 'in' ? '+' : '-') + text + '</span>';
   }
-  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
   function reviewCell(el, text) {
     if (el) el.textContent = text || '—';
   }
@@ -4859,9 +4855,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     });
   }
   function renderReview(a) {
-    reviewCell(reviewLede, 'psbt v0 · ' + plural(a.inputs.length, 'entrada', 'entradas') +
-      ' · ' + plural(a.outputs.length, 'saída', 'saídas') +
-      '; confira destinos, troco e taxa antes de assinar.');
     renderReviewOutputs(a);
     if (reviewFee) reviewFee.innerHTML = valueLine(a.fee, 'out');
     reviewCell(reviewVsize, a.vsize + ' vB (estimado)');
