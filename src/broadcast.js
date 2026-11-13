@@ -107,7 +107,7 @@ export function inspectSignedPsbt({ psbtText, byScript, utxos }) {
     const script = BTC.bytesToHex(prev.script);
     const row = owned.get(script);
     if (!row) {
-      throw new Error('a transação não pertence a esta carteira');
+      throw new Error('o psbt não pertence a esta carteira');
     }
     const kind = normalizeKind(BTC.scriptKind(prev.script));
     if (kind === 'p2wsh' || kind === 'witness' || kind === 'outro') {
