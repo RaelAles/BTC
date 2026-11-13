@@ -1895,25 +1895,22 @@
   /* Histórico: o resumo e a explicação são notas de apoio, e a lista começa
      depois do vão da régua do título. */
   #history-summary { margin: 0 0 var(--space-3); }
-  /* Com dados, o resumo vira a linha de dados da tela, no desenho das
-     legendas da carteira (VG-COR-16): o total de endereços fica em --dim,
-     como os rótulos, os valores no --fg (assumindo o sinal e a cor da
-     direção de quem os envolve) e os divisores no --sep. A linha não justifica
-     nem hifeniza — é leitura de dado, não prosa —, e o bloco quebra entre os
-     campos. Sem dados, o texto corrido continua sendo a nota de apoio
-     herdada de .note, porque o texto simples substitui este bloco. */
-  #history-summary .summary-line {
-    display: block;
-    color: var(--fg);
-    font-size: var(--text-sm);
-    line-height: 1.6;
-    text-align: left;
+  /* Com dados, o resumo vira a tabela de leitura da carteira (VG-ABS-04): o
+     total de endereços é uma linha de dados, e os valores seguem a marcação
+     do extrato (VG-COR-16) — rótulo em --dim, valor com o sinal e a cor da
+     direção. O vão da tabela fica com o bloco, e a linha não justifica nem
+     hifeniza, porque é leitura de dado, não prosa. Sem dados, o texto
+     corrido continua sendo a nota de apoio herdada de .note, porque o texto
+     simples substitui a tabela. */
+  #history-summary .data-table {
+    margin: 0;
     -webkit-hyphens: none;
     hyphens: none;
   }
-  #history-summary .summary-count { color: var(--dim); }
-  #history-summary .value-label { color: var(--dim); }
-  #history-summary .value-sep { color: var(--sep); }
+  /* "endereços" tem 9ch e, na coluna de 7ch herdada do key-readout, encostaria
+     no valor — o rótulo não quebra (white-space: nowrap). A coluna ganha três
+     caracteres para manter o respiro do "receber". */
+  #history-summary .key-readout tbody th { width: 10ch; }
 
   /* A lista do extrato é uma coluna só, em qualquer largura (VG-LST-07). O
      endereço é o título do item, em texto simples e sem a caixa do <code>,

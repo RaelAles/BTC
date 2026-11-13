@@ -2095,19 +2095,19 @@
       sum.received += Number(a.received) || 0;
       sum.spent += Number(a.spent) || 0;
     });
-    var countLabel = rows.length === 1 ? '1 endereço usado' : fmtInt(rows.length) + ' endereços usados';
-    /* O resumo é a linha de dados da tela: o total de endereços é metadado
-       (· em --sep, como as tags), e os valores repetem o desenho das legendas
-       da carteira — rótulo em --dim, valor com o sinal e a cor da direção e o
-       `|` do divisor entre os campos. */
+    var countLabel = rows.length === 1 ? 'endereço' : 'endereços';
+    /* O resumo é a tabela de leitura da carteira (VG-ABS-04): o total de
+       endereços vira uma linha de dados, com o plural do rótulo pela
+       contagem, e os valores repetem a marcação do extrato — rótulo em
+       --dim, valor com o sinal e a cor da direção (VG-COR-16). */
     $('#history-summary').innerHTML =
-      '<span class="summary-line">' +
-        '<span class="summary-count">' + countLabel + '</span>' +
-        ' <span class="value-sep" aria-hidden="true">·</span> ' +
-        '<span class="value-label">recebido</span> ' + signedBtc(sum.received, 'in') +
-        ' <span class="value-sep" aria-hidden="true">|</span> ' +
-        '<span class="value-label">enviado</span> ' + signedBtc(sum.spent, 'out') +
-      '</span>';
+      '<table class="data-table key-readout" aria-label="totais do histórico">' +
+        '<tbody>' +
+          '<tr><th scope="row">' + countLabel + '</th><td>' + fmtInt(rows.length) + '</td></tr>' +
+          '<tr><th scope="row">recebido</th><td>' + signedBtc(sum.received, 'in') + '</td></tr>' +
+          '<tr><th scope="row">enviado</th><td>' + signedBtc(sum.spent, 'out') + '</td></tr>' +
+        '</tbody>' +
+      '</table>';
     state.historyState = 'ready';
     renderHistory();
     syncHistoryState();
