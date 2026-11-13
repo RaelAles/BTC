@@ -1989,7 +1989,6 @@
     min-height: 0;
   }
   .bits-actions { justify-content: center; }
-  .keys-actions { justify-content: center; }
   /* Chaves no mesmo desenho dos binários: o rótulo (só o bip) no --dim à
      esquerda, o valor no --fg à direita, na mesma largura de 28rem do painel
      de jogadas, sem moldura nem fio entre as linhas. A coluna do rótulo
@@ -2317,9 +2316,6 @@
           <p class="status-msg is-reserved" id="sign-status" role="status"></p>
 
           <div id="signed-out" hidden>
-            <div class="prose app-block">
-              <h3><span class="prompt" aria-hidden="true">##</span> psbt assinado</h3>
-            </div>
             <table class="data-table key-readout review-readout" id="signed-table" aria-label="transação assinada">
               <tbody>
                 <tr><th scope="row">txid</th><td id="signed-txid">—</td></tr>
@@ -2328,13 +2324,7 @@
               </tbody>
             </table>
 
-            <div class="prose app-block">
-              <h3><span class="prompt" aria-hidden="true">##</span> transação final</h3>
-            </div>
-            <pre class="code-block is-scroll" id="signed-tx"></pre>
-            <div class="chips app-gap reveal-block keys-actions" role="group" aria-label="Copiar transação final">
-              <button type="button" id="copy-signed-tx">copiar transação</button>
-            </div>
+            <pre class="code-block is-scroll" id="signed-tx" aria-label="transação final"></pre>
           </div>
         </section>
 
@@ -4723,22 +4713,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     psbtText = text || '';
   }
 
-  function copyFeedback(button, value) {
-    if (!button || !value) return;
-    // "copiado" é recado, não controle: some a ação e fica só a informação
-    if (button.getAttribute('aria-disabled') === 'true') return;
-    copyText(value);
-    if (!button.getAttribute('data-label')) button.setAttribute('data-label', button.textContent);
-    var label = button.getAttribute('data-label');
-    button.textContent = 'copiado';
-    button.setAttribute('aria-disabled', 'true');
-    if (button._copyTimer) window.clearTimeout(button._copyTimer);
-    button._copyTimer = window.setTimeout(function () {
-      button.textContent = label;
-      button.removeAttribute('aria-disabled');
-      button._copyTimer = 0;
-    }, 1400);
-  }
   /* ---------------------------------------------------------- bits/entrada */
   var BIT_MAX = 256;
 
@@ -4947,7 +4921,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       }
     });
   }
-  var copySignedTx = $('#copy-signed-tx');
   /* O .psbt assinado sai assim que a assinatura termina, sem segundo clique:
      o Blob vira um link temporário e o nome curto vem do txid. */
   function downloadSignedPsbtFile() {
@@ -4962,12 +4935,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 0);
   }
-  if (copySignedTx) {
-    copySignedTx.addEventListener('click', function () {
-      copyFeedback(copySignedTx, signedTx ? signedTx.textContent : '');
-    });
-  }
-
   /* --------------------------------------------------------------- telas */
   var menuButtons = $$('.menu button');
   function screenName(value) {
