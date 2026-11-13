@@ -1851,7 +1851,9 @@
       if (seq !== state.broadcastSeq) return;
       state.broadcast = j;
       renderBroadcast(j);
-      setBroadcastStatus('ok', 'o psbt assinado confere com a carteira; confira e clique em confirmar');
+      /* O resumo na tela já diz que o arquivo conferiu: sem legenda de
+         sucesso, só a falha ganha recado. */
+      setBroadcastStatus('', '');
     } catch (e) {
       if (seq !== state.broadcastSeq) return;
       state.broadcast = null;
