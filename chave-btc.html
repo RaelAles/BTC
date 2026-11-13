@@ -2045,7 +2045,7 @@
   }
   /* As tabelas de revisão do PSBT seguem o desenho e a largura das chaves,
      para que as linhas do "assinar" caiam nas mesmas colunas dos outros
-     subtítulos; a tabela por entrada só acrescenta a legenda. */
+     subtítulos. */
   /* Aviso é frase curta com endereço comprido: justificar abriria buracos
      entre as palavras, então esse bloco fica à esquerda. */
   #review-warnings-list li { text-align: left; }
@@ -2323,8 +2323,7 @@
             <!-- O resumo usa as mesmas linhas do projeto principal: um par
                  saída/destino por pagamento e um par troco/endereço por
                  troco, na ordem da transação, seguidos da taxa, do vsize e
-                 do txid. As tabelas por entrada continuam abaixo, porque o
-                 assinante confere o que está gastando. -->
+                 do txid. -->
             <table class="data-table key-readout review-readout" id="review-table" aria-label="resumo do psbt">
               <tbody>
                 <tr id="review-fee-row"><th scope="row">taxa</th><td id="review-fee">—</td></tr>
@@ -2332,7 +2331,6 @@
                 <tr><th scope="row">txid</th><td id="review-txid">—</td></tr>
               </tbody>
             </table>
-            <div id="review-inputs-list"></div>
             <div class="prose app-gap" id="review-warnings" hidden>
               <h3><span class="prompt" aria-hidden="true">##</span> avisos</h3>
               <ul id="review-warnings-list"></ul>
@@ -2351,7 +2349,6 @@
                 <tr><th scope="row">txid</th><td id="signed-txid">—</td></tr>
                 <tr><th scope="row">vsize</th><td id="signed-vsize">—</td></tr>
                 <tr><th scope="row">taxa</th><td id="signed-fee">—</td></tr>
-                <tr><th scope="row">sat/vB</th><td id="signed-feerate">—</td></tr>
               </tbody>
             </table>
 
@@ -2383,7 +2380,7 @@
               <li><b>4. leia o resultado.</b> Na 256ª jogada — ou ao usar <b>gerar bits</b> — o arquivo troca sozinho para o campo de coordenadas e deriva a chave: as 24 palavras aparecem e as tabelas de chaves se preenchem. Digitando coordenadas, a chave é derivada assim que o conjunto deixa de ser vazio. Um conjunto pequeno também gera uma chave, mas com pouca entropia — o esperado são 256 jogadas ou 256 bits sorteados.</li>
               <li><b>5. guarde a frase.</b> As 24 palavras, na ordem 01–24, são a forma portátil da mesma entropia: com elas, qualquer carteira BIP39 compatível, com passphrase vazia, chega às mesmas contas. Anote em papel ou metal e confira duas vezes; não fotografe nem cole a frase em lugar nenhum.</li>
               <li><b>6. confira as chaves.</b> Em <b>privadas</b> ficam as chaves estendidas privadas de conta; em <b>públicas</b>, as correspondentes públicas, com botão de copiar. A pública (xpub/zpub/ypub) pode ir para uma carteira watch-only; a privada (xprv/zprv/yprv) controla a conta inteira e não deve sair da máquina.</li>
-              <li><b>7. assine um PSBT, se for o caso.</b> Com a chave carregada, <b>importar</b> aceita um arquivo PSBT e a revisão aparece sozinha. Confira entradas, destinos, troco, taxa e avisos, e só então clique em <b>assinar</b>. O resultado são o PSBT assinado (base64) e a transação final (hex), cada um com seu botão de copiar. O arquivo não transmite nada: quem publica a transação é você, em outro programa.</li>
+              <li><b>7. assine um PSBT, se for o caso.</b> Com a chave carregada, <b>importar</b> aceita um arquivo PSBT e a revisão aparece sozinha. Confira destinos, troco, taxa e avisos, e só então clique em <b>assinar</b>. O resultado são o PSBT assinado (base64) e a transação final (hex), cada um com seu botão de copiar. O arquivo não transmite nada: quem publica a transação é você, em outro programa.</li>
               <li><b>8. para recomeçar.</b> Volte às jogadas pelo botão <b>gerar</b> (isso zera a sequência e o campo) ou recarregue a página. Não há botão de salvar: a chave existe só na memória da aba.</li>
             </ul>
 
@@ -2399,8 +2396,8 @@
               <li><b>privadas</b> — quatro linhas, uma por conta: <b>bip86</b> mostra a chave estendida privada da conta <code>m/86'/0'/0'</code> (prefixo <code>xprv</code>), <b>bip84</b> a de <code>m/84'/0'/0'</code> (<code>zprv</code>), <b>bip49</b> a de <code>m/49'/0'/0'</code> (<code>yprv</code>) e <b>bip44</b> a de <code>m/44'/0'/0'</code> (<code>xprv</code>). São chaves de conta, não de endereço: delas saem os ramos de recebimento (<code>/0/*</code>) e de troco (<code>/1/*</code>). Essas linhas não têm botão de copiar; o conteúdo aparece inteiro para conferência. Sem chave, cada célula mostra <code>—</code>.</li>
               <li><b>públicas</b> — as mesmas quatro contas em chave estendida pública: <code>xpub</code> no BIP86 e no BIP44, <code>zpub</code> no BIP84 e <code>ypub</code> no BIP49. Cada linha tem <b>copiar</b>, e o botão vira <b>copiado</b> por alguns instantes. A pública é watch-only: não gasta, mas permite reconstruir os endereços e, com eles, consultar o histórico da conta — também merece cuidado. O BIP86 e o BIP44 compartilham o prefixo <code>xpub</code>; o que distingue é o tipo de conta, então, ao importar numa carteira, informe que a conta do BIP86 é Taproot. O <code>xpub</code> do BIP86 é o que uma carteira watch-only (como o projeto 2) usa para derivar os endereços de recebimento e de troco.</li>
               <li><b>assinar</b> — a tabela do arquivo mostra o nome, o formato, o tamanho e, depois da revisão, quantas entradas e saídas o PSBT tem; o texto em base64/hex não aparece, porque não ajuda na conferência. <b>importar</b> só responde depois que existe uma chave; com o arquivo carregado ele vira <b>cancelar</b>. <b>assinar</b> fica desabilitado até a revisão terminar sem erro. Logo abaixo dos botões, a linha de estado mostra <code>[ ... ]</code> enquanto analisa ou assina, <code>[ ok ]</code> no sucesso e <code>[ erro ]</code> com o motivo.</li>
-              <li><b>revisão</b> — aparece sozinha ao importar, em tabelas. O <b>resumo</b> traz um par <b>saída</b>/<b>destino</b> por pagamento e um par <b>troco</b>/<b>endereço</b> por troco, na ordem da transação; a taxa em BTC e em sat/vB; o vsize estimado e o txid. Nesse resumo, os valores em BTC levam sinal e cor: o que sai (<b>saída</b> e <b>taxa</b>) fica em <b>-</b> no tom do erro e o que volta (<b>troco</b>) em <b>+</b> no verde do sucesso. Depois vem uma tabela por <b>entrada</b> — tipo de script na legenda, caminho de derivação, valor, endereço e outpoint de origem. No fim, os <b>avisos</b> (taxa fora do comum, saída externa, script não padronizado). Leia antes de assinar.</li>
-              <li><b>psbt assinado e transação final</b> — o PSBT com as assinaturas em base64 fica disponível em <b>baixar .psbt</b>; a transação pronta em hex aparece na tela, com <b>copiar transação</b>, e a tabela acima traz o txid, o vsize, a taxa total e a taxa em sat/vB da transação final. É esse hex que se transmite à rede.</li>
+              <li><b>revisão</b> — aparece sozinha ao importar, numa tabela. O <b>resumo</b> traz um par <b>saída</b>/<b>destino</b> por pagamento e um par <b>troco</b>/<b>endereço</b> por troco, na ordem da transação; a taxa, o vsize estimado e o txid. Nesse resumo, os valores levam sinal e cor: o que sai (<b>saída</b> e <b>taxa</b>) fica em <b>-</b> no tom do erro e o que volta (<b>troco</b>) em <b>+</b> no verde do sucesso. No fim, os <b>avisos</b> (taxa fora do comum, saída externa, script não padronizado). Leia antes de assinar.</li>
+              <li><b>psbt assinado e transação final</b> — o PSBT com as assinaturas em base64 fica disponível em <b>baixar .psbt</b>; a transação pronta em hex aparece na tela, com <b>copiar transação</b>, e a tabela acima traz o txid, o vsize e a taxa total da transação final. É esse hex que se transmite à rede.</li>
               <li><b>rodapé</b> — <code>[ offline ] nada sai deste arquivo</code> resume a política da página; o botão redondo troca o tema.</li>
             </ul>
 
@@ -4153,7 +4150,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var reviewFee = $('#review-fee');
   var reviewVsize = $('#review-vsize');
   var reviewTxid = $('#review-txid');
-  var reviewInputsList = $('#review-inputs-list');
   var reviewWarnings = $('#review-warnings');
   var reviewWarningsList = $('#review-warnings-list');
   var signedOut = $('#signed-out');
@@ -4163,7 +4159,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var signedTxidCell = $('#signed-txid');
   var signedVsize = $('#signed-vsize');
   var signedFee = $('#signed-fee');
-  var signedFeerate = $('#signed-feerate');
   var contentEl = $('#content');
   var scrollEl = $('#content-scroll');
   var pageEl = $('.page');
@@ -4719,14 +4714,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function clearSignature() {
     if (signOut) signOut.hidden = true;
     if (reviewLede) reviewLede.textContent = '';
-    if (reviewInputsList) reviewInputsList.textContent = '';
     if (reviewWarningsList) reviewWarningsList.textContent = '';
     if (reviewWarnings) reviewWarnings.hidden = true;
     if (signedOut) signedOut.hidden = true;
     signedPsbtText = '';
     signedTxid = '';
     if (signedTx) signedTx.textContent = '';
-    [signedTxidCell, signedVsize, signedFee, signedFeerate].forEach(function (el) {
+    [signedTxidCell, signedVsize, signedFee].forEach(function (el) {
       if (el) el.textContent = '—';
     });
   }
@@ -4814,8 +4808,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* ------------------------------------------------------------- assinar */
-  var KIND_LABEL = { p2pkh: 'pkh', 'p2sh-p2wpkh': 'sh(wpkh)', p2wpkh: 'wpkh', p2tr: 'tr' };
-  function satLine(v) { return BTC.formatSats(v) + ' BTC'; }
+  function satLine(v) { return BTC.formatSats(v); }
   /* Valor em BTC com sinal e cor (VG-COR-16): o sinal no texto e a cor só
      reforçando; zero não tem direção e fica no --dim. */
   function valueLine(value, dir) {
@@ -4826,31 +4819,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
   function reviewCell(el, text) {
     if (el) el.textContent = text || '—';
-  }
-  /* Tabela de leitura no desenho das chaves: legenda curta e uma linha por
-     informação. O texto entra por `textContent`, então endereço, caminho ou
-     outpoint estranho vindo do PSBT aparece como texto, nunca como marcação. */
-  function reviewTable(caption, rows) {
-    var table = document.createElement('table');
-    table.className = 'data-table key-readout review-readout';
-    var cap = document.createElement('caption');
-    cap.textContent = caption;
-    table.appendChild(cap);
-    var tbody = document.createElement('tbody');
-    rows.forEach(function (row) {
-      if (!row || !row[1]) return;
-      var tr = document.createElement('tr');
-      var th = document.createElement('th');
-      th.setAttribute('scope', 'row');
-      th.textContent = row[0];
-      var td = document.createElement('td');
-      td.textContent = row[1];
-      tr.appendChild(th);
-      tr.appendChild(td);
-      tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);
-    return table;
   }
   /* Linha do resumo, no desenho do resumo do PSBT do projeto principal:
      rótulo na coluna e valor na outra. `groupEnd` fecha o par, abrindo o vão
@@ -4895,24 +4863,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       ' · ' + plural(a.outputs.length, 'saída', 'saídas') +
       '; confira destinos, troco e taxa antes de assinar.');
     renderReviewOutputs(a);
-    if (reviewFee) reviewFee.innerHTML = valueLine(a.fee, 'out') + ' · ' +
-      Number(a.feerate).toFixed(2) + ' sat/vB';
+    if (reviewFee) reviewFee.innerHTML = valueLine(a.fee, 'out');
     reviewCell(reviewVsize, a.vsize + ' vB (estimado)');
     reviewCell(reviewTxid, a.txid);
-    if (reviewInputsList) {
-      reviewInputsList.textContent = '';
-      a.inputs.forEach(function (inp) {
-        reviewInputsList.appendChild(reviewTable(
-          'entrada ' + inp.index + ' · ' + (KIND_LABEL[inp.kind] || inp.kind),
-          [
-            ['caminho', inp.path],
-            ['valor', satLine(inp.value)],
-            ['endereço', inp.address],
-            ['origem', inp.outpoint]
-          ]
-        ));
-      });
-    }
     if (reviewWarningsList) {
       reviewWarningsList.textContent = '';
       a.warnings.forEach(function (w) {
@@ -5030,7 +4983,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         reviewCell(signedTxidCell, res.txid);
         reviewCell(signedVsize, res.vsize + ' vB');
         if (signedFee) signedFee.innerHTML = valueLine(res.fee, 'out');
-        reviewCell(signedFeerate, Number(res.feerate).toFixed(2) + ' sat/vB');
         signedOut.hidden = false;
         setStatus(signStatus, 'ok', 'psbt assinado, finalizado e verificado.');
         requestAnimationFrame(updateScrollState);
