@@ -3829,6 +3829,19 @@ var BTC = (function () {
     return prev;
   }
 
+  /* Uma entrada já assinada traz partial_sigs, tap_key_sig ou a finalização
+     (final_scriptSig/final_scriptWitness). Campos finais vazios não contam:
+     no segwit o final_scriptSig fica vazio e o witness leva a assinatura. */
+  function inputSigned(map) {
+    if (mapFindAll(map, 0x02).some(function (e) { return e.value.length > 0; })) return true;
+    var tapSig = mapFind(map, 0x13);
+    if (tapSig && tapSig.value.length > 0) return true;
+    var finalSig = mapFind(map, 0x07);
+    if (finalSig && finalSig.value.length > 0) return true;
+    var finalWitness = mapFind(map, 0x08);
+    return !!(finalWitness && finalWitness.value.length > 0);
+  }
+
   /* ---------------------------------------------- análise de um PSBT */
   async function analyzePsbt(bytes, hd) {
     var psbt = parsePsbt(bytes);
@@ -3836,8 +3849,10 @@ var BTC = (function () {
     var session = createSession(hd);
     var inputs = [], warnings = [];
     var totalIn = 0n;
+    var signedInputs = 0;
     for (var i = 0; i < tx.inputs.length; i++) {
       var map = psbt.inputs[i];
+      if (inputSigned(map)) signedInputs++;
       var prev = prevoutOf(map, tx.inputs[i]);
       var kind = normalizeKind(scriptKind(prev.script));
       if (kind === 'p2wsh') throw new Error('entrada ' + i + ' é P2WSH, não suportada');
@@ -3908,10 +3923,14 @@ var BTC = (function () {
     });
     if (tx.inputs.length === 0) throw new Error('a transação não tem entradas');
     if (tx.outputs.length === 0) throw new Error('a transação não tem saídas');
+    if (signedInputs > 0 && signedInputs < tx.inputs.length) {
+      warnings.push('algumas entradas já têm assinatura; assinar de novo substitui as assinaturas existentes');
+    }
     return {
       psbt: psbt, tx: tx, session: session,
       inputs: inputs, outputs: outputs,
       totalIn: totalIn, totalOut: totalOut, fee: fee,
+      signedInputs: signedInputs, alreadySigned: signedInputs === tx.inputs.length,
       txid: txidOf(tx), vsize: vsize, feerate: feerate, warnings: warnings
     };
   }
@@ -3919,6 +3938,7 @@ var BTC = (function () {
   /* ------------------------------------------------ assinatura do PSBT */
   async function signPsbt(bytes, hd, auxRand) {
     var a = await analyzePsbt(bytes, hd);
+    if (a.alreadySigned) throw new Error('este psbt já está assinado; não é preciso assinar de novo');
     var psbt = a.psbt, tx = a.tx;
     a.inputs.forEach(function (inp) {
       var map = psbt.inputs[inp.index];
@@ -4823,13 +4843,20 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       state.analysis = { bytes: bytes, summary: a };
       renderReview(a);
       signOut.hidden = false;
-      signBtn.disabled = false;
-      signBtn.hidden = false;
-      psbtSepSign.hidden = false;
-      if (a.warnings.length) {
-        setStatus(signStatus, 'aviso', 'psbt analisado; revise os avisos antes de assinar.');
+      if (a.alreadySigned) {
+        signBtn.disabled = true;
+        signBtn.hidden = true;
+        psbtSepSign.hidden = true;
+        setStatus(signStatus, 'aviso', 'este psbt já está assinado; não é preciso assinar de novo.');
       } else {
-        setStatus(signStatus, 'neutro', '');
+        signBtn.disabled = false;
+        signBtn.hidden = false;
+        psbtSepSign.hidden = false;
+        if (a.warnings.length) {
+          setStatus(signStatus, 'aviso', 'psbt analisado; revise os avisos antes de assinar.');
+        } else {
+          setStatus(signStatus, 'neutro', '');
+        }
       }
       requestAnimationFrame(updateScrollState);
     } catch (e) {
@@ -4903,6 +4930,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         reviewCell(signedVsize, res.vsize + ' vB');
         if (signedFee) signedFee.innerHTML = valueLine(res.fee, 'out');
         signedOut.hidden = false;
+        /* A assinatura já foi feita: o botão sai até o próximo PSBT. */
+        signBtn.hidden = true;
+        psbtSepSign.hidden = true;
         setStatus(signStatus, 'neutro', '');
         requestAnimationFrame(updateScrollState);
       } catch (e) {
