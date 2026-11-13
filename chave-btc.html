@@ -2341,7 +2341,7 @@
               <li><b>públicas</b> — as mesmas quatro contas em chave estendida pública: <code>xpub</code> no BIP86 e no BIP44, <code>zpub</code> no BIP84 e <code>ypub</code> no BIP49. Cada linha tem <b>copiar</b>, e o botão vira <b>copiado</b> por alguns instantes. A pública é watch-only: não gasta, mas permite reconstruir os endereços e, com eles, consultar o histórico da conta — também merece cuidado. O BIP86 e o BIP44 compartilham o prefixo <code>xpub</code>; o que distingue é o tipo de conta, então, ao importar numa carteira, informe que a conta do BIP86 é Taproot. O <code>xpub</code> do BIP86 é o que uma carteira watch-only (como o projeto 2) usa para derivar os endereços de recebimento e de troco.</li>
               <li><b>importar psbt</b> — o anexo só responde depois que existe uma chave; com o arquivo carregado ele vira <b>cancelar</b>. O arquivo importado fica só na memória: a tela não repete o texto em base64/hex nem os metadados do arquivo (formato, tamanho ou contagem de entradas e saídas), porque não ajudam na conferência; da identificação do arquivo, só o nome aparece, na linha <b>arquivo</b> da revisão. Na mesma linha, <b>assinar</b> surge quando a revisão termina, depois dos avisos e ao lado do anexo ou do <b>cancelar</b>, desde que o PSBT ainda não tenha assinatura; se todas as entradas já estiverem assinadas, o botão não aparece e a linha de estado avisa; se só algumas tiverem assinatura, a revisão avisa que as existentes serão substituídas. Ao clicar em <b>assinar</b>, o .psbt é baixado assim que a assinatura termina, o botão sai e o <b>cancelar</b> vira <b>fechar</b>, que encerra a revisão do PSBT assinado (antes da assinatura, o mesmo botão descarta o arquivo importado). Abaixo dos botões, a linha de estado mostra <code>[ ... ]</code> enquanto analisa ou assina, <code>[ atenção ]</code> quando a revisão termina com avisos e <code>[ erro ]</code> com o motivo. A revisão sem avisos não escreve nada, exceto quando o PSBT já tem assinatura; a assinatura concluída também não escreve: a própria revisão passa a mostrar o resultado.</li>
               <li><b>revisão</b> — aparece sozinha ao importar, numa tabela. O <b>resumo</b> traz um par <b>saída</b>/<b>destino</b> por pagamento e um par <b>troco</b>/<b>endereço</b> por troco, na ordem da transação; a taxa, o vsize estimado e o txid, e no fim a linha <b>arquivo</b>, com o nome do PSBT que está na tela. Nesse resumo, os valores levam sinal e cor: o que sai (<b>saída</b> e <b>taxa</b>) fica em <b>-</b> no tom do erro e o que volta (<b>troco</b>) em <b>+</b> no verde do sucesso. Depois, os <b>avisos</b> (taxa fora do comum, saída externa, script não padronizado). Leia antes de assinar.</li>
-              <li><b>psbt assinado</b> — o PSBT com as assinaturas é baixado assim que a assinatura termina, e a revisão passa a mostrar os dados da transação final (o vsize real, não o estimado), com o nome do .psbt baixado na linha <b>arquivo</b>. O hex não aparece na tela: para publicar a transação, use o .psbt baixado em outro programa.</li>
+              <li><b>psbt assinado</b> — o PSBT com as assinaturas é baixado assim que a assinatura termina, e a revisão passa a mostrar os dados extraídos do próprio arquivo gerado: o arquivo é relido e finalizado, daí saem o txid, o vsize real (não o estimado) e a taxa, com o nome do .psbt baixado na linha <b>arquivo</b>. O hex não aparece na tela: para publicar a transação, use o .psbt baixado em outro programa.</li>
               <li><b>rodapé</b> — <code>[ offline ] nada sai deste arquivo</code> resume a política da página; o botão redondo troca o tema.</li>
             </ul>
 
@@ -3972,36 +3972,51 @@ var BTC = (function () {
       }
     });
 
-    /* Extrai a transação final a partir dos campos finais do PSBT. */
-    var final = {
-      version: tx.version, inputs: [], outputs: tx.outputs, locktime: tx.locktime, witnesses: []
-    };
-    a.inputs.forEach(function (inp) {
-      var map = psbt.inputs[inp.index];
-      var fs = mapFind(map, 0x07);
-      var fw = mapFind(map, 0x08);
-      if (!fs) throw new Error('entrada ' + inp.index + ' não foi finalizada');
-      final.inputs.push({
-        txid: tx.inputs[inp.index].txid, vout: tx.inputs[inp.index].vout,
-        scriptSig: fs.value, sequence: tx.inputs[inp.index].sequence
-      });
-      final.witnesses.push(fw ? readWitness(fw.value) : []);
-    });
-    if (final.inputs.length !== tx.inputs.length) throw new Error('nem todas as entradas foram finalizadas');
-    var hex = bytesToHex(writeTx(final, true));
-    var size = vsizeOf(final);
-    var feerate = size > 0 ? Number(a.fee) / size : 0;
+    var fin = psbtFinalTx(psbt);
+    var feerate = fin.vsize > 0 ? Number(a.fee) / fin.vsize : 0;
     var signedBytes = writePsbt(psbt);
     return {
       psbt: signedBytes,
       psbtBase64: b64encode(signedBytes),
-      txHex: hex,
-      txid: txidOf(final),
-      fee: a.fee, vsize: size, feerate: feerate,
+      txHex: fin.hex,
+      txid: fin.txid,
+      fee: a.fee, vsize: fin.vsize, feerate: feerate,
       inputs: a.inputs, outputs: a.outputs,
       totalIn: a.totalIn, totalOut: a.totalOut,
       warnings: a.warnings
     };
+  }
+  /* Transação final de um PSBT, a partir dos campos finais de cada entrada
+     (BIP174): é o que se publica na rede. Devolve o hex, o tamanho real e o
+     txid, e confere o hex contra o próprio leitor. */
+  function psbtFinalTx(psbt) {
+    var t = psbt && psbt.tx;
+    if (!t) throw new Error('PSBT sem a transação não assinada');
+    if (!t.inputs.length) throw new Error('a transação não tem entradas');
+    if (!t.outputs.length) throw new Error('a transação não tem saídas');
+    var finalInputs = [], witnesses = [];
+    for (var i = 0; i < t.inputs.length; i++) {
+      if (t.inputs[i].scriptSig && t.inputs[i].scriptSig.length) {
+        throw new Error('entrada ' + i + ' já tem scriptSig na transação não assinada');
+      }
+      var map = psbt.inputs[i];
+      var fs = mapFind(map, 0x07);
+      var fw = mapFind(map, 0x08);
+      if (!fs) throw new Error('entrada ' + i + ' não está finalizada (falta final_scriptSig)');
+      finalInputs.push({
+        txid: t.inputs[i].txid, vout: t.inputs[i].vout,
+        scriptSig: fs.value, sequence: t.inputs[i].sequence
+      });
+      witnesses.push(fw ? readWitness(fw.value) : []);
+    }
+    var final = {
+      version: t.version, inputs: finalInputs, outputs: t.outputs,
+      witnesses: witnesses, locktime: t.locktime
+    };
+    var bytes = writeTx(final, true);
+    /* ida e volta: o hex publicado tem de voltar como a mesma transação */
+    var parsed = readTx(bytes);
+    return { tx: parsed, hex: bytesToHex(bytes), txid: txidOf(parsed), vsize: vsizeOf(parsed) };
   }
   function readWitness(bytes) {
     var p = 0, out = [];
@@ -4061,7 +4076,7 @@ var BTC = (function () {
     parsePsbt: parsePsbt, writePsbt: writePsbt, psbtParseInput: psbtParseInput,
     sighashLegacy: sighashLegacy, sighashV0: sighashV0, sighashTaproot: sighashTaproot,
     bip340Sign: bip340Sign, bip340Verify: bip340Verify, tweakPrivate: tweakPrivate,
-    analyzePsbt: analyzePsbt, signPsbt: signPsbt, formatSats: formatSats,
+    analyzePsbt: analyzePsbt, signPsbt: signPsbt, psbtFinalTx: psbtFinalTx, formatSats: formatSats,
     pathText: pathText, pathBytes: pathBytes, parsePath: parsePath,
     N: N, P: P
   };
@@ -4909,6 +4924,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       reader.readAsText(file);
     });
   }
+  /* A revisão do PSBT assinado vem do próprio arquivo recém-gerado: os
+     bytes que o download leva são relidos, analisados e finalizados, em vez
+     de aproveitar os números que a assinatura devolveu. */
+  async function summarizeSignedPsbt(base64) {
+    var a = await BTC.analyzePsbt(BTC.psbtParseInput(base64), state.hd);
+    var fin = BTC.psbtFinalTx(a.psbt);
+    return {
+      fee: a.fee, outputs: a.outputs, warnings: a.warnings,
+      vsize: fin.vsize, txid: fin.txid
+    };
+  }
   if (signBtn) {
     signBtn.addEventListener('click', async function () {
       if (!state.analysis || !state.hd) return;
@@ -4919,10 +4945,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         signedPsbtText = res.psbtBase64;
         signedTxid = res.txid;
         downloadSignedPsbtFile();
-        /* A revisão passa a mostrar o PSBT assinado: os mesmos dados da
-           transação final, com o nome do arquivo que acabou de sair. O
-           botão deixa de cancelar a importação e passa a fechar a revisão. */
-        renderReview(res, signedFileName(res.txid), true);
+        /* A revisão passa a mostrar o PSBT assinado, extraído do arquivo que
+           acabou de sair. O botão deixa de cancelar a importação e passa a
+           fechar a revisão. */
+        var signed = await summarizeSignedPsbt(signedPsbtText);
+        renderReview(signed, signedFileName(signed.txid), true);
         setClearLabel(true);
         /* A assinatura já foi feita: o botão sai até o próximo PSBT. */
         signBtn.hidden = true;
