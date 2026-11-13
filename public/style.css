@@ -1855,10 +1855,11 @@
   #broadcast-inputs .data-table tbody th,
   #broadcast-outputs .data-table tbody th { width: 10ch; }
   /* O grupo de ações fica centrado como um todo (cancelar · confirmar),
-     sem a margem própria do botão de envio solto. Antes do arquivo
-     conferido, a confirmação sai do fluxo: o botão do seletor é a única
-     ação da tela, e o .form-submit precisa da regra porque define display
-     próprio. */
+     sem a margem própria do botão de envio solto. O seletor e a
+     confirmação não convivem: conferido o arquivo, o label do seletor sai
+     do fluxo (o .field-upload define display próprio, daí a regra) e o
+     .form-submit precisa da regra pelo mesmo motivo antes da conferência. */
+  #broadcast-import[hidden],
   #broadcast-send[hidden] { display: none; }
   #broadcast-import-block .chips { align-items: baseline; }
   #broadcast-import-block .chips .form-submit { margin: 0; }

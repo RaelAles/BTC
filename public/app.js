@@ -1704,10 +1704,13 @@
     var send = $('#broadcast-send');
     var clear = $('#broadcast-clear');
     var sep = $('#broadcast-sep');
+    var pick = $('#broadcast-import');
     var loaded = !!state.broadcast;
     var sent = !!state.broadcastSent;
-    /* Sem arquivo conferido só existe o botão que abre o seletor: a
-       confirmação nasce com o resumo. */
+    /* A escolha do arquivo só existe até a conferência terminar: com o
+       resumo na tela o seletor some e quem age é o confirmar. O cancelar
+       traz o seletor de volta. */
+    if (pick) pick.hidden = loaded;
     if (send) {
       send.hidden = !loaded;
       if (loaded && !sent && !state.broadcastBusy) send.removeAttribute('aria-disabled');
