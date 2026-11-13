@@ -1705,21 +1705,22 @@
     var clear = $('#broadcast-clear');
     var sep = $('#broadcast-sep');
     var pick = $('#broadcast-import');
+    var hasFile = !!state.broadcastName;
     var loaded = !!state.broadcast;
     var sent = !!state.broadcastSent;
-    /* A escolha do arquivo só existe até a conferência terminar: com o
-       resumo na tela o seletor some e quem age é o confirmar. O cancelar
-       traz o seletor de volta. */
-    if (pick) pick.hidden = loaded;
+    /* Escolhido o arquivo, o seletor some e quem age é o cancelar (ou o
+       confirmar, com o resumo na tela); o cancelar traz o seletor de volta.
+       O separador só existe entre o cancelar e o confirmar. */
+    if (pick) pick.hidden = hasFile;
     if (send) {
       send.hidden = !loaded;
       if (loaded && !sent && !state.broadcastBusy) send.removeAttribute('aria-disabled');
       else send.setAttribute('aria-disabled', 'true');
       send.textContent = sent ? 'transmitida' : 'confirmar';
     }
-    var showClear = !!state.broadcastName && !sent;
+    var showClear = hasFile && !sent;
     if (clear) clear.hidden = !showClear;
-    if (sep) sep.hidden = !showClear;
+    if (sep) sep.hidden = !(showClear && loaded);
   }
 
   function resetBroadcast() {

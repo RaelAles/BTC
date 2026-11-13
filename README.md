@@ -98,9 +98,10 @@ tela mostra:
    de ser sua, o valor tem de bater, todas as entradas têm de estar
    finalizadas) e só então aparecem o subtítulo **transmitir**, com o resumo
    (txid, vsize, taxa real, entradas e cada saída — destino, troco ou
-   externo), e o botão **confirmar**; o botão do seletor some quando a
-   conferência termina e **cancelar** o traz de volta. Só o clique em
-   **confirmar** publica a transação final no
+   externo), e o botão **confirmar**; o botão do seletor some assim que o
+   arquivo é escolhido e, se a conferência falhar, fica só o **cancelar**,
+   que o traz de volta. Só o clique em **confirmar** publica a transação
+   final no
    Electrum; depois disso o botão vira **transmitida** e o resumo fica na
    tela. O arquivo e o resumo vivem só na memória da tela, como o resto.
 

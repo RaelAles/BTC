@@ -810,6 +810,14 @@
   #send-out > .rule + * > :first-child > :first-child {
     margin-top: 0;
   }
+  /* O bloco da transmissão tem um nível a mais (o #broadcast-out entre o
+     grupo e o subtítulo) e o label do seletor, escondido, continua sendo o
+     :first-child do DOM; por isso o alvo aqui é o h3 dentro do grupo. Sem o
+     reset ele somaria os 44 px da própria margem aos 16 px da régua, e o vão
+     ficaria maior que o de "receber" e "enviar". */
+  #out > .rule + #broadcast-import-block > #broadcast-out > .prose > h3 {
+    margin-top: 0;
+  }
 
   /* O conteúdo das telas ocupa toda a largura da coluna de leitura (ver
      --measure). Os parágrafos justificam as duas margens; a hifenização (lang
