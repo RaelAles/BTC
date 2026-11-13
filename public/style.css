@@ -1546,18 +1546,19 @@
   /* Anexo: o input de arquivo nativo não aceita o desenho da casa (o texto
      "nenhum arquivo" e o botão vêm do navegador, traduzidos por ele), então
      ele fica escondido e quem aparece é um label com o desenho dos botões
-     (anexar) e o nome do arquivo ao lado. Vazio, o nome fica em --dim;
-     escolhido, em --fg. O foco tracejado fica no anexar. */
+     (transmitir). O foco tracejado fica no rótulo. */
   .field-upload {
     display: flex;
     align-items: baseline;
     flex-wrap: wrap;
     gap: var(--space-2) 1ch;
-    /* Só o anexar e o nome do arquivo são alvo do clique: a linha não
-       estica pela coluna inteira, como um campo. Com um nome longo, o
-       max-width segura a linha e o nome quebra dentro dela. */
+    /* O rótulo é o único alvo do clique e fica centralizado sob o bloco,
+       como o grupo de ações: a linha não estica pela coluna inteira, como
+       um campo, e as margens automáticas centram a largura do conteúdo. */
     width: fit-content;
     max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
     font-size: var(--text-md);
     cursor: pointer;
     /* O input de arquivo é absoluto e escondido por clip (regra acima).
@@ -1565,8 +1566,8 @@
        fica abaixo da janela; ao clicar no label, o navegador rola o
        .window (que tem overflow: hidden, mas ainda rola por script) para
        trazer o foco à vista, e o menu sai por cima enquanto o rodapé sobe.
-       Ancorado no label, o input acompanha o "importar", que já está à
-       vista, e o foco não rola o card. */
+       Ancorado no label, o input acompanha o rótulo, que já está à vista,
+       e o foco não rola o card. */
     position: relative;
   }
   .field-upload-pick { color: var(--accent); text-transform: uppercase; }
@@ -1575,12 +1576,6 @@
     outline: 1px dashed var(--accent);
     outline-offset: 2px;
   }
-  .field-upload-name {
-    min-width: 0;
-    overflow-wrap: anywhere;
-    color: var(--fg);
-  }
-  .field-upload-name.is-empty { color: var(--dim); }
   /* Campo com máscara: a máscara é comportamento (o JS formata e o
      placeholder já desenha os espaços em --dim); o que o CSS decide é a
      largura. Dado de tamanho fixo (telefone, data, documento) não estica a
@@ -1859,8 +1854,13 @@
      key-readout não cabe em 7ch e o valor encostaria no rótulo. */
   #broadcast-inputs .data-table tbody th,
   #broadcast-outputs .data-table tbody th { width: 10ch; }
-  /* O grupo de ações fica centrado como um todo (cancelar · transmitir),
-     sem a margem própria do botão de envio solto. */
+  /* O grupo de ações fica centrado como um todo (cancelar · confirmar),
+     sem a margem própria do botão de envio solto. Antes do arquivo
+     conferido, o subtítulo e a confirmação saem do fluxo: o botão do
+     seletor é a única ação da tela, e o .form-submit precisa da regra
+     porque define display próprio. */
+  #broadcast-heading[hidden],
+  #broadcast-send[hidden] { display: none; }
   #broadcast-import-block .chips { align-items: baseline; }
   #broadcast-import-block .chips .form-submit { margin: 0; }
   #broadcast-inputs .output-line,

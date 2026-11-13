@@ -212,22 +212,24 @@
 
             <div class="rule rule-dots" aria-hidden="true"></div>
 
-            <div class="prose app-block" id="broadcast-heading">
-              <h3><span class="prompt" aria-hidden="true">##</span> transmitir</h3>
-            </div>
-
-            <!-- O PSBT assinado volta do chave-btc.html. Importar só confere
-                 (entradas, saídas, taxa) contra esta carteira; publicar é o
-                 clique em transmitir, porque a transmissão não tem volta. -->
+            <!-- O PSBT assinado volta do chave-btc.html. Escolher o arquivo
+                 só confere (entradas, saídas, taxa) contra esta carteira;
+                 publicar é o clique em confirmar, porque a transmissão não
+                 tem volta. -->
             <div class="app-block" id="broadcast-import-block">
               <label class="field-upload" id="broadcast-import">
                 <input type="file" id="broadcast-file" aria-describedby="broadcast-status"
                        accept=".psbt,.txt,application/octet-stream,text/plain">
-                <span class="field-upload-pick">importar</span>
-                <span class="field-upload-name is-empty" id="broadcast-file-name">nenhum arquivo</span>
+                <span class="field-upload-pick">transmitir</span>
               </label>
 
-              <!-- A revisão fica entre o arquivo e o botão: importar só
+              <!-- O subtítulo abre a revisão só depois do arquivo importado:
+                   antes disso a tela mostra só o botão que abre o seletor. -->
+              <div class="prose app-block" id="broadcast-heading" hidden>
+                <h3><span class="prompt" aria-hidden="true">##</span> transmitir</h3>
+              </div>
+
+              <!-- A revisão fica entre o arquivo e o botão: escolher só
                    confere, e o que se lê antes do clique está acima dele. -->
               <div id="broadcast-out" hidden>
                 <div class="prose app-block">
@@ -252,7 +254,7 @@
               <div class="chips app-gap keys-actions" role="group" aria-label="Transmitir transação">
                 <button type="button" id="broadcast-clear" hidden>cancelar</button>
                 <span class="dot-sep" id="broadcast-sep" aria-hidden="true" hidden>·</span>
-                <button type="button" class="form-submit" id="broadcast-send" aria-disabled="true">transmitir</button>
+                <button type="button" class="form-submit" id="broadcast-send" aria-disabled="true" hidden>confirmar</button>
               </div>
               <p class="status-msg is-reserved" id="broadcast-status" role="status"></p>
             </div>

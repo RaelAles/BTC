@@ -1688,35 +1688,33 @@
   }
 
   /* ------------------------------ transmitir o psbt assinado (projeto 1) */
-  /* O arquivo volta do chave-btc.html assinado. Importar NÃO transmite: o
-     servidor confere o PSBT contra esta carteira (entrada que não é sua,
-     valor inventado, entrada não finalizada, taxa fora do padrão) e devolve o
-     resumo; publicar é o clique em transmitir, porque a transmissão não tem
-     volta. O texto do arquivo fica só na memória da tela, como o PSBT do
-     envio. */
+  /* O arquivo volta do chave-btc.html assinado. Escolher o arquivo NÃO
+     transmite: o servidor confere o PSBT contra esta carteira (entrada que
+     não é sua, valor inventado, entrada não finalizada, taxa fora do padrão)
+     e devolve o resumo; publicar é o clique em confirmar, porque a
+     transmissão não tem volta. O texto do arquivo fica só na memória da
+     tela, como o PSBT do envio. */
   var BROADCAST_MAX_TEXT = 400000;
 
   function setBroadcastStatus(kind, text) {
     setStatusTo($('#broadcast-status'), kind, text);
   }
 
-  function setBroadcastFile(name) {
-    var el = $('#broadcast-file-name');
-    if (!el) return;
-    el.textContent = name || 'nenhum arquivo';
-    el.classList.toggle('is-empty', !name);
-  }
-
   function updateBroadcastActions() {
     var send = $('#broadcast-send');
     var clear = $('#broadcast-clear');
     var sep = $('#broadcast-sep');
+    var heading = $('#broadcast-heading');
     var loaded = !!state.broadcast;
     var sent = !!state.broadcastSent;
+    /* Sem arquivo conferido, o único botão é o que abre o seletor: o
+       subtítulo e a confirmação só existem depois do resumo. */
+    if (heading) heading.hidden = !loaded;
     if (send) {
+      send.hidden = !loaded;
       if (loaded && !sent && !state.broadcastBusy) send.removeAttribute('aria-disabled');
       else send.setAttribute('aria-disabled', 'true');
-      send.textContent = sent ? 'transmitida' : 'transmitir';
+      send.textContent = sent ? 'transmitida' : 'confirmar';
     }
     var showClear = !!state.broadcastName && !sent;
     if (clear) clear.hidden = !showClear;
@@ -1739,7 +1737,6 @@
     if (block) block.removeAttribute('aria-busy');
     var file = $('#broadcast-file');
     if (file) file.value = '';
-    setBroadcastFile('');
     setBroadcastStatus('', '');
     updateBroadcastActions();
   }
@@ -1841,7 +1838,6 @@
     if (out) out.hidden = true;
     var block = $('#broadcast-import-block');
     if (block) block.setAttribute('aria-busy', 'true');
-    setBroadcastFile(state.broadcastName);
     updateBroadcastActions();
     setBroadcastStatus('', 'conferindo o psbt...');
     try {
@@ -1849,7 +1845,7 @@
       if (seq !== state.broadcastSeq) return;
       if (!text.trim()) throw new Error('o arquivo está vazio');
       if (text.length > BROADCAST_MAX_TEXT) throw new Error('psbt grande demais');
-      if (!state.xpub) throw new Error('carregue a carteira antes de importar');
+      if (!state.xpub) throw new Error('carregue a carteira antes de escolher o arquivo');
       state.broadcastText = text;
       var body = { xpub: state.xpub, psbt: text, preview: true };
       if (state.session) body.session = state.session;
@@ -1863,13 +1859,12 @@
       if (seq !== state.broadcastSeq) return;
       state.broadcast = j;
       renderBroadcast(j);
-      setBroadcastStatus('ok', 'o psbt assinado confere com a carteira; confira e clique em transmitir');
+      setBroadcastStatus('ok', 'o psbt assinado confere com a carteira; confira e clique em confirmar');
     } catch (e) {
       if (seq !== state.broadcastSeq) return;
       state.broadcast = null;
       state.broadcastText = '';
       state.broadcastName = file.name || 'psbt assinado';
-      setBroadcastFile(state.broadcastName);
       var panel = $('#broadcast-out');
       if (panel) panel.hidden = true;
       setBroadcastStatus('error', e && e.message ? e.message : String(e));

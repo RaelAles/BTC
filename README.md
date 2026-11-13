@@ -92,14 +92,16 @@ tela mostra:
    e junto — da transação anterior.
    Quem assina é o `chave-btc.html` (projeto 1), offline; o projeto 2 nunca
    vê chave privada.
-5. **transmitir** abaixo do envio: o PSBT assinado volta pelo botão
-   botão **importar**. Importar **não** publica: o servidor confere o
-   arquivo contra a carteira (cada entrada tem de ser sua, o valor tem de
-   bater, todas as entradas têm de estar finalizadas) e a tela mostra txid,
-   vsize, taxa real, entradas e cada saída (destino, troco ou externo). Só o
-   clique em **transmitir** publica a transação final no Electrum; depois
-   disso o botão vira **transmitida** e o resumo fica na tela. O arquivo e o
-   resumo vivem só na memória da tela, como o resto.
+5. **transmitir** abaixo do envio: o botão **transmitir** abre o seletor
+   do PSBT assinado que volta do `chave-btc.html`. Escolher o arquivo **não**
+   publica: o servidor confere o arquivo contra a carteira (cada entrada tem
+   de ser sua, o valor tem de bater, todas as entradas têm de estar
+   finalizadas) e só então aparecem o subtítulo **transmitir**, o resumo
+   (txid, vsize, taxa real, entradas e cada saída — destino, troco ou
+   externo) e o botão **confirmar**; antes disso a tela mostra só o botão do
+   seletor. Só o clique em **confirmar** publica a transação final no
+   Electrum; depois disso o botão vira **transmitida** e o resumo fica na
+   tela. O arquivo e o resumo vivem só na memória da tela, como o resto.
 
 Nada fica guardado: nem a xpub no navegador, nem endereços, transações ou
 saldo no Cloudflare. O PSBT assinado importado também não é gravado. Enquanto
@@ -169,7 +171,7 @@ blockchain.info, nem chave privada em lugar nenhum.
   taxa da transação final. Sem `preview`, publica com
   `blockchain.transaction.broadcast`; com sessão, pela conexão já aberta, e o
   `scripthash.subscribe` atualiza o saldo em seguida. É o único ponto que
-  entrega a transação a um servidor, e só no clique em **transmitir**.
+  entrega a transação a um servidor, e só no clique em **confirmar**.
 - **Taxa ao vivo**: `GET /api/fees` pergunta `blockchain.estimatefee` para
   144, 6, 3 e 1 bloco, que a tela mostra como prazo médio (`~1d`, `~1h`,
   `~30m` e `~10m`, a 10 min por bloco), e converte BTC/kvB em sat/kvB
@@ -677,7 +679,7 @@ entra no Worker nem na resposta.
 Fecha o ciclo: recebe o PSBT v0 **assinado** pelo `chave-btc.html` (base64 ou
 hex), confere contra a carteira e, sem `preview`, publica a transação final
 com o `blockchain.transaction.broadcast` do Electrum. A transmissão só sai
-depois do clique em **transmitir**; `preview: true` faz só a conferência.
+depois do clique em **confirmar**; `preview: true` faz só a conferência.
 
 A conferência, antes de qualquer coisa ir para a rede:
 
@@ -804,7 +806,7 @@ o Electrum cai. Sessão sem xpub responde 409 (a tela reenvia a xpub em
   script, saídas e taxa antes de assinar.
 - **A transmissão é a única saída para a rede**, e é explícita: o PSBT
   assinado é conferido no Worker/DO (nunca no navegador) e só vai ao Electrum
-  no clique em **transmitir**. Publicar não tem volta. A transação fica
+  no clique em **confirmar**. Publicar não tem volta. A transação fica
   pública de qualquer forma, mas o servidor escolhido a vê primeiro; a
   conferência recusa entrada que não seja desta carteira.
 - O resumo da transmissão não é prova de validade das assinaturas: o servidor
@@ -846,9 +848,10 @@ o preview nunca dispara e o PSBT nunca é montado.
 Um PSBT gerado pelo montador (bip84 e troco) foi analisado e assinado pelo
 próprio código do `chave-btc.html` em Chromium headless, com o troco
 reconhecido como interno. O bloco **transmitir** foi conferido no mesmo
-Chromium com um arquivo assinado de verdade: importar mostrou a revisão
-(txid, taxa, saídas) sem transmitir, e o clique em **transmitir** publicou
-o mesmo hex/txid no Electrum falso, deixando o botão em **transmitida**.
+Chromium com um arquivo assinado de verdade: escolher o arquivo mostrou a
+revisão (txid, taxa, saídas) sem transmitir, e o clique em **confirmar**
+publicou o mesmo hex/txid no Electrum falso, deixando o botão em
+**transmitida**.
 
 O `watcher.test.mjs` usa um par de WebSocket mínimo e um `storage` que lança
 em qualquer acesso para exercitar o Durable Object sem Cloudflare: assinatura
