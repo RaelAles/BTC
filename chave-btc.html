@@ -949,9 +949,6 @@
     hyphens: none;
     tab-size: 2;
   }
-  /* O PSBT e a transação final passam de 2 KB: o bloco rola por dentro para
-     não empurrar os botões de copiar e o resumo para fora da tela. */
-  .code-block.is-scroll { max-height: 15em; overflow-y: auto; }
   .code-block code {
     padding: 0;
     border: 0;
@@ -2323,8 +2320,6 @@
                 <tr><th scope="row">taxa</th><td id="signed-fee">—</td></tr>
               </tbody>
             </table>
-
-            <pre class="code-block is-scroll" id="signed-tx" aria-label="transação final"></pre>
           </div>
         </section>
 
@@ -4116,7 +4111,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var signedOut = $('#signed-out');
   var signedPsbtText = '';
   var signedTxid = '';
-  var signedTx = $('#signed-tx');
   var signedTxidCell = $('#signed-txid');
   var signedVsize = $('#signed-vsize');
   var signedFee = $('#signed-fee');
@@ -4682,7 +4676,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (psbtSepSign) psbtSepSign.hidden = true;
     signedPsbtText = '';
     signedTxid = '';
-    if (signedTx) signedTx.textContent = '';
     [signedTxidCell, signedVsize, signedFee].forEach(function (el) {
       if (el) el.textContent = '—';
     });
@@ -4906,7 +4899,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         signedPsbtText = res.psbtBase64;
         signedTxid = res.txid;
         downloadSignedPsbtFile();
-        signedTx.textContent = res.txHex;
         reviewCell(signedTxidCell, res.txid);
         reviewCell(signedVsize, res.vsize + ' vB');
         if (signedFee) signedFee.innerHTML = valueLine(res.fee, 'out');
