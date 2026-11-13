@@ -1173,11 +1173,11 @@
     if (amount > 0 && amount < DUST_SATS) {
       amountProblem = 'valor abaixo do mínimo: ' + fmtBtc(DUST_SATS);
     } else if (state.limits) {
-      hintText = 'máximo ' + fmtBtc(max) + ' BTC.';
+      hintText = 'máximo ' + fmtBtc(max);
       if (amount > 0 && max < DUST_SATS) {
         amountProblem = 'saldo insuficiente para enviar com essa taxa.';
       } else if (amount > max) {
-        amountProblem = 'valor acima do máximo enviável: ' + fmtBtc(max) + ' BTC.';
+        amountProblem = 'valor acima do máximo enviável: ' + fmtBtc(max);
       }
     } else if (state.limitsError) {
       hintText = 'máximo indisponível: ' + state.limitsError;
@@ -2085,7 +2085,7 @@
     state.data = d;
     var b = d.balance || {};
     var total = $('#v-total');
-    total.textContent = fmtBtc(b.total) + ' BTC';
+    total.textContent = fmtBtc(b.total);
     total.hidden = false;
     var pending = $('#v-pending');
     if (pending) {
