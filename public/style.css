@@ -1849,23 +1849,14 @@
   }
   #send-meta-warn:empty { display: none; }
 
-  /* Transmissão: mesmo resumo do PSBT (arquivo, saída/destino, troco/endereço,
-     taxa, vsize e txid), com uma tabela curta por entrada e por saída (valor,
-     classificação e endereço) e o aviso de conferência no tom do erro, como
-     o do resumo do envio. */
+  /* Transmissão: mesmo resumo do PSBT (arquivo, pares saída/destino e
+     troco/endereço, taxa, vsize e txid), sem tabela por item, e o aviso de
+     conferência no tom do erro, como o do resumo do envio. */
   #broadcast-meta {
     width: 100%;
     margin: var(--space-4) 0 0;
   }
   #broadcast-meta tbody th { width: 10ch; }
-  #broadcast-inputs .data-table,
-  #broadcast-outputs .data-table {
-    margin: var(--space-5) 0 0;
-  }
-  /* Rótulos "entrada 0" e "saída 0" usam a coluna inteira: o padding do
-     key-readout não cabe em 7ch e o valor encostaria no rótulo. */
-  #broadcast-inputs .data-table tbody th,
-  #broadcast-outputs .data-table tbody th { width: 10ch; }
   /* O grupo de ações fica centrado como um todo (cancelar · confirmar),
      sem a margem própria do botão de envio solto. O seletor e a
      confirmação não convivem: conferido o arquivo, o label do seletor sai
@@ -1876,13 +1867,6 @@
   #broadcast-send[hidden] { display: none; }
   #broadcast-import-block .chips { align-items: baseline; }
   #broadcast-import-block .chips .form-submit { margin: 0; }
-  #broadcast-inputs .output-line,
-  #broadcast-outputs .output-line {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2) 1ch;
-    align-items: baseline;
-  }
   #broadcast-warn {
     margin: var(--space-3) 0 0;
     color: var(--error);

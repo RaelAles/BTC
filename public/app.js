@@ -1753,39 +1753,26 @@
     if (el) el.textContent = text == null ? '—' : text;
   }
 
-  /* Tabela de uma entrada ou saída, no desenho de leitura do "receber":
-     rótulo na coluna, valor na primeira linha e endereço/caminho/outpoint
-     como notas. Endereço e caminho entram por textContent. */
-  function broadcastTable(label, valueHtml, lines) {
-    var table = document.createElement('table');
-    table.className = 'data-table key-readout';
-    var tbody = document.createElement('tbody');
+  /* Linha do resumo do transmitir, no desenho do resumo do PSBT: rótulo na
+     coluna e valor na outra. `groupEnd` fecha o par, abrindo o vão do
+     próximo. */
+  function broadcastMetaRow(label, groupEnd) {
     var tr = document.createElement('tr');
+    if (groupEnd) tr.className = 'group-end';
     var th = document.createElement('th');
     th.setAttribute('scope', 'row');
     th.textContent = label;
     var td = document.createElement('td');
-    var line = document.createElement('div');
-    line.className = 'output-line';
-    line.innerHTML = valueHtml;
-    td.appendChild(line);
-    (lines || []).forEach(function (text) {
-      if (!text) return;
-      var note = document.createElement('div');
-      note.className = 'note';
-      note.textContent = text;
-      td.appendChild(note);
-    });
     tr.appendChild(th);
     tr.appendChild(td);
-    tbody.appendChild(tr);
-    table.appendChild(tbody);
-    return table;
+    return { tr: tr, td: td };
   }
 
-  /* O resumo é do servidor: destino, troco e taxa classificados a partir dos
-     scripts da carteira, e a taxa da transação FINAL (vsize real, não a
-     estimada do envio). */
+  /* O resumo é do servidor: cada saída classificada a partir dos scripts da
+     carteira, e a taxa da transação FINAL (vsize real, não a estimada do
+     envio). Cada saída vira um par saída/destino ou troco/endereço, na ordem
+     da transação — o mesmo desenho do resumo do PSBT, sem somar valores nem
+     juntar endereços. */
   function renderBroadcast(j) {
     broadcastCell('#broadcast-meta-file', state.broadcastName || '—');
     broadcastCell('#broadcast-meta-txid', j.txid);
@@ -1793,54 +1780,23 @@
     var fee = $('#broadcast-meta-fee');
     if (fee) fee.innerHTML = signedBtcShare(j.fee_sats, 'out');
 
-    /* As mesmas linhas do resumo do PSBT: o que sai (destino) e o que volta
-       (troco), com o valor e o endereço em par. O PSBT assinado pode pagar
-       mais de uma saída; aí a linha soma os valores e o endereço lista todas,
-       e as tabelas por saída abaixo mostram cada uma. Sem troco, as duas
-       linhas do troco somem, como no resumo do envio. */
-    var outputs = j.outputs || [];
-    var change = outputs.filter(function (out) { return out.own === 'troco'; });
-    var paid = outputs.filter(function (out) { return out.own !== 'troco'; });
-    var sum = function (list) {
-      return list.reduce(function (n, out) { return n + (Number(out.value) || 0); }, 0);
-    };
-    var addresses = function (list) {
-      return list.map(function (out) { return out.address || ''; })
-        .filter(Boolean).join(' · ');
-    };
-    var outValue = $('#broadcast-meta-out-value');
-    if (outValue) outValue.innerHTML = signedBtcShare(sum(paid), 'out');
-    var outAddress = $('#broadcast-meta-out-address');
-    if (outAddress) outAddress.textContent = addresses(paid) || '—';
-    var changeValue = $('#broadcast-meta-change-value');
-    if (changeValue) changeValue.innerHTML = signedBtcShare(sum(change), 'in');
-    var changeAddress = $('#broadcast-meta-change-address');
-    if (changeAddress) changeAddress.textContent = addresses(change) || '—';
-    [$('#broadcast-meta-change-value-row'), $('#broadcast-meta-change-address-row')]
-      .forEach(function (row) { if (row) row.hidden = !change.length; });
-
-    var wrapIn = $('#broadcast-inputs');
-    if (wrapIn) {
-      wrapIn.textContent = '';
-      (j.inputs || []).forEach(function (inp) {
-        wrapIn.appendChild(broadcastTable(
-          'entrada ' + inp.index,
-          fmtBtc(inp.value) + ' BTC <span class="value-pct">' +
-            esc(inp.label || inp.kind) + '</span>',
-          [inp.address, inp.path, inp.outpoint]
-        ));
-      });
-    }
-    var wrap = $('#broadcast-outputs');
-    if (wrap) {
-      wrap.textContent = '';
+    var metaBody = $('#broadcast-meta tbody');
+    var feeRow = $('#broadcast-meta-fee-row');
+    if (metaBody && feeRow) {
+      Array.prototype.forEach.call(
+        metaBody.querySelectorAll('tr[data-broadcast-output]'),
+        function (tr) { metaBody.removeChild(tr); }
+      );
       (j.outputs || []).forEach(function (out) {
-        wrap.appendChild(broadcastTable(
-          'saída ' + out.index,
-          signedBtc(out.value, out.own === 'externo' ? 'out' : 'in') +
-            ' <span class="value-pct">' + esc(out.own) + '</span>',
-          [out.address, out.path]
-        ));
+        var change = out.own === 'troco';
+        var value = broadcastMetaRow(change ? 'troco' : 'saída');
+        value.td.innerHTML = signedBtcShare(out.value, change ? 'in' : 'out');
+        value.tr.setAttribute('data-broadcast-output', '');
+        metaBody.insertBefore(value.tr, feeRow);
+        var address = broadcastMetaRow(change ? 'endereço' : 'destino', true);
+        address.td.textContent = out.address || '—';
+        address.tr.setAttribute('data-broadcast-output', '');
+        metaBody.insertBefore(address.tr, feeRow);
       });
     }
     var warn = $('#broadcast-warn');

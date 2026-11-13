@@ -230,23 +230,18 @@
                   <h3><span class="prompt" aria-hidden="true">##</span> transmitir</h3>
                 </div>
                 <!-- Mesmas linhas do resumo do PSBT, com o arquivo na
-                     frente. O pó fica de fora: é um resto que o montador
-                     converteu em taxa, e o PSBT assinado não carrega essa
-                     conta. -->
+                     frente. Cada saída paga vira um par saída/destino e cada
+                     troco um par troco/endereço, na ordem da transação. O pó
+                     fica de fora: é um resto que o montador converteu em
+                     taxa, e o PSBT assinado não carrega essa conta. -->
                 <table class="data-table key-readout" id="broadcast-meta" aria-label="resumo da transação assinada">
                   <tbody>
                     <tr class="group-end"><th scope="row">arquivo</th><td id="broadcast-meta-file">—</td></tr>
-                    <tr><th scope="row">saída</th><td id="broadcast-meta-out-value">—</td></tr>
-                    <tr class="group-end"><th scope="row">destino</th><td id="broadcast-meta-out-address">—</td></tr>
-                    <tr id="broadcast-meta-change-value-row"><th scope="row">troco</th><td id="broadcast-meta-change-value">—</td></tr>
-                    <tr class="group-end" id="broadcast-meta-change-address-row"><th scope="row">endereço</th><td id="broadcast-meta-change-address">—</td></tr>
-                    <tr><th scope="row">taxa</th><td id="broadcast-meta-fee">—</td></tr>
+                    <tr id="broadcast-meta-fee-row"><th scope="row">taxa</th><td id="broadcast-meta-fee">—</td></tr>
                     <tr class="group-end"><th scope="row">vsize</th><td id="broadcast-meta-vsize">—</td></tr>
                     <tr><th scope="row">txid</th><td id="broadcast-meta-txid">—</td></tr>
                   </tbody>
                 </table>
-                <div id="broadcast-inputs"></div>
-                <div id="broadcast-outputs"></div>
                 <p class="note" id="broadcast-warn"></p>
               </div>
 
