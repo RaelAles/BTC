@@ -742,6 +742,9 @@
     if (err) err.hidden = state.historyState !== 'error';
     var summary = $('#history-summary');
     if (summary) {
+      /* sem endereço usado a lista mostra o estado vazio; o resumo de
+         endereços, recebido e enviado não tem o que dizer e sai de cena. */
+      summary.hidden = ready && rows.length === 0;
       if (state.historyState === 'loading') {
         summary.textContent = '';
       } else if (state.historyState === 'error') {
