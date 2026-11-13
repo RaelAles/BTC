@@ -743,7 +743,7 @@
     var summary = $('#history-summary');
     if (summary) {
       if (state.historyState === 'loading') {
-        summary.textContent = 'verificando endereços...';
+        summary.textContent = '';
       } else if (state.historyState === 'error') {
         summary.textContent = '';
       } else if (state.historyState === 'idle') {
@@ -2194,7 +2194,7 @@
     var out = $('#out');
     if (out) out.hidden = true;
     var summary = $('#history-summary');
-    if (summary) summary.textContent = 'verificando endereços...';
+    if (summary) summary.textContent = '';
   }
 
   function stopScan() {
