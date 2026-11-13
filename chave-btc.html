@@ -3867,7 +3867,7 @@ var BTC = (function () {
         throw new Error('entrada ' + i + ' exige time lock; este signer não confere travas de tempo');
       }
       var key = await findKeyForScript(session, prev.script, map);
-      if (!key) throw new Error('entrada ' + i + ' não pertence às contas derivadas dos 256 bits');
+      if (!key) throw new Error('o psbt não pertence às contas desta chave');
       if (bytesToHex(scriptForKind(key.kind, key.Q)) !== bytesToHex(prev.script)) {
         throw new Error('entrada ' + i + ': chave derivada não corresponde ao script');
       }
