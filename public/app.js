@@ -1721,6 +1721,11 @@
     var showClear = hasFile && !sent;
     if (clear) clear.hidden = !showClear;
     if (sep) sep.hidden = !(showClear && loaded);
+    /* Sem nenhum controle à vista, o grupo sai do fluxo: um .chips vazio
+       ainda somaria o app-gap e deixaria uma faixa em branco abaixo do
+       seletor, que a seta de rolagem anunciava como conteúdo. */
+    var actions = $('#broadcast-actions');
+    if (actions) actions.hidden = !(showClear || loaded);
   }
 
   function resetBroadcast() {

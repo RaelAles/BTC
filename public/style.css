@@ -1868,6 +1868,7 @@
      do fluxo (o .field-upload define display próprio, daí a regra) e o
      .form-submit precisa da regra pelo mesmo motivo antes da conferência. */
   #broadcast-import[hidden],
+  #broadcast-actions[hidden],
   #broadcast-send[hidden] { display: none; }
   #broadcast-import-block .chips { align-items: baseline; }
   #broadcast-import-block .chips .form-submit { margin: 0; }
