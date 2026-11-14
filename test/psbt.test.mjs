@@ -132,8 +132,10 @@ function mapFind(map, type) {
   assert.equal(j.outputs[1].own, 'troco');
 
   /* Destino da própria carteira: o servidor reconhece o script derivado da
-     xpub e não o classifica como externo. */
-  const self = await deriveAddress('bip84', account, 0, 1);
+     xpub e não o classifica como externo. O índice 30 fica fora da varredura
+     de 25 do assinador, então a origem na saída é o que permite reconhecê-lo
+     sem varrer as contas. */
+  const self = await deriveAddress('bip84', account, 0, 30);
   const own = await reqPsbt({
     xpub: hd.accounts.bip84.xpub, address: self.address,
     amount_sats: 10000, fee_rate: 5
@@ -141,6 +143,11 @@ function mapFind(map, type) {
   assert.equal(own.status, 200, JSON.stringify(own.j));
   assert.equal(own.j.outputs[0].own, 'recebimento', 'destino da própria carteira não é externo');
   assert.equal(own.j.recipient.own, 'recebimento');
+  const ownPsbt = BTC.parsePsbt(BTC.psbtParseInput(own.j.psbt));
+  assert.ok(mapFind(ownPsbt.outputs[0], 0x02), 'destino próprio leva origem BIP32 na saída');
+  const ownReview = await BTC.analyzePsbt(BTC.psbtParseInput(own.j.psbt), hd);
+  assert.equal(ownReview.outputs[0].own, 'recebimento',
+    'o assinador reconhece o destino próprio pela origem, sem varredura');
 
   const bytes = BTC.psbtParseInput(j.psbt);
   const psbt = BTC.parsePsbt(bytes);
@@ -151,6 +158,7 @@ function mapFind(map, type) {
   const deriv = mapFind(psbt.inputs[0], 0x06);
   assert.equal(BTC.bytesToHex(deriv.value.subarray(0, 4)), fp);
   assert.equal(psbt.outputs[1].some(e => e.key[0] === 0x02), true, 'troco tem origem no PSBT');
+  assert.equal(mapFind(psbt.outputs[0], 0x02), null, 'destino externo não leva origem no PSBT');
 
   /* o assinante (núcleo do chave-btc.html) acha as chaves mesmo com o índice
      120, que fica fora da varredura de 100 do fallback. */

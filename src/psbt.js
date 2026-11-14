@@ -184,8 +184,9 @@ export function sendLimits({ utxos, address, feeRate, amountSats, changeScript, 
 /* Monta o PSBT. `utxos` vem do scanner com a linha de origem já anexada;
    `changeRow` é o próximo endereço livre do ramo de troco; `rawTxFor` devolve
    a transação anterior crua (só o p2pkh precisa dela). `ownScripts` é o mapa
-   de scripts derivados da xpub: é o que distingue um destino externo de um
-   recebimento para a própria carteira. */
+   de scripts derivados da xpub (`script -> linha`): é o que distingue um
+   destino externo de um recebimento para a própria carteira e fornece a
+   origem BIP32 quando o destino também é nosso. */
 export async function preparePsbt({
   account, utxos, address, amountSats, feeRate, changeRow, rawTxFor, ownScripts
 }) {
@@ -199,7 +200,9 @@ export async function preparePsbt({
   let recipientScript;
   try { recipientScript = BTC.scriptFromAddress(address); }
   catch (e) { throw new Error('endereço de destino: ' + e.message); }
-  const recipientOwn = !!(ownScripts && ownScripts.has(hex(recipientScript)));
+  const recipientKey = hex(recipientScript);
+  const recipientRow = ownScripts && ownScripts.get ? ownScripts.get(recipientKey) : null;
+  const recipientOwn = !!(ownScripts && ownScripts.has(recipientKey));
   const recipientKind = recipientOwn ? 'recebimento' : 'externo';
   if (!changeRow) throw new Error('endereço de troco indisponível');
   const changeScript = BTC.hexToBytes(changeRow.script);
@@ -220,6 +223,10 @@ export async function preparePsbt({
   }
 
   const outputs = [{ value: amountSats, script: recipientScript }];
+  /* Destino da própria carteira: leva a origem BIP32 na saída, como o troco.
+     O assinador reconhece o endereço pela derivação que o PSBT traz, sem
+     varrer as contas. A origem é conferida (chave e script) no assinador. */
+  if (recipientRow) outputs[0].origin = rowOrigin(recipientRow, fingerprint);
   if (pick.withChange) {
     outputs.push({
       value: pick.change,

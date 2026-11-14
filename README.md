@@ -169,8 +169,10 @@ blockchain.info, nem chave privada em lugar nenhum.
   grupo, calcula a taxa pela vsize estimada (um limite superior do
   tamanho real, ver “a vsize é um limite superior” abaixo), deriva o próximo
   endereço de troco e monta um **PSBT v0** sem assinatura. Cada entrada leva
-  `witness_utxo` e a origem BIP32; p2pkh leva também o `non_witness_utxo` e
-  p2sh-p2wpkh leva o `redeem_script`. O pó (abaixo de 0.00000546 BTC) não vira
+  `witness_utxo` e a origem BIP32; a saída de troco e o destino da própria
+  carteira também levam a origem na saída, para o assinador reconhecê-los sem
+  varrer as contas. p2pkh leva também o `non_witness_utxo` e p2sh-p2wpkh leva
+  o `redeem_script`. O pó (abaixo de 0.00000546 BTC) não vira
   saída de troco: é somado à taxa, e a resposta separa esse resto
   (`dust_sats`) da tarifa (`fee_sats_at_rate`) para a tela explicar a
   diferença.
@@ -668,7 +670,10 @@ Resposta (resumida):
 
 O `own` de cada saída é `externo` quando o script não foi derivado da xpub,
 `recebimento` quando o destino é um endereço da própria carteira e `troco` no
-ramo `/1`; `recipient.own` repete a classificação do destino. Cada entrada traz
+ramo `/1`; `recipient.own` repete a classificação do destino. Quando o destino
+é da própria carteira, a saída de destino leva
+`PSBT_OUT_BIP32_DERIVATION`/`PSBT_OUT_TAP_BIP32_DERIVATION`, para o assinador
+reconhecê-lo pela origem sem varrer as contas. Cada entrada traz
 `pending: true` quando é troco de uma transação ainda no
 mempool (gasto encadeado): a transação nova confirma depois — e junto — da
 anterior. O PSBT carrega `witness_utxo` e a origem BIP32 (`bip32_derivation` ou
@@ -813,8 +818,9 @@ o Electrum cai. Sessão sem xpub responde 409 (a tela reenvia a xpub em
   taxa antes de assinar.
 - O PSBT de envio sai **sem assinatura**: o projeto 2 só monta a transação. O
   arquivo leva a origem BIP32 com a impressão digital da conta, o caminho
-  completo, os UTXOs e o troco; o `chave-btc.html` confere conta, chave,
-  script, saídas e taxa antes de assinar.
+  completo, os UTXOs, o troco e, quando o destino é da própria carteira, o
+  próprio destino; o `chave-btc.html` confere conta, chave, script, saídas e
+  taxa antes de assinar.
 - **A transmissão é a única saída para a rede**, e é explícita: o PSBT
   assinado é conferido no Worker/DO (nunca no navegador) e só vai ao Electrum
   no clique em **confirmar**. Publicar não tem volta. A transação fica
@@ -879,8 +885,9 @@ escolha de entradas para cobrir o valor, troco no próximo índice `/1`, o
 limite `max_send_sats` (incluindo o envio no máximo, sem troco) e o preview
 com valor (taxa e troco iguais aos do PSBT, e as cotas dos níveis para o
 seletor), PSBT v0 com
-origem da conta, `non_witness_utxo` no p2pkh e `tap_bip32_derivation` no
-taproot, recusa de endereço/taxa/saldo inválidos, e a **assinatura do PSBT no
+origem da conta, `non_witness_utxo` no p2pkh, `tap_bip32_derivation` no
+taproot e o destino próprio no índice 30 reconhecido pela origem da saída, sem
+varredura; recusa de endereço/taxa/saldo inválidos, e a **assinatura do PSBT no
 próprio `btc-core`** com um índice 120 — fora do fallback de 100 — provando a
 compatibilidade com o `chave-btc.html`. A taxa também é conferida depois da
 assinatura, nos quatro tipos de entrada (p2wpkh, p2sh-p2wpkh, p2pkh e p2tr) e
