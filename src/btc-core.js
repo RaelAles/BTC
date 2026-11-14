@@ -1571,7 +1571,9 @@ var BTC = (function () {
       }
     });
     outputs.forEach(function (out) {
-      if (out.own === 'externo') warnings.push('saída ' + out.index + ' paga um endereço externo: ' + out.address);
+      /* O destino externo não vira aviso: cada saída já traz `own`, e a
+         revisão que o apresenta (chave-btc.html) marca o endereço em vez de
+         repetir a informação na lista. */
       if (out.own === 'outro') warnings.push('saída ' + out.index + ' tem script não padronizado; confira no coordenador');
     });
     if (tx.inputs.length === 0) throw new Error('a transação não tem entradas');
