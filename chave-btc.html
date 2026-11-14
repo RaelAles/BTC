@@ -3833,6 +3833,14 @@ var BTC = (function () {
   }
 
   /* ---------------------------------------------- análise de um PSBT */
+  /* O aviso leva o desenho da prosa do projeto: nome da linha em <b> e valor
+     literal em <code>. O endereço, único dado que vem do PSBT, entra
+     escapado antes de virar HTML na revisão. */
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"]/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch];
+    });
+  }
   async function analyzePsbt(bytes, hd) {
     var psbt = parsePsbt(bytes);
     var tx = psbt.tx;
@@ -3896,9 +3904,9 @@ var BTC = (function () {
     var fee = totalIn - totalOut;
     var vsize = estimateVsize(inputs.map(function (x) { return x.kind; }), tx.outputs.map(function (x) { return x.script; }));
     var feerate = vsize > 0 ? Number(fee) / vsize : 0;
-    if (feerate < 1) warnings.push('taxa abaixo de 1 sat/vB: a transação pode demorar a confirmar');
-    if (feerate > 500) warnings.push('taxa acima de 500 sat/vB: confira o valor da taxa');
-    if (fee === 0n) warnings.push('taxa zero: a rede pode recusar a transação');
+    if (feerate < 1) warnings.push('a <b>taxa</b> está abaixo de <code>1 sat/vB</code>: a transação pode demorar a confirmar.');
+    if (feerate > 500) warnings.push('a <b>taxa</b> está acima de <code>500 sat/vB</code>: confira o valor da taxa.');
+    if (fee === 0n) warnings.push('a <b>taxa</b> é zero: a rede pode recusar a transação.');
     /* No p2pkh o valor não entra no sighash: aceitar só o witness_utxo
        deixaria o coordenador mentir sobre a taxa. Exigimos a transação
        anterior inteira e conferimos o txid em prevoutOf. */
@@ -3908,13 +3916,13 @@ var BTC = (function () {
       }
     });
     outputs.forEach(function (out) {
-      if (out.own === 'externo') warnings.push('saída ' + out.index + ' paga um endereço externo: ' + out.address);
-      if (out.own === 'outro') warnings.push('saída ' + out.index + ' tem script não padronizado; confira no coordenador');
+      if (out.own === 'externo') warnings.push('a <b>saída</b> ' + out.index + ' paga um endereço externo: <code>' + escapeHtml(out.address) + '</code>.');
+      if (out.own === 'outro') warnings.push('a <b>saída</b> ' + out.index + ' tem script não padronizado; confira no coordenador.');
     });
     if (tx.inputs.length === 0) throw new Error('a transação não tem entradas');
     if (tx.outputs.length === 0) throw new Error('a transação não tem saídas');
     if (signedInputs > 0 && signedInputs < tx.inputs.length) {
-      warnings.push('algumas entradas já têm assinatura; assinar de novo substitui as assinaturas existentes');
+      warnings.push('algumas entradas já têm assinatura; assinar de novo substitui as assinaturas existentes.');
     }
     return {
       psbt: psbt, tx: tx, session: session,
@@ -4817,7 +4825,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       reviewWarningsList.textContent = '';
       a.warnings.forEach(function (w) {
         var li = document.createElement('li');
-        li.textContent = w;
+        /* O aviso já vem com o negrito e o código da prosa (ver analyzePsbt). */
+        li.innerHTML = w;
         reviewWarningsList.appendChild(li);
       });
     }
