@@ -1,7 +1,7 @@
 import { parseXpub } from './derivation.js';
 import { openElectrum, estimateFees } from './electrum.js';
 import { WalletScanner } from './wallet-sync.js';
-import { electrumConfig, fail, json } from './config.js';
+import { electrumConfig, fail, json, SECURITY_HEADERS } from './config.js';
 import { feeRateKvb } from './psbt.js';
 import { broadcastSignedPsbt, previewSignedPsbt, MAX_PSBT_TEXT } from './broadcast.js';
 import { WalletWatcher } from './watcher.js';
@@ -277,41 +277,59 @@ async function handleFees(env, url) {
 
 export { WalletWatcher };
 
+/* Aplica os cabeçalhos de segurança em toda resposta, inclusive nos
+   estáticos do ASSETS. O 101 do WebSocket não é recriado: o handshake
+   original é o único que vale. */
+function withSecurityHeaders(response) {
+  if (!response || response.status === 101 || response.webSocket) return response;
+  const headers = new Headers(response.headers);
+  for (const name of Object.keys(SECURITY_HEADERS)) headers.set(name, SECURITY_HEADERS[name]);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+}
+
+async function route(request, env) {
+  const url = new URL(request.url);
+  try {
+    if (url.pathname === '/api/health') {
+      const cfg = electrumConfig(env);
+      return json({
+        ok: true,
+        service: 'projeto-2-electrum',
+        source: 'electrum',
+        storage: 'nenhum',
+        realtime: !!env.WATCH,
+        electrum: cfg ? cfg.servers.map(s => s.host + ':' + s.port + (s.secure ? ' tls' : ' tcp')) : 'off',
+        time: new Date().toISOString()
+      });
+    }
+    if (url.pathname === '/api/wallet') {
+      if (request.method !== 'POST') return fail('use POST', 405);
+      return await handleWallet(request, env);
+    }
+    if (url.pathname === '/api/psbt') {
+      if (request.method !== 'POST') return fail('use POST', 405);
+      return await handlePsbt(request, env);
+    }
+    if (url.pathname === '/api/broadcast') {
+      if (request.method !== 'POST') return fail('use POST', 405);
+      return await handleBroadcast(request, env);
+    }
+    if (url.pathname === '/api/fees') return await handleFees(env, url);
+    if (url.pathname === '/api/events') return await handleEvents(request, env, url);
+    if (url.pathname.startsWith('/api/')) return fail('rota não encontrada', 404);
+    if (env.ASSETS) return await env.ASSETS.fetch(request);
+    return new Response('not found', { status: 404 });
+  } catch (e) {
+    return fail(e && e.message ? e.message : String(e), 500);
+  }
+}
+
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
-    try {
-      if (url.pathname === '/api/health') {
-        const cfg = electrumConfig(env);
-        return json({
-          ok: true,
-          service: 'projeto-2-electrum',
-          source: 'electrum',
-          storage: 'nenhum',
-          realtime: !!env.WATCH,
-          electrum: cfg ? cfg.servers.map(s => s.host + ':' + s.port + (s.secure ? ' tls' : ' tcp')) : 'off',
-          time: new Date().toISOString()
-        });
-      }
-      if (url.pathname === '/api/wallet') {
-        if (request.method !== 'POST') return fail('use POST', 405);
-        return await handleWallet(request, env);
-      }
-      if (url.pathname === '/api/psbt') {
-        if (request.method !== 'POST') return fail('use POST', 405);
-        return await handlePsbt(request, env);
-      }
-      if (url.pathname === '/api/broadcast') {
-        if (request.method !== 'POST') return fail('use POST', 405);
-        return await handleBroadcast(request, env);
-      }
-      if (url.pathname === '/api/fees') return await handleFees(env, url);
-      if (url.pathname === '/api/events') return await handleEvents(request, env, url);
-      if (url.pathname.startsWith('/api/')) return fail('rota não encontrada', 404);
-      if (env.ASSETS) return await env.ASSETS.fetch(request);
-      return new Response('not found', { status: 404 });
-    } catch (e) {
-      return fail(e && e.message ? e.message : String(e), 500);
-    }
+    return withSecurityHeaders(await route(request, env));
   }
 };

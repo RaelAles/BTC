@@ -17,6 +17,31 @@ export function electrumConfig(env) {
   };
 }
 
+/* Cabeçalhos de segurança aplicados a toda resposta do Worker, inclusive
+   aos estáticos servidos pelo ASSETS (ver worker.js). A CSP só libera o
+   próprio domínio; o script inline do tema entra por hash sha256, então
+   qualquer mudança nele exige recalcular o hash aqui. */
+export const SECURITY_HEADERS = {
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'Content-Security-Policy': [
+    "default-src 'self'",
+    "script-src 'self' 'sha256-Lj2WKDYwirWpwwWlu/sg1rb/O+jVjFgt7nf3TTIjDa4='",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "manifest-src 'self'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'none'"
+  ].join('; '),
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'Permissions-Policy': 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), clipboard-write=(self)'
+};
+
 export function json(data, status = 200) {
   return new Response(JSON.stringify(data, null, 2), {
     status,
