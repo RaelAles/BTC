@@ -2915,13 +2915,13 @@ var BTC = (function () {
     if (n < 0xfd) return new Uint8Array([n]);
     if (n <= 0xffff) return concatBytes(new Uint8Array([0xfd]), le16(n));
     if (n <= 0xffffffff) return concatBytes(new Uint8Array([0xfe]), le32(n));
-    throw new Error('varint grande demais');
+    throw new Error('PSBT inválido: varint inválido ou truncado.');
   }
   function readVarInt(b, o) {
-    if (o >= b.length) throw new Error('varint fora do buffer');
+    if (o >= b.length) throw new Error('PSBT inválido: varint inválido ou truncado.');
     var c = b[o];
     var size = c < 0xfd ? 1 : c === 0xfd ? 3 : c === 0xfe ? 5 : 9;
-    if (o + size > b.length) throw new Error('varint fora do buffer');
+    if (o + size > b.length) throw new Error('PSBT inválido: varint inválido ou truncado.');
     if (c < 0xfd) return { value: c, size: 1 };
     if (c === 0xfd) return { value: readLE16(b, o + 1), size: 3 };
     if (c === 0xfe) return { value: readLE32(b, o + 1), size: 5 };
@@ -2932,21 +2932,21 @@ var BTC = (function () {
   /* ------------------------------------------------------- transações */
   function readTxOut(b, o) {
     var p = o || 0;
-    if (p + 8 > b.length) throw new Error('saída truncada');
+    if (p + 8 > b.length) throw new Error('a transação interna do PSBT está truncada ou inconsistente.');
     var value = readLE64(b, p); p += 8;
     var vi = readVarInt(b, p); p += vi.size;
-    if (p + vi.value > b.length) throw new Error('script da saída truncado');
+    if (p + vi.value > b.length) throw new Error('a transação interna do PSBT está truncada ou inconsistente.');
     var script = b.subarray(p, p + vi.value); p += vi.value;
     return { value: value, script: script, size: p - (o || 0) };
   }
   function readTx(b) {
     var p = 0;
     function u32() {
-      if (p + 4 > b.length) throw new Error('transação truncada');
+      if (p + 4 > b.length) throw new Error('a transação interna do PSBT está truncada ou inconsistente.');
       var v = readLE32(b, p); p += 4; return v;
     }
     function take(n) {
-      if (n < 0 || p + n > b.length) throw new Error('transação truncada');
+      if (n < 0 || p + n > b.length) throw new Error('a transação interna do PSBT está truncada ou inconsistente.');
       var out = b.subarray(p, p + n);
       p += n;
       return out;
@@ -2981,7 +2981,7 @@ var BTC = (function () {
       }
     }
     tx.locktime = u32();
-    if (p !== b.length) throw new Error('bytes sobrando no fim da transação');
+    if (p !== b.length) throw new Error('a transação interna do PSBT está truncada ou inconsistente.');
     return tx;
   }
   function writeTx(tx, withWitness) {
@@ -3064,14 +3064,14 @@ var BTC = (function () {
   }
   function parsePath(text) {
     var parts = String(text).split('/');
-    if (parts[0] !== 'm') throw new Error('caminho inválido');
+    if (parts[0] !== 'm') throw new Error('PSBT inválido: caminho de derivação inválido.');
     var out = [];
     for (var i = 1; i < parts.length; i++) {
       var part = parts[i];
       if (!part) continue;
       var hard = part.slice(-1) === "'" || part.slice(-1) === 'h' || part.slice(-1) === 'H';
       var num = parseInt(hard ? part.slice(0, -1) : part, 10);
-      if (!(num >= 0 && num < 0x80000000)) throw new Error('índice inválido no caminho');
+      if (!(num >= 0 && num < 0x80000000)) throw new Error('PSBT inválido: caminho de derivação inválido.');
       out.push(hard ? num + 0x80000000 : num);
     }
     return out;
@@ -3103,10 +3103,10 @@ var BTC = (function () {
   }
   function b64decode(text) {
     var clean = String(text).replace(/[\s=]+/g, '');
-    if (!/^[A-Za-z0-9+/]*$/.test(clean)) throw new Error('base64 inválido');
+    if (!/^[A-Za-z0-9+/]*$/.test(clean)) throw new Error('o conteúdo não é base64 válido.');
     /* Comprimento ≡ 1 (mod 4) não completa um byte: recusar evita que um
        arquivo corrompido vire bytes plausíveis. */
-    if (clean.length % 4 === 1) throw new Error('base64 inválido');
+    if (clean.length % 4 === 1) throw new Error('o conteúdo não é base64 válido.');
     var out = new Uint8Array(Math.floor(clean.length * 3 / 4));
     var acc = 0, bits = 0, p = 0;
     for (var i = 0; i < clean.length; i++) {
@@ -3142,19 +3142,19 @@ var BTC = (function () {
     var map = [];
     var seen = Object.create(null);
     for (;;) {
-      if (p >= b.length) throw new Error('PSBT truncado');
+      if (p >= b.length) throw new Error('o PSBT está truncado ou incompleto.');
       var vi = readVarInt(b, p); p += vi.size;
       if (vi.value === 0) return { map: map, pos: p };
       var klen = vi.value;
-      if (p + klen > b.length) throw new Error('chave do PSBT truncada');
+      if (p + klen > b.length) throw new Error('o PSBT está truncado ou incompleto.');
       var key = b.subarray(p, p + klen); p += klen;
-      if (key.length === 0) throw new Error('chave vazia no PSBT');
+      if (key.length === 0) throw new Error('PSBT inválido: chave vazia em um mapa.');
       /* BIP174: chaves repetidas tornam o PSBT inválido. */
       var keyHex = bytesToHex(key);
-      if (seen[keyHex]) throw new Error('PSBT com chave duplicada');
+      if (seen[keyHex]) throw new Error('PSBT inválido: chave repetida em um mapa.');
       seen[keyHex] = true;
       var vv = readVarInt(b, p); p += vv.size;
-      if (p + vv.value > b.length) throw new Error('valor do PSBT truncado');
+      if (p + vv.value > b.length) throw new Error('o PSBT está truncado ou incompleto.');
       map.push({ key: key, value: b.subarray(p, p + vv.value) });
       p += vv.value;
     }
@@ -3174,75 +3174,75 @@ var BTC = (function () {
       (kd.length === 65 && kd[0] === 0x04);
   }
   function onlyType(key, name) {
-    if (key.length !== 1) throw new Error('psbt inválido: ' + name + ' com chave sobrando');
+    if (key.length !== 1) throw new Error('PSBT inválido: ' + name + ' com bytes extras na chave.');
   }
   function valueSize(value, size, name) {
-    if (value.length !== size) throw new Error('psbt inválido: ' + name + ' com tamanho errado');
+    if (value.length !== size) throw new Error('PSBT inválido: ' + name + ' com tamanho incorreto.');
   }
   function derivationPath(value, name) {
     if (value.length < 4 || (value.length - 4) % 4 !== 0) {
-      throw new Error('psbt inválido: ' + name + ' com caminho malformado');
+      throw new Error('PSBT inválido: ' + name + ' com caminho de derivação malformado.');
     }
   }
   function tapDerivation(key, value, name) {
-    if (key.length !== 33) throw new Error('psbt inválido: ' + name + ' com chave sobrando');
+    if (key.length !== 33) throw new Error('PSBT inválido: ' + name + ' com bytes extras na chave.');
     var n = readVarInt(value, 0);
     var p = n.size + 32 * n.value;
     if (n.value > value.length || p + 4 > value.length || (value.length - p - 4) % 4 !== 0) {
-      throw new Error('psbt inválido: ' + name + ' com caminho malformado');
+      throw new Error('PSBT inválido: ' + name + ' com caminho de derivação malformado.');
     }
   }
   function tapLeafScript(key, value) {
     var control = key.length - 1;
     if (control < 33 || (control - 33) % 32 !== 0 || control > 33 + 32 * 128) {
-      throw new Error('psbt inválido: tap_leaf_script com control block malformado');
+      throw new Error('PSBT inválido: tap_leaf_script com control block ou leaf version inválido.');
     }
-    if (value.length < 1) throw new Error('psbt inválido: tap_leaf_script sem leaf version');
+    if (value.length < 1) throw new Error('PSBT inválido: tap_leaf_script com control block ou leaf version inválido.');
   }
   function tapTree(value) {
-    if (value.length === 0) throw new Error('psbt inválido: tap_tree vazia');
+    if (value.length === 0) throw new Error('PSBT inválido: tap_tree vazia ou truncada.');
     var p = 0;
     while (p < value.length) {
-      if (p + 2 > value.length) throw new Error('psbt inválido: tap_tree truncada');
+      if (p + 2 > value.length) throw new Error('PSBT inválido: tap_tree vazia ou truncada.');
       p += 2;
       var n = readVarInt(value, p); p += n.size;
-      if (p + n.value > value.length) throw new Error('psbt inválido: tap_tree truncada');
+      if (p + n.value > value.length) throw new Error('PSBT inválido: tap_tree vazia ou truncada.');
       p += n.value;
     }
   }
   function witnessValue(value, name) {
-    if (value.length === 0) throw new Error('psbt inválido: ' + name + ' vazio');
-    readWitness(value);
+    if (value.length === 0) throw new Error('PSBT inválido: ' + name + ' vazio.');
+    readWitness(value, name);
   }
   function validateMap(map, scope, version) {
     map.forEach(function (entry) {
       var t = entry.key[0], kd = entry.key.subarray(1), v = entry.value;
       if (scope === 'global') {
-        if (version === 0 && t >= 0x02 && t <= 0x06) throw new Error('psbt inválido: campo de PSBT v2 em PSBT v0');
+        if (version === 0 && t >= 0x02 && t <= 0x06) throw new Error('PSBT inválido: campo exclusivo de PSBT v2 dentro de um PSBT v0.');
         if (t === 0x00) onlyType(entry.key, 'unsigned tx');
         else if (t === 0x01) {
-          if (kd.length !== 78) throw new Error('psbt inválido: xpub com tamanho errado');
-          if (v.length !== 4 + 4 * kd[4]) throw new Error('psbt inválido: xpub com caminho malformado');
+          if (kd.length !== 78) throw new Error('PSBT inválido: xpub com tamanho incorreto.');
+          if (v.length !== 4 + 4 * kd[4]) throw new Error('PSBT inválido: xpub com caminho de derivação malformado.');
         } else if (t === 0xfb) {
           onlyType(entry.key, 'version');
           valueSize(v, 4, 'version');
         }
       } else if (scope === 'input') {
-        if (version === 0 && (t === 0x0e || t === 0x0f || t === 0x10)) throw new Error('psbt inválido: campo de PSBT v2 em PSBT v0');
+        if (version === 0 && (t === 0x0e || t === 0x0f || t === 0x10)) throw new Error('PSBT inválido: campo exclusivo de PSBT v2 dentro de um PSBT v0.');
         if (t === 0x00) { onlyType(entry.key, 'non_witness_utxo'); readTx(v); }
         else if (t === 0x01) {
           onlyType(entry.key, 'witness_utxo');
-          if (readTxOut(v, 0).size !== v.length) throw new Error('psbt inválido: witness_utxo com bytes sobrando');
+          if (readTxOut(v, 0).size !== v.length) throw new Error('PSBT inválido: witness_utxo com bytes extras.');
         } else if (t === 0x02) {
-          if (!validPubkey(kd)) throw new Error('psbt inválido: partial_sig com pubkey inválida');
-          if (v.length === 0) throw new Error('psbt inválido: partial_sig vazia');
+          if (!validPubkey(kd)) throw new Error('PSBT inválido: partial_sig com pubkey inválida.');
+          if (v.length === 0) throw new Error('PSBT inválido: partial_sig vazia.');
         } else if (t === 0x03) {
           onlyType(entry.key, 'sighash_type');
           valueSize(v, 4, 'sighash_type');
         } else if (t === 0x04) onlyType(entry.key, 'redeem_script');
         else if (t === 0x05) onlyType(entry.key, 'witness_script');
         else if (t === 0x06) {
-          if (!validPubkey(kd)) throw new Error('psbt inválido: bip32_derivation com pubkey inválida');
+          if (!validPubkey(kd)) throw new Error('PSBT inválido: bip32_derivation com pubkey inválida.');
           derivationPath(v, 'bip32_derivation');
         } else if (t === 0x07) onlyType(entry.key, 'final_scriptSig');
         else if (t === 0x08) {
@@ -3256,10 +3256,10 @@ var BTC = (function () {
           valueSize(v, 4, 'time lock');
         } else if (t === 0x13) {
           onlyType(entry.key, 'tap_key_sig');
-          if (v.length !== 64 && v.length !== 65) throw new Error('psbt inválido: tap_key_sig com tamanho errado');
+          if (v.length !== 64 && v.length !== 65) throw new Error('PSBT inválido: tap_key_sig com tamanho diferente de 64/65 bytes.');
         } else if (t === 0x14) {
-          if (kd.length !== 64) throw new Error('psbt inválido: tap_script_sig com chave sobrando');
-          if (v.length !== 64 && v.length !== 65) throw new Error('psbt inválido: tap_script_sig com tamanho errado');
+          if (kd.length !== 64) throw new Error('PSBT inválido: tap_script_sig com chave ou tamanho inválido.');
+          if (v.length !== 64 && v.length !== 65) throw new Error('PSBT inválido: tap_script_sig com chave ou tamanho inválido.');
         } else if (t === 0x15) tapLeafScript(entry.key, v);
         else if (t === 0x16) tapDerivation(entry.key, v, 'tap_bip32_derivation');
         else if (t === 0x17) {
@@ -3270,11 +3270,11 @@ var BTC = (function () {
           valueSize(v, 32, 'tap_merkle_root');
         }
       } else {
-        if (version === 0 && (t === 0x03 || t === 0x04)) throw new Error('psbt inválido: campo de PSBT v2 em PSBT v0');
+        if (version === 0 && (t === 0x03 || t === 0x04)) throw new Error('PSBT inválido: campo exclusivo de PSBT v2 dentro de um PSBT v0.');
         if (t === 0x00) onlyType(entry.key, 'redeem_script');
         else if (t === 0x01) onlyType(entry.key, 'witness_script');
         else if (t === 0x02) {
-          if (!validPubkey(kd)) throw new Error('psbt inválido: bip32_derivation com pubkey inválida');
+          if (!validPubkey(kd)) throw new Error('PSBT inválido: bip32_derivation com pubkey inválida.');
           derivationPath(v, 'bip32_derivation');
         } else if (t === 0x05) {
           onlyType(entry.key, 'tap_internal_key');
@@ -3288,22 +3288,22 @@ var BTC = (function () {
   }
   function parsePsbt(b) {
     if (b.length < 5 || b[0] !== 0x70 || b[1] !== 0x73 || b[2] !== 0x62 || b[3] !== 0x74 || b[4] !== 0xff) {
-      throw new Error('não começa com a marca psbt');
+      throw new Error('o arquivo não começa com a marca PSBT; não é um PSBT.');
     }
     var g = readMap(b, 5);
     var ver = mapFind(g.map, 0xfb);
     var version = ver && ver.value.length === 4 ? readLE32(ver.value, 0) : 0;
     validateMap(g.map, 'global', version);
     var psbt = { global: g.map, inputs: [], outputs: [], tx: null, version: version };
-    if (version !== 0) throw new Error('só PSBT v0 é suportado; exporte nesse formato');
+    if (version !== 0) throw new Error('este PSBT é v' + version + '; o cofre só lê e assina PSBT v0. Exporte em v0.');
     var utx = mapFind(g.map, 0x00);
-    if (!utx) throw new Error('PSBT sem transação não assinada (v0)');
+    if (!utx) throw new Error('PSBT sem a transação não assinada (unsigned tx); arquivo incompleto.');
     psbt.tx = readTx(utx.value);
     /* BIP174: a transação não assinada vai no formato antigo, sem scriptSig. */
-    if (psbt.tx.segwit) throw new Error('psbt inválido: transação não assinada no formato witness');
+    if (psbt.tx.segwit) throw new Error('a transação não assinada veio no formato witness; PSBT v0 exige o formato antigo.');
     psbt.tx.inputs.forEach(function (inp) {
       if (inp.scriptSig && inp.scriptSig.length) {
-        throw new Error('psbt inválido: transação não assinada com scriptSig');
+        throw new Error('a transação não assinada veio com scriptSig; PSBT v0 exige scriptSig vazio.');
       }
     });
     var p = g.pos;
@@ -3319,7 +3319,7 @@ var BTC = (function () {
       psbt.outputs.push(mo.map);
       p = mo.pos;
     }
-    if (p !== b.length) throw new Error('bytes sobrando depois do PSBT');
+    if (p !== b.length) throw new Error('há bytes extras depois do fim do PSBT; arquivo corrompido.');
     return psbt;
   }
   function writePsbt(psbt) {
@@ -3330,7 +3330,7 @@ var BTC = (function () {
   }
   function psbtParseInput(text) {
     var compact = String(text).replace(/\s+/g, '');
-    if (!compact) throw new Error('PSBT vazio');
+    if (!compact) throw new Error('o arquivo PSBT está vazio.');
     /* A marca psbt\xff em base64 começa sempre por "cHNidP8", então uma
        sequência puramente hexadecimal só pode ser a forma hex. */
     if (/^[0-9a-fA-F]+$/.test(compact) && compact.length % 2 === 0) return hexToBytes(compact);
@@ -3338,7 +3338,7 @@ var BTC = (function () {
       return b64decode(compact);
     } catch (e) {
       /* Para quem importa o arquivo, o problema é o PSBT, não a codificação. */
-      throw new Error('arquivo psbt inválido');
+      throw new Error('não foi possível decodificar o arquivo como PSBT (base64/hex inválido).');
     }
   }
 
@@ -3374,7 +3374,7 @@ var BTC = (function () {
   async function findKeyForScript(session, script, map, isOutput) {
     var kind = normalizeKind(scriptKind(script));
     if (kind === 'p2wsh' || kind === 'outro' || kind === 'witness') {
-      throw new Error('tipo de script não suportado (' + kind + ')');
+      throw new Error('script do tipo ' + kind + ' não suportado; use p2pkh, p2sh-p2wpkh, p2wpkh ou p2tr key path.');
     }
     var wanted = bytesToHex(script);
     var i, j;
@@ -3448,7 +3448,7 @@ var BTC = (function () {
   }
 
   function sighashLegacy(tx, index, scriptCode, hashType) {
-    if ((hashType & 0x1f) !== 1) throw new Error('só SIGHASH_ALL é assinado');
+    if ((hashType & 0x1f) !== 1) throw new Error('SIGHASH ' + hashType + ': o cofre só assina SIGHASH_ALL (0x01).');
     var parts = [le32(tx.version >>> 0), writeVarInt(tx.inputs.length)];
     tx.inputs.forEach(function (inp, i) {
       parts.push(outpointBytes(inp));
@@ -3465,7 +3465,7 @@ var BTC = (function () {
   }
 
   function sighashV0(tx, index, scriptCode, amount, hashType) {
-    if ((hashType & 0x1f) !== 1) throw new Error('só SIGHASH_ALL é assinado');
+    if ((hashType & 0x1f) !== 1) throw new Error('SIGHASH ' + hashType + ': o cofre só assina SIGHASH_ALL (0x01).');
     var prevouts = [], sequences = [], outputs = [];
     tx.inputs.forEach(function (inp) {
       prevouts.push(outpointBytes(inp));
@@ -3490,7 +3490,7 @@ var BTC = (function () {
   }
 
   function sighashTaproot(tx, index, prevouts, hashType) {
-    if (hashType !== 0x00 && hashType !== 0x01) throw new Error('só SIGHASH_DEFAULT/ALL é assinado');
+    if (hashType !== 0x00 && hashType !== 0x01) throw new Error('SIGHASH ' + hashType + ': no Taproot, o cofre só assina SIGHASH_DEFAULT (0x00).');
     var prev = [], amounts = [], scripts = [], seqs = [], outs = [];
     tx.inputs.forEach(function (inp) {
       prev.push(outpointBytes(inp));
@@ -3605,28 +3605,29 @@ var BTC = (function () {
   }
 
   /* ------------------------------------------------ prevouts do PSBT */
-  function prevoutOf(map, outpoint) {
+  function prevoutOf(map, outpoint, index) {
+    var label = index == null ? 'entrada ?' : 'entrada ' + index;
     var wu = mapFind(map, 0x01);
     var nwu = mapFind(map, 0x00);
     var fromW = null;
     if (wu) {
       fromW = readTxOut(wu.value, 0);
-      if (fromW.size !== wu.value.length) throw new Error('witness_utxo com bytes sobrando');
+      if (fromW.size !== wu.value.length) throw new Error(label + ': witness_utxo com bytes extras.');
     }
     var fromN = null;
     if (nwu) {
       var full = readTx(nwu.value);
-      if (txidOf(full) !== outpoint.txid) throw new Error('non_witness_utxo não corresponde ao txid da entrada');
-      if (outpoint.vout >= full.outputs.length) throw new Error('vout fora do non_witness_utxo');
+      if (txidOf(full) !== outpoint.txid) throw new Error(label + ': non_witness_utxo não corresponde ao txid; PSBT inconsistente.');
+      if (outpoint.vout >= full.outputs.length) throw new Error(label + ': vout não existe no non_witness_utxo.');
       fromN = full.outputs[outpoint.vout];
     }
     if (fromW && fromN) {
       if (fromW.value !== fromN.value || bytesToHex(fromW.script) !== bytesToHex(fromN.script)) {
-        throw new Error('witness_utxo contradiz o non_witness_utxo');
+        throw new Error(label + ': witness_utxo e non_witness_utxo descrevem UTXOs diferentes.');
       }
     }
     var prev = fromW || fromN;
-    if (!prev) throw new Error('entrada sem witness_utxo nem non_witness_utxo');
+    if (!prev) throw new Error(label + ': sem UTXO (witness_utxo/non_witness_utxo); não dá para revisar valor, taxa e script.');
     return prev;
   }
 
@@ -3676,38 +3677,38 @@ var BTC = (function () {
     for (var i = 0; i < tx.inputs.length; i++) {
       var map = psbt.inputs[i];
       if (inputSigned(map)) signedInputs++;
-      var prev = prevoutOf(map, tx.inputs[i]);
+      var prev = prevoutOf(map, tx.inputs[i], i);
       var kind = normalizeKind(scriptKind(prev.script));
-      if (kind === 'p2wsh') throw new Error('entrada ' + i + ' é P2WSH, não suportada');
-      if (kind === 'outro' || kind === 'witness') throw new Error('entrada ' + i + ' tem script não suportado');
-      if (mapFind(map, 0x05)) throw new Error('entrada ' + i + ' tem witness_script, não suportada');
+      if (kind === 'p2wsh') throw new Error('entrada ' + i + ': P2WSH não suportado; o cofre assina p2pkh, p2sh-p2wpkh, p2wpkh e p2tr key path.');
+      if (kind === 'outro' || kind === 'witness') throw new Error('entrada ' + i + ': script não suportado; use p2pkh, p2sh-p2wpkh, p2wpkh ou p2tr key path.');
+      if (mapFind(map, 0x05)) throw new Error('entrada ' + i + ': witness_script (P2WSH/multisig) não suportado.');
       if (mapFind(map, 0x14) || mapFind(map, 0x15) || mapFind(map, 0x18)) {
-        throw new Error('entrada ' + i + ' tem dados de script no Taproot, não suportados');
+        throw new Error('entrada ' + i + ': Taproot com script path não suportado; o cofre só assina key path.');
       }
       if (mapFind(map, 0x11) || mapFind(map, 0x12)) {
-        throw new Error('entrada ' + i + ' exige time lock; este signer não confere travas de tempo');
+        throw new Error('entrada ' + i + ': time lock exigido pelo PSBT não suportado; o cofre não confere travas de tempo.');
       }
       var key = await findKeyForScript(session, prev.script, map);
       if (!key) {
         /* PSBT assinado pode chegar sem a origem (o finalizador do BIP174
            limpa o caminho); ele é só exibido, nunca assinado. Sem assinatura,
            a entrada precisa pertencer a esta chave. */
-        if (!anySigned) throw new Error('o psbt não pertence a esta chave');
+        if (!anySigned) throw new Error('entrada ' + i + ': sem origem BIP32 de uma chave do cofre; inclua o caminho de derivação no PSBT.');
       } else if (bytesToHex(scriptForKind(key.kind, key.Q)) !== bytesToHex(prev.script)) {
-        throw new Error('entrada ' + i + ': chave derivada não corresponde ao script');
+        throw new Error('entrada ' + i + ': a origem BIP32 deriva uma chave que não corresponde ao script; PSBT inconsistente.');
       }
       if (tx.inputs[i].scriptSig && tx.inputs[i].scriptSig.length) {
-        throw new Error('entrada ' + i + ' já tem scriptSig na transação não assinada');
+        throw new Error('entrada ' + i + ': a transação não assinada já tem scriptSig; PSBT v0 exige scriptSig vazio.');
       }
       var sigTypeField = mapFind(map, 0x03);
       var hashType = sigTypeField ? readLE32(sigTypeField.value, 0) : (kind === 'p2tr' ? 0x00 : 0x01);
       if (!anySigned) {
         if (kind === 'p2tr') {
           if (hashType !== 0x00) {
-            throw new Error('entrada ' + i + ': Taproot com tipo de assinatura ' + hashType + '; o PSBT deve vir do projeto principal (SIGHASH padrão)');
+            throw new Error('entrada ' + i + ': SIGHASH ' + hashType + ' no Taproot; o cofre só assina SIGHASH_DEFAULT (0x00).');
           }
         } else if (hashType !== 0x01) {
-          throw new Error('entrada ' + i + ': tipo de assinatura ' + hashType + '; o PSBT deve vir do projeto principal (SIGHASH_ALL)');
+          throw new Error('entrada ' + i + ': SIGHASH ' + hashType + '; o cofre só assina SIGHASH_ALL (0x01) fora do Taproot.');
         }
       }
       totalIn += prev.value;
@@ -3735,7 +3736,7 @@ var BTC = (function () {
         path: own ? pathText(own.indices) : ''
       });
     }
-    if (totalIn < totalOut) throw new Error('as saídas somam mais que as entradas');
+    if (totalIn < totalOut) throw new Error('saídas somam mais que as entradas; a taxa seria negativa. PSBT inconsistente.');
     var fee = totalIn - totalOut;
     var vsize = estimateVsize(inputs.map(function (x) { return x.kind; }), tx.outputs.map(function (x) { return x.script; }));
     var feerate = vsize > 0 ? Number(fee) / vsize : 0;
@@ -3747,20 +3748,20 @@ var BTC = (function () {
        anterior inteira e conferimos o txid em prevoutOf. */
     inputs.forEach(function (inp) {
       if (inp.kind === 'p2pkh' && !mapFind(psbt.inputs[inp.index], 0x00)) {
-        throw new Error('entrada ' + inp.index + ' é p2pkh e veio sem non_witness_utxo; o valor da entrada não pode ser conferido');
+        throw new Error('entrada ' + inp.index + ': p2pkh exige non_witness_utxo; sem ele o valor não pode ser conferido.');
       }
       /* No segwit o valor entra no sighash: com só witness_utxo, o
          coordenador pode mentir sobre o valor e a taxa exibida não é
          conferível. A assinatura resultante seria recusada na rede. */
       if (inp.kind !== 'p2pkh' && !mapFind(psbt.inputs[inp.index], 0x00)) {
-        warnings.push('a <b>entrada</b> ' + inp.index + ' é segwit e veio sem <code>non_witness_utxo</code>; o valor da entrada não pode ser conferido.');
+        warnings.push('a <b>entrada</b> ' + inp.index + ': segwit sem <code>non_witness_utxo</code>; o valor mostrado vem do <code>witness_utxo</code> e não pode ser conferido.');
       }
     });
     outputs.forEach(function (out) {
-      if (out.own === 'outro') warnings.push('a <b>saída</b> ' + out.index + ' tem script não padronizado; confira no coordenador.');
+      if (out.own === 'outro') warnings.push('a <b>saída</b> ' + out.index + ': script não padronizado; confira o destino no coordenador.');
     });
-    if (tx.inputs.length === 0) throw new Error('a transação não tem entradas');
-    if (tx.outputs.length === 0) throw new Error('a transação não tem saídas');
+    if (tx.inputs.length === 0) throw new Error('PSBT sem entradas; não há o que assinar.');
+    if (tx.outputs.length === 0) throw new Error('PSBT sem saídas; não há para onde enviar.');
     return {
       psbt: psbt, tx: tx, session: session,
       inputs: inputs, outputs: outputs,
@@ -3778,20 +3779,20 @@ var BTC = (function () {
   /* ------------------------------------------------ assinatura do PSBT */
   async function signPsbt(bytes, hd, auxRand) {
     var a = await analyzePsbt(bytes, hd);
-    if (a.alreadySigned) throw new Error('este PSBT já tem assinatura');
+    if (a.alreadySigned) throw new Error('este PSBT já tem assinatura (parcial ou final); o cofre só assina PSBT sem assinatura.');
     var psbt = a.psbt, tx = a.tx;
     a.inputs.forEach(function (inp) {
       var map = psbt.inputs[inp.index];
       var sigType = mapFind(map, 0x03);
       var hashType = sigType ? readLE32(sigType.value, 0) : (inp.kind === 'p2tr' ? 0x00 : 0x01);
       if (inp.kind === 'p2tr') {
-        if (hashType !== 0x00 && hashType !== 0x01) throw new Error('entrada ' + inp.index + ': hash type taproot não suportado');
+        if (hashType !== 0x00 && hashType !== 0x01) throw new Error('entrada ' + inp.index + ': SIGHASH ' + hashType + ' no Taproot; use SIGHASH_DEFAULT (0x00).');
         var prevouts = a.inputs.map(function (x) { return { value: x.value, script: x.script }; });
         var digest = sighashTaproot(tx, inp.index, prevouts, hashType);
         var tweaked = tweakPrivate(inp.key.d, null);
         var check = taprootOutputKey(pad32(inp.key.Q.x));
         if (bytesToHex(check) !== bytesToHex(inp.script.subarray(2))) {
-          throw new Error('entrada ' + inp.index + ': a chave ajustada não é a do script');
+          throw new Error('entrada ' + inp.index + ': a chave derivada não corresponde à saída Taproot; PSBT inconsistente.');
         }
         var ssig = bip340Sign(tweaked, digest, auxRand);
         mapSet(map, 0x13, new Uint8Array(0), hashType === 0x00 ? ssig : concatBytes(ssig, new Uint8Array([hashType])));
@@ -3801,14 +3802,14 @@ var BTC = (function () {
         mapSet(map, 0x07, new Uint8Array(0), new Uint8Array(0));
         mapSet(map, 0x08, new Uint8Array(0), concatBytes(writeVarInt(1), writeVarInt(ssig.length), ssig));
       } else {
-        if (hashType !== 0x01) throw new Error('entrada ' + inp.index + ': só SIGHASH_ALL é suportado');
+        if (hashType !== 0x01) throw new Error('entrada ' + inp.index + ': SIGHASH ' + hashType + '; o cofre só assina SIGHASH_ALL (0x01) fora do Taproot.');
         var code = inp.kind === 'p2pkh' ? inp.script : p2pkhScript(inp.key.pub);
         var dg = inp.kind === 'p2pkh'
           ? sighashLegacy(tx, inp.index, code, hashType)
           : sighashV0(tx, inp.index, code, inp.value, hashType);
         var sig = signDigest(inp.key.d, dg);
         if (!verifyDigest(inp.key.Q, dg, sig.r, sig.s)) {
-          throw new Error('entrada ' + inp.index + ': a assinatura ECDSA não verificou');
+          throw new Error('entrada ' + inp.index + ': falha interna ao verificar a assinatura; nenhum arquivo foi gerado.');
         }
         var sigWithType = concatBytes(sig.der, new Uint8Array([hashType]));
         mapSet(map, 0x02, inp.key.pub, sigWithType);
@@ -3849,33 +3850,33 @@ var BTC = (function () {
      txid, e confere o hex contra o próprio leitor. */
   function psbtFinalTx(psbt) {
     var tx = psbt && psbt.tx;
-    if (!tx) throw new Error('PSBT sem a transação não assinada');
-    if (!tx.inputs.length) throw new Error('a transação não tem entradas');
-    if (!tx.outputs.length) throw new Error('a transação não tem saídas');
+    if (!tx) throw new Error('PSBT sem a transação não assinada; arquivo incompleto.');
+    if (!tx.inputs.length) throw new Error('PSBT sem entradas; não há o que assinar.');
+    if (!tx.outputs.length) throw new Error('PSBT sem saídas; não há para onde enviar.');
     var finalInputs = [], witnesses = [];
     for (var i = 0; i < tx.inputs.length; i++) {
       if (tx.inputs[i].scriptSig && tx.inputs[i].scriptSig.length) {
-        throw new Error('entrada ' + i + ' já tem scriptSig na transação não assinada');
+        throw new Error('entrada ' + i + ': a transação não assinada já tem scriptSig; PSBT v0 exige scriptSig vazio.');
       }
       var map = psbt.inputs[i];
       var fs = mapFind(map, 0x07);
       var fw = mapFind(map, 0x08);
-      if (!fs && !fw) throw new Error('entrada ' + i + ' não está finalizada');
-      var prev = prevoutOf(map, tx.inputs[i]);
+      if (!fs && !fw) throw new Error('entrada ' + i + ': não está finalizada; o PSBT precisa dos campos finais para gerar a transação.');
+      var prev = prevoutOf(map, tx.inputs[i], i);
       var kind = normalizeKind(scriptKind(prev.script));
       var scriptSig = fs ? fs.value : new Uint8Array(0);
-      var stack = fw ? readWitness(fw.value) : [];
+      var stack = fw ? readWitness(fw.value, 'entrada ' + i) : [];
       /* O formato final depende do tipo: p2pkh no scriptSig, p2sh-p2wpkh nos
          dois, p2wpkh/p2tr só no witness. Um witness em entrada não-segwit
          invalida a transação; um p2wpkh sem witness não está finalizado. */
       if (kind === 'p2pkh') {
-        if (!scriptSig.length || stack.length) throw new Error('entrada ' + i + ' p2pkh não está finalizada como esperado');
+        if (!scriptSig.length || stack.length) throw new Error('entrada ' + i + ': p2pkh não está finalizada como esperado.');
       } else if (kind === 'p2sh-p2wpkh') {
-        if (!scriptSig.length || !stack.length) throw new Error('entrada ' + i + ' p2sh-p2wpkh não está finalizada como esperado');
+        if (!scriptSig.length || !stack.length) throw new Error('entrada ' + i + ': p2sh-p2wpkh não está finalizada como esperado.');
       } else if (kind === 'p2wpkh' || kind === 'p2tr') {
-        if (scriptSig.length || !stack.length) throw new Error('entrada ' + i + ' ' + kind + ' não está finalizada como esperado');
+        if (scriptSig.length || !stack.length) throw new Error('entrada ' + i + ': ' + kind + ' não está finalizada como esperado.');
       } else {
-        throw new Error('entrada ' + i + ' tem script não suportado');
+        throw new Error('entrada ' + i + ': script não suportado; use p2pkh, p2sh-p2wpkh, p2wpkh ou p2tr key path.');
       }
       finalInputs.push({
         txid: tx.inputs[i].txid, vout: tx.inputs[i].vout,
@@ -3893,14 +3894,14 @@ var BTC = (function () {
     var parsed = readTx(bytes);
     return { tx: parsed, hex: bytesToHex(bytes), txid: txidOf(parsed), vsize: vsizeOf(parsed) };
   }
-  function readWitness(bytes) {
+  function readWitness(bytes, label) {
     var p = 0, out = [];
     var count = readVarInt(bytes, p); p += count.size;
     for (var i = 0; i < count.value; i++) {
       var len = readVarInt(bytes, p); p += len.size;
       out.push(bytes.subarray(p, p + len.value)); p += len.value;
     }
-    if (p !== bytes.length) throw new Error('witness final truncado');
+    if (p !== bytes.length) throw new Error((label ? label + ': ' : '') + 'final_scriptWitness truncado ou malformado.');
     return out;
   }
 
@@ -4004,6 +4005,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (kind === 'erro') el.classList.add('error');
     if (kind === 'aviso') el.classList.add('warning');
     el.textContent = text ? PREFIX[kind] + ' ' + text : '';
+  }
+
+  /* As mensagens de erro nunca levam bits, seed, xprv, coordenadas, PSBT
+     bruto, assinatura, endereço ou valor. Só índice de entrada, tipo de
+     script, SIGHASH e nome de campo. Só as mensagens conhecidas abaixo
+     chegam à tela; o resto vira uma mensagem genérica. */
+  var USER_ERROR = /^(entrada |PSBT |SIGHASH |este PSBT|a transação|o PSBT|o arquivo|o conteúdo|saídas |script do tipo |não foi possível decodificar|conta )/;
+  function userError(e, fallback) {
+    var msg = e && e.message ? e.message : '';
+    if (USER_ERROR.test(msg)) return msg;
+    console.error('cofre: erro interno (' + (e && e.name ? e.name : 'Error') + ')');
+    return fallback;
   }
 
   /* ---------------------------------------------- entrada por jogadas */
@@ -4582,7 +4595,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     } catch (e) {
       if (seq === deriveSeq) {
         clearKey();
-        setStatus(coinStatus, 'erro', e.message || 'não foi possível derivar a chave');
+        var msg = e && e.message ? e.message : '';
+        if (msg === 'Web Crypto indisponível') {
+          setStatus(coinStatus, 'erro', 'este navegador não oferece Web Crypto; use um navegador atualizado.');
+        } else if (/^são necessários exatamente 256 bits/.test(msg)) {
+          setStatus(coinStatus, 'erro', 'a entropia tem ' + bits.length + ' bits; são necessários exatamente 256.');
+        } else {
+          console.error('cofre: erro interno na derivação (' + (e && e.name ? e.name : 'Error') + ')');
+          setStatus(coinStatus, 'erro', 'não foi possível derivar a chave; recarregue a página e tente de novo.');
+        }
       }
     }
   }
@@ -4768,7 +4789,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (psbtSepSign) psbtSepSign.hidden = true;
     if (signOut) signOut.hidden = true;
     if (!state.hd) {
-      setStatus(signStatus, 'erro', 'complete as 256 jogadas antes de analisar o psbt.');
+      setStatus(signStatus, 'erro', 'complete as 256 jogadas antes de importar ou analisar um PSBT.');
       return;
     }
     var text = psbtText.trim();
@@ -4799,13 +4820,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         signBtn.disabled = true;
         signBtn.hidden = true;
         psbtSepSign.hidden = true;
-        setStatus(signStatus, 'aviso', 'este PSBT já tem assinatura.');
+        setStatus(signStatus, 'aviso', 'este PSBT já tem assinatura; ele só pode ser exibido.');
       } else {
         signBtn.disabled = false;
         signBtn.hidden = false;
         psbtSepSign.hidden = false;
         if (a.warnings.length) {
-          setStatus(signStatus, 'aviso', 'psbt analisado; revise os avisos antes de assinar.');
+          setStatus(signStatus, 'aviso', 'PSBT analisado; revise os avisos antes de assinar.');
         } else {
           setStatus(signStatus, 'neutro', '');
         }
@@ -4820,7 +4841,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
          descartado, o motivo permanece no aviso e o "importar psbt" volta ao
          lugar do "cancelar". */
       discardPsbt();
-      setStatus(signStatus, 'erro', e.message + '.');
+      setStatus(signStatus, 'erro', userError(e, 'não foi possível analisar o PSBT; recarregue a página e tente de novo.'));
     }
   }
   var analyzeTimer = 0;
@@ -4830,7 +4851,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     analyzeTimer = 0;
     if (!psbtText.trim()) return;
     if (!state.hd) {
-      setStatus(signStatus, 'erro', 'complete as 256 jogadas antes de analisar o psbt.');
+      setStatus(signStatus, 'erro', 'complete as 256 jogadas antes de importar ou analisar um PSBT.');
       return;
     }
     setStatus(signStatus, 'neutro', 'analisando...');
@@ -4866,7 +4887,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         scheduleAnalyze();
       };
       reader.onerror = function () {
-        setStatus(signStatus, 'erro', 'não foi possível ler o arquivo.');
+        setStatus(signStatus, 'erro', 'não foi possível ler o arquivo; escolha um .psbt válido.');
       };
       reader.readAsText(file);
     });
@@ -4905,7 +4926,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         requestAnimationFrame(updateScrollState);
       } catch (e) {
         clearSignature();
-        setStatus(signStatus, 'erro', e.message + '.');
+        setStatus(signStatus, 'erro', userError(e, 'não foi possível assinar; nenhum arquivo foi gerado. Recarregue a página e tente de novo.'));
       } finally {
         signBtn.disabled = false;
       }

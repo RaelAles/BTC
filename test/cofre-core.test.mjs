@@ -204,7 +204,7 @@ console.log('ok   PSBTs p2pkh, p2sh-p2wpkh, p2wpkh e p2tr assinados igual ao btc
   const psbt = C.parsePsbt(p2trBytes);
   psbt.inputs[0].push({ key: new Uint8Array([0x03]), value: new Uint8Array([1, 0, 0, 0]) });
   await assert.rejects(C.analyzePsbt(C.writePsbt(psbt), ehd),
-    /projeto principal/);
+    /SIGHASH_DEFAULT/);
   console.log('ok   Taproot com SIGHASH_ALL sem assinatura recusado');
 }
 
