@@ -174,8 +174,11 @@ async function fixture({ acct = account, hd: signer = hd, xpub = hd.accounts.bip
   assert.match(foreign.j.error, /não pertence a esta carteira/);
   assert.equal(f.fake.broadcasts.length, 0, 'nada foi transmitido nas recusas');
 
-  /* witness_utxo adulterado: o valor declarado não bate com a carteira */
+  /* witness_utxo adulterado: o valor declarado não bate com a carteira.
+     O non_witness_utxo sai para a conferência interna do PSBT não pegar
+     antes — aqui o que se testa é a comparação com o UTXO da carteira. */
   const psbt = BTC.parsePsbt(BTC.psbtParseInput(f.signed.psbtBase64));
+  psbt.inputs[0] = psbt.inputs[0].filter(e => e.key[0] !== 0x00);
   const wu = mapFind(psbt.inputs[0], 0x01);
   const prev = BTC.readTxOut(wu.value, 0);
   wu.value = BTC.concatBytes(le64(prev.value + 1n), BTC.writeVarInt(prev.script.length), prev.script);

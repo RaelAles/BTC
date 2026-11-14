@@ -174,6 +174,14 @@ function mapFind(map, type) {
   const psbt = BTC.parsePsbt(bytes);
   assert.equal(psbt.tx.inputs.length, 2);
   assert.equal(psbt.tx.outputs[1].value, BigInt(j.change.value));
+  /* toda entrada leva a transação anterior inteira: é o que permite ao
+     assinador conferir o valor da entrada e a taxa, inclusive no segwit */
+  for (let i = 0; i < psbt.inputs.length; i++) {
+    const nwu = mapFind(psbt.inputs[i], 0x00);
+    assert.ok(nwu, 'entrada segwit leva non_witness_utxo');
+    assert.equal(BTC.txidOf(BTC.readTx(nwu.value)), psbt.tx.inputs[i].txid,
+      'non_witness_utxo corresponde ao txid da entrada');
+  }
   /* a origem leva a impressão digital da conta (o que a xpub permite) */
   const fp = BTC.bytesToHex(BTC.hash160(account.pub)).slice(0, 8);
   const deriv = mapFind(psbt.inputs[0], 0x06);

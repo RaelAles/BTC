@@ -171,8 +171,10 @@ blockchain.info, nem chave privada em lugar nenhum.
   endereço de troco e monta um **PSBT v0** sem assinatura. Cada entrada leva
   `witness_utxo` e a origem BIP32; a saída de troco e o destino da própria
   carteira também levam a origem na saída, para o assinador reconhecê-los sem
-  varrer as contas. p2pkh leva também o `non_witness_utxo` e p2sh-p2wpkh leva
-  o `redeem_script`. O pó (abaixo de 0.00000546 BTC) não vira
+  varrer as contas. Toda entrada leva também o `non_witness_utxo` (a
+  transação anterior inteira), obrigatório no p2pkh, para o assinador
+  conferir o valor; p2sh-p2wpkh leva o `redeem_script`. O pó (abaixo de
+  0.00000546 BTC) não vira
   saída de troco: é somado à taxa, e a resposta separa esse resto
   (`dust_sats`) da tarifa (`fee_sats_at_rate`) para a tela explicar a
   diferença.
@@ -680,8 +682,9 @@ chave para assinar); saída sem origem válida é externa.
 Cada entrada traz `pending: true` quando é troco de uma transação ainda no
 mempool (gasto encadeado): a transação nova confirma depois — e junto — da
 anterior. O PSBT carrega `witness_utxo` e a origem BIP32 (`bip32_derivation` ou
-`tap_bip32_derivation`) em cada entrada; p2pkh carrega `non_witness_utxo`
-(a transação anterior inteira) e p2sh-p2wpkh carrega o `redeem_script`. A
+`tap_bip32_derivation`) em cada entrada; toda entrada carrega
+`non_witness_utxo` (a transação anterior inteira; obrigatório no p2pkh) e
+p2sh-p2wpkh carrega o `redeem_script`. A
 origem usa a **impressão digital da conta**, e não a da raiz: com só a xpub,
 é o máximo que o lado watch-only conhece. O caminho é completo
 (`m/84'/0'/0'/0/120`) e o `chave-btc.html` confere a conta, deriva o caminho,
@@ -888,7 +891,8 @@ escolha de entradas para cobrir o valor, troco no próximo índice `/1`, o
 limite `max_send_sats` (incluindo o envio no máximo, sem troco) e o preview
 com valor (taxa e troco iguais aos do PSBT, e as cotas dos níveis para o
 seletor), PSBT v0 com
-origem da conta, `non_witness_utxo` no p2pkh, `tap_bip32_derivation` no
+origem da conta, `non_witness_utxo` em todas as entradas (obrigatório no
+p2pkh), `tap_bip32_derivation` no
 taproot, o destino próprio no índice 30 reconhecido pela origem da saída, sem
 varredura, a saída sem origem — mesmo no índice 1 — tratada como externa e a
 entrada sem origem recusada; recusa de endereço/taxa/saldo inválidos, e a

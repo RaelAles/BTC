@@ -183,7 +183,8 @@ export function sendLimits({ utxos, address, feeRate, amountSats, changeScript, 
 
 /* Monta o PSBT. `utxos` vem do scanner com a linha de origem já anexada;
    `changeRow` é o próximo endereço livre do ramo de troco; `rawTxFor` devolve
-   a transação anterior crua (só o p2pkh precisa dela). `ownScripts` é o mapa
+   a transação anterior crua, que toda entrada leva como `non_witness_utxo`
+   para o assinante conferir o valor (no p2pkh ela é obrigatória). `ownScripts` é o mapa
    de scripts derivados da xpub (`script -> linha`): é o que distingue um
    destino externo de um recebimento para a própria carteira e fornece a
    origem BIP32 quando o destino também é nosso. */
@@ -213,11 +214,13 @@ export async function preparePsbt({
   const inputs = [];
   for (const utxo of pick.selected) {
     const origin = utxoInput(utxo, fingerprint);
-    if (utxo.row.kind === 'p2pkh') {
+    if (utxo.row.kind === 'p2pkh' || rawTxFor) {
       if (!rawTxFor) throw new Error('entrada p2pkh sem acesso à transação anterior');
       const raw = await rawTxFor(utxo.txid);
-      if (!raw) throw new Error('transação anterior da entrada ' + utxo.txid + ' não encontrada');
-      origin.rawTx = raw;
+      if (raw) origin.rawTx = raw;
+      else if (utxo.row.kind === 'p2pkh') {
+        throw new Error('transação anterior da entrada ' + utxo.txid + ' não encontrada');
+      }
     }
     inputs.push(origin);
   }

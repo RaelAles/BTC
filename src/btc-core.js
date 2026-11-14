@@ -1074,10 +1074,11 @@ var BTC = (function () {
                       fingerprint } }]
 
      Cada entrada leva witness_utxo e a origem BIP32 (bip32/tap_bip32) para
-     o assinante achar a chave sem varrer a carteira. O p2pkh leva também o
-     non_witness_utxo, porque sem ele o valor da entrada não pode ser
-     conferido; o p2sh-p2wpkh leva o redeem_script. A saída de troco leva a
-     origem da conta para o assinante reconhecê-la como interna. */
+     o assinante achar a chave sem varrer a carteira. Toda entrada com rawTx
+     leva também o non_witness_utxo, para o assinante conferir o valor contra
+     a transação anterior; no p2pkh ele é obrigatório. O p2sh-p2wpkh leva o
+     redeem_script. A saída de troco leva a origem da conta para o assinante
+     reconhecê-la como interna. */
   function buildPsbt(spec) {
     var inputs = spec.inputs || [];
     var outputs = spec.outputs || [];
@@ -1106,10 +1107,10 @@ var BTC = (function () {
       var kind = normalizeKind(inp.kind || scriptKind(inp.script));
       var map = [];
       var witnessUtxo = concatBytes(le64(BigInt(inp.value)), writeVarInt(inp.script.length), inp.script);
-      if (kind === 'p2pkh') {
-        if (!inp.rawTx) throw new Error('entrada p2pkh sem a transação anterior (non_witness_utxo)');
-        map.push({ key: new Uint8Array([0x00]), value: inp.rawTx });
+      if (kind === 'p2pkh' && !inp.rawTx) {
+        throw new Error('entrada p2pkh sem a transação anterior (non_witness_utxo)');
       }
+      if (inp.rawTx) map.push({ key: new Uint8Array([0x00]), value: inp.rawTx });
       map.push({ key: new Uint8Array([0x01]), value: witnessUtxo });
       if (kind === 'p2sh-p2wpkh') {
         map.push({ key: new Uint8Array([0x04]), value: p2wpkhScript(inp.pub) });
