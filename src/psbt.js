@@ -2,7 +2,7 @@
 
    O lado watch-only só tem a xpub: escolhe UTXOs, calcula a taxa pela vsize
    estimada, deriva o troco e escreve o PSBT com a origem BIP32 de cada
-   entrada. A chave privada nunca chega aqui; quem assina é o projeto 1
+   entrada. A chave privada nunca chega aqui; quem assina é o Cofre BTC
    (cofre-btc.html), offline.
 
    A origem leva a impressão digital da CONTA, e não a da raiz: é o máximo

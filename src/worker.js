@@ -7,7 +7,7 @@ import { broadcastSignedPsbt, previewSignedPsbt, MAX_PSBT_TEXT } from './broadca
 import { WalletWatcher } from './watcher.js';
 import BTC from './btc-core.js';
 
-/* Projeto 2 — rotas HTTP.
+/* Monitor BTC — rotas HTTP.
 
    `POST /api/wallet`  → estado da carteira (saldo, endereços usados).
                          Com o binding WATCH, quem faz o trabalho é o
@@ -16,7 +16,7 @@ import BTC from './btc-core.js';
                          é avulsa (dev/testes).
    `POST /api/psbt`    → monta o PSBT de envio (sem assinatura) com os UTXOs
                          da carteira e a taxa escolhida. A chave privada
-                         não passa por aqui; quem assina é o projeto 1.
+                         não passa por aqui; quem assina é o Cofre BTC.
    `POST /api/broadcast` → confere o PSBT assinado contra a carteira e
                          (sem `preview`) publica a transação final no
                          Electrum. Só transmite o que gasta entradas desta
@@ -202,7 +202,7 @@ async function handlePsbt(request, env) {
   }
 }
 
-/* O PSBT assinado vem do projeto 1. A xpub é exigida porque a conferência
+/* O PSBT assinado vem do Cofre BTC. A xpub é exigida porque a conferência
    cruza cada entrada com os scripts/UTXOs da carteira; sem ela não há como
    dizer que a transação é sua. Com sessão, o DO reaproveita a conexão e, ao
    transmitir, as assinaturas já avisam a tela do estado novo. */
@@ -298,7 +298,7 @@ async function route(request, env) {
       const cfg = electrumConfig(env);
       return json({
         ok: true,
-        service: 'projeto-2-electrum',
+        service: 'monitor-btc-electrum',
         source: 'electrum',
         storage: 'nenhum',
         realtime: !!env.WATCH,

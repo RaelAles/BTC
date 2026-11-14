@@ -329,7 +329,7 @@ export class WalletScanner {
   }
 
   /* Monta o PSBT de envio com os UTXOs desta sessão. A transação não é
-     assinada nem enviada; o resultado é o arquivo para o projeto 1. */
+     assinada nem enviada; o resultado é o arquivo para o Cofre BTC. */
   prepareUtxos() {
     return this.utxos
       .map(u => ({ ...u, row: this.byScript.get(u.script) }))

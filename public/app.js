@@ -1,4 +1,4 @@
-/* Projeto 2 — Worker + Durable Object, fonte única Electrum.
+/* Monitor BTC — Worker + Durable Object, fonte única Electrum.
    O navegador não deriva nem consulta saldo: só manda a chave estendida
    pública (xpub, zpub ou ypub) e mostra o
    estado que o Worker devolve. A xpub é a credencial; não há senha. Nada
@@ -582,7 +582,7 @@
     }
     root.dataset.theme = t;
     if (!(opts && opts.save === false)) {
-      try { localStorage.setItem('projeto2-fase1-theme', t); } catch (e) {}
+      try { localStorage.setItem('monitor-btc-theme', t); } catch (e) {}
     }
     var b = $('#theme-toggle');
     if (b) {
@@ -1717,7 +1717,7 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 0);
   }
 
-  /* ------------------------------ transmitir o psbt assinado (projeto 1) */
+  /* ------------------------------ transmitir o psbt assinado (Cofre BTC) */
   /* O arquivo volta do cofre-btc.html assinado. Escolher o arquivo NÃO
      transmite: o servidor confere o PSBT contra esta carteira (entrada que
      não é sua, valor inventado, entrada não finalizada, taxa fora do padrão)
@@ -2428,7 +2428,7 @@
     markLanguage();
     var themeParam = themeFromUrl();
     var savedTheme = 'dark';
-    try { savedTheme = localStorage.getItem('projeto2-fase1-theme') || 'dark'; } catch (e) {}
+    try { savedTheme = localStorage.getItem('monitor-btc-theme') || 'dark'; } catch (e) {}
     setTheme(themeParam || savedTheme, { immediate: true, save: !themeParam });
 
     noticeWire($('#status'));

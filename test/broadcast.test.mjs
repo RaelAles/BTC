@@ -1,5 +1,5 @@
-/* Teste da transmissão: o PSBT assinado no núcleo do projeto 1 volta para o
-   projeto 2, é conferido contra a carteira (entradas/saídas/taxa) e só então
+/* Teste da transmissão: o PSBT assinado no núcleo do Cofre BTC volta para o
+   Monitor BTC, é conferido contra a carteira (entradas/saídas/taxa) e só então
    publicado pelo Electrum. Sem rede: servidor Electrum falso, que aceita
    `blockchain.transaction.broadcast` e guarda o hex recebido.
 

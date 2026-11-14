@@ -3404,7 +3404,7 @@ var BTC = (function () {
       if (num < 1 || num % 1 !== 0) continue;
       var idxs = [];
       for (j = 0; j < num; j++) idxs.push(readLE32(d.value, 4 + offset + j * 4));
-      /* O PSBT do projeto 2 carrega a impressão digital da CONTA (a única
+      /* O PSBT do Monitor BTC carrega a impressão digital da CONTA (a única
          chave que o lado watch-only tem), não a da raiz. O caminho continua
          sendo o completo; se a raiz não casar, confere a conta dos três
          primeiros níveis. A chave e o script são verificados abaixo, então

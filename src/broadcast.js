@@ -1,6 +1,6 @@
-/* Transmissão do PSBT assinado (fecha o ciclo do projeto 2).
+/* Transmissão do PSBT assinado (fecha o ciclo do Monitor BTC).
 
-   O cofre-btc.html (projeto 1) assina offline e devolve um PSBT v0 com todas
+   O Cofre BTC (cofre-btc.html) assina offline e devolve um PSBT v0 com todas
    as entradas finalizadas. Aqui ele é conferido contra a carteira watch-only
    antes de qualquer coisa sair para a rede:
 

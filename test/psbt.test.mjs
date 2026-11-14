@@ -1,7 +1,7 @@
 /* Teste do envio: taxa ao vivo, escolha de UTXO, PSBT sem assinatura e a
-   assinatura no núcleo do projeto 1 (btc-core). Sem rede: servidor Electrum
+   assinatura no núcleo do Cofre BTC (btc-core). Sem rede: servidor Electrum
    falso. A carteira é derivada dos 256 bits, então as chaves privadas do
-   teste são as mesmas que o projeto 1 usaria.
+   teste são as mesmas que o Cofre BTC usaria.
 
    node test/psbt.test.mjs */
 import assert from 'node:assert/strict';

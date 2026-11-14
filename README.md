@@ -1,4 +1,4 @@
-# Projeto 2 — xpub, saldo e endereços usados (Worker + Durable Object + Electrum)
+# Monitor BTC — xpub, saldo e endereços usados (Worker + Durable Object + Electrum)
 
 Carteira watch-only e **sem armazenamento**: você entrega a **xpub**, o Worker
 deriva os endereços públicos na hora e consulta um servidor **Electrum**. A
@@ -93,7 +93,7 @@ tela mostra:
    `cofre-btc.html`, que é a conferência que vale. Se a transação gastar
    troco pendente (gasto encadeado), o aviso lembra que ela confirma depois —
    e junto — da transação anterior.
-   Quem assina é o `cofre-btc.html` (projeto 1), offline; o projeto 2 nunca
+   Quem assina é o `cofre-btc.html` (Cofre BTC), offline; o Monitor BTC nunca
    vê chave privada.
 5. **transmitir** abaixo do envio: o botão **importar psbt** abre o seletor
    do PSBT assinado que volta do `cofre-btc.html`. Escolher o arquivo **não**
@@ -128,7 +128,7 @@ blockchain.info, nem chave privada em lugar nenhum.
 > **Layout do repositório.** A raiz é o projeto do Worker (é ela que o
 > Cloudflare publica): `wrangler.jsonc`, `src/`, `public/`, `test/`. Os
 > arquivos soltos na mesma raiz não entram no deploy: `cofre-btc.html` é o
-> projeto 1 (offline, assina PSBT), `projeto-2.html` é a UI standalone antiga
+> Cofre BTC (offline, assina PSBT), `projeto-2.html` é a UI standalone antiga
 > (consulta fontes públicas direto no navegador) e `teste-*.psbt` são
 > fixtures de teste. A página publicada é `public/index.html`.
 
@@ -415,7 +415,7 @@ src/
 public/
   index.html          UI ASCII (página publicada)
   app.js              cliente (xpub, carga automática, render, update a cada 30 s)
-  style.css           CSS do projeto 2
+  style.css           CSS do Monitor BTC
   fontes.css          fonte embutida (Liberation Mono)
   manifest.webmanifest / icon-*.png / apple-touch-icon.png / og-image.png
                       instalação, ícone de atalho e cartão de compartilhamento
@@ -819,19 +819,19 @@ o Electrum cai. Sessão sem xpub responde 409 (a tela reenvia a xpub em
 
 ### `GET /api/health`
 
-`{ "ok": true, "service": "projeto-2-electrum", "source": "electrum", "storage": "nenhum", "realtime": true, "electrum": [...] }`.
+`{ "ok": true, "service": "monitor-btc-electrum", "source": "electrum", "storage": "nenhum", "realtime": true, "electrum": [...] }`.
 
 ## Segurança
 
-- A xpub é watch-only. **Não coloque xprv aqui.** O projeto 1 permanece
+- A xpub é watch-only. **Não coloque xprv aqui.** O Cofre BTC permanece
   offline assinando o PSBT.
 - Use 2FA na conta Cloudflare; não logue a xpub. O Worker não grava a xpub,
   não a coloca em URL e não tem banco; mesmo assim, um comprometimento do
   Worker poderia mentir no display ou exfiltrar a chave que passou por ele
   enquanto a tela estava aberta.
-- O HTML/JS é servido pelo Cloudflare. O projeto 1 confere entradas, saídas e
+- O HTML/JS é servido pelo Cloudflare. O Cofre BTC confere entradas, saídas e
   taxa antes de assinar.
-- O PSBT de envio sai **sem assinatura**: o projeto 2 só monta a transação. O
+- O PSBT de envio sai **sem assinatura**: o Monitor BTC só monta a transação. O
   arquivo leva a origem BIP32 com a impressão digital da conta, o caminho
   completo, os UTXOs, o troco e, quando o destino é da própria carteira, o
   próprio destino; o `cofre-btc.html` confere conta, chave, script, saídas e
@@ -938,7 +938,7 @@ do Electrum com reconexão e reassinatura, o descarte de
 conexão/endereços/xpub quando a última tela fecha e a recarga (fechar e
 re-sincronizar no mesmo instante) sem apagar a sessão nova.
 
-O `psbt.test.mjs` deriva uma carteira dos 256 bits (a mesma do projeto 1),
+O `psbt.test.mjs` deriva uma carteira dos 256 bits (a mesma do Cofre BTC),
 serve UTXOs por um Electrum falso e verifica: taxa ao vivo nos quatro níveis
 (`sat/kvB` exato, `sat_per_vb` com casas e `floored` abaixo do piso de relay),
 escolha de entradas para cobrir o valor, troco no próximo índice `/1`, o

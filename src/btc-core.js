@@ -1,4 +1,4 @@
-/* Núcleo BTC extraído de projeto-2.html (sem DOM). */
+/* Núcleo BTC extraído da UI standalone antiga (projeto-2.html), sem DOM. */
 'use strict';
 /* Núcleo criptográfico independente: SHA-256, RIPEMD-160, HMAC, secp256k1,
    Base58Check, Bech32/Bech32m, ECDSA determinístico (RFC 6979). Sem DOM. */
@@ -1066,7 +1066,7 @@ var BTC = (function () {
     return concatBytes.apply(null, parts);
   }
 
-  /* PSBT v0 sem assinatura, pronto para o projeto 1.
+  /* PSBT v0 sem assinatura, pronto para o Cofre BTC.
 
      spec.inputs: [{ txid, vout, value, script (bytes), kind, pub (bytes),
                      path ("m/..."), fingerprint (hex), rawTx? (bytes) }]
@@ -1249,7 +1249,7 @@ var BTC = (function () {
       if (num < 1 || num % 1 !== 0) continue;
       var idxs = [];
       for (j = 0; j < num; j++) idxs.push(readLE32(d.value, 4 + offset + j * 4));
-      /* O PSBT do projeto 2 carrega a impressão digital da CONTA (a única
+      /* O PSBT do Monitor BTC carrega a impressão digital da CONTA (a única
          chave que o lado watch-only tem), não a da raiz. O caminho continua
          sendo o completo; se a raiz não casar, confere a conta dos três
          primeiros níveis. A chave e o script são verificados abaixo, então
