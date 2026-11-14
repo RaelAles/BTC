@@ -2345,7 +2345,7 @@
               <li><b>privadas</b> — quatro linhas, uma por conta: <b>bip86</b> mostra a chave estendida privada da conta <code>m/86'/0'/0'</code> (prefixo <code>xprv</code>), <b>bip84</b> a de <code>m/84'/0'/0'</code> (<code>zprv</code>), <b>bip49</b> a de <code>m/49'/0'/0'</code> (<code>yprv</code>) e <b>bip44</b> a de <code>m/44'/0'/0'</code> (<code>xprv</code>). São chaves de conta, não de endereço: delas saem os ramos de recebimento (<code>/0/*</code>) e de troco (<code>/1/*</code>). Essas linhas não têm botão de copiar; o conteúdo aparece inteiro para conferência. Sem chave, cada célula mostra <code>—</code>.</li>
               <li><b>públicas</b> — as mesmas quatro contas em chave estendida pública: <code>xpub</code> no BIP86 e no BIP44, <code>zpub</code> no BIP84 e <code>ypub</code> no BIP49. Cada linha tem <b>copiar</b>, e o botão vira <b>copiado</b> por alguns instantes. A pública é watch-only: não gasta, mas permite reconstruir os endereços e, com eles, consultar o histórico da conta — também merece cuidado. O BIP86 e o BIP44 compartilham o prefixo <code>xpub</code>; o que distingue é o tipo de conta, então, ao importar numa carteira, informe que a conta do BIP86 é Taproot. O <code>xpub</code> do BIP86 é o que uma carteira watch-only (como o projeto 2) usa para derivar os endereços de recebimento e de troco.</li>
               <li><b>importar psbt</b> — o anexo só responde depois que existe uma chave; com o arquivo carregado ele vira <b>cancelar</b>. O arquivo importado fica só na memória: a tela não repete o texto em base64/hex nem os metadados do arquivo (formato, tamanho ou contagem de entradas e saídas), porque não ajudam na conferência; da identificação do arquivo, só o nome aparece, na linha <b>arquivo</b> da revisão. Na mesma linha, <b>assinar</b> surge quando a revisão termina, depois dos avisos e ao lado do anexo ou do <b>cancelar</b>, desde que o PSBT ainda não tenha assinatura; se todas as entradas já estiverem assinadas, o botão não aparece e a linha de estado avisa; se só algumas tiverem assinatura, a revisão avisa que as existentes serão substituídas. Ao clicar em <b>assinar</b>, o .psbt é baixado assim que a assinatura termina, o botão sai e o <b>cancelar</b> vira <b>fechar</b>, que encerra a revisão do PSBT assinado (antes da assinatura, o mesmo botão descarta o arquivo importado). Abaixo dos botões, a linha de estado mostra <code>[ ... ]</code> enquanto analisa ou assina, <code>[ atenção ]</code> quando a revisão termina com avisos e <code>[ erro ]</code> com o motivo. A revisão sem avisos não escreve nada, exceto quando o PSBT já tem assinatura; a assinatura concluída também não escreve: a própria revisão passa a mostrar o resultado.</li>
-              <li><b>revisão</b> — aparece sozinha ao importar, numa tabela. O <b>resumo</b> traz um par <b>saída</b>/<b>destino</b> por pagamento e um par <b>troco</b>/<b>endereço</b> por troco, na ordem da transação; a taxa, o vsize estimado e o txid, e no fim a linha <b>arquivo</b>, com o nome do PSBT que está na tela. Nesse resumo, os valores levam sinal e cor: o que sai (<b>saída</b> e <b>taxa</b>) fica em <b>-</b> no tom do erro e o que volta (<b>troco</b>) em <b>+</b> no verde do sucesso. Depois, os <b>avisos</b> (taxa fora do comum, script não padronizado). O destino que não pertence a esta chave leva <code>[ externo ]</code> no fim do endereço, no tom do <code>[ atenção ]</code>. Leia antes de assinar.</li>
+              <li><b>revisão</b> — aparece sozinha ao importar, numa tabela. O <b>resumo</b> traz um par <b>saída</b>/<b>destino</b> por pagamento e um par <b>troco</b>/<b>endereço</b> por troco, na ordem da transação; a taxa, o vsize e o txid — estimados enquanto o PSBT não tem assinatura, extraídos da transação final quando ele já vem finalizado —, e no fim a linha <b>arquivo</b>, com o nome do PSBT que está na tela. Nesse resumo, os valores levam sinal e cor: o que sai (<b>saída</b> e <b>taxa</b>) fica em <b>-</b> no tom do erro e o que volta (<b>troco</b>) em <b>+</b> no verde do sucesso. Depois, os <b>avisos</b> (taxa fora do comum, script não padronizado). O destino que não pertence a esta chave leva <code>[ externo ]</code> no fim do endereço, no tom do <code>[ atenção ]</code>. Leia antes de assinar.</li>
               <li><b>psbt assinado</b> — o PSBT com as assinaturas é baixado assim que a assinatura termina, e a revisão passa a mostrar os dados extraídos do próprio arquivo gerado: o arquivo é relido e finalizado, daí saem o txid, o vsize real (não o estimado) e a taxa, com o nome do .psbt baixado na linha <b>arquivo</b>. O hex não aparece na tela: para publicar a transação, use o .psbt baixado em outro programa.</li>
               <li><b>rodapé</b> — <code>[ offline ] nada sai deste arquivo</code> resume a política da página; o botão redondo troca o tema.</li>
             </ul>
@@ -3932,7 +3932,7 @@ var BTC = (function () {
   /* ------------------------------------------------ assinatura do PSBT */
   async function signPsbt(bytes, hd, auxRand) {
     var a = await analyzePsbt(bytes, hd);
-    if (a.alreadySigned) throw new Error('este psbt já está assinado; não é preciso assinar de novo');
+    if (a.alreadySigned) throw new Error('este psbt já está assinado');
     var psbt = a.psbt, tx = a.tx;
     a.inputs.forEach(function (inp) {
       var map = psbt.inputs[inp.index];
@@ -4869,7 +4869,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       var a = await BTC.analyzePsbt(bytes, state.hd);
       if (seq !== analyzeSeq) return;
       state.analysis = { bytes: bytes, summary: a };
-      renderReview(a, psbtFileName, false);
+      /* Um PSBT já finalizado tem vsize e txid reais: saem da transação final,
+         e a revisão dispensa o "~" da estimativa. */
+      var review = a, finalSigned = false;
+      if (a.alreadySigned) {
+        try {
+          var fin = BTC.psbtFinalTx(a.psbt);
+          review = Object.assign({}, a, { vsize: fin.vsize, txid: fin.txid });
+          finalSigned = true;
+        } catch (e) {}
+      }
+      renderReview(review, psbtFileName, finalSigned);
       /* Revisão do arquivo importado, ainda sem assinatura: o botão cancela. */
       setClearLabel(false);
       signOut.hidden = false;
@@ -4877,7 +4887,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         signBtn.disabled = true;
         signBtn.hidden = true;
         psbtSepSign.hidden = true;
-        setStatus(signStatus, 'aviso', 'este psbt já está assinado; não é preciso assinar de novo.');
+        setStatus(signStatus, 'aviso', 'este psbt já está assinado.');
       } else {
         signBtn.disabled = false;
         signBtn.hidden = false;
