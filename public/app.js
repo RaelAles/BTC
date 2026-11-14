@@ -1694,7 +1694,7 @@
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = 'projeto2-' + String(state.psbt.txid || 'psbt').slice(0, 8) + '.psbt';
+    a.download = 'psbt-' + String(state.psbt.txid || 'psbt').slice(0, 8) + '.psbt';
     document.body.appendChild(a);
     a.click();
     a.remove();

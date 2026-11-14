@@ -4912,9 +4912,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       }
     });
   }
-  /* O nome do .psbt assinado vem do txid, o mesmo nome mostrado na linha
-     "arquivo" da revisão. */
+  /* O nome do .psbt assinado repete o nome do arquivo importado, com
+     "assinado-" na frente; é o mesmo nome mostrado na linha "arquivo" da
+     revisão. Sem nome (não deveria acontecer), cai no txid. */
   function signedFileName(txid) {
+    if (psbtFileName) return 'assinado-' + psbtFileName;
     return 'assinado-' + String(txid || 'psbt').slice(0, 8) + '.psbt';
   }
   /* O .psbt assinado sai assim que a assinatura termina, sem segundo clique:
