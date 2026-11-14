@@ -1637,7 +1637,7 @@
     min-height: 0;
   }
   .bits-actions { justify-content: center; }
-  /* Chaves no mesmo desenho dos binários: o rótulo (só o bip) no --dim à
+  /* Chaves no mesmo desenho das leituras: o rótulo (só o bip) no --dim à
      esquerda, o valor no --fg à direita, na mesma largura de 28rem do painel
      de jogadas, sem moldura nem fio entre as linhas. A coluna do rótulo
      cabe o maior rótulo das leituras ("endereço") mais o vão, então todas as
@@ -1770,11 +1770,10 @@
     font-size: var(--text-xs);
     text-align: center;
   }
-  /* Mnemonic e binários são saída das jogadas, não entrada: a frase de 24
-     palavras sempre visível, em 3 colunas de 8 linhas, na mesma largura do
-     painel, e os 256 bits com os 32 bytes em hex. A palavra longa quebra
-     dentro da coluna e o estado vazio usa o --dim, como o travessão das
-     chaves. */
+  /* O mnemonic é saída das jogadas, não entrada: a frase de 24 palavras fica
+     sempre visível, em 3 colunas de 8 linhas, na mesma largura do painel. A
+     palavra longa quebra dentro da coluna e o estado vazio usa o --dim, como
+     o travessão das chaves. */
   .entropy-block { margin-top: var(--space-9); }
   .mnemonic-words {
     display: grid;
@@ -4462,9 +4461,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       paintKey(cell, state.values ? state.values[id] : '');
     });
   }
-  /* Mnemonic e binários são saída das jogadas, não entrada: a frase de 24
-     palavras fica visível, e os 256 bits aparecem em binário. Sem os 256
-     bits, as 24 posições e a linha dos bits ficam no travessão, no tom do
+  /* O mnemonic é saída das jogadas, não entrada: a frase de 24 palavras fica
+     visível. Sem os 256 bits, as 24 posições ficam no travessão, no tom do
      estado vazio. */
   var mnemonicList = $('#mnemonic-words');
   (function buildMnemonic() {
