@@ -65,7 +65,7 @@ tela mostra:
    troco, em base64, e aparece só quando a montagem termina, disponível como
    arquivo no botão
    **baixar**, ao fim do bloco; a tela mostra os detalhes (saída,
-   destino, troco, endereço, pó, taxa, vsize, txid, rbf e agendado) na mesma tabela de
+   destino, troco, endereço, pó, taxa, txid, vsize, rbf e agendado) na mesma tabela de
    leitura do "receber", sem o base64 como campo. O destino que não pertence
    à carteira leva `[ externo ]` no fim do endereço, no tom do `[ atenção ]`;
    o destino de um endereço da própria carteira e o troco ficam sem marcador.
@@ -102,7 +102,7 @@ tela mostra:
    finalizadas) e só então aparecem o subtítulo **transmitir**, com o resumo
    no mesmo desenho do PSBT (um par saída/destino por pagamento — o destino
    externo leva `[ externo ]` — e um par troco/endereço por troco, taxa,
-   vsize, txid, rbf, agendado e, por último, o arquivo), e o botão
+   txid, vsize, rbf, agendado e, por último, o arquivo), e o botão
    **confirmar**; o botão do seletor some assim que o
    arquivo é escolhido e, se a conferência falhar, o arquivo é descartado
    com o motivo no lugar, e o seletor volta de imediato para a próxima
