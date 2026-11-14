@@ -34,7 +34,7 @@ export function electrumConfig(env) {
 export const SECURITY_HEADERS = {
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'Content-Security-Policy': [
-    "default-src 'self'",
+    "default-src 'none'",
     "script-src 'self' 'sha256-Lj2WKDYwirWpwwWlu/sg1rb/O+jVjFgt7nf3TTIjDa4='",
     "style-src 'self'",
     "img-src 'self' data:",
