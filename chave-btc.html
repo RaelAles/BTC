@@ -2352,7 +2352,7 @@
               <li><b>privadas</b> — quatro linhas, uma por conta: <b>bip86</b> mostra a chave estendida privada da conta <code>m/86'/0'/0'</code> (prefixo <code>xprv</code>), <b>bip84</b> a de <code>m/84'/0'/0'</code> (<code>zprv</code>), <b>bip49</b> a de <code>m/49'/0'/0'</code> (<code>yprv</code>) e <b>bip44</b> a de <code>m/44'/0'/0'</code> (<code>xprv</code>). São chaves de conta, não de endereço: delas saem os ramos de recebimento (<code>/0/*</code>) e de troco (<code>/1/*</code>). Essas linhas não têm botão de copiar; o conteúdo aparece inteiro para conferência. Sem chave, cada célula mostra <code>—</code>.</li>
               <li><b>públicas</b> — as mesmas quatro contas em chave estendida pública: <code>xpub</code> no BIP86 e no BIP44, <code>zpub</code> no BIP84 e <code>ypub</code> no BIP49. Cada linha tem <b>copiar</b>, e o botão vira <b>copiado</b> por alguns instantes. A pública é watch-only: não gasta, mas permite reconstruir os endereços e, com eles, consultar o histórico da conta — também merece cuidado. O BIP86 e o BIP44 compartilham o prefixo <code>xpub</code>; o que distingue é o tipo de conta, então, ao importar numa carteira, informe que a conta do BIP86 é Taproot. O <code>xpub</code> do BIP86 é o que uma carteira watch-only (como o projeto 2) usa para derivar os endereços de recebimento e de troco.</li>
               <li><b>importar psbt</b> — o anexo só responde depois que existe uma chave; com o arquivo carregado ele vira <b>cancelar</b>. Um PSBT de outra chave, ou um arquivo que a revisão não consegue ler, é recusado: o anexo volta a ser <b>importar psbt</b> e o motivo fica no aviso, sem carregar o arquivo. O arquivo importado fica só na memória: a tela não repete o texto em base64/hex nem os metadados do arquivo (formato, tamanho ou contagem de entradas e saídas), porque não ajudam na conferência; da identificação do arquivo, só o nome aparece, na linha <b>arquivo</b> da revisão. Na mesma linha, <b>assinar</b> surge quando a revisão termina, depois dos avisos e ao lado do anexo ou do <b>cancelar</b>, desde que o PSBT ainda não tenha assinatura; se todas as entradas já estiverem assinadas, o botão não aparece e a linha de estado avisa; se só algumas tiverem assinatura, a revisão avisa que as existentes serão substituídas. Ao clicar em <b>assinar</b>, o .psbt é baixado assim que a assinatura termina, o botão sai e o <b>cancelar</b> vira <b>fechar</b>, que encerra a revisão do PSBT assinado (antes da assinatura, o mesmo botão descarta o arquivo importado). Abaixo dos botões, a linha de estado mostra <code>[ ... ]</code> enquanto analisa ou assina, <code>[ atenção ]</code> quando a revisão termina com avisos e <code>[ erro ]</code> com o motivo. A revisão sem avisos não escreve nada, exceto quando o PSBT já tem assinatura; a assinatura concluída também não escreve: a própria revisão passa a mostrar o resultado.</li>
-              <li><b>revisão</b> — aparece sozinha ao importar, numa tabela. O <b>resumo</b> traz um par <b>saída</b>/<b>destino</b> por pagamento e um par <b>troco</b>/<b>endereço</b> por troco, na ordem da transação; a taxa, o vsize e o txid — estimados enquanto o PSBT não tem assinatura, extraídos da transação final quando ele já vem finalizado —, e no fim a linha <b>arquivo</b>, com o nome do PSBT que está na tela. Nesse resumo, os valores levam sinal e cor: o que sai (<b>saída</b> e <b>taxa</b>) fica em <b>-</b> no tom do erro e o que volta (<b>troco</b>) em <b>+</b> no verde do sucesso. Cada valor leva também, depois de um divisor <code>|</code> e em <code>--dim</code>, a fatia que representa da soma das entradas do PSBT — a base é o total que a transação gasta, e não o saldo da conta —, com as casas pelo tamanho (uma acima de 10%, duas acima de 1% e três abaixo; o que arredondaria para zero fica <code>&lt;0.001%</code>). Depois, os <b>avisos</b> (taxa fora do comum, script não padronizado). Entradas e saídas usam só a origem BIP32 que o PSBT declara, conferida contra o script real; não há varredura de contas. Sem origem válida, a entrada é recusada e a saída é externa. O destino que não pertence a esta chave leva <code>[ externo ]</code> no fim do endereço, no tom do <code>[ atenção ]</code>. Leia antes de assinar.</li>
+              <li><b>revisão</b> — aparece sozinha ao importar, numa tabela. O <b>resumo</b> traz um par <b>saída</b>/<b>destino</b> por pagamento e um par <b>troco</b>/<b>endereço</b> por troco, na ordem da transação; a taxa, o vsize e o txid — estimados enquanto o PSBT não tem assinatura, extraídos da transação final quando ele já vem finalizado —, e no fim a linha <b>arquivo</b>, com o nome do PSBT que está na tela. Nesse resumo, os valores levam sinal e cor: o que sai (<b>saída</b> e <b>taxa</b>) fica em <b>-</b> no tom do erro e o que volta (<b>troco</b>) em <b>+</b> no verde do sucesso. Cada valor leva também, depois de um divisor <code>|</code> e em <code>--dim</code>, a fatia que representa da soma das entradas do PSBT — a base é o total que a transação gasta, e não o saldo da conta —, com as casas pelo tamanho (uma acima de 10%, duas acima de 1% e três abaixo; o que arredondaria para zero fica <code>&lt;0.001%</code>). Depois, os <b>avisos</b> (taxa fora do comum, script não padronizado). Entradas e saídas usam só a origem BIP32 que o PSBT declara, conferida contra o script real; não há varredura de contas. Sem origem válida, a entrada é recusada e a saída é externa; num PSBT já finalizado, que o finalizador do BIP174 deixa sem a origem, a entrada é só exibida e o botão de assinar não aparece. O destino que não pertence a esta chave leva <code>[ externo ]</code> no fim do endereço, no tom do <code>[ atenção ]</code>. Leia antes de assinar.</li>
               <li><b>psbt assinado</b> — o PSBT com as assinaturas é baixado assim que a assinatura termina, e a revisão passa a mostrar os dados extraídos do próprio arquivo gerado: o arquivo é relido e finalizado, daí saem o txid, o vsize real (não o estimado) e a taxa, com o nome do .psbt baixado na linha <b>arquivo</b>. O hex não aparece na tela: para publicar a transação, use o .psbt baixado em outro programa.</li>
               <li><b>rodapé</b> — <code>[ offline ] nada sai deste arquivo</code> resume a política da página; o botão redondo troca o tema.</li>
             </ul>
@@ -2388,7 +2388,7 @@ hex         =  c0 08 00 00 00 … 00</pre>
               <li>não usa passphrase BIP39: a passphrase é vazia; uma passphrase em outra carteira muda todas as contas.</li>
               <li>não monta a transação a partir de UTXOs, não busca saldo e não transmite nem publica nada: só revisa, assina e finaliza o PSBT que você importar.</li>
               <li>não deriva nem lista os endereços da carteira: as tabelas são de chaves de conta; endereços só aparecem na revisão do PSBT, para as entradas e saídas daquele PSBT.</li>
-              <li>não assina PSBT v2, P2WSH, multisig, Taproot com script path, time lock exigido no PSBT nem hash types diferentes de <b>SIGHASH_ALL</b> — no Taproot, aceita o padrão (0x00) e o ALL (0x01). Também recusa entrada que não pertença às contas derivadas dos 256 bits.</li>
+              <li>não assina PSBT v2, P2WSH, multisig, Taproot com script path, time lock exigido no PSBT nem hash types diferentes de <b>SIGHASH_ALL</b> — no Taproot, aceita o padrão (0x00) e o ALL (0x01). Também recusa entrada que não pertença às contas derivadas dos 256 bits; num PSBT já finalizado, a entrada apenas é exibida e não há assinatura.</li>
               <li>não substitui carteira de hardware: a entropia do navegador não tem a garantia de um gerador dedicado, e a máquina pode estar comprometida.</li>
             </ul>
 
@@ -3268,6 +3268,8 @@ var BTC = (function () {
   function readVarInt(b, o) {
     if (o >= b.length) throw new Error('varint fora do buffer');
     var c = b[o];
+    var size = c < 0xfd ? 1 : c === 0xfd ? 3 : c === 0xfe ? 5 : 9;
+    if (o + size > b.length) throw new Error('varint fora do buffer');
     if (c < 0xfd) return { value: c, size: 1 };
     if (c === 0xfd) return { value: readLE16(b, o + 1), size: 3 };
     if (c === 0xfe) return { value: readLE32(b, o + 1), size: 5 };
@@ -3478,6 +3480,7 @@ var BTC = (function () {
   }
   function readMap(b, p) {
     var map = [];
+    var seen = Object.create(null);
     for (;;) {
       if (p >= b.length) throw new Error('PSBT truncado');
       var vi = readVarInt(b, p); p += vi.size;
@@ -3486,6 +3489,10 @@ var BTC = (function () {
       if (p + klen > b.length) throw new Error('chave do PSBT truncada');
       var key = b.subarray(p, p + klen); p += klen;
       if (key.length === 0) throw new Error('chave vazia no PSBT');
+      /* BIP174: chaves repetidas tornam o PSBT inválido. */
+      var keyHex = bytesToHex(key);
+      if (seen[keyHex]) throw new Error('PSBT com chave duplicada');
+      seen[keyHex] = true;
       var vv = readVarInt(b, p); p += vv.size;
       if (p + vv.value > b.length) throw new Error('valor do PSBT truncado');
       map.push({ key: key, value: b.subarray(p, p + vv.value) });
@@ -3500,26 +3507,155 @@ var BTC = (function () {
     parts.push(new Uint8Array([0x00]));
     return concatBytes.apply(null, parts);
   }
+  /* BIP174/BIP371: cada tipo conhecido tem uma forma fixa de chave e valor;
+     tipo desconhecido é preservado. O PSBT malformado é recusado na leitura. */
+  function validPubkey(kd) {
+    return (kd.length === 33 && (kd[0] === 0x02 || kd[0] === 0x03)) ||
+      (kd.length === 65 && kd[0] === 0x04);
+  }
+  function onlyType(key, name) {
+    if (key.length !== 1) throw new Error('psbt inválido: ' + name + ' com chave sobrando');
+  }
+  function valueSize(value, size, name) {
+    if (value.length !== size) throw new Error('psbt inválido: ' + name + ' com tamanho errado');
+  }
+  function derivationPath(value, name) {
+    if (value.length < 4 || (value.length - 4) % 4 !== 0) {
+      throw new Error('psbt inválido: ' + name + ' com caminho malformado');
+    }
+  }
+  function tapDerivation(key, value, name) {
+    if (key.length !== 33) throw new Error('psbt inválido: ' + name + ' com chave sobrando');
+    var n = readVarInt(value, 0);
+    var p = n.size + 32 * n.value;
+    if (n.value > value.length || p + 4 > value.length || (value.length - p - 4) % 4 !== 0) {
+      throw new Error('psbt inválido: ' + name + ' com caminho malformado');
+    }
+  }
+  function tapLeafScript(key, value) {
+    var control = key.length - 1;
+    if (control < 33 || (control - 33) % 32 !== 0 || control > 33 + 32 * 128) {
+      throw new Error('psbt inválido: tap_leaf_script com control block malformado');
+    }
+    if (value.length < 1) throw new Error('psbt inválido: tap_leaf_script sem leaf version');
+  }
+  function tapTree(value) {
+    if (value.length === 0) throw new Error('psbt inválido: tap_tree vazia');
+    var p = 0;
+    while (p < value.length) {
+      if (p + 2 > value.length) throw new Error('psbt inválido: tap_tree truncada');
+      p += 2;
+      var n = readVarInt(value, p); p += n.size;
+      if (p + n.value > value.length) throw new Error('psbt inválido: tap_tree truncada');
+      p += n.value;
+    }
+  }
+  function witnessValue(value, name) {
+    if (value.length === 0) throw new Error('psbt inválido: ' + name + ' vazio');
+    readWitness(value);
+  }
+  function validateMap(map, scope, version) {
+    map.forEach(function (entry) {
+      var t = entry.key[0], kd = entry.key.subarray(1), v = entry.value;
+      if (scope === 'global') {
+        if (version === 0 && t >= 0x02 && t <= 0x06) throw new Error('psbt inválido: campo de PSBT v2 em PSBT v0');
+        if (t === 0x00) onlyType(entry.key, 'unsigned tx');
+        else if (t === 0x01) {
+          if (kd.length !== 78) throw new Error('psbt inválido: xpub com tamanho errado');
+          if (v.length !== 4 + 4 * kd[4]) throw new Error('psbt inválido: xpub com caminho malformado');
+        } else if (t === 0xfb) {
+          onlyType(entry.key, 'version');
+          valueSize(v, 4, 'version');
+        }
+      } else if (scope === 'input') {
+        if (version === 0 && (t === 0x0e || t === 0x0f || t === 0x10)) throw new Error('psbt inválido: campo de PSBT v2 em PSBT v0');
+        if (t === 0x00) { onlyType(entry.key, 'non_witness_utxo'); readTx(v); }
+        else if (t === 0x01) {
+          onlyType(entry.key, 'witness_utxo');
+          if (readTxOut(v, 0).size !== v.length) throw new Error('psbt inválido: witness_utxo com bytes sobrando');
+        } else if (t === 0x02) {
+          if (!validPubkey(kd)) throw new Error('psbt inválido: partial_sig com pubkey inválida');
+          if (v.length === 0) throw new Error('psbt inválido: partial_sig vazia');
+        } else if (t === 0x03) {
+          onlyType(entry.key, 'sighash_type');
+          valueSize(v, 4, 'sighash_type');
+        } else if (t === 0x04) onlyType(entry.key, 'redeem_script');
+        else if (t === 0x05) onlyType(entry.key, 'witness_script');
+        else if (t === 0x06) {
+          if (!validPubkey(kd)) throw new Error('psbt inválido: bip32_derivation com pubkey inválida');
+          derivationPath(v, 'bip32_derivation');
+        } else if (t === 0x07) onlyType(entry.key, 'final_scriptSig');
+        else if (t === 0x08) {
+          onlyType(entry.key, 'final_scriptWitness');
+          witnessValue(v, 'final_scriptWitness');
+        } else if (t === 0x09) onlyType(entry.key, 'por_commitment');
+        else if (t === 0x0a || t === 0x0c) valueSize(kd, 20, 'preimagem hash160');
+        else if (t === 0x0b || t === 0x0d) valueSize(kd, 32, 'preimagem hash256');
+        else if (t === 0x11 || t === 0x12) {
+          onlyType(entry.key, t === 0x11 ? 'required_time_locktime' : 'required_height_locktime');
+          valueSize(v, 4, 'time lock');
+        } else if (t === 0x13) {
+          onlyType(entry.key, 'tap_key_sig');
+          if (v.length !== 64 && v.length !== 65) throw new Error('psbt inválido: tap_key_sig com tamanho errado');
+        } else if (t === 0x14) {
+          if (kd.length !== 64) throw new Error('psbt inválido: tap_script_sig com chave sobrando');
+          if (v.length !== 64 && v.length !== 65) throw new Error('psbt inválido: tap_script_sig com tamanho errado');
+        } else if (t === 0x15) tapLeafScript(entry.key, v);
+        else if (t === 0x16) tapDerivation(entry.key, v, 'tap_bip32_derivation');
+        else if (t === 0x17) {
+          onlyType(entry.key, 'tap_internal_key');
+          valueSize(v, 32, 'tap_internal_key');
+        } else if (t === 0x18) {
+          onlyType(entry.key, 'tap_merkle_root');
+          valueSize(v, 32, 'tap_merkle_root');
+        }
+      } else {
+        if (version === 0 && (t === 0x03 || t === 0x04)) throw new Error('psbt inválido: campo de PSBT v2 em PSBT v0');
+        if (t === 0x00) onlyType(entry.key, 'redeem_script');
+        else if (t === 0x01) onlyType(entry.key, 'witness_script');
+        else if (t === 0x02) {
+          if (!validPubkey(kd)) throw new Error('psbt inválido: bip32_derivation com pubkey inválida');
+          derivationPath(v, 'bip32_derivation');
+        } else if (t === 0x05) {
+          onlyType(entry.key, 'tap_internal_key');
+          valueSize(v, 32, 'tap_internal_key');
+        } else if (t === 0x06) {
+          onlyType(entry.key, 'tap_tree');
+          tapTree(v);
+        } else if (t === 0x07) tapDerivation(entry.key, v, 'tap_bip32_derivation');
+      }
+    });
+  }
   function parsePsbt(b) {
     if (b.length < 5 || b[0] !== 0x70 || b[1] !== 0x73 || b[2] !== 0x62 || b[3] !== 0x74 || b[4] !== 0xff) {
       throw new Error('não começa com a marca psbt');
     }
     var g = readMap(b, 5);
-    var psbt = { global: g.map, inputs: [], outputs: [], tx: null, version: 0 };
     var ver = mapFind(g.map, 0xfb);
-    if (ver && ver.value.length === 4) psbt.version = readLE32(ver.value, 0);
-    if (psbt.version > 1) throw new Error('PSBT v2 não é suportado; exporte em PSBT v0');
+    var version = ver && ver.value.length === 4 ? readLE32(ver.value, 0) : 0;
+    validateMap(g.map, 'global', version);
+    var psbt = { global: g.map, inputs: [], outputs: [], tx: null, version: version };
+    if (version !== 0) throw new Error('só PSBT v0 é suportado; exporte nesse formato');
     var utx = mapFind(g.map, 0x00);
     if (!utx) throw new Error('PSBT sem transação não assinada (v0)');
     psbt.tx = readTx(utx.value);
+    /* BIP174: a transação não assinada vai no formato antigo, sem scriptSig. */
+    if (psbt.tx.segwit) throw new Error('psbt inválido: transação não assinada no formato witness');
+    psbt.tx.inputs.forEach(function (inp) {
+      if (inp.scriptSig && inp.scriptSig.length) {
+        throw new Error('psbt inválido: transação não assinada com scriptSig');
+      }
+    });
     var p = g.pos;
     for (var i = 0; i < psbt.tx.inputs.length; i++) {
       var mi = readMap(b, p);
+      validateMap(mi.map, 'input', version);
       psbt.inputs.push(mi.map);
       p = mi.pos;
     }
     for (var j = 0; j < psbt.tx.outputs.length; j++) {
       var mo = readMap(b, p);
+      validateMap(mo.map, 'output', version);
       psbt.outputs.push(mo.map);
       p = mo.pos;
     }
@@ -3842,6 +3978,19 @@ var BTC = (function () {
     return !!(finalWitness && finalWitness.value.length > 0);
   }
 
+  /* BIP174/BIP371: depois de finalizada, a entrada conserva o UTXO e os
+     campos finais; os demais campos conhecidos saem. Desconhecidos ficam. */
+  var FINALIZED_DROP = {
+    0x02: 1, 0x03: 1, 0x04: 1, 0x05: 1, 0x06: 1, 0x09: 1, 0x0a: 1, 0x0b: 1,
+    0x0c: 1, 0x0d: 1, 0x11: 1, 0x12: 1, 0x13: 1, 0x14: 1, 0x15: 1, 0x16: 1,
+    0x17: 1, 0x18: 1
+  };
+  function clearFinalizedFields(map) {
+    for (var i = map.length - 1; i >= 0; i--) {
+      if (FINALIZED_DROP[map[i].key[0]]) map.splice(i, 1);
+    }
+  }
+
   /* ---------------------------------------------- análise de um PSBT */
   async function analyzePsbt(bytes, hd) {
     var psbt = parsePsbt(bytes);
@@ -3850,6 +3999,7 @@ var BTC = (function () {
     var inputs = [], warnings = [];
     var totalIn = 0n;
     var signedInputs = 0;
+    var allFinalized = psbt.inputs.length > 0 && psbt.inputs.every(inputSigned);
     for (var i = 0; i < tx.inputs.length; i++) {
       var map = psbt.inputs[i];
       if (inputSigned(map)) signedInputs++;
@@ -3865,8 +4015,11 @@ var BTC = (function () {
         throw new Error('entrada ' + i + ' exige time lock; este signer não confere travas de tempo');
       }
       var key = await findKeyForScript(session, prev.script, map);
-      if (!key) throw new Error('o psbt não pertence a esta chave');
-      if (bytesToHex(scriptForKind(key.kind, key.Q)) !== bytesToHex(prev.script)) {
+      if (!key) {
+        /* O finalizador do BIP174 limpa a origem do PSBT já finalizado; sem
+           ela, a entrada só pode ser exibida, nunca assinada. */
+        if (!(allFinalized && inputSigned(map))) throw new Error('o psbt não pertence a esta chave');
+      } else if (bytesToHex(scriptForKind(key.kind, key.Q)) !== bytesToHex(prev.script)) {
         throw new Error('entrada ' + i + ': chave derivada não corresponde ao script');
       }
       if (tx.inputs[i].scriptSig && tx.inputs[i].scriptSig.length) {
@@ -3882,7 +4035,7 @@ var BTC = (function () {
         index: i, outpoint: tx.inputs[i].txid + ':' + tx.inputs[i].vout,
         value: prev.value, script: prev.script, kind: kind, key: key,
         address: addressFromScript(prev.script),
-        path: pathText(key.indices)
+        path: key ? pathText(key.indices) : ''
       });
     }
     var outputs = [], totalOut = 0n;
@@ -3986,6 +4139,7 @@ var BTC = (function () {
             writeVarInt(sigWithType.length), sigWithType, writeVarInt(inp.key.pub.length), inp.key.pub));
         }
       }
+      clearFinalizedFields(map);
     });
 
     var fin = psbtFinalTx(psbt);
