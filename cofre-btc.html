@@ -1809,7 +1809,7 @@
   /* Tema antes da pintura: evita o clarão do tema escuro padrão. */
   (function () {
     try {
-      var t = localStorage.getItem('chave-btc-theme');
+      var t = localStorage.getItem('cofre-btc-theme');
       document.documentElement.dataset.theme = t === 'light' ? 'light' : 'dark';
       var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
       var meta = document.querySelector('meta[name="theme-color"]');
@@ -3954,7 +3954,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var $ = function (sel, root) { return (root || document).querySelector(sel); };
   var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
   var root = document.documentElement;
-  var THEME_KEY = 'chave-btc-theme';
+  var THEME_KEY = 'cofre-btc-theme';
   var SCREENS = ['chave', 'sobre'];
   var REDUCED = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
   var FORCED = window.matchMedia ? window.matchMedia('(forced-colors: active)') : null;
