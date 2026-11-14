@@ -149,6 +149,27 @@ function mapFind(map, type) {
   assert.equal(ownReview.outputs[0].own, 'recebimento',
     'o assinador reconhece o destino próprio pela origem, sem varredura');
 
+  /* Sem origem, a saída não é varrida: mesmo um endereço da própria carteira
+     dentro da antiga janela de 25 fica externo. */
+  const near = await deriveAddress('bip84', account, 0, 1);
+  const nearOwn = await reqPsbt({
+    xpub: hd.accounts.bip84.xpub, address: near.address,
+    amount_sats: 10000, fee_rate: 5
+  }, env);
+  assert.equal(nearOwn.status, 200, JSON.stringify(nearOwn.j));
+  const nearPsbt = BTC.parsePsbt(BTC.psbtParseInput(nearOwn.j.psbt));
+  nearPsbt.outputs[0] = [];
+  const nearReview = await BTC.analyzePsbt(BTC.writePsbt(nearPsbt), hd);
+  assert.equal(nearReview.outputs[0].own, 'externo', 'saída sem origem não é varrida');
+
+  /* Origem interna colada num destino externo não passa na conferência do
+     script: a saída continua externa. */
+  const spoofed = BTC.parsePsbt(BTC.psbtParseInput(j.psbt));
+  const internalOrigin = mapFind(ownPsbt.outputs[0], 0x02);
+  spoofed.outputs[0].push(internalOrigin);
+  const spoofedReview = await BTC.analyzePsbt(BTC.writePsbt(spoofed), hd);
+  assert.equal(spoofedReview.outputs[0].own, 'externo', 'origem não cobre destino adulterado');
+
   const bytes = BTC.psbtParseInput(j.psbt);
   const psbt = BTC.parsePsbt(bytes);
   assert.equal(psbt.tx.inputs.length, 2);

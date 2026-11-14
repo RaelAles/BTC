@@ -1276,6 +1276,12 @@ var BTC = (function () {
       };
     }
 
+    /* Saída sem origem declarada não é varrida: o assinador não tenta
+       adivinhar conta/índice. A origem declarada já foi conferida contra o
+       script acima; se não serviu, a saída é externa. A entrada continua com
+       a varredura, que é necessária para achar a chave de assinatura. */
+    if (isOutput) return null;
+
     /* 2. Varredura das contas: só a conta do tipo do script, 0/1 e o gap. */
     var accountId = kind === 'p2pkh' ? 'bip44' : kind === 'p2sh-p2wpkh' ? 'bip49' : kind === 'p2wpkh' ? 'bip84' : 'bip86';
     if (!session.hd.accounts[accountId]) throw new Error('conta ' + accountId + ' indisponível');
@@ -1544,9 +1550,9 @@ var BTC = (function () {
       totalOut += out.value;
       var outKind = scriptKind(out.script);
       var own = null;
-      /* Saída de troco fica no começo da cadeia /1/*; limita a varredura e
-         aproveita a derivação que o próprio PSBT trouxer. */
-      try { own = await findKeyForScript(session, out.script, psbt.outputs[j], 25, true); } catch (e) { own = null; }
+      /* Saída: só a origem que o PSBT declara, conferida contra o script.
+         Sem origem válida não há varredura; a saída fica externa. */
+      try { own = await findKeyForScript(session, out.script, psbt.outputs[j], 0, true); } catch (e) { own = null; }
       outputs.push({
         index: j, value: out.value, script: out.script, kind: outKind,
         address: addressFromScript(out.script),

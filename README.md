@@ -673,8 +673,11 @@ O `own` de cada saída é `externo` quando o script não foi derivado da xpub,
 ramo `/1`; `recipient.own` repete a classificação do destino. Quando o destino
 é da própria carteira, a saída de destino leva
 `PSBT_OUT_BIP32_DERIVATION`/`PSBT_OUT_TAP_BIP32_DERIVATION`, para o assinador
-reconhecê-lo pela origem sem varrer as contas. Cada entrada traz
-`pending: true` quando é troco de uma transação ainda no
+reconhecê-lo pela origem sem varrer as contas. Na revisão do `chave-btc.html`,
+a classificação de saída usa só essa origem, conferida contra o script real;
+não há varredura de contas para saídas. Sem origem válida, a saída é externa.
+A varredura de entradas continua existindo, para achar a chave de assinatura.
+Cada entrada traz `pending: true` quando é troco de uma transação ainda no
 mempool (gasto encadeado): a transação nova confirma depois — e junto — da
 anterior. O PSBT carrega `witness_utxo` e a origem BIP32 (`bip32_derivation` ou
 `tap_bip32_derivation`) em cada entrada; p2pkh carrega `non_witness_utxo`
@@ -886,8 +889,9 @@ limite `max_send_sats` (incluindo o envio no máximo, sem troco) e o preview
 com valor (taxa e troco iguais aos do PSBT, e as cotas dos níveis para o
 seletor), PSBT v0 com
 origem da conta, `non_witness_utxo` no p2pkh, `tap_bip32_derivation` no
-taproot e o destino próprio no índice 30 reconhecido pela origem da saída, sem
-varredura; recusa de endereço/taxa/saldo inválidos, e a **assinatura do PSBT no
+taproot, o destino próprio no índice 30 reconhecido pela origem da saída, sem
+varredura, e a saída sem origem — mesmo no índice 1 — tratada como externa;
+recusa de endereço/taxa/saldo inválidos, e a **assinatura do PSBT no
 próprio `btc-core`** com um índice 120 — fora do fallback de 100 — provando a
 compatibilidade com o `chave-btc.html`. A taxa também é conferida depois da
 assinatura, nos quatro tipos de entrada (p2wpkh, p2sh-p2wpkh, p2pkh e p2tr) e
