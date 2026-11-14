@@ -1,0 +1,18 @@
+# Cabeçalhos de segurança dos arquivos estáticos de `public/`.
+#
+# Fonte da verdade: SECURITY_HEADERS em src/config.js, que o Worker aplica
+# nas respostas dinâmicas (/api/*). Este arquivo é lido pelo Cloudflare
+# antes do Worker, por isso os valores são repetidos aqui — o teste
+# test/security-headers.test.mjs confere que os dois lados continuam iguais
+# e que o hash do script inline do tema em index.html está em dia.
+#
+# O Strict-Transport-Security vale para este host e, com includeSubDomains,
+# para os subdomínios dele. Não há subdomínio em HTTP neste projeto; se
+# houver, tire o includeSubDomains antes de publicar.
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-Lj2WKDYwirWpwwWlu/sg1rb/O+jVjFgt7nf3TTIjDa4='; style-src 'self'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), clipboard-write=(self)

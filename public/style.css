@@ -1309,6 +1309,8 @@
   }
   .item-skeleton-line.is-caption { height: .3em; --w: 34%; margin-bottom: .7em; }
   .item-skeleton-line.is-title { height: .55em; --w: 42%; margin-bottom: .6em; }
+  .item-skeleton-line.is-long { --w: 90%; }
+  .item-skeleton-line.is-mid { --w: 76%; }
   .item-skeleton-line.is-tags { height: .3em; --w: 36%; margin-bottom: var(--space-3); }
   /* Erro de dados (VG-ABS-10): quando o carregamento de uma lista ou do
      formulário falha, a área não fica em branco nem reusa a lista vazia, que

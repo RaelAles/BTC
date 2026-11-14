@@ -849,6 +849,28 @@ o Electrum cai. Sessão sem xpub responde 409 (a tela reenvia a xpub em
   a do `cofre-btc.html`, que recalcula a taxa e classifica cada saída.
 - Para valor alto, hardware wallet + nó/Electrum próprio.
 
+### Cabeçalhos de segurança
+
+Toda resposta leva `Strict-Transport-Security`, `Content-Security-Policy`,
+`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` e
+`Permissions-Policy`. São dois pontos de aplicação, com os mesmos valores:
+
+- `public/_headers` — arquivos estáticos, aplicado pelo Cloudflare antes do
+  Worker (e o próprio `_headers` não é servido como arquivo);
+- `SECURITY_HEADERS` em `src/config.js` — respostas do Worker (`/api/*` e o
+  fallback do `ASSETS`).
+
+O teste `test/security-headers.test.mjs` compara os dois lados e recalcula o
+hash do script inline do tema em `public/index.html`: mexeu no script, o
+teste falha até o `sha256-…` novo entrar nos dois arquivos. A CSP não usa
+`unsafe-inline` em `style-src` — os esqueletos usam classe, não atributo
+`style=` —, então um `style="…"` novo no HTML também aparece no teste.
+`clipboard-write=(self)` fica liberado porque a tela tem botões de copiar.
+
+O HSTS usa `max-age=31536000; includeSubDomains` e não inclui `preload`. Se
+algum subdomínio deste host ainda responder em HTTP, tire o
+`includeSubDomains`: o navegador guarda a decisão por um ano.
+
 ## Testes
 
 ```bash
@@ -859,6 +881,7 @@ node test/psbt.test.mjs         # taxas, escolha de UTXO, PSBT e assinatura
 node test/broadcast.test.mjs    # conferência e transmissão do PSBT assinado
 node test/watcher.test.mjs      # Durable Object, timers e descarte total
 node test/dev-server.mjs        # UI local em http://127.0.0.1:8787/ (sem DO)
+node test/security-headers.test.mjs  # cópias iguais, hash do tema, 101 intacto
 node test/cdp-ui.mjs            # opcional: Chromium headless + screenshot
 ```
 

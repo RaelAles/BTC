@@ -17,16 +17,20 @@ export function electrumConfig(env) {
   };
 }
 
-/* Cabeçalhos de segurança aplicados a toda resposta do Worker, inclusive
-   aos estáticos servidos pelo ASSETS (ver worker.js). A CSP só libera o
-   próprio domínio; o script inline do tema entra por hash sha256, então
-   qualquer mudança nele exige recalcular o hash aqui. */
+/* Cabeçalhos de segurança aplicados pelo Worker às respostas dinâmicas
+   (/api/* e o fallback do ASSETS). Os arquivos estáticos saem direto do
+   asset layer, com os mesmos valores em public/_headers; o teste
+   test/security-headers.test.mjs mantém os dois lados iguais. A CSP só
+   libera o próprio domínio; o script inline do tema entra por hash sha256,
+   então qualquer mudança nele exige recalcular o hash aqui e em
+   public/_headers. HSTS com includeSubDomains: tire se algum subdomínio
+   deste host ainda responder em HTTP. */
 export const SECURITY_HEADERS = {
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'Content-Security-Policy': [
     "default-src 'self'",
     "script-src 'self' 'sha256-Lj2WKDYwirWpwwWlu/sg1rb/O+jVjFgt7nf3TTIjDa4='",
-    "style-src 'self' 'unsafe-inline'",
+    "style-src 'self'",
     "img-src 'self' data:",
     "font-src 'self' data:",
     "connect-src 'self'",

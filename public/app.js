@@ -728,8 +728,8 @@
       if (i) html += '<div class="rule rule-dots" aria-hidden="true"></div>';
       html += '<div class="item-skeleton">' +
         '<span class="item-skeleton-line is-title"></span>' +
-        '<span class="item-skeleton-line" style="--w: 90%"></span>' +
-        '<span class="item-skeleton-line" style="--w: 76%"></span>' +
+        '<span class="item-skeleton-line is-long"></span>' +
+        '<span class="item-skeleton-line is-mid"></span>' +
         '<span class="item-skeleton-line is-tags"></span>' +
         '</div>';
     }

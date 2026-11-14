@@ -5,11 +5,10 @@
   "compatibility_date": "2025-01-01",
   "assets": {
     "directory": "./public",
-    "binding": "ASSETS",
-    // Todo pedido passa pelo Worker, inclusive os estáticos: é ele que
-    // aplica os cabeçalhos de segurança (ver SECURITY_HEADERS em
-    // src/config.js) e repassa o arquivo pelo ASSETS.
-    "run_worker_first": true
+    "binding": "ASSETS"
+    // Os estáticos continuam sendo servidos pelo asset layer, que aplica
+    // os cabeçalhos de public/_headers sem acordar o Worker. As respostas
+    // dinâmicas recebem os mesmos cabeçalhos em src/config.js.
   },
   // Nada de D1/KV/R2: o projeto não guarda estado. O Durable Object abaixo
   // também não usa storage (sem put/alarm); ele só vive enquanto a tela

@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import worker from '../src/worker.js';
+import { SECURITY_HEADERS } from '../src/config.js';
 import { deriveAddress, parseXpub } from '../src/derivation.js';
 import { scripthash, setConnectOverride } from '../src/electrum.js';
 import { startFakeElectrum, nodeConnect } from './fake-electrum.mjs';
@@ -62,17 +63,28 @@ const server = http.createServer(async (req, res) => {
         method: req.method, headers, body: body || undefined
       });
       const response = await worker.fetch(request, env);
-      res.writeHead(response.status, { 'Content-Type': response.headers.get('Content-Type') || 'application/json; charset=utf-8' });
+      // repassa também os cabeçalhos de segurança que o Worker aplicou
+      const respostaHeaders = {};
+      for (const [name, value] of response.headers) respostaHeaders[name] = value;
+      res.writeHead(response.status, respostaHeaders);
       res.end(await response.text());
       return;
     }
     const file = u.pathname === '/' ? '/index.html' : u.pathname;
     const full = path.join(pub, file);
-    if (!full.startsWith(pub) || !fs.existsSync(full)) { res.writeHead(404); res.end('not found'); return; }
-    res.writeHead(200, { 'Content-Type': types[path.extname(full)] || 'application/octet-stream' });
+    if (!full.startsWith(pub) || !fs.existsSync(full)) {
+      res.writeHead(404, Object.assign({ 'Content-Type': 'text/plain; charset=utf-8' }, SECURITY_HEADERS));
+      res.end('not found');
+      return;
+    }
+    // o asset layer do Cloudflare lê public/_headers; aqui aplicamos os
+    // mesmos valores para o dev local não esconder a CSP
+    res.writeHead(200, Object.assign({}, SECURITY_HEADERS, {
+      'Content-Type': types[path.extname(full)] || 'application/octet-stream'
+    }));
     fs.createReadStream(full).pipe(res);
   } catch (e) {
-    res.writeHead(500);
+    res.writeHead(500, SECURITY_HEADERS);
     res.end(String((e && e.stack) || e));
   }
 });

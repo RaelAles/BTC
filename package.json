@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "node test/electrum.test.mjs && node test/address-totals.test.mjs && node test/worker.test.mjs && node test/psbt.test.mjs && node test/watcher.test.mjs && node test/broadcast.test.mjs && node test/cofre-core.test.mjs"
+    "test": "node test/electrum.test.mjs && node test/address-totals.test.mjs && node test/worker.test.mjs && node test/psbt.test.mjs && node test/watcher.test.mjs && node test/broadcast.test.mjs && node test/cofre-core.test.mjs && node test/security-headers.test.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
