@@ -3771,10 +3771,17 @@ var BTC = (function () {
     return (neg ? '-' : '') + whole.toString() + '.' + frac;
   }
   function estimateVsize(inputKinds, scripts) {
-    var weight = 4 * (4 + 4) + 4 * 2; /* versão, locktime, contagens (aprox.) */
+    var varIntSize = function (n) {
+      return n < 0xfd ? 1 : n <= 0xffff ? 3 : n <= 0xffffffff ? 5 : 9;
+    };
+    var weight = 4 * (4 + 4) + /* versão e locktime */
+      4 * (varIntSize(inputKinds.length) + varIntSize(scripts.length));
+    var segwit = false;
     inputKinds.forEach(function (kind) {
-      weight += kind === 'p2pkh' ? 592 : kind === 'p2sh-p2wpkh' ? 364 : kind === 'p2wpkh' ? 272 : 230;
+      if (kind !== 'p2pkh') segwit = true;
+      weight += kind === 'p2pkh' ? 592 : kind === 'p2sh-p2wpkh' ? 364 : kind === 'p2wpkh' ? 272 : 231;
     });
+    if (segwit) weight += 2; /* marker + flag, contados como witness */
     scripts.forEach(function (script) {
       weight += 4 * (8 + (script.length < 0xfd ? 1 : 3) + script.length);
     });
@@ -3990,13 +3997,13 @@ var BTC = (function () {
      (BIP174): é o que se publica na rede. Devolve o hex, o tamanho real e o
      txid, e confere o hex contra o próprio leitor. */
   function psbtFinalTx(psbt) {
-    var t = psbt && psbt.tx;
-    if (!t) throw new Error('PSBT sem a transação não assinada');
-    if (!t.inputs.length) throw new Error('a transação não tem entradas');
-    if (!t.outputs.length) throw new Error('a transação não tem saídas');
+    var tx = psbt && psbt.tx;
+    if (!tx) throw new Error('PSBT sem a transação não assinada');
+    if (!tx.inputs.length) throw new Error('a transação não tem entradas');
+    if (!tx.outputs.length) throw new Error('a transação não tem saídas');
     var finalInputs = [], witnesses = [];
-    for (var i = 0; i < t.inputs.length; i++) {
-      if (t.inputs[i].scriptSig && t.inputs[i].scriptSig.length) {
+    for (var i = 0; i < tx.inputs.length; i++) {
+      if (tx.inputs[i].scriptSig && tx.inputs[i].scriptSig.length) {
         throw new Error('entrada ' + i + ' já tem scriptSig na transação não assinada');
       }
       var map = psbt.inputs[i];
@@ -4004,14 +4011,15 @@ var BTC = (function () {
       var fw = mapFind(map, 0x08);
       if (!fs) throw new Error('entrada ' + i + ' não está finalizada (falta final_scriptSig)');
       finalInputs.push({
-        txid: t.inputs[i].txid, vout: t.inputs[i].vout,
-        scriptSig: fs.value, sequence: t.inputs[i].sequence
+        txid: tx.inputs[i].txid, vout: tx.inputs[i].vout,
+        scriptSig: fs.value, sequence: tx.inputs[i].sequence
       });
       witnesses.push(fw ? readWitness(fw.value) : []);
     }
     var final = {
-      version: t.version, inputs: finalInputs, outputs: t.outputs,
-      witnesses: witnesses, locktime: t.locktime
+      version: tx.version, inputs: finalInputs, outputs: tx.outputs,
+      witnesses: witnesses, locktime: tx.locktime,
+      segwit: witnesses.some(function (w) { return w.length > 0; })
     };
     var bytes = writeTx(final, true);
     /* ida e volta: o hex publicado tem de voltar como a mesma transação */
