@@ -65,7 +65,7 @@ tela mostra:
    troco, em base64, e aparece só quando a montagem termina, disponível como
    arquivo no botão
    **baixar**, ao fim do bloco; a tela mostra os detalhes (saída,
-   destino, troco, endereço, pó, taxa, vsize e txid) na mesma tabela de
+   destino, troco, endereço, pó, taxa, vsize, txid, rbf e agendado) na mesma tabela de
    leitura do "receber", sem o base64 como campo. O destino que não pertence
    à carteira leva `[ externo ]` no fim do endereço, no tom do `[ atenção ]`;
    o destino de um endereço da própria carteira e o troco ficam sem marcador.
@@ -100,9 +100,9 @@ tela mostra:
    publica: o servidor confere o arquivo contra a carteira (cada entrada tem
    de ser sua, o valor tem de bater, todas as entradas têm de estar
    finalizadas) e só então aparecem o subtítulo **transmitir**, com o resumo
-   no mesmo desenho do PSBT (arquivo, um par saída/destino por pagamento — o
-   destino externo leva `[ externo ]` — e um par troco/endereço por troco,
-   taxa, vsize e txid), e o botão
+   no mesmo desenho do PSBT (um par saída/destino por pagamento — o destino
+   externo leva `[ externo ]` — e um par troco/endereço por troco, taxa,
+   vsize, txid, rbf, agendado e, por último, o arquivo), e o botão
    **confirmar**; o botão do seletor some assim que o
    arquivo é escolhido e, se a conferência falhar, o arquivo é descartado
    com o motivo no lugar, e o seletor volta de imediato para a próxima
@@ -647,6 +647,8 @@ Resposta (resumida):
   "psbt": "cHNidP8BAH0CAAAA...",
   "txid": "2fbb9a49...",
   "vsize": 142,
+  "locktime": 0,
+  "rbf": false,
   "fee_sats": 852,
   "fee_sats_at_rate": 852,
   "dust_sats": 0,
@@ -716,7 +718,11 @@ A conferência, antes de qualquer coisa ir para a rede:
   escrita a partir dos campos finais (BIP174), não dos campos de assinatura;
 - as saídas são classificadas em `troco` (ramo `/1`), `recebimento` (ramo
   `/0`) ou `externo`, e a taxa é a diferença real entre entradas e saídas da
-  transação final, com o vsize **real**, não o estimado do envio.
+  transação final, com o vsize **real**, não o estimado do envio. O resumo
+  traz `rbf` e `agendado` do locktime/sequence da transação final: `rbf` é
+  `sim` quando há sequence abaixo de `0xffffffff` (versão 2), e `agendado`
+  mostra a data a partir da qual a transação pode entrar (0 = `não`; locktime
+  em bloco vira data aproximada).
 
 Resposta (resumida):
 
@@ -725,6 +731,8 @@ Resposta (resumida):
   "preview": true,
   "txid": "03a8b4b8...",
   "vsize": 141,
+  "locktime": 0,
+  "rbf": false,
   "fee_sats": 423,
   "fee_rate": 3,
   "total_in": 100000,

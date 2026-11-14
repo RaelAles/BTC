@@ -160,6 +160,20 @@
     while (s.length < 9) s = '0' + s;
     return (neg ? '-' : '') + s.slice(0, -8) + '.' + s.slice(-8);
   }
+  /* Locktime → data estimada; 0 = não. Igual ao cofre: locktime em bloco
+     vira data aproximada (10 min por bloco desde o genesis) e o bloco não
+     aparece, só a data. */
+  function scheduledText(locktime) {
+    var value = Number(locktime) >>> 0;
+    if (!value) return 'não';
+    var date = value >= 500000000
+      ? new Date(value * 1000)
+      : new Date((1231006505 + value * 600) * 1000);
+    if (isNaN(date.getTime())) return 'data estimada indisponível';
+    return date.toISOString().slice(0, 16).replace('T', ' ') + ' UTC' +
+      (value < 500000000 ? ' (aprox.)' : '');
+  }
+  function rbfText(rbf) { return rbf ? 'sim' : 'não'; }
   /* Valor digitado em BTC → sats inteiros. Aceita vírgula ou ponto e até 8
      casas; qualquer outra coisa (ou zero) devolve null. */
   function parseBtcSats(text) {
@@ -1491,7 +1505,9 @@
   function renderSendMeta(j) {
     var values = {
       '#send-meta-txid': j.txid,
-      '#send-meta-vsize': '~' + fmtInt(j.vsize) + ' vB'
+      '#send-meta-vsize': '~' + fmtInt(j.vsize) + ' vB',
+      '#send-meta-rbf': rbfText(j.rbf),
+      '#send-meta-scheduled': scheduledText(j.locktime)
     };
     Object.keys(values).forEach(function (sel) {
       var el = $(sel);
@@ -1791,6 +1807,8 @@
     broadcastCell('#broadcast-meta-file', state.broadcastName || '—');
     broadcastCell('#broadcast-meta-txid', j.txid);
     broadcastCell('#broadcast-meta-vsize', fmtInt(j.vsize) + ' vB');
+    broadcastCell('#broadcast-meta-rbf', rbfText(j.rbf));
+    broadcastCell('#broadcast-meta-scheduled', scheduledText(j.locktime));
     var fee = $('#broadcast-meta-fee');
     if (fee) fee.innerHTML = signedBtcShare(j.fee_sats, 'out');
 

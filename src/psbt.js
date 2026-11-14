@@ -242,10 +242,15 @@ export async function preparePsbt({
      porque criar a saída custaria mais do que esse resto — e que a transação
      paga de taxa. Com troco, os dois números são iguais. */
   const feeAtRate = feeSats(rateKvb, pick.vsize);
+  const tx = built.tx;
+  const locktime = tx.locktime >>> 0;
+  const rbf = (tx.version >>> 0) >= 2 && tx.inputs.some(inp => (inp.sequence >>> 0) < 0xffffffff);
   return {
     psbt: built.base64,
     txid: built.txid,
     vsize: built.vsize,
+    locktime,
+    rbf,
     fee_sats: pick.fee,
     fee_sats_at_rate: feeAtRate,
     dust_sats: pick.fee - feeAtRate,

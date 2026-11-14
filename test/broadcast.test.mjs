@@ -89,6 +89,8 @@ async function fixture({ acct = account, hd: signer = hd, xpub = hd.accounts.bip
   assert.equal(preview.j.hex, undefined, 'o hex não vai para o navegador');
   assert.equal(preview.j.fee_sats, Number(f.signed.fee));
   assert.equal(preview.j.vsize, f.signed.vsize);
+  assert.equal(preview.j.locktime, 0, 'a transação não tem trava');
+  assert.equal(preview.j.rbf, false, 'a transação não é substituível');
   assert.equal(preview.j.inputs.length, 1);
   assert.equal(preview.j.inputs[0].address, f.addr.address);
   assert.equal(preview.j.inputs[0].path, "m/84'/0'/0'/0/0");
@@ -107,6 +109,8 @@ async function fixture({ acct = account, hd: signer = hd, xpub = hd.accounts.bip
   assert.equal(sent.j.broadcast, true);
   assert.equal(sent.j.txid, f.signed.txid);
   assert.equal(sent.j.server_txid, f.signed.txid);
+  assert.equal(sent.j.locktime, 0);
+  assert.equal(sent.j.rbf, false);
   assert.equal(sent.j.hex, undefined);
   assert.equal(f.fake.broadcasts.length, 1);
   assert.equal(f.fake.broadcasts[0].hex, f.signed.txHex);
@@ -282,6 +286,8 @@ async function fixture({ acct = account, hd: signer = hd, xpub = hd.accounts.bip
   assert.equal(preview.status, 200, JSON.stringify(preview.j));
   assert.equal(preview.j.preview, true);
   assert.equal(preview.j.txid, signed.txid);
+  assert.equal(preview.j.locktime, 0);
+  assert.equal(preview.j.rbf, false);
   assert.equal(preview.j.outputs[0].address, dest);
   assert.equal(fake.broadcasts.length, 0);
 
