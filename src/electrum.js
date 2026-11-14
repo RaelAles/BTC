@@ -204,7 +204,7 @@ export class ElectrumClient {
   }
 
   async serverVersion(label) {
-    this.version = await this.request('server.version', [label || 'btc-projeto-2/1.0', '1.4']);
+    this.version = await this.request('server.version', [label || 'btc/1.0', '1.4']);
     return this.version;
   }
 
@@ -233,7 +233,7 @@ export async function openElectrum(opts) {
   const servers = o.servers && o.servers.length ? o.servers : DEFAULT_SERVERS;
   const connectTimeoutMs = Number(o.connectTimeoutMs) || DEFAULT_CONNECT_TIMEOUT;
   const timeoutMs = Number(o.timeoutMs) || DEFAULT_TIMEOUT;
-  const label = o.label || 'btc-projeto-2/1.0';
+  const label = o.label || 'btc/1.0';
 
   let connectFn;
   try {
