@@ -1683,6 +1683,12 @@
   .value-in { color: var(--success); }
   .value-out { color: var(--error); }
   .value-none { color: var(--dim); }
+  /* Fatia do valor sobre a soma das entradas do PSBT: é metadado da linha,
+     então fica no --dim, ao lado do valor, sem competir com o número e sem
+     quebrar entre o número e o `%`. O `|` que a antecede usa o --sep dos
+     divisores, o mesmo tom do extrato. */
+  .value-pct { color: var(--dim); white-space: nowrap; }
+  .value-sep { color: var(--sep); }
   /* No contato, o recado geral é a única mensagem de erro e pode juntar
      e-mail e mensagem numa frase. Ele reserva duas linhas para o texto não
      empurrar o rodapé quando aparece; o recado de apoio segue com uma. */
@@ -2281,7 +2287,8 @@
             <!-- O resumo usa as mesmas linhas do projeto principal: um par
                  saída/destino por pagamento e um par troco/endereço por
                  troco, na ordem da transação, seguidos da taxa, do vsize e
-                 do txid. A última linha diz de qual arquivo vêm esses
+                 do txid. Cada valor leva a fatia que representa da soma das
+                 entradas. A última linha diz de qual arquivo vêm esses
                  dados: o PSBT importado ou, depois de assinar, o baixado. -->
             <table class="data-table key-readout review-readout" id="review-table" aria-label="resumo do psbt">
               <tbody>
@@ -2345,7 +2352,7 @@
               <li><b>privadas</b> — quatro linhas, uma por conta: <b>bip86</b> mostra a chave estendida privada da conta <code>m/86'/0'/0'</code> (prefixo <code>xprv</code>), <b>bip84</b> a de <code>m/84'/0'/0'</code> (<code>zprv</code>), <b>bip49</b> a de <code>m/49'/0'/0'</code> (<code>yprv</code>) e <b>bip44</b> a de <code>m/44'/0'/0'</code> (<code>xprv</code>). São chaves de conta, não de endereço: delas saem os ramos de recebimento (<code>/0/*</code>) e de troco (<code>/1/*</code>). Essas linhas não têm botão de copiar; o conteúdo aparece inteiro para conferência. Sem chave, cada célula mostra <code>—</code>.</li>
               <li><b>públicas</b> — as mesmas quatro contas em chave estendida pública: <code>xpub</code> no BIP86 e no BIP44, <code>zpub</code> no BIP84 e <code>ypub</code> no BIP49. Cada linha tem <b>copiar</b>, e o botão vira <b>copiado</b> por alguns instantes. A pública é watch-only: não gasta, mas permite reconstruir os endereços e, com eles, consultar o histórico da conta — também merece cuidado. O BIP86 e o BIP44 compartilham o prefixo <code>xpub</code>; o que distingue é o tipo de conta, então, ao importar numa carteira, informe que a conta do BIP86 é Taproot. O <code>xpub</code> do BIP86 é o que uma carteira watch-only (como o projeto 2) usa para derivar os endereços de recebimento e de troco.</li>
               <li><b>importar psbt</b> — o anexo só responde depois que existe uma chave; com o arquivo carregado ele vira <b>cancelar</b>. O arquivo importado fica só na memória: a tela não repete o texto em base64/hex nem os metadados do arquivo (formato, tamanho ou contagem de entradas e saídas), porque não ajudam na conferência; da identificação do arquivo, só o nome aparece, na linha <b>arquivo</b> da revisão. Na mesma linha, <b>assinar</b> surge quando a revisão termina, depois dos avisos e ao lado do anexo ou do <b>cancelar</b>, desde que o PSBT ainda não tenha assinatura; se todas as entradas já estiverem assinadas, o botão não aparece e a linha de estado avisa; se só algumas tiverem assinatura, a revisão avisa que as existentes serão substituídas. Ao clicar em <b>assinar</b>, o .psbt é baixado assim que a assinatura termina, o botão sai e o <b>cancelar</b> vira <b>fechar</b>, que encerra a revisão do PSBT assinado (antes da assinatura, o mesmo botão descarta o arquivo importado). Abaixo dos botões, a linha de estado mostra <code>[ ... ]</code> enquanto analisa ou assina, <code>[ atenção ]</code> quando a revisão termina com avisos e <code>[ erro ]</code> com o motivo. A revisão sem avisos não escreve nada, exceto quando o PSBT já tem assinatura; a assinatura concluída também não escreve: a própria revisão passa a mostrar o resultado.</li>
-              <li><b>revisão</b> — aparece sozinha ao importar, numa tabela. O <b>resumo</b> traz um par <b>saída</b>/<b>destino</b> por pagamento e um par <b>troco</b>/<b>endereço</b> por troco, na ordem da transação; a taxa, o vsize e o txid — estimados enquanto o PSBT não tem assinatura, extraídos da transação final quando ele já vem finalizado —, e no fim a linha <b>arquivo</b>, com o nome do PSBT que está na tela. Nesse resumo, os valores levam sinal e cor: o que sai (<b>saída</b> e <b>taxa</b>) fica em <b>-</b> no tom do erro e o que volta (<b>troco</b>) em <b>+</b> no verde do sucesso. Depois, os <b>avisos</b> (taxa fora do comum, script não padronizado). O destino que não pertence a esta chave leva <code>[ externo ]</code> no fim do endereço, no tom do <code>[ atenção ]</code>. Leia antes de assinar.</li>
+              <li><b>revisão</b> — aparece sozinha ao importar, numa tabela. O <b>resumo</b> traz um par <b>saída</b>/<b>destino</b> por pagamento e um par <b>troco</b>/<b>endereço</b> por troco, na ordem da transação; a taxa, o vsize e o txid — estimados enquanto o PSBT não tem assinatura, extraídos da transação final quando ele já vem finalizado —, e no fim a linha <b>arquivo</b>, com o nome do PSBT que está na tela. Nesse resumo, os valores levam sinal e cor: o que sai (<b>saída</b> e <b>taxa</b>) fica em <b>-</b> no tom do erro e o que volta (<b>troco</b>) em <b>+</b> no verde do sucesso. Cada valor leva também, depois de um divisor <code>|</code> e em <code>--dim</code>, a fatia que representa da soma das entradas do PSBT — a base é o total que a transação gasta, e não o saldo da conta —, com as casas pelo tamanho (uma acima de 10%, duas acima de 1% e três abaixo; o que arredondaria para zero fica <code>&lt;0.001%</code>). Depois, os <b>avisos</b> (taxa fora do comum, script não padronizado). O destino que não pertence a esta chave leva <code>[ externo ]</code> no fim do endereço, no tom do <code>[ atenção ]</code>. Leia antes de assinar.</li>
               <li><b>psbt assinado</b> — o PSBT com as assinaturas é baixado assim que a assinatura termina, e a revisão passa a mostrar os dados extraídos do próprio arquivo gerado: o arquivo é relido e finalizado, daí saem o txid, o vsize real (não o estimado) e a taxa, com o nome do .psbt baixado na linha <b>arquivo</b>. O hex não aparece na tela: para publicar a transação, use o .psbt baixado em outro programa.</li>
               <li><b>rodapé</b> — <code>[ offline ] nada sai deste arquivo</code> resume a política da página; o botão redondo troca o tema.</li>
             </ul>
@@ -4767,12 +4774,33 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     });
   }
   function satLine(v) { return BTC.formatSats(v); }
+  /* Percentual de uma linha de valor sobre a soma das entradas do PSBT — a
+     única base que a revisão offline conhece —, precedido do divisor `|`,
+     como no resumo do projeto principal. As casas seguem o tamanho: uma casa
+     acima de 10%, duas acima de 1% e três abaixo; abaixo de 0.001% o piso
+     `<0.001%` diz que é pequeno sem fingir precisão. Sem base conhecida,
+     nenhuma linha ganha percentual. */
+  function shareLine(part, total) {
+    var base = Number(total);
+    if (!(base > 0)) return '';
+    var pct = Number(part) / base * 100;
+    if (!isFinite(pct) || pct <= 0) {
+      return ' <span class="value-sep" aria-hidden="true">|</span> <span class="value-pct">0%</span>';
+    }
+    var text = pct >= 10 ? pct.toFixed(1)
+      : pct >= 1 ? pct.toFixed(2)
+      : pct.toFixed(3);
+    if (text === '0.000') text = '<0.001';
+    return ' <span class="value-sep" aria-hidden="true">|</span> <span class="value-pct">' + text + '%</span>';
+  }
   /* Valor em BTC com sinal e cor (VG-COR-16): o sinal no texto e a cor só
-     reforçando; zero não tem direção e fica no --dim. */
-  function valueLine(value, dir) {
+     reforçando; zero não tem direção e fica no --dim. A fatia sobre a soma
+     das entradas vem depois do valor, como no resumo do projeto principal. */
+  function valueLine(value, dir, total) {
     var text = satLine(value);
-    if (!Number(value)) return '<span class="value-none">' + text + '</span>';
-    return '<span class="value-' + dir + '">' + (dir === 'in' ? '+' : '-') + text + '</span>';
+    var pct = shareLine(value, total);
+    if (!Number(value)) return '<span class="value-none">' + text + '</span>' + pct;
+    return '<span class="value-' + dir + '">' + (dir === 'in' ? '+' : '-') + text + '</span>' + pct;
   }
   function reviewCell(el, text) {
     if (el) el.textContent = text || '—';
@@ -4807,7 +4835,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     a.outputs.forEach(function (out) {
       var change = out.own === 'troco';
       var value = reviewMetaRow(change ? 'troco' : 'saída', '', false,
-        valueLine(out.value, change ? 'in' : 'out'));
+        valueLine(out.value, change ? 'in' : 'out', a.totalIn));
       value.setAttribute('data-review-output', '');
       tbody.insertBefore(value, reviewFeeRow);
       /* Destino externo não vai para os avisos: o marcador fica no fim do
@@ -4825,7 +4853,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      que o PSBT assinado carrega. */
   function renderReview(a, file, signed) {
     renderReviewOutputs(a);
-    if (reviewFee) reviewFee.innerHTML = valueLine(a.fee, 'out');
+    if (reviewFee) reviewFee.innerHTML = valueLine(a.fee, 'out', a.totalIn);
     reviewCell(reviewVsize, (signed ? '' : '~') + a.vsize + ' vB');
     reviewCell(reviewTxid, a.txid);
     reviewCell(reviewFile, file);
@@ -4967,7 +4995,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     var fin = BTC.psbtFinalTx(a.psbt);
     return {
       fee: a.fee, outputs: a.outputs, warnings: a.warnings,
-      vsize: fin.vsize, txid: fin.txid
+      totalIn: a.totalIn, vsize: fin.vsize, txid: fin.txid
     };
   }
   if (signBtn) {
