@@ -1442,8 +1442,9 @@
   }
   /* O rodapé lê só o navigator.onLine, sem requisição: com rede ativa ele
      avisa para desconectar e usa o --warning do "[ atenção ]"; sem rede, o
-     recado de uso fica no --dim do próprio rodapé. */
+     recado de uso veste o --success do "[ ok ]". */
   #foot-state.is-warning { color: var(--warning); }
+  #foot-state.is-safe { color: var(--success); }
   /* Sem tooltip e sem rótulo visível (VG-BOT-11): o nome acessível fica só
      no aria-label e o estado visível no próprio código do idioma (PT, EN) e
      no glifo do tema (●, ○).
@@ -5146,6 +5147,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (!footState) return;
     var online = !!navigator.onLine;
     footState.classList.toggle('is-warning', online);
+    footState.classList.toggle('is-safe', !online);
     footState.textContent = online ?
       '[ atenção ] rede ativa: desconecte a máquina da internet' :
       '[ seguro ] use um dispositivo dedicado';
