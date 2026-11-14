@@ -8,11 +8,11 @@
 <title>Cofre BTC</title>
 <meta name="description" content="Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 jogadas de moeda (cara = 1, coroa = 0) ou de coordenadas a0–z5, mostra xprv/xpub e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="chave btc - contas hd a partir de 256 bits">
+<meta property="og:title" content="cofre btc - contas hd a partir de 256 bits">
 <meta property="og:description" content="256 jogadas de moeda (cara = 1, coroa = 0) entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
 <meta property="og:locale" content="pt_BR">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="chave btc - contas hd a partir de 256 bits">
+<meta name="twitter:title" content="cofre btc - contas hd a partir de 256 bits">
 <meta name="twitter:description" content="256 jogadas de moeda (cara = 1, coroa = 0) entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
 <!-- Ícone da aba: um nó do bitcoin-network.svg (SVG Repo), só o círculo
      da esquerda com o ₿; o mesmo desenho do href estático, recortado nele. -->
@@ -1860,7 +1860,7 @@
 
           <div class="bits-row">
             <div class="bits-col">
-              <div class="coords-panel reveal-block is-off" id="coords-panel">
+              <div class="coords-panel reveal-block" id="coords-panel">
                 <label class="sr-only" for="coords">coordenadas</label>
                 <div class="field-box coords-box">
                   <div class="edge" aria-hidden="true"></div>
@@ -1871,7 +1871,7 @@
                 </div>
               </div>
 
-              <div class="coin-panel reveal-block" id="coin-panel">
+              <div class="coin-panel reveal-block is-off" id="coin-panel">
                 <div class="coin-head">
                   <span class="coin-head-label">rodada</span>
                   <span class="coin-counter" id="coin-counter">000/256</span>
@@ -1888,7 +1888,7 @@
               </div>
 
               <div class="chips app-gap reveal-block bits-actions chips-dots" role="group" aria-label="Entrada de bits">
-                <button type="button" id="bits-mode" aria-label="Mostrar a entrada por coordenadas">coordenadas</button>
+                <button type="button" id="bits-mode" aria-label="Mostrar a entrada por jogadas de moeda">gerar</button>
                 <span class="dot-sep" aria-hidden="true">·</span>
                 <button type="button" id="bits-random" aria-label="Sortear 256 bits aleatórios e preencher as jogadas">gerar bits</button>
               </div>
@@ -1985,7 +1985,7 @@
             <h3>como usar, passo a passo</h3>
             <ul>
               <li><b>1. prepare o ambiente.</b> Abra o arquivo no navegador, de preferência numa máquina offline e dedicada, e não recarregue a página no meio do trabalho: recarregar apaga os 256 bits e tudo o que foi derivado deles.</li>
-              <li><b>2. escolha a entrada.</b> A tela abre no painel de jogadas. O botão <b>coordenadas</b>, abaixo dele, troca para o campo de texto; nesse modo o mesmo botão vira <b>gerar</b> e volta às jogadas, zerando a sequência.</li>
+              <li><b>2. escolha a entrada.</b> A tela abre no campo de coordenadas. O botão <b>gerar</b>, abaixo dele, troca para o painel de jogadas; nesse modo o mesmo botão vira <b>coordenadas</b> e volta ao campo de texto, zerando a sequência.</li>
               <li><b>3. registre os bits.</b> No painel de jogadas, cada clique em <b>1</b> (cara) ou <b>0</b> (coroa) ocupa a próxima coordenada livre — <code>a0</code>, <code>a1</code>, … até <code>z5</code> — e o contador sobe; a linha de baixo mostra o horário da última jogada. O botão <b>gerar bits</b> pede 256 bits ao gerador do navegador e preenche a sequência de uma vez. No campo de coordenadas, digite só as coordenadas marcadas (a convenção está abaixo); as que ficaram em 0 não precisam ser escritas.</li>
               <li><b>4. leia o resultado.</b> Na 256ª jogada — ou ao usar <b>gerar bits</b> — o arquivo troca sozinho para o campo de coordenadas e deriva a chave: as 24 palavras aparecem e as tabelas de chaves se preenchem. Digitando coordenadas, a chave é derivada assim que o conjunto deixa de ser vazio. Um conjunto pequeno também gera uma chave, mas com pouca entropia — o esperado são 256 jogadas ou 256 bits sorteados.</li>
               <li><b>5. guarde a frase.</b> As 24 palavras, na ordem 01–24, são a forma portátil da mesma entropia: com elas, qualquer carteira BIP39 compatível, com passphrase vazia, chega às mesmas contas. Anote em papel ou metal e confira duas vezes; não fotografe nem cole a frase em lugar nenhum.</li>
@@ -3970,7 +3970,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var coordsPanel = $('#coords-panel');
   var modeBtn = $('#bits-mode');
   var randomBtn = $('#bits-random');
-  var coinOn = true;
+  var coinOn = false;
   var coinPanel = $('#coin-panel');
   var coinCara = $('#coin-cara');
   var coinCoroa = $('#coin-coroa');

@@ -90,13 +90,13 @@ tela mostra:
    navegador não lê o base64 —, então a tabela serve para comparar: se o
    destino ou o valor montados diferirem do formulário, ou se aparecer mais
    de uma saída externa, surge um aviso apontando para a revisão do
-   `chave-btc.html`, que é a conferência que vale. Se a transação gastar
+   `cofre-btc.html`, que é a conferência que vale. Se a transação gastar
    troco pendente (gasto encadeado), o aviso lembra que ela confirma depois —
    e junto — da transação anterior.
-   Quem assina é o `chave-btc.html` (projeto 1), offline; o projeto 2 nunca
+   Quem assina é o `cofre-btc.html` (projeto 1), offline; o projeto 2 nunca
    vê chave privada.
 5. **transmitir** abaixo do envio: o botão **importar psbt** abre o seletor
-   do PSBT assinado que volta do `chave-btc.html`. Escolher o arquivo **não**
+   do PSBT assinado que volta do `cofre-btc.html`. Escolher o arquivo **não**
    publica: o servidor confere o arquivo contra a carteira (cada entrada tem
    de ser sua, o valor tem de bater, todas as entradas têm de estar
    finalizadas) e só então aparecem o subtítulo **transmitir**, com o resumo
@@ -127,7 +127,7 @@ blockchain.info, nem chave privada em lugar nenhum.
 
 > **Layout do repositório.** A raiz é o projeto do Worker (é ela que o
 > Cloudflare publica): `wrangler.jsonc`, `src/`, `public/`, `test/`. Os
-> arquivos soltos na mesma raiz não entram no deploy: `chave-btc.html` é o
+> arquivos soltos na mesma raiz não entram no deploy: `cofre-btc.html` é o
 > projeto 1 (offline, assina PSBT), `projeto-2.html` é a UI standalone antiga
 > (consulta fontes públicas direto no navegador) e `teste-*.psbt` são
 > fixtures de teste. A página publicada é `public/index.html`.
@@ -675,7 +675,7 @@ O `own` de cada saída é `externo` quando o script não foi derivado da xpub,
 ramo `/1`; `recipient.own` repete a classificação do destino. Quando o destino
 é da própria carteira, a saída de destino leva
 `PSBT_OUT_BIP32_DERIVATION`/`PSBT_OUT_TAP_BIP32_DERIVATION`, para o assinador
-reconhecê-lo pela origem sem varrer as contas. Na revisão do `chave-btc.html`,
+reconhecê-lo pela origem sem varrer as contas. Na revisão do `cofre-btc.html`,
 entradas e saídas usam só a origem BIP32 declarada, conferida contra o script
 real; não há varredura de contas. Entrada sem origem válida é recusada (não há
 chave para assinar); saída sem origem válida é externa.
@@ -687,7 +687,7 @@ anterior. O PSBT carrega `witness_utxo` e a origem BIP32 (`bip32_derivation` ou
 p2sh-p2wpkh carrega o `redeem_script`. A
 origem usa a **impressão digital da conta**, e não a da raiz: com só a xpub,
 é o máximo que o lado watch-only conhece. O caminho é completo
-(`m/84'/0'/0'/0/120`) e o `chave-btc.html` confere a conta, deriva o caminho,
+(`m/84'/0'/0'/0/120`) e o `cofre-btc.html` confere a conta, deriva o caminho,
 confere a chave pública e o script antes de assinar. Nenhuma chave privada
 entra no Worker nem na resposta.
 
@@ -698,7 +698,7 @@ entra no Worker nem na resposta.
   "psbt": "cHNidP8...", "preview": true }
 ```
 
-Fecha o ciclo: recebe o PSBT v0 **assinado** pelo `chave-btc.html` (base64 ou
+Fecha o ciclo: recebe o PSBT v0 **assinado** pelo `cofre-btc.html` (base64 ou
 hex), confere contra a carteira e, sem `preview`, publica a transação final
 com o `blockchain.transaction.broadcast` do Electrum. A transmissão só sai
 depois do clique em **confirmar**; `preview: true` faz só a conferência.
@@ -825,7 +825,7 @@ o Electrum cai. Sessão sem xpub responde 409 (a tela reenvia a xpub em
 - O PSBT de envio sai **sem assinatura**: o projeto 2 só monta a transação. O
   arquivo leva a origem BIP32 com a impressão digital da conta, o caminho
   completo, os UTXOs, o troco e, quando o destino é da própria carteira, o
-  próprio destino; o `chave-btc.html` confere conta, chave, script, saídas e
+  próprio destino; o `cofre-btc.html` confere conta, chave, script, saídas e
   taxa antes de assinar.
 - **A transmissão é a única saída para a rede**, e é explícita: o PSBT
   assinado é conferido no Worker/DO (nunca no navegador) e só vai ao Electrum
@@ -834,11 +834,11 @@ o Electrum cai. Sessão sem xpub responde 409 (a tela reenvia a xpub em
   conferência recusa entrada que não seja desta carteira.
 - O resumo da transmissão não é prova de validade das assinaturas: o servidor
   confere estrutura, valores e destinos; quem valida as assinaturas é a rede.
-  A conferência que vale continua sendo a do `chave-btc.html`, antes de assinar.
+  A conferência que vale continua sendo a do `cofre-btc.html`, antes de assinar.
 - O resumo do PSBT na tela não é prova: o arquivo é montado no Worker/DO e o
   navegador só baixa o base64. A tabela mostra o destino e todas as saídas para
   comparar com o formulário, e avisa quando divergem; a conferência que vale é
-  a do `chave-btc.html`, que recalcula a taxa e classifica cada saída.
+  a do `cofre-btc.html`, que recalcula a taxa e classifica cada saída.
 - Para valor alto, hardware wallet + nó/Electrum próprio.
 
 ## Testes
@@ -869,7 +869,7 @@ fracionária (1,076 sat/vB, que é o caso normal) o preview responde e os quatro
 níveis ganham percentual: a tela não pode tratar sat/vB como inteiro, senão
 o preview nunca dispara e o PSBT nunca é montado.
 Um PSBT gerado pelo montador (bip84 e troco) foi analisado e assinado pelo
-próprio código do `chave-btc.html` em Chromium headless, com o troco
+próprio código do `cofre-btc.html` em Chromium headless, com o troco
 reconhecido como interno. O bloco **transmitir** foi conferido no mesmo
 Chromium com um arquivo assinado de verdade: escolher o arquivo mostrou a
 revisão (txid, taxa, saídas) sem transmitir, e o clique em **confirmar**
@@ -898,7 +898,7 @@ varredura, a saída sem origem — mesmo no índice 1 — tratada como externa e
 entrada sem origem recusada; recusa de endereço/taxa/saldo inválidos, e a
 **assinatura do PSBT no próprio `btc-core`** com um índice 120, reconhecido
 pela origem da entrada, sem varredura, provando a compatibilidade com o
-`chave-btc.html`. A taxa também é conferida depois da
+`cofre-btc.html`. A taxa também é conferida depois da
 assinatura, nos quatro tipos de entrada (p2wpkh, p2sh-p2wpkh, p2pkh e p2tr) e
 em duas taxas (1 e 1,926 sat/vB): a vsize estimada tem de cobrir o tamanho
 real da transação assinada e a taxa paga tem de cobrir a taxa pedida. O
@@ -907,7 +907,7 @@ real da transação assinada e a taxa paga tem de cobrir a taxa pedida. O
 pela mesma sessão/conexão do envio.
 
 O `broadcast.test.mjs` leva o PSBT gerado pelo `/api/psbt` ao assinante do
-`btc-core` (o mesmo caminho do `chave-btc.html`), confere que a transação
+`btc-core` (o mesmo caminho do `cofre-btc.html`), confere que a transação
 final extraída dos campos finais do PSBT é **byte a byte** o hex que o
 assinante escreveu, e verifica: `preview` devolve txid, vsize real, taxa e as
 saídas classificadas (destino externo e troco) sem transmitir; `transmitir`

@@ -1484,7 +1484,7 @@
      uma tabela de rótulo e valor. O resumo é o que o SERVIDOR diz ter
      montado: o navegador não lê o base64, então esta tabela é conveniência,
      não prova. O pagamento e o troco aparecem em par — valor e endereço —,
-     para comparar com o formulário agora e com a revisão do "chave-btc.html"
+     para comparar com o formulário agora e com a revisão do "cofre-btc.html"
      antes de assinar; uma divergência entre o que foi montado e o que está
      digitado vira aviso (o caso clássico é o coordenador trocar o endereço
      de destino). */
@@ -1508,7 +1508,7 @@
     var outValue = $('#send-meta-out-value');
     if (outValue) outValue.innerHTML = j.recipient ? signedBtcShare(j.recipient.value, 'out') : '';
     /* O destino externo leva o marcador no próprio endereço, no mesmo tom do
-       "[ atenção ]" do chave-btc.html; o destino da própria carteira
+       "[ atenção ]" do cofre-btc.html; o destino da própria carteira
        (`recebimento`) e o troco seguem como texto puro. */
     var outAddress = $('#send-meta-out-address');
     if (outAddress) {
@@ -1565,7 +1565,7 @@
     var warnEl = $('#send-meta-warn');
     if (warnEl) {
       warnEl.textContent = warn.length
-        ? '[ atenção ] ' + warn.join('; ') + ' — confira o arquivo no chave-btc.html antes de assinar.'
+        ? '[ atenção ] ' + warn.join('; ') + ' — confira o arquivo no cofre-btc.html antes de assinar.'
         : '';
     }
   }
@@ -1702,7 +1702,7 @@
   }
 
   /* ------------------------------ transmitir o psbt assinado (projeto 1) */
-  /* O arquivo volta do chave-btc.html assinado. Escolher o arquivo NÃO
+  /* O arquivo volta do cofre-btc.html assinado. Escolher o arquivo NÃO
      transmite: o servidor confere o PSBT contra esta carteira (entrada que
      não é sua, valor inventado, entrada não finalizada, taxa fora do padrão)
      e devolve o resumo; publicar é o clique em confirmar, porque a
