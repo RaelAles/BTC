@@ -221,13 +221,11 @@
        O CSS usa os tokens nas transições; o JavaScript lê os mesmos valores
        para o grão, a revelação e a troca de tema, então o ritmo muda num
        lugar só. Os nomes dizem o papel, não o número: --motion-fast é a
-       troca de cor de hover/foco/pressão, setas e paginador; --motion-theme
-       é o crossfade de tema; --motion-grain é o intervalo do grão; e
+       troca de cor de hover/foco/pressão e setas; --motion-theme é o
+       crossfade de tema; --motion-grain é o intervalo do grão; e
        --motion-reveal-* é a entrada em foco, do título (--motion-reveal-head)
        à régua e aos blocos (--motion-reveal), com o atraso do primeiro bloco
-       (--motion-reveal-delay), o escalonamento (--motion-reveal-step) e o
-       teto que libera o aria-busy (--motion-reveal-total); --motion-skeleton
-       é o pulso do esqueleto de carregamento da lista (VG-LST-05); e
+       (--motion-reveal-delay) e o escalonamento (--motion-reveal-step); e
        --motion-notice é o tempo do aviso temporário (VG-ABS-07), que some
        sozinho depois de 8 s no padrão. */
     --motion-fast: 150ms;
@@ -238,8 +236,6 @@
     --motion-reveal-delay: 50ms;
     --motion-reveal-step: 25ms;
     --motion-rule-delay: 75ms;
-    --motion-reveal-total: 1000ms;
-    --motion-skeleton: 1200ms;
     --motion-notice: 8000ms;
     --motion-ease: ease;
     --motion-ease-out: cubic-bezier(.16,1,.3,1);
@@ -496,8 +492,7 @@
   .item h3 a.item-title:active,
   .item h3 a.item-title:active:hover,
   .content.can-scroll-up .scroll-arrow-up:active:hover,
-  .content.can-scroll-down .scroll-arrow-down:active:hover,
-  .content .pager-arrow:active:hover {
+  .content.can-scroll-down .scroll-arrow-down:active:hover {
     color: var(--support);
   }
   /* Fora de alcance e carregando (VG-BOT-09): todo botão indisponível — o
@@ -505,8 +500,8 @@
      andamento ([aria-disabled="true"]) — fica no --dim, o tom do que está
      fora de alcance, sem hover e com o ponteiro de repouso. É a regra geral
      que os estados específicos antes repetiam. O carregamento não ganha um
-     indicador novo: o controle recebe aria-busy e o recado role=status logo
-     abaixo diz o que está acontecendo, como no envio do contato e no apoio.
+     indicador novo: o controle recebe o recado role=status logo abaixo,
+     como no envio do contato e no apoio.
      Quem segura o clique repetido é o JavaScript, porque o botão continua
      focável: disabled devolveria o foco ao body (ver VG-FRM-08). O
      pointer-events fica só na seta sem página, que não deve receber clique
@@ -519,8 +514,8 @@
     cursor: default;
   }
   /* Regra única de movimento dos controles (VG-EFE-08): hover e foco trocam
-     de cor no mesmo --motion-fast das setas e do paginador, em vez de saltar.
-     Botões, links, o fio do campo e as próprias setas/paginador entram na
+     de cor no mesmo --motion-fast das setas, em vez de saltar.
+     Botões, links, o fio do campo e as próprias setas entram na
      mesma regra; a troca de tema fica de fora, com o crossfade próprio de
      --motion-theme (html.theme-fx), porque ela muda todos os tokens de uma
      vez. O contorno
@@ -533,8 +528,7 @@
   .field-select-mark,
   .field-choice-mark,
   .field-upload-pick,
-  .scroll-arrow,
-  .pager {
+  .scroll-arrow {
     transition:
       color var(--motion-fast) var(--motion-ease),
       background-color var(--motion-fast) var(--motion-ease),
@@ -550,8 +544,7 @@
     .field-select-mark,
     .field-choice-mark,
     .field-upload-pick,
-    .scroll-arrow,
-    .pager {
+    .scroll-arrow {
       transition: none;
     }
   }
@@ -623,13 +616,10 @@
   /* O item em vigor não leva preenchimento: usa só o tom do marcador de
      item selecionado (--support), como os botões [aria-pressed="true"]. Como
      já está escolhido, não responde ao mouse: sem hover e sem cursor de
-     clique (pointer-events: none também cancela o hover do botão). O botão
-     de idioma entra na mesma regra: a tela de idiomas é uma página como as
-     outras e, enquanto está aberta, ele é o item em vigor. Como não clica, o
-     item em vigor também sai da ordem do Tab: quem põe e tira o tabindex="-1"
-     é o markCurrent(), no JavaScript da página (VG-ACR-10). */
-  .menu button[aria-current="page"],
-  #lang-btn[aria-current="page"] {
+     clique (pointer-events: none também cancela o hover do botão). Como não
+     clica, o item em vigor também sai da ordem do Tab: quem põe e tira o
+     tabindex="-1" é o markCurrent(), no JavaScript da página (VG-ACR-10). */
+  .menu button[aria-current="page"] {
     background: none;
     color: var(--support);
     cursor: default;
@@ -724,58 +714,6 @@
   .content.can-scroll-down .scroll-arrow-down:hover {
     color: var(--fg);
   }
-  /* Paginador das listas de projetos e de publicações: fica no mesmo lugar e
-     no mesmo corpo dos botões de rolagem, mas só aparece quando o conteúdo já
-     chegou ao fim (não há mais o que rolar para baixo). Aí o + dá lugar
-     ao paginador mínimo — < 2 de 3 > —, no tom dos demais botões. */
-  .pager {
-    position: absolute;
-    left: 50%;
-    bottom: calc((var(--content-pad) - var(--arrow-size)) / 2);
-    transform: translateX(-50%);
-    z-index: var(--layer-float);
-    display: flex;
-    gap: 0 .8ch;
-    font-size: var(--arrow-size);
-    line-height: 1;
-    white-space: nowrap;
-    opacity: 0;
-    visibility: hidden;
-  }
-  .content.show-pager .pager {
-    opacity: 1;
-    visibility: visible;
-  }
-  .content.show-pager .scroll-arrow-down {
-    opacity: 0;
-    visibility: hidden;
-  }
-  /* Posição no meio do paginador: a única indicação de posição da lista, em
-     --dim e no corpo dos botões de rolagem, e não um controle. Só o número da
-     página fica em --support, o tom do que está em vigor (como o item de menu
-     escolhido). */
-  .pager-position {
-    color: var(--dim);
-    line-height: 1;
-  }
-  .pager-current { color: var(--support); }
-  /* Setas do paginador: ◄ e ► nas pontas, no mesmo corpo e no mesmo
-     tom das demais opções. Na primeira e na última página, a seta daquele
-     lado fica em --dim, o tom do que está fora de alcance (como os idiomas
-     [ em breve ]), sem hover nem ponteiro; ela continua no DOM
-     (aria-disabled), então a linha não muda de largura ao trocar de página. */
-  .pager-arrow {
-    padding: 0 .2ch;
-    color: var(--accent);
-    line-height: 1;
-  }
-  .pager-arrow:hover { color: var(--fg); }
-  .pager-arrow.is-off,
-  .pager-arrow.is-off:hover {
-    color: var(--dim);
-    cursor: default;
-    pointer-events: none;
-  }
   /* Coluna de leitura: a tela ocupa a largura do card até --measure e depois
      centraliza no respiro do conteúdo. O width: 100% impede o item de flex de
      assumir o tamanho do conteúdo (a régua tem 240 traços) e estourar o card
@@ -864,15 +802,11 @@
      itens de flex não muda (ver VG-TIP-15). */
   .prose,
   .item,
-  .list-empty,
-  .list-loading,
-  .data-error,
   .note,
   .support-text,
   .status-msg,
   .field-label,
   .field-box,
-  .quote,
   h2 {
     overflow-wrap: break-word;
   }
@@ -947,55 +881,6 @@
     font: inherit;
   }
 
-  /* Citação (VG-ABS-03): o desenho existe, mas nenhuma tela mostra citação
-     ainda. O <figure class="quote"> guarda a fala no <blockquote> e o autor e
-     a fonte no <figcaption>: a atribuição fica fora da citação, então o leitor
-     de tela não a ouve como parte do que foi dito. O sinal é o ">" da
-     própria fonte, um por parágrafo, no mesmo papel do "-" da lista e no
-     mesmo --support: um marcador de bloco, não um estado nem o accent do que
-     é clicável. Ele fica pendurado num respiro de 2ch (1ch do glifo e 1ch de
-     vão), então a fala alinha com o resto da coluna e o marcador não come a
-     medida de leitura. A fala fica no --fg e no oblíquo da fonte: o recuo e o
-     sinal já separam a voz, e o itálico a distingue do corpo sem criar tom
-     novo; a atribuição usa --dim e --text-sm, como a linha de dados dos itens.
-     O travessão antes do autor é o mesmo traço da estrutura, em --sep, e não
-     o accent. A fala justifica e hifeniza como a prosa, e a palavra longa
-     quebra dentro da coluna (VG-TIP-15). Todas as cores são tokens, então o
-     bloco acompanha o crossfade do tema; no alto contraste forçado, o sinal e
-     o travessão continuam legíveis como texto do sistema. */
-  .quote { margin: 0 0 var(--space-7); }
-  .quote blockquote {
-    margin: 0;
-    padding-left: 2ch;
-    color: var(--fg);
-    font-style: italic;
-  }
-  .quote blockquote p {
-    position: relative;
-    margin: 0 0 var(--space-4);
-    text-align: justify;
-    -webkit-hyphens: auto;
-    hyphens: auto;
-  }
-  .quote blockquote p:last-child { margin-bottom: 0; }
-  .quote blockquote p::before {
-    content: ">";
-    position: absolute;
-    left: -2ch;
-    color: var(--support);
-    font-style: normal;
-  }
-  .quote figcaption {
-    margin: var(--space-4) 0 0;
-    padding-left: 2ch;
-    color: var(--dim);
-    font-size: var(--text-sm);
-  }
-  .quote figcaption::before {
-    content: "\2014 ";
-    color: var(--sep);
-  }
-
   /* Tabela (VG-ABS-04): o desenho existe, mas nenhuma tela mostra tabela
      ainda. É uma <table class="data-table"> de verdade, com <caption>
      visível nomeando a tabela, <th scope="col"> no cabeçalho e, quando a
@@ -1065,65 +950,8 @@
   }
   .data-table td.is-num { white-space: nowrap; }
   .data-table .is-empty { color: var(--dim); }
-  /* As linhas fora do conjunto moderno ficam em um grupo próprio: o hidden
-     tira o grupo do fluxo e o primeiro item revelado recupera o fio que o
-     seletor tr + tr não alcança entre tbodies. */
+  /* Grupo oculto não entra no fluxo da tabela. */
   .data-table tbody[hidden] { display: none; }
-  .data-table tbody.more:not([hidden]) tr:first-child th,
-  .data-table tbody.more:not([hidden]) tr:first-child td {
-    border-top: 1px dotted var(--sep);
-  }
-
-  /* Áudio e vídeo (VG-ABS-05): o desenho existe, mas nenhuma tela publica
-     mídia ainda. O <figure class="media"> guarda um <video controls> ou um
-     <audio controls> de verdade, com o pôster no atributo poster (só o
-     vídeo) e as legendas num <track kind="captions">; no áudio, o texto
-     equivalente é a transcrição no conteúdo, porque o navegador não desenha
-     legenda temporizada sobre um player de áudio. Os controles são os
-     nativos do navegador, e não uma barra desenhada em ASCII: play, pausa,
-     posição, volume, menu de legendas, tela cheia e rótulos localizados já
-     vêm com teclado, leitor de tela e funcionamento sem JavaScript; refazer
-     isso em caracteres custaria mais do que o desenho e deixaria de fora o
-     que o navegador resolve. A moldura de 1 px do --line, a mesma da capa
-     (VG-ABS-01), e a legenda em --dim/--text-sm mantêm o bloco na linguagem
-     do card; o fundo é o --bg, para o player não abrir um retângulo claro no
-     tema escuro e acompanhar o crossfade. O vídeo fica em 16:9 e contém a
-     imagem sem cortar (object-fit: contain); o áudio ocupa a coluna e mantém
-     a altura nativa. O ::cue leva a fonte do projeto e o par --fg/--bg para
-     a legenda temporizada, e o foco do player desenha o mesmo contorno
-     tracejado dos botões e links (VG-ACR-01). No alto contraste a moldura
-     sobe com o --line (VG-FND-11); no modo de cores forçadas valem as cores
-     do sistema, e os controles nativos continuam com o desenho do navegador. */
-  .media { margin: 0 0 var(--space-5); }
-  .media-player {
-    display: block;
-    width: 100%;
-    max-width: 100%;
-    border: 1px solid var(--line);
-    background: var(--bg);
-    accent-color: var(--accent);
-    color-scheme: inherit;
-  }
-  video.media-player {
-    height: auto;
-    aspect-ratio: 16 / 9;
-    object-fit: contain;
-  }
-  .media-player:focus-visible {
-    outline: 1px dashed var(--accent);
-    outline-offset: 2px;
-  }
-  .media-player::cue {
-    font-family: var(--mono);
-    color: var(--fg);
-    background: var(--bg);
-  }
-  .media figcaption {
-    margin: var(--space-2) 0 0;
-    color: var(--dim);
-    font-size: var(--text-sm);
-    overflow-wrap: break-word;
-  }
 
   /* Subtítulos do manifesto: o "##" (título em texto puro) e as versais com
      entreletra separam a seção do corpo sem repetir o título da tela. O vão
@@ -1286,89 +1114,6 @@
     color: var(--dim);
     font-size: var(--text-sm);
   }
-  /* Lista vazia (VG-LST-04): zero itens é um estado válido, não uma falha,
-     então a área não fica em branco nem vira recado de erro. A linha usa o
-     tom e o corpo dos recados neutros, com o marcador entre colchetes do
-     [ sem imagem ] e o substantivo da lista; alinhada à esquerda, mantém o
-     ritmo dos itens. Sem moldura, ação ou aria-live: o texto entra junto com
-     a tela, e o paginador some porque a lista tem uma página só. A falha de
-     dados tem desenho próprio (VG-ABS-10), logo abaixo. */
-  .list-empty {
-    margin: 0;
-    color: var(--dim);
-    font-size: var(--text-md);
-  }
-  /* Carregamento da lista (VG-LST-05): enquanto os dados não chegam, o lugar
-     dos itens é preenchido por um esqueleto, e a área não fica em branco. A
-     linha em --dim, no corpo do recado neutro, diz o que está acontecendo —
-     "[ ... ] carregando projetos...", o mesmo marcador do envio e do apoio
-     —, e o esqueleto abaixo dela é decorativo (aria-hidden) e repete o
-     desenho do item: a capa tracejada na proporção 9:2 da capa real, a
-     legenda, o título, o resumo e as tags.
-     Cada linha de texto é um traço tracejado desenhado como padrão de fundo,
-     e não uma fileira de glifos: com o entreletra em fração de pixel, cada
-     hífen cairia num ponto diferente da grade e a linha sairia manchada — a
-     mesma razão do divisor de pontos. O tom é --sep, o do traço decorativo, e
-     a largura de cada linha vem de --w (padrão 100%), para o esqueleto ter o
-     ritmo irregular de um texto sem precisar de conteúdo.
-     O bloco pulsa de leve, entre 1 e .55 de opacidade, em --motion-skeleton;
-     com "menos movimento" ele fica estático. O pulso é a única animação em
-     CSS do sistema: o grão e a revelação continuam no JavaScript, e o
-     esqueleto não depende de medida nenhuma para entrar e sair. */
-  .list-loading {
-    margin: 0 0 var(--space-5);
-    color: var(--dim);
-    font-size: var(--text-md);
-  }
-  .list-skeleton {
-    animation: skeleton-pulse var(--motion-skeleton) var(--motion-ease) infinite;
-  }
-  @keyframes skeleton-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: .55; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .list-skeleton { animation: none; }
-  }
-  .item-skeleton-cover {
-    aspect-ratio: 9 / 2;
-    margin: 0 0 var(--space-4);
-    border: 1px dashed var(--line);
-  }
-  .item-skeleton-line {
-    display: block;
-    height: .4em;
-    margin: 0 0 1em;
-    width: var(--w, 100%);
-    background-image: repeating-linear-gradient(to right, currentColor 0 .7em, transparent .7em 1.02em);
-    color: var(--sep);
-  }
-  .item-skeleton-line.is-caption { height: .3em; --w: 34%; margin-bottom: .7em; }
-  .item-skeleton-line.is-title { height: .55em; --w: 42%; margin-bottom: .6em; }
-  .item-skeleton-line.is-tags { height: .3em; --w: 36%; margin-bottom: var(--space-3); }
-  /* Erro de dados (VG-ABS-10): quando o carregamento de uma lista ou do
-     formulário falha, a área não fica em branco nem reusa a lista vazia, que
-     é um estado válido. A linha usa o --error do recado de erro do
-     formulário, no corpo dos recados (--text-md), com o marcador [ erro ] e o
-     substantivo da área — projetos, publicações ou formulário —, e mantém a
-     geometria da lista vazia e do esqueleto: à esquerda e sem moldura.
-     O "tentar de novo" é um link de prosa (VG-BOT-06), em --accent, caixa
-     alta e sem sublinhado, e não um botão novo: a falha é recuperável sem
-     sair do desenho ASCII e sem inventar um controle que as outras telas não
-     têm. Não há nova tentativa automática, para não multiplicar pedidos nem
-     esconder o problema.
-     Quando a linha substitui um carregamento, o container da lista perde o
-     aria-busy e a linha entra com role=status, para o leitor de tela ouvir a
-     falha em vez de esperar um fim que não vem; vinda junto com a tela, é só
-     o conteúdo da área. No modo de cores forçadas a linha continua texto do
-     sistema (CanvasText), porque a falha é informação disponível, e não o
-     GrayText do que está fora de alcance; o link segue o LinkText. */
-  .data-error {
-    margin: 0;
-    color: var(--error);
-    font-size: var(--text-md);
-  }
-
   .field-label {
     display: block;
     margin: var(--space-9) 0 var(--space-2);
@@ -1466,14 +1211,6 @@
     flex-wrap: wrap;
     color: var(--dim);
     font-size: var(--text-md);
-  }
-  /* O assunto já escolhido não responde mais ao clique, como o item em vigor
-     do menu: usa o --support do estado selecionado e perde cursor e ponteiro.
-     Sem isso, clicar de novo no mesmo assunto parecia uma ação sem efeito. */
-  .chips button[aria-pressed="true"] {
-    color: var(--support);
-    cursor: default;
-    pointer-events: none;
   }
   /* Assuntos com separador: o ponto fica entre os botões, no mesmo desenho do
      menu, e o vão entre os itens diminui para o conjunto não abrir demais. */
@@ -1741,73 +1478,6 @@
     -webkit-text-stroke: .5px currentColor;
     transition: none;
   }
-  #screen-language:not([hidden]) { display: flex; flex-direction: column; }
-  .lang-panel {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    justify-content: safe center;
-    padding: var(--space-4) 0 var(--space-7);
-  }
-  /* A lista longa de idiomas vira uma grade que se adapta à largura sem
-     breakpoint: as colunas nascem de `auto-fit` com 12rem de mínimo, então
-     cabem três no card largo, duas no intermediário e uma no celular. O
-     limite de 38rem mantém no máximo três colunas, mesmo no card de 900px.
-     automático e voltar atravessam a grade inteira. */
-  .lang-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-    align-items: center;
-    justify-items: center;
-    gap: var(--space-1) var(--space-6);
-    width: 100%;
-    max-width: 38rem;
-    margin: 0;
-  }
-  .lang-item {
-    display: inline-flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: baseline;
-    column-gap: var(--space-4);
-    padding: var(--space-1) var(--space-3);
-    font-size: var(--text-base);
-    line-height: 1.4;
-    text-align: center;
-    white-space: nowrap;
-  }
-  /* Quando o nome e a etiqueta não cabem lado a lado na coluna, o flex-wrap
-     desce a etiqueta para a segunda linha do item, centralizada. */
-  .lang-soon {
-    font-size: .8em;
-    line-height: 1.25;
-    letter-spacing: .04em;
-    /* A etiqueta é estado, não rótulo de controle: fica em caixa baixa mesmo
-       dentro do botão, que sobe para caixa alta pela regra de button. */
-    text-transform: none;
-  }
-  .lang-item-auto { grid-column: 1 / -1; margin-bottom: var(--space-3); }
-  .lang-item-back { grid-column: 1 / -1; margin-top: var(--space-6); color: var(--accent); }
-  /* Escala de largura (VG-LAY-11): 521 px abre a faixa intermediária, e não
-     há outro degrau de media query. Daqui até ~729 px (no padrão de 16 px) a
-     coluna de 72ch é o próprio card, que cresce com a janela; de ~729 a
-     ~928 px a coluna satura e a sobra vira margem interna; em ~928 px o card
-     para no teto --card-max-w. Acima disso, tablet paisagem, desktop largo e
-     tela ultrawide têm o mesmo desenho: card de 900 px centrado, coluna de
-     72ch e o grão na sobra. Os dois pontos não são media queries — nascem do
-     max-width da coluna e do card, e o da coluna ainda acompanha o tamanho de
-     fonte do usuário —, e criar um degrau no meio da faixa faria os dois
-     saltarem no redimensionamento sem ganho de leitura. */
-  /* A partir de 521 px, todas as etiquetas descem: assim os itens
-     desabilitados têm o mesmo desenho e a grade não fica com buracos. */
-  @media (min-width: 521px) {
-    .lang-item { display: block; }
-    .lang-soon { display: block; }
-  }
-  .lang-item-back:hover { color: var(--fg); }
-
   .sr-only {
     position: absolute;
     width: 1px;
@@ -1876,17 +1546,6 @@
       background-image: none;
       border-top: 1px dashed;
     }
-    /* O tracejado do esqueleto também é um gradiente de fundo, que o modo
-       descarta: a linha vira um fio de 1 px (mantendo a altura reservada) e a
-       moldura da capa e o recado de carregamento vão para o GrayText, o tom
-       do que ainda não está disponível. */
-    .item-skeleton-line {
-      background-image: none;
-      border-top: 1px dashed;
-    }
-    .item-skeleton-cover,
-    .list-loading { color: GrayText; }
-    .item-skeleton-cover { border-color: GrayText; }
     .field-box .edge { background-image: none; }
     /* No modo forçado os hífens voltam, para a régua não ficar sem linha
        quando o fundo pintado é descartado. */
@@ -1898,28 +1557,23 @@
     }
     .field-box::before { border-inline-start: 1px solid; }
     .field-box::after { border-inline-end: 1px solid; }
-    /* O estado em vigor (menu, idioma, assunto e página atual) só se
+    /* O estado em vigor (menu e assunto) só se
        distinguia pela cor; no modo, o sublinhado mantém o sinal. A marcação
        e o anexo não entram: o glifo [x]/(*) e o nome do arquivo já não
        dependem de cor. */
     .menu button[aria-current="page"],
-    #lang-btn[aria-current="page"],
-    button[aria-pressed="true"],
-    .pager-current {
+    button[aria-pressed="true"] {
       text-decoration: underline;
       text-underline-offset: 2px;
     }
     /* O que está fora de alcance (idiomas [ em breve ], envio ou apoio em
        andamento e seta sem página) usa o GrayText do sistema, que sobrevive
        ao modo e mantém o sinal de indisponível. O :hover entra para a regra
-       de repouso dos controles não ser vencida por uma cor da paleta; a seta
-       sem página mantém o seletor próprio pela especificidade. */
+       de repouso dos controles não ser vencida por uma cor da paleta. */
     button:disabled,
     button:disabled:hover,
     button[aria-disabled="true"],
     button[aria-disabled="true"]:hover,
-    .pager-arrow.is-off,
-    .pager-arrow.is-off:hover,
     .field-upload.is-off .field-upload-pick,
     .field-upload.is-off:hover .field-upload-pick {
       color: GrayText;
@@ -2833,7 +2487,8 @@ var BTC = (function () {
   function taprootOutputKey(xonly) {
     var Ppt = liftX(BigInt('0x' + bytesToHex(xonly)));
     if (!Ppt) throw new Error('ponto inválido para taproot');
-    var t = BigInt('0x' + bytesToHex(taggedHash('TapTweak', xonly))) % N;
+    var t = BigInt('0x' + bytesToHex(taggedHash('TapTweak', xonly)));
+    if (t >= N) throw new Error('tweak taproot inválido');
     var Q = toAffine(jAdd(jMul(t), [Ppt.x, Ppt.y, 1n]));
     return pad32(Q.x);
   }
@@ -3175,10 +2830,25 @@ var BTC = (function () {
     var il = BigInt('0x' + bytesToHex(I.subarray(0, 32)));
     var child = mod(il + node.d, N);
     if (il >= N || child === 0n) throw new Error('derivação BIP32 inválida');
-    return {
-      d: child, chain: I.subarray(32), depth: node.depth + 1,
-      parentFingerprint: fingerprintOf(node), childNumber: index
+    var out = {
+      d: child, chain: I.subarray(32), depth: node.depth + 1, childNumber: index
     };
+    /* A impressão digital do pai só é necessária quando o nó é serializado
+       (extendedKey); calculá-la em todo passo custa uma multiplicação
+       escalar por nível. O getter adia o cálculo e o substitui pelo valor
+       na primeira leitura. */
+    Object.defineProperty(out, 'parentFingerprint', {
+      enumerable: true,
+      configurable: true,
+      get: function () {
+        var fp = fingerprintOf(node);
+        Object.defineProperty(out, 'parentFingerprint', {
+          value: fp, writable: true, enumerable: true, configurable: true
+        });
+        return fp;
+      }
+    });
+    return out;
   }
   async function derivePath(node, path) {
     var parts = path.split('/');
@@ -3452,6 +3122,9 @@ var BTC = (function () {
   function b64decode(text) {
     var clean = String(text).replace(/[\s=]+/g, '');
     if (!/^[A-Za-z0-9+/]*$/.test(clean)) throw new Error('base64 inválido');
+    /* Comprimento ≡ 1 (mod 4) não completa um byte: recusar evita que um
+       arquivo corrompido vire bytes plausíveis. */
+    if (clean.length % 4 === 1) throw new Error('base64 inválido');
     var out = new Uint8Array(Math.floor(clean.length * 3 / 4));
     var acc = 0, bits = 0, p = 0;
     for (var i = 0; i < clean.length; i++) {
@@ -3870,15 +3543,19 @@ var BTC = (function () {
     var dd = mod(d, N);
     var Q = pointFromD(dd);
     if (!hasEvenY(Q)) dd = mod(N - dd, N);
-    var Px = xonlyOf(pointFromD(dd));
+    /* Negar o escalar nega a ordenada e conserva a abcissa: Px e Rx saem do
+       mesmo ponto já calculado, sem uma segunda multiplicação escalar. */
+    var Px = xonlyOf(Q);
     var auxRand = aux && aux.length === 32 ? aux : new Uint8Array(32);
+    var ddBytes = pad32(dd);
+    var auxHash = taggedHash('BIP0340/aux', auxRand);
     var t = new Uint8Array(32);
-    for (var i = 0; i < 32; i++) t[i] = pad32(dd)[i] ^ taggedHash('BIP0340/aux', auxRand)[i];
+    for (var i = 0; i < 32; i++) t[i] = ddBytes[i] ^ auxHash[i];
     var k0 = BigInt('0x' + bytesToHex(taggedHash('BIP0340/nonce', concatBytes(t, Px, msg)))) % N;
     if (k0 === 0n) throw new Error('nonce Schnorr nulo');
     var R = pointFromD(k0);
     var k = hasEvenY(R) ? k0 : mod(N - k0, N);
-    var Rx = xonlyOf(pointFromD(k));
+    var Rx = xonlyOf(R);
     var e = BigInt('0x' + bytesToHex(taggedHash('BIP0340/challenge', concatBytes(Rx, Px, msg)))) % N;
     var s = mod(k + e * dd, N);
     var sig = concatBytes(Rx, pad32(s));
@@ -3906,7 +3583,8 @@ var BTC = (function () {
     var Q = pointFromD(d);
     var xonly = pad32(Q.x);
     var base = (Q.y & 1n) ? mod(N - d, N) : d;
-    var t = BigInt('0x' + bytesToHex(taggedHash('TapTweak', concatBytes(xonly, merkleRoot || new Uint8Array(0))))) % N;
+    var t = BigInt('0x' + bytesToHex(taggedHash('TapTweak', concatBytes(xonly, merkleRoot || new Uint8Array(0)))));
+    if (t >= N) throw new Error('tweak taproot inválido');
     var out = mod(base + t, N);
     if (out === 0n) throw new Error('chave ajustada inválida');
     return out;
@@ -4074,6 +3752,12 @@ var BTC = (function () {
       if (inp.kind === 'p2pkh' && !mapFind(psbt.inputs[inp.index], 0x00)) {
         throw new Error('entrada ' + inp.index + ' é p2pkh e veio sem non_witness_utxo; o valor da entrada não pode ser conferido');
       }
+      /* No segwit o valor entra no sighash: com só witness_utxo, o
+         coordenador pode mentir sobre o valor e a taxa exibida não é
+         conferível. A assinatura resultante seria recusada na rede. */
+      if (inp.kind !== 'p2pkh' && !mapFind(psbt.inputs[inp.index], 0x00)) {
+        warnings.push('a <b>entrada</b> ' + inp.index + ' é segwit e veio sem <code>non_witness_utxo</code>; o valor da entrada não pode ser conferido.');
+      }
     });
     outputs.forEach(function (out) {
       if (out.own === 'outro') warnings.push('a <b>saída</b> ' + out.index + ' tem script não padronizado; confira no coordenador.');
@@ -4088,7 +3772,12 @@ var BTC = (function () {
       inputs: inputs, outputs: outputs,
       totalIn: totalIn, totalOut: totalOut, fee: fee,
       signedInputs: signedInputs, alreadySigned: signedInputs === tx.inputs.length,
-      txid: txidOf(tx), vsize: vsize, feerate: feerate, warnings: warnings
+      txid: txidOf(tx), vsize: vsize, feerate: feerate, warnings: warnings,
+      /* Em p2pkh e p2sh-p2wpkh o scriptSig só existe depois da assinatura e
+         muda o txid; nas demais entradas o txid já é o final. */
+      txidEstimated: inputs.some(function (x) {
+        return x.kind === 'p2pkh' || x.kind === 'p2sh-p2wpkh';
+      })
     };
   }
 
@@ -4268,10 +3957,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var THEME_KEY = 'chave-btc-theme';
   var SCREENS = ['chave', 'sobre'];
   var REDUCED = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  var FORCED = window.matchMedia ? window.matchMedia('(forced-colors: active)') : null;
   function reduced() { return !!(REDUCED && REDUCED.matches); }
+  function forcedColors() { return !!(FORCED && FORCED.matches); }
 
   var state = { hd: null, key: null, values: null, screen: 'chave', analysis: null };
   var deriveSeq = 0;
+  var deriveTimer = 0;
   var analyzeSeq = 0;
 
   var coordsInput = $('#coords');
@@ -4319,7 +4011,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   });
 
   /* -------------------------------------------------------- mensagens */
-  var PREFIX = { ok: '[ ok ]', erro: '[ erro ]', aviso: '[ atenção ]', neutro: '[ ... ]', vazio: '[ vazio ]' };
+  var PREFIX = { ok: '[ ok ]', erro: '[ erro ]', aviso: '[ atenção ]', neutro: '[ ... ]' };
   function setStatus(el, kind, text) {
     if (!el) return;
     el.classList.remove('ok', 'error', 'warning');
@@ -4653,7 +4345,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         coordsInput.setSelectionRange(parsed.text.length, parsed.text.length);
       } catch (e) {}
     }
-    if (bitsValue !== before) applyBits(bitsValue);
+    if (bitsValue !== before) scheduleBits(bitsValue);
   }
 
   /* Ao sair do campo, a sequência digitada vira o formato de apresentação:
@@ -4831,6 +4523,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function clearKey() {
     deriveSeq++;
     analyzeSeq++;
+    if (deriveTimer) {
+      window.clearTimeout(deriveTimer);
+      deriveTimer = 0;
+    }
     state.hd = null;
     state.values = null;
     state.analysis = null;
@@ -4916,12 +4612,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* ---------------------------------------------------------- bits/entrada */
-  var BIT_MAX = 256;
 
   /* A derivação recebe os 256 bits que saem das coordenadas. Com menos de
      256 bits não há chave, e o estado antigo cai. */
   async function applyBits(bits) {
-    if (bits.length < BIT_MAX) {
+    if (bits.length < BIT_COUNT) {
       clearKey();
       return;
     }
@@ -4931,15 +4626,36 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       if (seq !== deriveSeq) return;
       applyKey(hd);
     } catch (e) {
-      if (seq === deriveSeq) clearKey();
+      if (seq === deriveSeq) {
+        clearKey();
+        setStatus(coinStatus, 'erro', e.message || 'não foi possível derivar a chave');
+      }
     }
+  }
+  /* A digitação no campo de coordenadas muda os bits a cada tecla; a
+     derivação completa (PBKDF2 + BIP32) espera o mesmo intervalo curto da
+     análise do PSBT, e só o último conjunto é derivado. Sem 256 bits, o
+     estado antigo cai na hora. */
+  function scheduleBits(bits) {
+    if (deriveTimer) {
+      window.clearTimeout(deriveTimer);
+      deriveTimer = 0;
+    }
+    if (bits.length < BIT_COUNT) {
+      applyBits(bits);
+      return;
+    }
+    deriveTimer = window.setTimeout(function () {
+      deriveTimer = 0;
+      applyBits(bits);
+    }, 250);
   }
 
   /* ------------------------------------------------------------- assinar */
   /* O endereço vem do PSBT e entra escapado antes de virar HTML na revisão. */
   function escapeHtml(text) {
-    return String(text).replace(/[&<>"]/g, function (ch) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch];
+    return String(text).replace(/[&<>"']/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
     });
   }
   function satLine(v) { return BTC.formatSats(v); }
@@ -5024,7 +4740,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     renderReviewOutputs(a);
     if (reviewFee) reviewFee.innerHTML = valueLine(a.fee, 'out', a.totalIn);
     reviewCell(reviewVsize, (signed ? '' : '~') + a.vsize + ' vB');
-    reviewCell(reviewTxid, a.txid);
+    reviewCell(reviewTxid, (signed || !a.txidEstimated ? '' : '~') + a.txid);
     reviewCell(reviewFile, file);
     if (reviewWarningsList) {
       reviewWarningsList.textContent = '';
@@ -5065,7 +4781,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       var bytes = BTC.psbtParseInput(text);
       var a = await BTC.analyzePsbt(bytes, state.hd);
       if (seq !== analyzeSeq) return;
-      state.analysis = { bytes: bytes, summary: a };
+      state.analysis = { bytes: bytes };
       /* Um PSBT já finalizado tem vsize e txid reais: saem da transação final,
          e a revisão dispensa o "~" da estimativa. */
       var review = a, finalSigned = false;
@@ -5559,14 +5275,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     var filled = Math.round(total * OCCUPANCY);
     var order = [];
     for (var i = 0; i < total; i++) order.push(i);
-    for (var i = 0; i < filled; i++) {
+    for (i = 0; i < filled; i++) {
       var j = i + ((Math.random() * (total - i)) | 0);
       var swap = order[i];
       order[i] = order[j];
       order[j] = swap;
     }
-    for (var i = 0; i < total; i++) grain.grid.push(' ');
-    for (var i = 0; i < filled; i++) grain.grid[order[i]] = randomGlyph();
+    for (i = 0; i < total; i++) grain.grid.push(' ');
+    for (i = 0; i < filled; i++) grain.grid[order[i]] = randomGlyph();
     refreshGrainInks();
     drawGrain();
     applyGrainFilter(root.dataset.theme || 'dark', false);
@@ -5618,8 +5334,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   function startGrain() {
     if (grain.timer || !grain.grid) return;
-    if (reduced()) return;
-    if (window.matchMedia('(forced-colors: active)').matches) return;
+    if (reduced() || forcedColors()) return;
     grain.timer = window.setInterval(tickGrain, tokenMs('--motion-grain', 75));
   }
   function stopGrain() {
@@ -5628,8 +5343,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     grain.timer = 0;
   }
   function syncGrain() {
-    if (document.hidden) stopGrain();
-    else startGrain();
+    if (document.hidden || reduced() || forcedColors()) {
+      stopGrain();
+    } else {
+      startGrain();
+    }
   }
   function buildGrain() {
     grain.canvas = $('#grain');
@@ -5641,6 +5359,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     resizeGrain();
     document.addEventListener('visibilitychange', syncGrain);
     if (REDUCED && REDUCED.addEventListener) REDUCED.addEventListener('change', syncGrain);
+    if (FORCED && FORCED.addEventListener) FORCED.addEventListener('change', syncGrain);
     syncGrain();
   }
   if (document.fonts && document.fonts.ready) {
