@@ -66,7 +66,9 @@ tela mostra:
    arquivo no botão
    **baixar**, ao fim do bloco; a tela mostra os detalhes (saída,
    destino, troco, endereço, pó, taxa, vsize e txid) na mesma tabela de
-   leitura do "receber", sem o base64 como campo. A linha **pó** só aparece
+   leitura do "receber", sem o base64 como campo. O destino externo leva
+   `[ externo ]` no fim do endereço, no tom do `[ atenção ]`; o troco, que
+   pertence à carteira, fica sem marcador. A linha **pó** só aparece
    quando o troco não foi criado: ela mostra quanto do valor ficou na taxa
    por isso, para a taxa (que já inclui esse resto) não parecer erro, e fica
    sem sinal porque é uma parte da taxa, não uma segunda saída. Os outros

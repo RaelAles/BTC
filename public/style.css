@@ -1690,10 +1690,10 @@
   .value-out { color: var(--error); }
   .value-none { color: var(--dim); }
   /* Destino externo na revisão do PSBT: o marcador "[ externo ]" ao fim do
-     endereço usa o mesmo --error do "[ atenção ]" da revisão, onde o aviso de
-     conferência é divergência, não informação. O marcador não quebra entre
-     os colchetes; se não couber depois do endereço, desce inteiro. */
-  .review-external { color: var(--error); white-space: nowrap; }
+     endereço usa o --warning do "[ atenção ]" do chave-btc.html, o aviso no
+     lugar do dado que ele aponta. O marcador não quebra entre os colchetes;
+     se não couber depois do endereço, desce inteiro. */
+  .review-external { color: var(--warning); white-space: nowrap; }
   /* Fatia do valor sobre uma base (resumo do PSBT): é metadado da linha,
      então fica no --dim, ao lado do valor, sem competir com o número e sem
      quebrar entre o número e o `%`. O `|` que a antecede usa o --sep dos

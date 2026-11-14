@@ -1503,12 +1503,28 @@
        representa do saldo da conta (`sharePct`), em --dim: a mesma base para
        as três linhas, para a tabela ler como um recorte do saldo. A taxa
        sobre o valor enviado é outra pergunta e fica só no seletor de taxa.
-       Endereço é texto puro. A taxa aparece sem o pó, que vem logo abaixo com
-       `-`: a soma das duas é o que o PSBT paga (`fee_sats`). */
+       A taxa aparece sem o pó, que vem logo abaixo com `-`: a soma das duas é
+       o que o PSBT paga (`fee_sats`). */
     var outValue = $('#send-meta-out-value');
     if (outValue) outValue.innerHTML = j.recipient ? signedBtcShare(j.recipient.value, 'out') : '';
+    /* O destino externo leva o marcador no próprio endereço, no mesmo tom do
+       "[ atenção ]" do chave-btc.html; o troco, que é da carteira, segue como
+       texto puro. */
     var outAddress = $('#send-meta-out-address');
-    if (outAddress) outAddress.textContent = j.recipient ? j.recipient.address : '';
+    if (outAddress) {
+      var external = !!j.recipient && (j.outputs || []).some(function (out) {
+        return out.address === j.recipient.address &&
+          (out.own === false || out.own === 'externo');
+      });
+      outAddress.textContent = j.recipient ? j.recipient.address : '';
+      if (external) {
+        outAddress.appendChild(document.createTextNode(' '));
+        var externalMark = document.createElement('span');
+        externalMark.className = 'review-external';
+        externalMark.textContent = '[ externo ]';
+        outAddress.appendChild(externalMark);
+      }
+    }
     var changeValue = $('#send-meta-change-value');
     if (changeValue) changeValue.innerHTML = j.change ? signedBtcShare(j.change.value, 'in') : '';
     var changeAddress = $('#send-meta-change-address');
