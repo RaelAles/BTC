@@ -1,6 +1,7 @@
 /* Cabeçalhos de segurança: as duas cópias (Worker e public/_headers) têm
-   que sair iguais, o hash do script inline do tema tem que estar em dia e
-   nenhuma resposta pode escapar sem os nove cabeçalhos.
+   que sair iguais, o hash do script inline do tema e o SRI (integrity) de
+   app.js/folhas de estilo têm que estar em dia e nenhuma resposta pode
+   escapar sem os nove cabeçalhos.
 
    node test/security-headers.test.mjs */
 import assert from 'node:assert/strict';
@@ -104,7 +105,36 @@ function blocoDeHeaders(text) {
   console.log('ok   estático, API e erro levam os nove cabeçalhos');
 }
 
-/* ---------------- 4. o 101 do WebSocket passa intacto ---------------- */
+/* ---------------- 4. SRI nos scripts e folhas de estilo ---------------- */
+{
+  const html = read('public/index.html');
+  const alvos = [];
+  for (const [tag] of html.matchAll(/<(script|link)\b[^>]*>/g)) {
+    const src = /\ssrc="([^"]+)"/.exec(tag);
+    const href = /\shref="([^"]+)"/.exec(tag);
+    const rel = /\srel="([^"]+)"/.exec(tag);
+    const url = src ? src[1]
+      : (rel && rel[1] === 'stylesheet' && href ? href[1] : '');
+    // só recursos da própria origem; data:, manifest e ícones não levam SRI
+    if (!url || !url.startsWith('/') || url.startsWith('//')) continue;
+    alvos.push({ tag, url });
+  }
+  assert.equal(alvos.length, 3,
+    'SRI cobre app.js e as duas folhas de estilo (achou ' + alvos.length + ')');
+  for (const { tag, url } of alvos) {
+    const file = path.join(root, 'public', url.slice(1));
+    assert.ok(fs.existsSync(file), 'SRI: arquivo existe ' + url);
+    const esperado = 'sha384-' +
+      createHash('sha384').update(fs.readFileSync(file)).digest('base64');
+    const m = /\sintegrity="([^"]+)"/.exec(tag);
+    assert.ok(m, 'SRI: ' + url + ' tem integrity na tag');
+    assert.equal(m[1], esperado,
+      'SRI: integrity de ' + url + ' acompanha o arquivo (novo hash: ' + esperado + ')');
+  }
+  console.log('ok   SRI confere em app.js, style.css e fontes.css');
+}
+
+/* ---------------- 5. o 101 do WebSocket passa intacto ---------------- */
 {
   const upgrade = { status: 101, webSocket: null };
   const env = {

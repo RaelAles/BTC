@@ -869,6 +869,26 @@ teste falha até o `sha256-…` novo entrar nos dois arquivos. A CSP não usa
 `style=` —, então um `style="…"` novo no HTML também aparece no teste.
 `clipboard-write=(self)` fica liberado porque a tela tem botões de copiar.
 
+### SRI (Subresource Integrity)
+
+`/app.js`, `/fontes.css` e `/style.css` são carregados com `integrity`
+sha384 (`<script src>` e `<link rel="stylesheet">`). O navegador descarta o
+arquivo cujo conteúdo não bate com o hash — inclusive se algo no caminho
+(proxy, CDN, extensão) trocar os bytes. Como os três são same-origin, o
+`integrity` basta: não é preciso `crossorigin`.
+
+Qualquer edição em `app.js`, `fontes.css` ou `style.css` **exige** recalcular
+o hash e atualizar `public/index.html`, senão o arquivo é bloqueado. O mesmo
+teste confere isso:
+
+```bash
+openssl dgst -sha384 -binary public/app.js | base64   # valor do integrity
+npm test                                              # acusa hash vencido
+```
+
+Por isso os minificadores da Cloudflare precisam continuar desligados
+(minify, Rocket Loader e afins): o hash vale para os bytes exatos do arquivo.
+
 O HSTS usa `max-age=31536000; includeSubDomains` e não inclui `preload`. Se
 algum subdomínio deste host ainda responder em HTTP, tire o
 `includeSubDomains`: o navegador guarda a decisão por um ano.
