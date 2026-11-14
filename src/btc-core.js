@@ -1491,6 +1491,32 @@ var BTC = (function () {
     return prev;
   }
 
+  /* Uma entrada já assinada traz partial_sigs, tap_key_sig ou a finalização
+     (final_scriptSig/final_scriptWitness). Campos finais vazios não contam:
+     no segwit o final_scriptSig fica vazio e o witness leva a assinatura. */
+  function inputSigned(map) {
+    if (mapFindAll(map, 0x02).some(function (e) { return e.value.length > 0; })) return true;
+    var tapSig = mapFind(map, 0x13);
+    if (tapSig && tapSig.value.length > 0) return true;
+    var finalSig = mapFind(map, 0x07);
+    if (finalSig && finalSig.value.length > 0) return true;
+    var finalWitness = mapFind(map, 0x08);
+    return !!(finalWitness && finalWitness.value.length > 0);
+  }
+
+  /* BIP174/BIP371: depois de finalizada, a entrada conserva o UTXO e os
+     campos finais; os demais campos conhecidos saem. Desconhecidos ficam. */
+  var FINALIZED_DROP = {
+    0x02: 1, 0x03: 1, 0x04: 1, 0x05: 1, 0x06: 1, 0x09: 1, 0x0a: 1, 0x0b: 1,
+    0x0c: 1, 0x0d: 1, 0x11: 1, 0x12: 1, 0x13: 1, 0x14: 1, 0x15: 1, 0x16: 1,
+    0x17: 1, 0x18: 1
+  };
+  function clearFinalizedFields(map) {
+    for (var i = map.length - 1; i >= 0; i--) {
+      if (FINALIZED_DROP[map[i].key[0]]) map.splice(i, 1);
+    }
+  }
+
   /* ---------------------------------------------- análise de um PSBT */
   async function analyzePsbt(bytes, hd) {
     var psbt = parsePsbt(bytes);
@@ -1498,8 +1524,11 @@ var BTC = (function () {
     var session = createSession(hd);
     var inputs = [], warnings = [];
     var totalIn = 0n;
+    var signedInputs = 0;
+    var allFinalized = psbt.inputs.length > 0 && psbt.inputs.every(inputSigned);
     for (var i = 0; i < tx.inputs.length; i++) {
       var map = psbt.inputs[i];
+      if (inputSigned(map)) signedInputs++;
       var prev = prevoutOf(map, tx.inputs[i]);
       var kind = normalizeKind(scriptKind(prev.script));
       if (kind === 'p2wsh') throw new Error('entrada ' + i + ' é P2WSH, não suportada');
@@ -1512,8 +1541,13 @@ var BTC = (function () {
         throw new Error('entrada ' + i + ' exige time lock; este signer não confere travas de tempo');
       }
       var key = await findKeyForScript(session, prev.script, map);
-      if (!key) throw new Error('entrada ' + i + ' não pertence às contas derivadas dos 256 bits');
-      if (bytesToHex(scriptForKind(key.kind, key.Q)) !== bytesToHex(prev.script)) {
+      if (!key) {
+        /* O finalizador do BIP174 limpa a origem do PSBT já finalizado; sem
+           ela, a entrada só pode ser exibida, nunca assinada. */
+        if (!(allFinalized && inputSigned(map))) {
+          throw new Error('entrada ' + i + ' não pertence às contas derivadas dos 256 bits');
+        }
+      } else if (bytesToHex(scriptForKind(key.kind, key.Q)) !== bytesToHex(prev.script)) {
         throw new Error('entrada ' + i + ': chave derivada não corresponde ao script');
       }
       if (tx.inputs[i].scriptSig && tx.inputs[i].scriptSig.length) {
@@ -1529,7 +1563,7 @@ var BTC = (function () {
         index: i, outpoint: tx.inputs[i].txid + ':' + tx.inputs[i].vout,
         value: prev.value, script: prev.script, kind: kind, key: key,
         address: addressFromScript(prev.script),
-        path: pathText(key.indices)
+        path: key ? pathText(key.indices) : ''
       });
     }
     var outputs = [], totalOut = 0n;
@@ -1563,6 +1597,12 @@ var BTC = (function () {
       if (inp.kind === 'p2pkh' && !mapFind(psbt.inputs[inp.index], 0x00)) {
         throw new Error('entrada ' + inp.index + ' é p2pkh e veio sem non_witness_utxo; o valor da entrada não pode ser conferido');
       }
+      /* No segwit o valor entra no sighash: com só witness_utxo, o
+         coordenador pode mentir sobre o valor e a taxa exibida não é
+         conferível. A assinatura resultante seria recusada na rede. */
+      if (inp.kind !== 'p2pkh' && !mapFind(psbt.inputs[inp.index], 0x00)) {
+        warnings.push('a entrada ' + inp.index + ' é segwit e veio sem non_witness_utxo; o valor da entrada não pode ser conferido.');
+      }
     });
     outputs.forEach(function (out) {
       /* O destino externo não vira aviso: cada saída já traz `own`, e a
@@ -1572,17 +1612,27 @@ var BTC = (function () {
     });
     if (tx.inputs.length === 0) throw new Error('a transação não tem entradas');
     if (tx.outputs.length === 0) throw new Error('a transação não tem saídas');
+    if (signedInputs > 0 && signedInputs < tx.inputs.length) {
+      warnings.push('algumas entradas já têm assinatura; assinar de novo substitui as assinaturas existentes.');
+    }
     return {
       psbt: psbt, tx: tx, session: session,
       inputs: inputs, outputs: outputs,
       totalIn: totalIn, totalOut: totalOut, fee: fee,
-      vsize: vsize, feerate: feerate, warnings: warnings
+      signedInputs: signedInputs, alreadySigned: signedInputs === tx.inputs.length,
+      txid: txidOf(tx), vsize: vsize, feerate: feerate, warnings: warnings,
+      /* Em p2pkh e p2sh-p2wpkh o scriptSig só existe depois da assinatura e
+         muda o txid; nas demais entradas o txid já é o final. */
+      txidEstimated: inputs.some(function (x) {
+        return x.kind === 'p2pkh' || x.kind === 'p2sh-p2wpkh';
+      })
     };
   }
 
   /* ------------------------------------------------ assinatura do PSBT */
   async function signPsbt(bytes, hd, auxRand) {
     var a = await analyzePsbt(bytes, hd);
+    if (a.alreadySigned) throw new Error('este psbt já está assinado');
     var psbt = a.psbt, tx = a.tx;
     a.inputs.forEach(function (inp) {
       var map = psbt.inputs[inp.index];
@@ -1631,34 +1681,18 @@ var BTC = (function () {
             writeVarInt(sigWithType.length), sigWithType, writeVarInt(inp.key.pub.length), inp.key.pub));
         }
       }
+      clearFinalizedFields(map);
     });
 
-    /* Extrai a transação final a partir dos campos finais do PSBT. */
-    var final = {
-      version: tx.version, inputs: [], outputs: tx.outputs, locktime: tx.locktime, witnesses: []
-    };
-    a.inputs.forEach(function (inp) {
-      var map = psbt.inputs[inp.index];
-      var fs = mapFind(map, 0x07);
-      var fw = mapFind(map, 0x08);
-      if (!fs) throw new Error('entrada ' + inp.index + ' não foi finalizada');
-      final.inputs.push({
-        txid: tx.inputs[inp.index].txid, vout: tx.inputs[inp.index].vout,
-        scriptSig: fs.value, sequence: tx.inputs[inp.index].sequence
-      });
-      final.witnesses.push(fw ? readWitness(fw.value) : []);
-    });
-    if (final.inputs.length !== tx.inputs.length) throw new Error('nem todas as entradas foram finalizadas');
-    var hex = bytesToHex(writeTx(final, true));
-    var size = vsizeOf(final);
-    var feerate = size > 0 ? Number(a.fee) / size : 0;
+    var fin = psbtFinalTx(psbt);
+    var feerate = fin.vsize > 0 ? Number(a.fee) / fin.vsize : 0;
     var signedBytes = writePsbt(psbt);
     return {
       psbt: signedBytes,
       psbtBase64: b64encode(signedBytes),
-      txHex: hex,
-      txid: txidOf(final),
-      fee: a.fee, vsize: size, feerate: feerate,
+      txHex: fin.hex,
+      txid: fin.txid,
+      fee: a.fee, vsize: fin.vsize, feerate: feerate,
       inputs: a.inputs, outputs: a.outputs,
       totalIn: a.totalIn, totalOut: a.totalOut,
       warnings: a.warnings

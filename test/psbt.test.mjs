@@ -205,6 +205,23 @@ function mapFind(map, type) {
   const review = await BTC.analyzePsbt(bytes, hd);
   assert.equal(review.outputs[1].own, 'troco', 'o assinante reconhece o troco');
 
+  /* Entrada segwit sem non_witness_utxo (PSBT de fora): avisa em vez de
+     recusar, porque a chave (origem) continua conferível mas o valor não. */
+  const semPrev = BTC.parsePsbt(bytes);
+  semPrev.inputs = semPrev.inputs.map(m => m.filter(e => !(e.key.length === 1 && e.key[0] === 0x00)));
+  const warned = await BTC.analyzePsbt(BTC.writePsbt(semPrev), hd);
+  assert.ok(warned.warnings.some(w => /é segwit e veio sem non_witness_utxo/.test(w)),
+    'entrada segwit sem a transação anterior gera aviso');
+
+  /* O PSBT já finalizado não tem mais a origem BIP32, mas conserva UTXO e
+     campos finais: dá para exibir e recusar nova assinatura. */
+  const finalReview = await BTC.analyzePsbt(signed.psbt, hd);
+  assert.equal(finalReview.alreadySigned, true);
+  assert.equal(finalReview.inputs[0].key, null, 'a origem sai na finalização');
+  assert.equal(finalReview.inputs[0].path, '');
+  await assert.rejects(BTC.signPsbt(signed.psbt, hd, new Uint8Array(32)),
+    /este psbt já está assinado/);
+
   /* erros claros antes de qualquer assinatura */
   const badAddr = await reqPsbt({
     xpub: hd.accounts.bip84.xpub, address: 'bc1qnaoexiste',
@@ -294,6 +311,10 @@ function mapFind(map, type) {
     script: BTC.bytesToHex(a.script), height: 800200,
     row: row(a, 0, 150)
   }];
+  /* A transação anterior de cada UTXO é obrigatória no PSBT: o assinador
+     confere o valor da entrada contra ela. */
+  const prev = makeTx([{ txid: '30'.repeat(32), vout: 0 }], [{ value: 200000, script: a.script }]);
+  utxos[0].txid = prev.txid;
   const destination = BTC.derive('01' + '0'.repeat(254)).addresses.p2tr;
   const limits = sendLimits({ utxos, address: destination, feeRate: 4 });
   assert.equal(limits.available_sats, 200000);
@@ -326,6 +347,13 @@ function mapFind(map, type) {
     script: BTC.bytesToHex(a.script), height: 0, own: true,
     row: row(change, 1, 0)
   };
+  const changePrev = makeTx([{ txid: '32'.repeat(32), vout: 0 }], [{ value: 50000, script: change.script }]);
+  ownChange.txid = changePrev.txid;
+  const rawTxFor = async txid => {
+    if (txid === prev.txid) return BTC.hexToBytes(prev.raw);
+    if (txid === changePrev.txid) return BTC.hexToBytes(changePrev.raw);
+    return null;
+  };
   const withOwnChange = sendLimits({
     utxos: [...utxos, ownChange], address: destination, feeRate: 4
   });
@@ -333,14 +361,14 @@ function mapFind(map, type) {
   const chained = await preparePsbt({
     account, utxos: [ownChange], address: destination,
     amountSats: 40000, feeRate: 4,
-    changeRow: row(change, 1, 0), rawTxFor: async () => null
+    changeRow: row(change, 1, 0), rawTxFor
   });
   assert.equal(chained.inputs.length, 1, 'o troco pendente pode ser gasto');
   assert.equal(chained.inputs[0].pending, true, 'a entrada do troco pendente é marcada');
   const preferConfirmed = await preparePsbt({
     account, utxos: [ownChange, ...utxos], address: destination,
     amountSats: 120000, feeRate: 4,
-    changeRow: row(change, 1, 0), rawTxFor: async () => null
+    changeRow: row(change, 1, 0), rawTxFor
   });
   assert.equal(preferConfirmed.inputs.length, 1, 'confirmada é usada antes do troco pendente');
   assert.equal(preferConfirmed.inputs[0].pending, false);
@@ -367,11 +395,18 @@ function mapFind(map, type) {
     address: destination,
     amountSats: 120000, feeRate: 4,
     changeRow: row(change, 1, 0),
-    rawTxFor: async () => null
+    rawTxFor
   });
   /* com troco, a taxa é só a tarifa: nada foi absorvido */
   assert.equal(prepared.dust_sats, 0);
   assert.equal(prepared.fee_sats, prepared.fee_sats_at_rate);
+
+  /* sem a transação anterior não há PSBT: o assinador não teria como
+     conferir o valor da entrada. */
+  await assert.rejects(preparePsbt({
+    account, utxos, address: destination, amountSats: 120000, feeRate: 4,
+    changeRow: row(change, 1, 0), rawTxFor: async () => null
+  }), /transação anterior da entrada .* não encontrada/);
 
   /* preview com o valor: devolve a taxa e o troco exatos do PSBT, para a tela
      mostrar a taxa ao lado do valor antes de montar qualquer coisa. */
@@ -412,7 +447,7 @@ function mapFind(map, type) {
   const atMax = await preparePsbt({
     account, utxos, address: destination,
     amountSats: limits.max_send_sats, feeRate: 4,
-    changeRow: row(change, 1, 0), rawTxFor: async () => null
+    changeRow: row(change, 1, 0), rawTxFor
   });
   assert.equal(atMax.change, null);
   assert.equal(atMax.fee_sats, limits.fee_sats_at_max);
@@ -425,7 +460,7 @@ function mapFind(map, type) {
   const dusty = await preparePsbt({
     account, utxos, address: destination,
     amountSats: limits.available_sats - limits.fee_sats_at_max - 300, feeRate: 4,
-    changeRow: row(change, 1, 0), rawTxFor: async () => null
+    changeRow: row(change, 1, 0), rawTxFor
   });
   assert.equal(dusty.change, null, 'troco abaixo de 546 não vira saída');
   assert.equal(dusty.dust_sats, 300, 'o resto não virou troco e ficou na taxa');
