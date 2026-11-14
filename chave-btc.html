@@ -4673,6 +4673,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     paintValues();
     paintEntropy(null);
     setImportEnabled(false);
+    /* Sem chave não há revisão: o PSBT importado não sobrevive à chave. */
+    discardPsbt();
     invalidateSignature();
   }
   function applyKey(hd) {
@@ -4737,6 +4739,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      despejado na tela, porque não ajuda na conferência. */
   function paintPsbt(text) {
     psbtText = text || '';
+  }
+  /* Arquivo recusado, descartado ou perdido junto com a chave: sai da
+     memória, o anexo volta ao lugar do "cancelar" e o input fica pronto para
+     o próximo PSBT. */
+  function discardPsbt() {
+    paintPsbt('');
+    psbtFileName = '';
+    resetPsbtFile();
+    setClearLabel(false);
+    setPsbtLoaded(false);
   }
 
   /* ---------------------------------------------------------- bits/entrada */
@@ -4928,11 +4940,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       /* Um PSBT que a revisão recusa não fica carregado: o arquivo é
          descartado, o motivo permanece no aviso e o "importar psbt" volta ao
          lugar do "cancelar". */
-      paintPsbt('');
-      psbtFileName = '';
-      resetPsbtFile();
-      setClearLabel(false);
-      setPsbtLoaded(false);
+      discardPsbt();
       setStatus(signStatus, 'erro', e.message + '.');
     }
   }
@@ -4954,11 +4962,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   if (psbtClear) {
     psbtClear.addEventListener('click', function () {
-      paintPsbt('');
-      psbtFileName = '';
-      setClearLabel(false);
-      resetPsbtFile();
-      setPsbtLoaded(false);
+      discardPsbt();
       invalidateSignature();
       if (psbtFile) psbtFile.focus();
     });
