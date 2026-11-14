@@ -1889,8 +1889,6 @@
 
               <div class="chips app-gap reveal-block bits-actions chips-dots" role="group" aria-label="Entrada de bits">
                 <button type="button" id="bits-mode" aria-label="Mostrar a entrada por jogadas de moeda">gerar</button>
-                <span class="dot-sep" aria-hidden="true">·</span>
-                <button type="button" id="bits-random" aria-label="Sortear 256 bits aleatórios e preencher as jogadas">gerar bits</button>
               </div>
               <p class="sr-only" id="coin-status" role="status" aria-live="polite"></p>
 
@@ -1979,15 +1977,15 @@
           <div class="prose reveal-block">
             <h3>o que é e para que serve</h3>
             <p>Este arquivo transforma 256 bits em uma chave Bitcoin. A partir deles, monta a frase BIP39 de 24 palavras (passphrase vazia), deriva a seed, a raiz BIP32 e as quatro contas do mainnet — BIP44, BIP49, BIP84 e BIP86 — e mostra as chaves estendidas privadas e públicas de cada conta. Com a chave carregada, ele também revisa e assina PSBTs (BIP174) montados em outro programa, sem buscar UTXOs, consultar a rede ou transmitir nada.</p>
-            <p>Os 256 bits entram de três jeitos: 256 jogadas de moeda (cara = 1, coroa = 0), o botão <b>gerar bits</b> ou uma lista de coordenadas <code>a0</code>–<code>z5</code>. Em todos os casos o que vale é o conjunto de bits; a ordem das jogadas não entra no resultado.</p>
+            <p>Os 256 bits entram de dois jeitos: 256 jogadas de moeda (cara = 1, coroa = 0) ou uma lista de coordenadas <code>a0</code>–<code>z5</code>. Em todos os casos o que vale é o conjunto de bits; a ordem das jogadas não entra no resultado.</p>
             <p>O arquivo é autossuficiente: sem biblioteca externa, sem build, sem servidor e sem requisição de rede — a política de segurança da página (<code>default-src 'none'</code>) bloqueia qualquer conexão. A tela tem duas abas, <b>chave</b> e <b>sobre</b>; no rodapé ficam o aviso <code>[ offline ]</code> e o botão que alterna tema claro e escuro. O tema é a única preferência que o navegador guarda; a chave não é salva.</p>
 
             <h3>como usar, passo a passo</h3>
             <ul>
               <li><b>1. prepare o ambiente.</b> Abra o arquivo no navegador, de preferência numa máquina offline e dedicada, e não recarregue a página no meio do trabalho: recarregar apaga os 256 bits e tudo o que foi derivado deles.</li>
               <li><b>2. escolha a entrada.</b> A tela abre no campo de coordenadas. O botão <b>gerar</b>, abaixo dele, troca para o painel de jogadas; nesse modo o mesmo botão vira <b>coordenadas</b> e volta ao campo de texto, zerando a sequência.</li>
-              <li><b>3. registre os bits.</b> No painel de jogadas, cada clique em <b>1</b> (cara) ou <b>0</b> (coroa) ocupa a próxima coordenada livre — <code>a0</code>, <code>a1</code>, … até <code>z5</code> — e o contador sobe; a linha de baixo mostra o horário da última jogada. O botão <b>gerar bits</b> pede 256 bits ao gerador do navegador e preenche a sequência de uma vez. No campo de coordenadas, digite só as coordenadas marcadas (a convenção está abaixo); as que ficaram em 0 não precisam ser escritas.</li>
-              <li><b>4. leia o resultado.</b> Na 256ª jogada — ou ao usar <b>gerar bits</b> — o arquivo troca sozinho para o campo de coordenadas e deriva a chave: as 24 palavras aparecem e as tabelas de chaves se preenchem. Digitando coordenadas, a chave é derivada assim que o conjunto deixa de ser vazio. Um conjunto pequeno também gera uma chave, mas com pouca entropia — o esperado são 256 jogadas ou 256 bits sorteados.</li>
+              <li><b>3. registre os bits.</b> No painel de jogadas, cada clique em <b>1</b> (cara) ou <b>0</b> (coroa) ocupa a próxima coordenada livre — <code>a0</code>, <code>a1</code>, … até <code>z5</code> — e o contador sobe; a linha de baixo mostra o horário da última jogada. No campo de coordenadas, digite só as coordenadas marcadas (a convenção está abaixo); as que ficaram em 0 não precisam ser escritas.</li>
+              <li><b>4. leia o resultado.</b> Na 256ª jogada o arquivo troca sozinho para o campo de coordenadas e deriva a chave: as 24 palavras aparecem e as tabelas de chaves se preenchem. Digitando coordenadas, a chave é derivada assim que o conjunto deixa de ser vazio. Um conjunto pequeno também gera uma chave, mas com pouca entropia — o esperado são 256 jogadas.</li>
               <li><b>5. guarde a frase.</b> As 24 palavras, na ordem 01–24, são a forma portátil da mesma entropia: com elas, qualquer carteira BIP39 compatível, com passphrase vazia, chega às mesmas contas. Anote em papel ou metal e confira duas vezes; não fotografe nem cole a frase em lugar nenhum.</li>
               <li><b>6. confira as chaves.</b> Em <b>privadas</b> ficam as chaves estendidas privadas de conta; em <b>públicas</b>, as correspondentes públicas, com botão de copiar. A pública (xpub/zpub/ypub) pode ir para uma carteira watch-only; a privada (xprv/zprv/yprv) controla a conta inteira e não deve sair da máquina.</li>
               <li><b>7. assine um PSBT, se for o caso.</b> Com a chave carregada, <b>importar psbt</b> aceita um arquivo PSBT e a revisão aparece sozinha. Confira destinos, troco, taxa e avisos, e só então clique em <b>assinar</b>, na linha de ações, ao lado do <b>cancelar</b>. O resultado é o PSBT assinado, baixado automaticamente; a revisão passa a mostrar o txid, o vsize e a taxa total da transação final, com o nome do arquivo assinado na linha <b>arquivo</b>, sem o hex da transação; o botão <b>cancelar</b> vira <b>fechar</b>, para encerrar a revisão do PSBT já assinado. O arquivo não transmite nada: quem publica a transação é você, em outro programa.</li>
@@ -2001,7 +1999,6 @@
               <li><b>1 e 0</b> — os dois botões de jogada: <b>1</b> é cara, <b>0</b> é coroa. O número grande é o alvo; o clique registra a jogada, ocupa a próxima coordenada e avança o contador.</li>
               <li><b>coordenadas / gerar</b> — alterna entre o campo de coordenadas e o painel de jogadas. Ao voltar para as jogadas, a sequência e o campo são zerados.</li>
               <li><b>campo de coordenadas</b> — é onde a lista de bits marcados aparece agrupada por letra (por exemplo, <code>a01b2</code>) e onde ela pode ser digitada ou corrigida. O campo mostra só as coordenadas em 1; as demais são 0. A digitação é normalizada no lugar e o conjunto novo é derivado na hora.</li>
-              <li><b>gerar bits</b> — sorteia 256 bits com <code>crypto.getRandomValues</code> e preenche a sequência inteira, como se as 256 moedas fossem jogadas de uma vez. Sem esse recurso no navegador, o botão fica desabilitado.</li>
               <li><b>mnemonic</b> — a frase BIP39 de 24 palavras, numeradas de 01 a 24; a grade de três colunas é só economia de espaço, e os números dão a ordem de leitura. Cada palavra é um índice de 11 bits na lista inglesa de 2048 palavras; os 256 bits mais 8 bits de checksum formam 24 grupos de 11. Sem chave, cada posição mostra <code>—</code>.</li>
               <li><b>privadas</b> — quatro linhas, uma por conta: <b>bip86</b> mostra a chave estendida privada da conta <code>m/86'/0'/0'</code> (prefixo <code>xprv</code>), <b>bip84</b> a de <code>m/84'/0'/0'</code> (<code>zprv</code>), <b>bip49</b> a de <code>m/49'/0'/0'</code> (<code>yprv</code>) e <b>bip44</b> a de <code>m/44'/0'/0'</code> (<code>xprv</code>). São chaves de conta, não de endereço: delas saem os ramos de recebimento (<code>/0/*</code>) e de troco (<code>/1/*</code>). Essas linhas não têm botão de copiar; o conteúdo aparece inteiro para conferência. Sem chave, cada célula mostra <code>—</code>.</li>
               <li><b>públicas</b> — as mesmas quatro contas em chave estendida pública: <code>xpub</code> no BIP86 e no BIP44, <code>zpub</code> no BIP84 e <code>ypub</code> no BIP49. Cada linha tem <b>copiar</b>, e o botão vira <b>copiado</b> por alguns instantes. A pública é watch-only: não gasta, mas permite reconstruir os endereços e, com eles, consultar o histórico da conta — também merece cuidado. O BIP86 e o BIP44 compartilham o prefixo <code>xpub</code>; o que distingue é o tipo de conta, então, ao importar numa carteira, informe que a conta do BIP86 é Taproot. O <code>xpub</code> do BIP86 é o que uma carteira watch-only (como o projeto 2) usa para derivar os endereços de recebimento e de troco.</li>
@@ -2021,7 +2018,7 @@ hex         =  c0 08 00 00 00 … 00</pre>
             <p>Nas jogadas, a primeira ocupa <code>a0</code>, a segunda <code>a1</code> e assim por diante, sempre a próxima coordenada livre em ordem crescente. A face decide o bit (cara = 1, coroa = 0), e a coordenada é só o lugar onde ele é anotado. Por isso o resultado final é o conjunto das coordenadas que deram cara, não a ordem dos cliques; as que deram coroa também gastam a posição, e é por isso que 256 jogadas preenchem as 256 coordenadas.</p>
             <p>No fim das 256 jogadas, a lista das marcadas é embaralhada só para a apresentação. A ordem exibida não alimenta nada: copiar as coordenadas em qualquer ordem, ou reorganizá-las, reproduz os mesmos 256 bits. O que importa é o conjunto.</p>
             <p>Para digitar, não é preciso uma sintaxe rígida. Qualquer coisa que não seja letra ou dígito (espaço, vírgula, quebra de linha) é ignorada; maiúsculas viram minúsculas. Uma letra abre o grupo dela, e os dígitos seguintes pertencem a essa letra até a próxima letra. Se duas letras vierem seguidas, vale a última digitada e o grupo vazio da anterior sai. Dígito inválido (<code>z6</code>–<code>z9</code>) e coordenada repetida são descartados. O grupo em digitação vai para o fim do texto e o cursor acompanha; ao sair do campo, a lista é reagrupada por letra.</p>
-            <p>O campo não exige as 256 coordenadas: ausência é zero. Mas atenção — um conjunto pequeno é uma chave fraca, porque os zeros também são bits. O uso esperado é completar as 256 jogadas ou usar <b>gerar bits</b>; digitar coordenadas serve para reconstruir uma chave já existente ou conferir uma lista, não para inventar entropia com poucos bits. No campo de coordenadas, conjunto vazio é o único caso sem chave e sem mnemonic; nas jogadas, a derivação espera a 256ª.</p>
+            <p>O campo não exige as 256 coordenadas: ausência é zero. Mas atenção — um conjunto pequeno é uma chave fraca, porque os zeros também são bits. O uso esperado é completar as 256 jogadas; digitar coordenadas serve para reconstruir uma chave já existente ou conferir uma lista, não para inventar entropia com poucos bits. No campo de coordenadas, conjunto vazio é o único caso sem chave e sem mnemonic; nas jogadas, a derivação espera a 256ª.</p>
 
             <h3>reproduzir os binários sem esta ferramenta</h3>
             <p>Os "binários" são os 256 bits de entropia e tudo o que deriva deles. As coordenadas são só uma escrita compacta desses bits; com papel, uma calculadora de hash e a lista BIP39, dá para refazer o caminho inteiro e conferir cada valor da tela.</p>
@@ -3969,7 +3966,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var coordsInput = $('#coords');
   var coordsPanel = $('#coords-panel');
   var modeBtn = $('#bits-mode');
-  var randomBtn = $('#bits-random');
   var coinOn = false;
   var coinPanel = $('#coin-panel');
   var coinCara = $('#coin-cara');
@@ -4281,40 +4277,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     });
     fillFreeCoords();
     paintTosses('coordenadas digitadas: ' + tosses.length + ' de ' + BIT_COUNT + '.');
-  }
-
-  /* O botão aleatório pede 256 bits ao gerador do navegador e preenche a
-     sequência inteira: é como jogar as 256 moedas de uma vez, com cada bit
-     na sua coordenada (a0–z5). No fim a exibição é embaralhada. */
-  function randomizeBits() {
-    if (!window.crypto || !window.crypto.getRandomValues) return;
-    var bytes = new Uint8Array(BIT_COUNT / 8);
-    window.crypto.getRandomValues(bytes);
-    tosses = [];
-    markedPath = [];
-    fillFreeCoords();
-    for (var i = 0; i < BIT_COUNT; i++) {
-      var bit = (bytes[i >> 3] >> (7 - (i & 7))) & 1;
-      var index = freeCoords.shift();
-      tosses.push({ index: index, bit: bit, at: new Date() });
-      if (bit) markedPath.push(index);
-    }
-    bitsValue = bitsFromPath();
-    coordsDirty = false;
-    shuffleArray(markedPath);
-    syncCoords();
-    paintTosses('256 jogadas sorteadas; os 256 bits estão completos.');
-    applyBits(bitsValue);
-    setCoinOn(false);
-  }
-
-  if (randomBtn) {
-    if (!window.crypto || !window.crypto.getRandomValues) {
-      randomBtn.disabled = true;
-      randomBtn.setAttribute('aria-label', 'Gerador aleatório indisponível neste navegador');
-    } else {
-      randomBtn.addEventListener('click', randomizeBits);
-    }
   }
 
   if (coinCara) coinCara.addEventListener('click', function () { registerToss(1); });
