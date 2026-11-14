@@ -1442,7 +1442,7 @@
   }
   /* O rodapé lê só o navigator.onLine, sem requisição: com rede ativa ele
      avisa para desconectar e usa o --warning do "[ atenção ]"; sem rede, o
-     recado de uso veste o --success do "[ ok ]". */
+     marcador "[ seguro ]" veste o --success do "[ ok ]". */
   #foot-state.is-warning { color: var(--warning); }
   #foot-state.is-safe { color: var(--success); }
   /* Sem tooltip e sem rótulo visível (VG-BOT-11): o nome acessível fica só
@@ -2057,7 +2057,7 @@ hex:    80 60 00 … 00 01   (32 bytes; 29 bytes 00 entre 60 e 01)</pre>
     <div class="edge" aria-hidden="true"></div>
 
     <footer class="status">
-      <span id="foot-state" role="status">[ seguro ] use um dispositivo dedicado</span>
+      <span id="foot-state" role="status">[ seguro ]</span>
       <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Ativar tema claro"><span class="glyph"><span class="glyph-ring">○</span></span></button>
     </footer>
 
@@ -5150,7 +5150,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     footState.classList.toggle('is-safe', !online);
     footState.textContent = online ?
       '[ atenção ] rede ativa: desconecte a máquina da internet' :
-      '[ seguro ] use um dispositivo dedicado';
+      '[ seguro ]';
   }
   window.addEventListener('online', paintFootState);
   window.addEventListener('offline', paintFootState);
