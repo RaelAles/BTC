@@ -2053,7 +2053,7 @@
           ' <span class="tag-sep" aria-hidden="true">·</span> ' +
           '<span class="tag">bip' + purpose + '</span>' +
           (a.pending
-            ? ' <span class="tag-sep" aria-hidden="true">·</span> <span class="tag">[ mempool ]</span>'
+            ? ' <span class="tag-sep" aria-hidden="true">·</span> <span class="tag tag-pending">pendente</span>'
             : '') +
         '</p>' +
         '<p class="item-meta history-values">' +

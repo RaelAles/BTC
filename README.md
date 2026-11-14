@@ -26,7 +26,8 @@ tela mostra:
    marcado: `recebido +0.00012000 (pendente +0.00002000)` e
    `enviado -0.00003000 (pendente -0.00001000)` (zero não ganha marca). O
    **saldo** é o disponível do endereço (inclui o troco pendente dele); o
-   endereço com atividade no mempool leva ainda a etiqueta `[ mempool ]`;
+   endereço com atividade no mempool leva ainda a etiqueta `pendente`, no
+   tom de aviso (`--warning`);
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e taxa em um
    **grupo de níveis** rotulado pelo **prazo médio de confirmação** —
    `~10m`, `~30m`, `~1h` e `~1d` —, na mesma linha do recado do máximo (o
@@ -544,7 +545,8 @@ recebido/enviado como `(pendente …)`. A data é a
 altura do bloco em que o endereço apareceu pela última vez (`last_height`),
 que a varredura já tem, sem pedir cabeçalho ao servidor; o que está no
 mempool (`pending: true`) vem antes de
-qualquer bloco confirmado e leva a etiqueta `[ mempool ]` na tela. Mesma
+qualquer bloco confirmado e leva a etiqueta `pendente`, no tom de aviso, na
+tela. Mesma
 altura desempata pelo índice maior, para a ordem não mudar entre consultas
 iguais.
 

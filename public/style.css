@@ -1212,6 +1212,10 @@
     letter-spacing: .04em;
   }
   .item-meta .tag-sep { color: var(--sep); }
+  /* Endereço com atividade no mempool: a etiqueta `pendente` usa o --warning
+     do aviso, o mesmo tom que marca o que ainda não está no saldo. A palavra
+     é o dado (não é recado), então a cor só acompanha o texto. */
+  .item-meta .tag-pending { color: var(--warning); }
 
   /* Capa do projeto (VG-ABS-01): arte ASCII gerada, numa moldura de 1 px no
      tom da moldura do card. A arte é decorativa (aria-hidden) e a legenda
