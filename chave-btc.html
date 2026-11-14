@@ -3860,7 +3860,11 @@ var BTC = (function () {
         throw new Error('entrada ' + i + ' exige time lock; este signer não confere travas de tempo');
       }
       var key = await findKeyForScript(session, prev.script, map);
-      if (!key) throw new Error('o psbt não pertence a esta chave');
+      if (!key) {
+        var foreign = new Error('o psbt não pertence a esta chave');
+        foreign.foreign = true;
+        throw foreign;
+      }
       if (bytesToHex(scriptForKind(key.kind, key.Q)) !== bytesToHex(prev.script)) {
         throw new Error('entrada ' + i + ': chave derivada não corresponde ao script');
       }
@@ -4925,6 +4929,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       if (signOut) signOut.hidden = true;
       if (signBtn) signBtn.hidden = true;
       if (psbtSepSign) psbtSepSign.hidden = true;
+      /* PSBT de outra chave não fica carregado: o arquivo é recusado, o
+         "importar psbt" volta ao lugar do "cancelar" e o motivo permanece
+         no aviso. */
+      if (e.foreign) {
+        paintPsbt('');
+        psbtFileName = '';
+        resetPsbtFile();
+        setClearLabel(false);
+        setPsbtLoaded(false);
+      }
       setStatus(signStatus, 'erro', e.message + '.');
     }
   }
