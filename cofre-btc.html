@@ -2057,8 +2057,8 @@ hex:    80 60 00 … 00 01   (32 bytes; 29 bytes 00 entre 60 e 01)</pre>
               <li><b>mnemonic</b> — a frase BIP39 de 24 palavras, na ordem 01–24. A grade de três colunas é só economia de espaço; os números dão a leitura. Cada palavra é um índice de 11 bits: 256 bits de entropia + 8 de checksum formam 24 grupos de 11. Sem conjunto, cada posição mostra <code>—</code>.</li>
               <li><b>privadas</b> — quatro chaves de conta. <b>bip86</b> é <code>m/86'/0'/0'</code> com prefixo <code>xprv</code>; <b>bip84</b> é <code>m/84'/0'/0'</code> com <code>zprv</code>; <b>bip49</b> é <code>m/49'/0'/0'</code> com <code>yprv</code>; <b>bip44</b> é <code>m/44'/0'/0'</code> com <code>xprv</code>. São chaves de conta, não de endereço: os ramos de recebimento (<code>/0/*</code>) e de troco (<code>/1/*</code>) saem delas. Não há botão de copiar; as linhas aparecem inteiras para conferência. Sem chave, cada célula mostra <code>—</code>.</li>
               <li><b>públicas</b> — as mesmas quatro contas em chave pública: <code>xpub</code> no BIP86 e no BIP44, <code>zpub</code> no BIP84 e <code>ypub</code> no BIP49. Cada linha tem <b>copiar</b>, que vira <b>copiado</b> por alguns instantes. A pública é watch-only: não gasta, mas reconstrói endereços e permite consultar o histórico, então também é sensível. O prefixo <code>xpub</code> é compartilhado por BIP86 e BIP44; o tipo de conta é o que distingue (no BIP86, Taproot). O <code>xpub</code> do BIP86 é o que uma carteira watch-only usa para derivar <code>/0/*</code> e <code>/1/*</code>.</li>
-              <li><b>importar psbt</b> — o anexo fica inerte até existir chave. Com um arquivo aceito, ele dá lugar a <b>cancelar</b>. PSBT de outra chave — exceto um PSBT totalmente finalizado, que é só exibido — ou ilegível é recusado: o anexo volta, o motivo vai para a linha de estado e o arquivo não fica carregado. O conteúdo do PSBT não é repetido em base64/hex, e seus metadados (formato, tamanho, contagem de entradas e saídas) também não aparecem; do arquivo, só o nome fica na linha <b>arquivo</b>. A linha de ações mostra <b>assinar</b> quando a análise termina, desde que não haja assinatura; se todas as entradas já estiverem assinadas, ele não aparece; se só algumas, a revisão avisa que as existentes serão substituídas. Assinar baixa o .psbt, esconde o botão, transforma <b>cancelar</b> em <b>fechar</b> e mostra <b>baixar</b> ao lado de <b>fechar</b>; antes de assinar, <b>cancelar</b> descarta o arquivo. Abaixo, <code>[ ... ]</code> durante a análise ou a assinatura, <code>[ atenção ]</code> quando a revisão termina com avisos e <code>[ erro ]</code> com o motivo. Uma revisão limpa não escreve nada; um PSBT já assinado mostra o aviso e a revisão final.</li>
-              <li><b>revisão</b> — aparece sozinha depois que um PSBT é aceito. A tabela lista, na ordem da transação, um par <b>saída</b>/<b>destino</b> para cada pagamento e um par <b>troco</b>/<b>endereço</b> para cada troco; depois vêm taxa, vsize, txid e, por último, <b>arquivo</b>, com o nome do PSBT que está aberto. A taxa é a diferença entre a soma das entradas e a soma das saídas; o vsize é estimado enquanto não há assinatura; o txid leva <code>~</code> quando a assinatura ainda pode alterá-lo. Um PSBT que já chega finalizado mostra vsize e txid reais. Os valores levam sinal e cor: <b>saída</b> e <b>taxa</b> aparecem com <b>-</b> no tom de erro; <b>troco</b> com <b>+</b> no verde. Depois de um divisor <code>|</code>, em <code>--dim</code>, vem a fatia que cada valor representa da soma das entradas do PSBT (não do saldo da conta), com uma casa acima de 10%, duas acima de 1% e três abaixo; o que arredondaria para zero fica <code>&lt;0.001%</code>. Em seguida vêm os <b>avisos</b>, como taxa fora do comum e script não padronizado. A origem BIP32 que o PSBT declara é conferida contra o script real; não há varredura de contas. Sem origem válida, a entrada é recusada e a saída é tratada como externa. Num PSBT já finalizado, que o finalizador do BIP174 deixa sem origem, a entrada é só exibida e não há botão de assinar. Destino de outra chave leva <code>[ externo ]</code> no fim do endereço, no tom de atenção. Confira tudo antes de assinar.</li>
+              <li><b>importar psbt</b> — o anexo fica inerte até existir chave. Com um arquivo aceito, ele dá lugar a <b>cancelar</b>. O cofre só aceita o <b>PSBT sem assinatura gerado pelo projeto principal</b>: PSBT de outra chave, já assinado (mesmo parcialmente), finalizado por outra ferramenta ou com <code>SIGHASH_ALL</code> no Taproot é recusado, o anexo volta, o motivo vai para a linha de estado e o arquivo não fica carregado. O conteúdo do PSBT não é repetido em base64/hex, e seus metadados (formato, tamanho, contagem de entradas e saídas) também não aparecem; do arquivo, só o nome fica na linha <b>arquivo</b>. A linha de ações mostra <b>assinar</b> quando a análise termina; um PSBT já assinado não chega a esse ponto, porque é recusado no import. Assinar baixa o .psbt, esconde o botão, transforma <b>cancelar</b> em <b>fechar</b> e mostra <b>baixar</b> ao lado de <b>fechar</b>; antes de assinar, <b>cancelar</b> descarta o arquivo. Abaixo, <code>[ ... ]</code> durante a análise ou a assinatura, <code>[ atenção ]</code> quando a revisão termina com avisos e <code>[ erro ]</code> com o motivo. Uma revisão limpa não escreve nada; depois de assinar, o cofre relê o próprio arquivo para mostrar a revisão final.</li>
+              <li><b>revisão</b> — aparece sozinha depois que um PSBT é aceito. A tabela lista, na ordem da transação, um par <b>saída</b>/<b>destino</b> para cada pagamento e um par <b>troco</b>/<b>endereço</b> para cada troco; depois vêm taxa, vsize, txid e, por último, <b>arquivo</b>, com o nome do PSBT que está aberto. A taxa é a diferença entre a soma das entradas e a soma das saídas; o vsize é estimado enquanto não há assinatura; o txid leva <code>~</code> quando a assinatura ainda pode alterá-lo. A revisão é sempre de um PSBT sem assinatura; depois de assinar, o cofre relê o próprio arquivo para mostrar o vsize e o txid reais. Os valores levam sinal e cor: <b>saída</b> e <b>taxa</b> aparecem com <b>-</b> no tom de erro; <b>troco</b> com <b>+</b> no verde. Depois de um divisor <code>|</code>, em <code>--dim</code>, vem a fatia que cada valor representa da soma das entradas do PSBT (não do saldo da conta), com uma casa acima de 10%, duas acima de 1% e três abaixo; o que arredondaria para zero fica <code>&lt;0.001%</code>. Em seguida vêm os <b>avisos</b>, como taxa fora do comum e script não padronizado. A origem BIP32 que o PSBT declara é conferida contra o script real; não há varredura de contas. Sem origem válida, a entrada é recusada e a saída é tratada como externa. Destino de outra chave leva <code>[ externo ]</code> no fim do endereço, no tom de atenção. Confira tudo antes de assinar.</li>
               <li><b>psbt assinado</b> — assim que a assinatura termina, o .psbt com as assinaturas é baixado. Se o navegador bloquear o download, <b>baixar</b>, ao lado de <b>fechar</b>, baixa o mesmo arquivo de novo. A revisão é refeita a partir desse arquivo: ele é relido, analisado e finalizado, e daí saem o vsize real, o txid e a taxa, com o nome do .psbt baixado na linha <b>arquivo</b>. O hex não é exibido; para publicar, use o arquivo baixado em outro programa.</li>
               <li><b>rodapé</b> — o texto <code>[ offline ] nada sai deste arquivo</code> lembra a política da página; o botão redondo à direita alterna tema claro e escuro.</li>
             </ul>
@@ -2070,7 +2070,7 @@ hex:    80 60 00 … 00 01   (32 bytes; 29 bytes 00 entre 60 e 01)</pre>
               <li>não aceita passphrase BIP39: a passphrase é sempre vazia; usar outra numa carteira externa muda todas as contas.</li>
               <li>não monta transações nem escolhe UTXOs: só recebe, revisa, assina e finaliza um PSBT pronto. Não publica nada.</li>
               <li>não lista endereços nem saldos da carteira: as tabelas são de chaves de conta; endereços aparecem apenas na revisão do PSBT importado.</li>
-              <li>não cobre PSBT v2, P2WSH, multisig, Taproot com script path, time lock exigido pelo PSBT ou hash types fora de <b>SIGHASH_ALL</b> — no Taproot, aceita 0x00 (padrão) e 0x01 (ALL). Entrada de outra chave é recusada; num PSBT já finalizado, a entrada é apenas exibida.</li>
+              <li>não cobre PSBT v2, P2WSH, multisig, Taproot com script path, time lock exigido pelo PSBT ou hash types fora de <b>SIGHASH_ALL</b> — no Taproot, só o <b>SIGHASH padrão</b> (0x00) é aceito. Entrada de outra chave é recusada; PSBT já assinado, parcial, finalizado por outra ferramenta ou com <code>SIGHASH_ALL</code> no Taproot não é importado.</li>
               <li>não substitui carteira de hardware: a máquina onde o arquivo roda pode estar comprometida e não oferece as garantias de um dispositivo dedicado.</li>
             </ul>
 
@@ -3685,6 +3685,14 @@ var BTC = (function () {
     return !!(finalWitness && finalWitness.value.length > 0);
   }
 
+  /* O import do cofre aceita só o PSBT sem assinatura do projeto principal.
+     Diferente de inputSigned, aqui qualquer campo final conta, inclusive o
+     final_scriptSig vazio que o próprio cofre grava no segwit/Taproot. */
+  function hasAnySignature(map) {
+    if (mapFind(map, 0x07) || mapFind(map, 0x08) || mapFind(map, 0x13)) return true;
+    return mapFindAll(map, 0x02).some(function (e) { return e.value.length > 0; });
+  }
+
   /* BIP174/BIP371: depois de finalizada, a entrada conserva o UTXO e os
      campos finais; os demais campos conhecidos saem. Desconhecidos ficam. */
   var FINALIZED_DROP = {
@@ -3699,7 +3707,9 @@ var BTC = (function () {
   }
 
   /* ---------------------------------------------- análise de um PSBT */
-  async function analyzePsbt(bytes, hd) {
+  /* internal=true é só para o cofre reler o próprio .psbt assinado depois de
+     assinar; o import normal (internal falso) aceita só PSBT sem assinatura. */
+  async function analyzePsbt(bytes, hd, internal) {
     var psbt = parsePsbt(bytes);
     var tx = psbt.tx;
     var session = createSession(hd);
@@ -3709,6 +3719,9 @@ var BTC = (function () {
     var allFinalized = psbt.inputs.length > 0 && psbt.inputs.every(inputSigned);
     for (var i = 0; i < tx.inputs.length; i++) {
       var map = psbt.inputs[i];
+      if (!internal && hasAnySignature(map)) {
+        throw new Error('este PSBT já tem assinatura; o PSBT deve vir do projeto principal, sem assinatura');
+      }
       if (inputSigned(map)) signedInputs++;
       var prev = prevoutOf(map, tx.inputs[i]);
       var kind = normalizeKind(scriptKind(prev.script));
@@ -3734,8 +3747,12 @@ var BTC = (function () {
       }
       var sigTypeField = mapFind(map, 0x03);
       var hashType = sigTypeField ? readLE32(sigTypeField.value, 0) : (kind === 'p2tr' ? 0x00 : 0x01);
-      if (kind === 'p2tr' ? (hashType !== 0x00 && hashType !== 0x01) : hashType !== 0x01) {
-        throw new Error('entrada ' + i + ': só SIGHASH_ALL é suportado (hash type ' + hashType + ')');
+      if (kind === 'p2tr') {
+        if (hashType !== 0x00) {
+          throw new Error('entrada ' + i + ': Taproot com tipo de assinatura ' + hashType + '; o PSBT deve vir do projeto principal (SIGHASH padrão)');
+        }
+      } else if (hashType !== 0x01) {
+        throw new Error('entrada ' + i + ': tipo de assinatura ' + hashType + '; o PSBT deve vir do projeto principal (SIGHASH_ALL)');
       }
       totalIn += prev.value;
       inputs.push({
@@ -4857,7 +4874,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      bytes que o download leva são relidos, analisados e finalizados, em vez
      de aproveitar os números que a assinatura devolveu. */
   async function summarizeSignedPsbt(base64) {
-    var a = await BTC.analyzePsbt(BTC.psbtParseInput(base64), state.hd);
+    var a = await BTC.analyzePsbt(BTC.psbtParseInput(base64), state.hd, true);
     var fin = BTC.psbtFinalTx(a.psbt);
     return {
       fee: a.fee, outputs: a.outputs, warnings: a.warnings,
