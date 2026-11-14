@@ -1,6 +1,11 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "btc-projeto-2",
+  // O Worker deve responder só no domínio personalizado. Sem estas duas
+  // chaves, o `wrangler deploy` reativa <nome>.raelales.workers.dev e as
+  // preview URLs <versão>-<nome>.raelales.workers.dev a cada publicação.
+  "workers_dev": false,
+  "preview_urls": false,
   "main": "src/worker.js",
   "compatibility_date": "2025-01-01",
   "assets": {
