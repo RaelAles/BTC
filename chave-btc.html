@@ -3390,7 +3390,12 @@ var BTC = (function () {
     if (script.length === 34 && h.slice(0, 4) === '0020') return 'p2wsh';
     if (script.length === 34 && h.slice(0, 4) === '5120') return 'p2tr';
     if (script.length >= 4 && script.length <= 42 && (script[0] === 0 || (script[0] >= 0x51 && script[0] <= 0x60)) &&
-        script[1] === script.length - 2) return 'witness';
+        script[1] === script.length - 2) {
+      /* BIP141: witness v0 só existe em 20 ou 32 bytes. Programa v0 de outro
+         tamanho não é endereço segwit válido (BIP173); fica como script. */
+      if (script[0] === 0 && script.length !== 22 && script.length !== 34) return 'outro';
+      return 'witness';
+    }
     return 'outro';
   }
   /* O script P2SH não diz qual é o redeem; neste cofre só existe P2SH-P2WPKH. */
