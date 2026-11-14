@@ -1979,12 +1979,12 @@
           <pre class="rule" aria-hidden="true"></pre>
 
           <div class="prose reveal-block">
-            <h3>o que é esta ferramenta</h3>
+            <h3><span class="prompt" aria-hidden="true">##</span> o que é esta ferramenta</h3>
             <p>Este arquivo transforma 256 bits em uma chave Bitcoin. Os bits podem vir de 256 jogadas de moeda — cara vale 1, coroa vale 0 — ou de uma lista de coordenadas <code>a0</code>–<code>z5</code>. A partir deles, a página mostra a frase de 24 palavras e quatro contas da rede principal, cada uma com sua chave privada e pública. Com uma chave carregada, ela também revisa e assina PSBTs compatíveis — arquivos de transação preparados por outro programa —, sem transmitir nada.</p>
             <p>É uma página só, sem biblioteca externa, sem build e sem servidor. Ela não faz nenhuma conexão de rede: nada é consultado, enviado ou publicado. O tema é a única preferência que o navegador guarda; os bits, a frase e as chaves ficam apenas na memória da aba e somem ao recarregar. A ferramenta não monta transações nem escolhe quais moedas serão gastas; quem publica a transação é você, em outro programa.</p>
             <p>Este arquivo pode assinar transações de dinheiro real como assinador offline, mas é software rodando no navegador. Use-o numa máquina dedicada, de preferência air-gapped, sem extensões, e confira o hash do arquivo contra uma cópia confiável antes de abrir. Guarde as 24 palavras — ou as coordenadas — em local seguro e redundante: quem tiver essa lista tem a chave.</p>
 
-            <h3>as coordenadas e os 256 bits no papel</h3>
+            <h3><span class="prompt" aria-hidden="true">##</span> as coordenadas e os 256 bits no papel</h3>
             <p>As coordenadas são a forma portátil de guardar os 256 bits. Não são uma chave nem um código secreto: são apenas nomes para as 256 posições do número binário que vira entropia. Cada posição recebe uma letra de <code>a</code> a <code>z</code> e um dígito de <code>0</code> a <code>9</code>, nesta ordem: <code>a0</code>, <code>a1</code>, …, <code>a9</code>, <code>b0</code>, … até <code>z5</code>. São 26 × 10 = 260 nomes possíveis, mas só existem 256 bits; por isso <code>z6</code>, <code>z7</code>, <code>z8</code> e <code>z9</code> ficam de fora. O primeiro bit é <code>a0</code>; o último é <code>z5</code>.</p>
             <p>A posição de cada coordenada sai de <code>(posição da letra) × 10 + dígito</code>, com <code>a</code> = 0, <code>b</code> = 1, …, <code>z</code> = 25. Assim <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77, <code>s3</code> = 183 e <code>z5</code> = 255. A base de cada letra, para poupar a conta no papel:</p>
             <pre class="code-block">a   0   b  10   c  20   d  30   e  40   f  50   g  60
@@ -2009,7 +2009,7 @@ string: 10000000 01100000 00000000 … 00000000 00000001
 hex:    80 60 00 … 00 01   (32 bytes; 29 bytes 00 entre 60 e 01)</pre>
             <p>Este exemplo tem só quatro bits em <code>1</code> e serve apenas para conferir a leitura; não o use como chave. A tela não mostra a string binária nem o hex: ela mostra as coordenadas, as 24 palavras e as chaves. Logo, a conferência manual termina nas palavras ou nas chaves. O checksum não corrige erro: uma coordenada trocada muda os bits e gera outra chave, sem aviso. Ao reconstruir, compare com a tela ou com uma segunda implementação, sempre offline.</p>
 
-            <h3>os BIPs usados</h3>
+            <h3><span class="prompt" aria-hidden="true">##</span> os BIPs usados</h3>
             <p>A ferramenta segue os BIPs abaixo. Eles cobrem a chave, os endereços, as assinaturas e o PSBT.</p>
             <p><b>Chave e contas.</b></p>
             <ul>
