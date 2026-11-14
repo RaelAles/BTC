@@ -2056,7 +2056,7 @@ hex:    80 60 00 … 00 01   (32 bytes; 29 bytes 00 entre 60 e 01)</pre>
     <div class="edge" aria-hidden="true"></div>
 
     <footer class="status">
-      <span id="foot-state" role="status">[ offline ] sem rede: use máquina dedicada e confira o hash</span>
+      <span id="foot-state" role="status">[ seguro ] use um dispositivo dedicado</span>
       <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Ativar tema claro"><span class="glyph"><span class="glyph-ring">○</span></span></button>
     </footer>
 
@@ -5148,7 +5148,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     footState.classList.toggle('is-warning', online);
     footState.textContent = online ?
       '[ atenção ] rede ativa: desconecte a máquina da internet' :
-      '[ offline ] sem rede: use máquina dedicada e confira o hash';
+      '[ seguro ] use um dispositivo dedicado';
   }
   window.addEventListener('online', paintFootState);
   window.addEventListener('offline', paintFootState);
