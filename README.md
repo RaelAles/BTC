@@ -852,8 +852,10 @@ o Electrum cai. Sessão sem xpub responde 409 (a tela reenvia a xpub em
 ### Cabeçalhos de segurança
 
 Toda resposta leva `Strict-Transport-Security`, `Content-Security-Policy`,
-`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` e
-`Permissions-Policy`. São dois pontos de aplicação, com os mesmos valores:
+`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`,
+`Permissions-Policy`, `Cross-Origin-Opener-Policy` (`same-origin`),
+`Cross-Origin-Embedder-Policy` (`require-corp`) e `Cross-Origin-Resource-Policy`
+(`same-origin`). São dois pontos de aplicação, com os mesmos valores:
 
 - `public/_headers` — arquivos estáticos, aplicado pelo Cloudflare antes do
   Worker (e o próprio `_headers` não é servido como arquivo);

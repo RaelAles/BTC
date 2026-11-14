@@ -24,7 +24,13 @@ export function electrumConfig(env) {
    libera o próprio domínio; o script inline do tema entra por hash sha256,
    então qualquer mudança nele exige recalcular o hash aqui e em
    public/_headers. HSTS com includeSubDomains: tire se algum subdomínio
-   deste host ainda responder em HTTP. */
+   deste host ainda responder em HTTP.
+
+   Cross-Origin-*: COOP `same-origin` corta o vínculo de janela com outras
+   origens; COEP `require-corp` só deixa entrar recurso que autorize via
+   CORP/CORS (a tela usa apenas recursos da própria origem); CORP
+   `same-origin` impede que outra origem carregue estes arquivos. Juntos,
+   permitem cross-origin isolation caso alguma API nova peça. */
 export const SECURITY_HEADERS = {
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'Content-Security-Policy': [
@@ -43,7 +49,10 @@ export const SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
-  'Permissions-Policy': 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), clipboard-write=(self)'
+  'Permissions-Policy': 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), clipboard-write=(self)',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Embedder-Policy': 'require-corp',
+  'Cross-Origin-Resource-Policy': 'same-origin'
 };
 
 export function json(data, status = 200) {

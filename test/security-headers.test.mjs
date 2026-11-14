@@ -1,6 +1,6 @@
 /* Cabeçalhos de segurança: as duas cópias (Worker e public/_headers) têm
    que sair iguais, o hash do script inline do tema tem que estar em dia e
-   nenhuma resposta pode escapar sem os seis cabeçalhos.
+   nenhuma resposta pode escapar sem os nove cabeçalhos.
 
    node test/security-headers.test.mjs */
 import assert from 'node:assert/strict';
@@ -19,7 +19,10 @@ const NOMES = [
   'x-frame-options',
   'x-content-type-options',
   'referrer-policy',
-  'permissions-policy'
+  'permissions-policy',
+  'cross-origin-opener-policy',
+  'cross-origin-embedder-policy',
+  'cross-origin-resource-policy'
 ];
 
 /* Lê o bloco `/*` de public/_headers (o formato do Cloudflare: linha de
@@ -45,14 +48,14 @@ function blocoDeHeaders(text) {
   assert.deepEqual(
     Object.keys(SECURITY_HEADERS).map(k => k.toLowerCase()).sort(),
     [...NOMES].sort(),
-    'SECURITY_HEADERS tem exatamente os seis cabeçalhos'
+    'SECURITY_HEADERS tem exatamente os nove cabeçalhos'
   );
   for (const nome of NOMES) {
     assert.equal(arquivo[nome], SECURITY_HEADERS[
       Object.keys(SECURITY_HEADERS).find(k => k.toLowerCase() === nome)
     ], 'public/_headers e src/config.js iguais em ' + nome);
   }
-  console.log('ok   public/_headers e SECURITY_HEADERS iguais nos seis cabeçalhos');
+  console.log('ok   public/_headers e SECURITY_HEADERS iguais nos nove cabeçalhos');
 }
 
 /* ---------------- 2. hash do script inline do tema ---------------- */
@@ -98,7 +101,7 @@ function blocoDeHeaders(text) {
   confere(api, 'API');
   const erro = await worker.fetch(new Request('https://x/api/nada'), env);
   confere(erro, 'erro');
-  console.log('ok   estático, API e erro levam os seis cabeçalhos');
+  console.log('ok   estático, API e erro levam os nove cabeçalhos');
 }
 
 /* ---------------- 4. o 101 do WebSocket passa intacto ---------------- */
