@@ -1947,15 +1947,6 @@
     return '<span class="value-' + dir + '">' + (dir === 'in' ? '+' : '-') + fmtBtc(n) + '</span>';
   }
 
-  /* Valor do mempool dentro do campo a que ele pertence (recebido ou
-     enviado): o saldo total não o inclui, mas o extrato mostra o que está a
-     caminho em cada direção, marcado como pendente. Zero não vira marca. */
-  function pendingMark(sats, dir) {
-    var n = Number(sats) || 0;
-    if (!n) return '';
-    return ' <span class="value-pending">(pendente ' + signedBtc(n, dir) + ')</span>';
-  }
-
   /* Linha "pendente" da carteira: mostra só o que ainda não está no saldo
      disponível — entrada de terceiro que só conta depois de confirmar e o que
      já saiu de fato numa transação pendente (o troco que volta já está no
@@ -2039,8 +2030,10 @@
       }
       var purpose = TYPE_PURPOSE[a.account_type] || '?';
       var chain = a.chain === 1 ? 'troco' : '';
-      var pendingIn = pendingMark(a.pending_in, 'in');
-      var pendingOut = pendingMark(a.pending_out, 'out');
+      /* recebido e enviado somam o confirmado e o mempool do endereço; a
+         pendência em si é dita só pela etiqueta [ pendente ] da linha. */
+      var received = (Number(a.received) || 0) + (Number(a.pending_in) || 0);
+      var spent = (Number(a.spent) || 0) + (Number(a.pending_out) || 0);
       var li = document.createElement('li');
       li.className = 'item';
       li.innerHTML =
@@ -2053,15 +2046,13 @@
           ' <span class="tag-sep" aria-hidden="true">·</span> ' +
           '<span class="tag">bip' + purpose + '</span>' +
           (a.pending
-            ? ' <span class="tag-sep" aria-hidden="true">·</span> <span class="tag tag-pending">pendente</span>'
+            ? ' <span class="tag-sep" aria-hidden="true">·</span> <span class="tag tag-pending">[ pendente ]</span>'
             : '') +
         '</p>' +
         '<p class="item-meta history-values">' +
-          '<span class="value-label">recebido</span> ' + signedBtc(a.received, 'in') +
-          pendingIn +
+          '<span class="value-label">recebido</span> ' + signedBtc(received, 'in') +
           ' <span class="value-sep" aria-hidden="true">|</span> ' +
-          '<span class="value-label">enviado</span> ' + signedBtc(a.spent, 'out') +
-          pendingOut +
+          '<span class="value-label">enviado</span> ' + signedBtc(spent, 'out') +
           ' <span class="value-sep" aria-hidden="true">|</span> ' +
           '<span class="value-label">saldo</span> ' + fmtBtc(a.balance) +
         '</p>';
@@ -2137,8 +2128,8 @@
     var rows = d.addresses || [];
     var sum = { received: 0, spent: 0 };
     rows.forEach(function (a) {
-      sum.received += Number(a.received) || 0;
-      sum.spent += Number(a.spent) || 0;
+      sum.received += (Number(a.received) || 0) + (Number(a.pending_in) || 0);
+      sum.spent += (Number(a.spent) || 0) + (Number(a.pending_out) || 0);
     });
     var countLabel = rows.length === 1 ? 'endereço' : 'endereços';
     /* O resumo é a tabela de leitura da carteira (VG-ABS-04): o total de

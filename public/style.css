@@ -1212,10 +1212,11 @@
     letter-spacing: .04em;
   }
   .item-meta .tag-sep { color: var(--sep); }
-  /* Endereço com atividade no mempool: a etiqueta `pendente` usa o --warning
-     do aviso, o mesmo tom que marca o que ainda não está no saldo. A palavra
-     é o dado (não é recado), então a cor só acompanha o texto. */
-  .item-meta .tag-pending { color: var(--warning); }
+  /* Endereço com atividade no mempool: a etiqueta `[ pendente ]` usa o
+     --warning do aviso, o mesmo tom que marca o que ainda não está no saldo.
+     A palavra é o dado (não é recado), então a cor só acompanha o texto; e o
+     conjunto não quebra entre os colchetes, desce inteiro se não couber. */
+  .item-meta .tag-pending { color: var(--warning); white-space: nowrap; }
 
   /* Capa do projeto (VG-ABS-01): arte ASCII gerada, numa moldura de 1 px no
      tom da moldura do card. A arte é decorativa (aria-hidden) e a legenda
@@ -1705,10 +1706,6 @@
      quebrar entre o número e o `%`. O `|` que a antecede usa o --sep dos
      divisores, o mesmo tom do extrato. */
   .value-pct { color: var(--dim); white-space: nowrap; }
-  /* Valor ainda no mempool, ao lado do campo a que pertence no extrato: o
-     parêntese e a palavra ficam no --dim, e o número mantém a cor da direção
-     (o sinal continua no texto, VG-COR-16). */
-  .value-pending { color: var(--dim); white-space: nowrap; }
   .value-sep { color: var(--sep); }
   /* No contato, o recado geral é a única mensagem de erro e pode juntar
      e-mail e mensagem numa frase. Ele reserva duas linhas para o texto não
