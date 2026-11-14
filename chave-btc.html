@@ -3538,7 +3538,12 @@ var BTC = (function () {
     /* A marca psbt\xff em base64 começa sempre por "cHNidP8", então uma
        sequência puramente hexadecimal só pode ser a forma hex. */
     if (/^[0-9a-fA-F]+$/.test(compact) && compact.length % 2 === 0) return hexToBytes(compact);
-    return b64decode(compact);
+    try {
+      return b64decode(compact);
+    } catch (e) {
+      /* Para quem importa o arquivo, o problema é o PSBT, não a codificação. */
+      throw new Error('arquivo psbt inválido');
+    }
   }
 
   /* ------------------------------------------------ desvios de chave */
