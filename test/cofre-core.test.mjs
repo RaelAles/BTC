@@ -1,9 +1,10 @@
 /* Teste do núcleo criptográfico embutido no cofre-btc.html.
 
    Extrai o IIFE `var BTC = ...` do HTML e roda os mesmos vetores oficiais e
-   os PSBTs do projeto. Também confere o import estrito do cofre: só o PSBT
-   sem assinatura do projeto principal é aceito; PSBT com assinatura parcial,
-   finalizado por outra ferramenta ou com SIGHASH_ALL no Taproot é recusado.
+   os PSBTs do projeto. Também confere o import do cofre: PSBT já assinado
+   (do cofre ou de outra fonte, inclusive parcial ou finalizado) é exibido,
+   mas não assinado; PSBT sem assinatura com SIGHASH_ALL no Taproot é
+   recusado.
 
    Sem rede: os vetores são fixos e o PSBT é montado pelo btc-core do projeto.
 
@@ -151,44 +152,60 @@ for (const c of cases) {
 }
 console.log('ok   PSBTs p2pkh, p2sh-p2wpkh, p2wpkh e p2tr assinados igual ao btc-core');
 
-/* ---------------- import estrito: só PSBT sem assinatura do projeto principal ---------------- */
+/* ---------------- PSBT assinado: exibe, não assina ---------------- */
 {
-  /* o próprio PSBT assinado (campos finais) não pode ser importado */
-  await assert.rejects(C.analyzePsbt(C.psbtParseInput(p2wSigned.psbtBase64), ehd),
-    /projeto principal/);
-  /* mas a releitura interna pós-assinatura continua valendo */
-  const internal = await C.analyzePsbt(C.psbtParseInput(p2wSigned.psbtBase64), ehd, true);
-  assert.equal(internal.alreadySigned, true);
-  assert.equal(C.psbtFinalTx(internal.psbt).txid, p2wSigned.txid);
-  console.log('ok   PSBT assinado recusado no import e aceito na releitura interna');
+  /* o próprio PSBT finalizado (campos finais) é exibido com txid real */
+  const own = await C.analyzePsbt(C.psbtParseInput(p2wSigned.psbtBase64), ehd);
+  assert.equal(own.alreadySigned, true);
+  assert.equal(C.psbtFinalTx(own.psbt).txid, p2wSigned.txid);
+  assert.equal(own.tx.locktime, 0);
+  assert.equal(own.tx.inputs[0].sequence, 0xffffffff);
+  await assert.rejects(C.signPsbt(C.psbtParseInput(p2wSigned.psbtBase64), ehd, zeros),
+    /já tem assinatura/);
+  console.log('ok   PSBT finalizado é exibido (txid real) e não é assinado');
 }
 
 {
-  /* assinatura parcial de outra ferramenta */
+  /* assinatura parcial de outra ferramenta: exibe com vsize/txid estimados */
   const psbt = C.parsePsbt(p2wBytes);
   psbt.inputs[0].push({
     key: C.concatBytes(new Uint8Array([0x02]), p2wPub),
     value: new Uint8Array([0x01])
   });
-  await assert.rejects(C.analyzePsbt(C.writePsbt(psbt), ehd), /projeto principal/);
-  console.log('ok   PSBT com partial_sig recusado');
+  const partialBytes = C.writePsbt(psbt);
+  const a = await C.analyzePsbt(partialBytes, ehd);
+  assert.equal(a.alreadySigned, true);
+  assert.throws(() => C.psbtFinalTx(a.psbt), /não está finalizada/);
+  await assert.rejects(C.signPsbt(partialBytes, ehd, zeros), /já tem assinatura/);
+  console.log('ok   PSBT parcial é exibido (estimado) e não é assinado');
 }
 
 {
   /* finalizado por outra ferramenta: só final_scriptWitness, sem o 0x07 */
   const psbt = C.parsePsbt(C.psbtParseInput(p2wSigned.psbtBase64));
   psbt.inputs[0] = psbt.inputs[0].filter(e => !(e.key.length === 1 && e.key[0] === 0x07));
-  await assert.rejects(C.analyzePsbt(C.writePsbt(psbt), ehd), /projeto principal/);
-  console.log('ok   PSBT finalizado sem final_scriptSig recusado');
+  const foreignBytes = C.writePsbt(psbt);
+  const a = await C.analyzePsbt(foreignBytes, ehd);
+  assert.equal(a.alreadySigned, true);
+  assert.equal(C.psbtFinalTx(a.psbt).txid, p2wSigned.txid);
+  await assert.rejects(C.signPsbt(foreignBytes, ehd, zeros), /já tem assinatura/);
+  console.log('ok   PSBT finalizado sem final_scriptSig é exibido com txid real');
 }
 
 {
-  /* Taproot com SIGHASH_ALL: o cofre agora recusa em vez de gerar tx inválida */
+  /* o PSBT sem assinatura continua assinável */
+  const unsigned = await C.analyzePsbt(p2wBytes, ehd);
+  assert.equal(unsigned.alreadySigned, false);
+  console.log('ok   PSBT sem assinatura continua assinável');
+}
+
+{
+  /* Taproot com SIGHASH_ALL sem assinatura: recusa em vez de gerar tx inválida */
   const psbt = C.parsePsbt(p2trBytes);
   psbt.inputs[0].push({ key: new Uint8Array([0x03]), value: new Uint8Array([1, 0, 0, 0]) });
   await assert.rejects(C.analyzePsbt(C.writePsbt(psbt), ehd),
     /projeto principal/);
-  console.log('ok   Taproot com SIGHASH_ALL recusado');
+  console.log('ok   Taproot com SIGHASH_ALL sem assinatura recusado');
 }
 
 rmSync(dir, { recursive: true, force: true });

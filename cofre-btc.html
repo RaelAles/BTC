@@ -1946,6 +1946,8 @@
                 <tr id="review-fee-row"><th scope="row">taxa</th><td id="review-fee">—</td></tr>
                 <tr><th scope="row">vsize</th><td id="review-vsize">—</td></tr>
                 <tr><th scope="row">txid</th><td id="review-txid">—</td></tr>
+                <tr><th scope="row">locktime</th><td id="review-locktime">—</td></tr>
+                <tr><th scope="row">sequence</th><td id="review-sequence">—</td></tr>
                 <tr><th scope="row">arquivo</th><td id="review-file">—</td></tr>
               </tbody>
             </table>
@@ -2057,8 +2059,8 @@ hex:    80 60 00 … 00 01   (32 bytes; 29 bytes 00 entre 60 e 01)</pre>
               <li><b>mnemonic</b> — a frase BIP39 de 24 palavras, na ordem 01–24. A grade de três colunas é só economia de espaço; os números dão a leitura. Cada palavra é um índice de 11 bits: 256 bits de entropia + 8 de checksum formam 24 grupos de 11. Sem conjunto, cada posição mostra <code>—</code>.</li>
               <li><b>privadas</b> — quatro chaves de conta. <b>bip86</b> é <code>m/86'/0'/0'</code> com prefixo <code>xprv</code>; <b>bip84</b> é <code>m/84'/0'/0'</code> com <code>zprv</code>; <b>bip49</b> é <code>m/49'/0'/0'</code> com <code>yprv</code>; <b>bip44</b> é <code>m/44'/0'/0'</code> com <code>xprv</code>. São chaves de conta, não de endereço: os ramos de recebimento (<code>/0/*</code>) e de troco (<code>/1/*</code>) saem delas. Não há botão de copiar; as linhas aparecem inteiras para conferência. Sem chave, cada célula mostra <code>—</code>.</li>
               <li><b>públicas</b> — as mesmas quatro contas em chave pública: <code>xpub</code> no BIP86 e no BIP44, <code>zpub</code> no BIP84 e <code>ypub</code> no BIP49. Cada linha tem <b>copiar</b>, que vira <b>copiado</b> por alguns instantes. A pública é watch-only: não gasta, mas reconstrói endereços e permite consultar o histórico, então também é sensível. O prefixo <code>xpub</code> é compartilhado por BIP86 e BIP44; o tipo de conta é o que distingue (no BIP86, Taproot). O <code>xpub</code> do BIP86 é o que uma carteira watch-only usa para derivar <code>/0/*</code> e <code>/1/*</code>.</li>
-              <li><b>importar psbt</b> — o anexo fica inerte até existir chave. Com um arquivo aceito, ele dá lugar a <b>cancelar</b>. O cofre só aceita o <b>PSBT sem assinatura gerado pelo projeto principal</b>: PSBT de outra chave, já assinado (mesmo parcialmente), finalizado por outra ferramenta ou com <code>SIGHASH_ALL</code> no Taproot é recusado, o anexo volta, o motivo vai para a linha de estado e o arquivo não fica carregado. O conteúdo do PSBT não é repetido em base64/hex, e seus metadados (formato, tamanho, contagem de entradas e saídas) também não aparecem; do arquivo, só o nome fica na linha <b>arquivo</b>. A linha de ações mostra <b>assinar</b> quando a análise termina; um PSBT já assinado não chega a esse ponto, porque é recusado no import. Assinar baixa o .psbt, esconde o botão, transforma <b>cancelar</b> em <b>fechar</b> e mostra <b>baixar</b> ao lado de <b>fechar</b>; antes de assinar, <b>cancelar</b> descarta o arquivo. Abaixo, <code>[ ... ]</code> durante a análise ou a assinatura, <code>[ atenção ]</code> quando a revisão termina com avisos e <code>[ erro ]</code> com o motivo. Uma revisão limpa não escreve nada; depois de assinar, o cofre relê o próprio arquivo para mostrar a revisão final.</li>
-              <li><b>revisão</b> — aparece sozinha depois que um PSBT é aceito. A tabela lista, na ordem da transação, um par <b>saída</b>/<b>destino</b> para cada pagamento e um par <b>troco</b>/<b>endereço</b> para cada troco; depois vêm taxa, vsize, txid e, por último, <b>arquivo</b>, com o nome do PSBT que está aberto. A taxa é a diferença entre a soma das entradas e a soma das saídas; o vsize é estimado enquanto não há assinatura; o txid leva <code>~</code> quando a assinatura ainda pode alterá-lo. A revisão é sempre de um PSBT sem assinatura; depois de assinar, o cofre relê o próprio arquivo para mostrar o vsize e o txid reais. Os valores levam sinal e cor: <b>saída</b> e <b>taxa</b> aparecem com <b>-</b> no tom de erro; <b>troco</b> com <b>+</b> no verde. Depois de um divisor <code>|</code>, em <code>--dim</code>, vem a fatia que cada valor representa da soma das entradas do PSBT (não do saldo da conta), com uma casa acima de 10%, duas acima de 1% e três abaixo; o que arredondaria para zero fica <code>&lt;0.001%</code>. Em seguida vêm os <b>avisos</b>, como taxa fora do comum e script não padronizado. A origem BIP32 que o PSBT declara é conferida contra o script real; não há varredura de contas. Sem origem válida, a entrada é recusada e a saída é tratada como externa. Destino de outra chave leva <code>[ externo ]</code> no fim do endereço, no tom de atenção. Confira tudo antes de assinar.</li>
+              <li><b>importar psbt</b> — o anexo fica inerte até existir chave. Com um arquivo aceito, ele dá lugar a <b>cancelar</b>. O cofre <b>assina</b> só o PSBT sem assinatura gerado pelo projeto principal. PSBT já assinado — do cofre ou de outra fonte, inclusive parcial ou finalizado — é aceito só para <b>exibição</b>: a revisão e os avisos aparecem, mas o botão <b>assinar</b> não; a linha de estado avisa que o cofre só exibe. PSBT <b>sem assinatura</b> de outra chave ou com <code>SIGHASH_ALL</code> no Taproot é recusado, o anexo volta, o motivo vai para a linha de estado e o arquivo não fica carregado. O conteúdo do PSBT não é repetido em base64/hex, e seus metadados (formato, tamanho, contagem de entradas e saídas) também não aparecem; do arquivo, só o nome fica na linha <b>arquivo</b>. A linha de ações mostra <b>assinar</b> quando a análise termina; no PSBT já assinado ela não aparece. Assinar baixa o .psbt, esconde o botão, transforma <b>cancelar</b> em <b>fechar</b> e mostra <b>baixar</b> ao lado de <b>fechar</b>; antes de assinar, <b>cancelar</b> descarta o arquivo. Abaixo, <code>[ ... ]</code> durante a análise ou a assinatura, <code>[ atenção ]</code> quando a revisão termina com avisos e <code>[ erro ]</code> com o motivo. Uma revisão limpa não escreve nada; depois de assinar, o cofre relê o próprio arquivo para mostrar a revisão final.</li>
+              <li><b>revisão</b> — aparece sozinha depois que um PSBT é aceito. A tabela lista, na ordem da transação, um par <b>saída</b>/<b>destino</b> para cada pagamento e um par <b>troco</b>/<b>endereço</b> para cada troco; depois vêm taxa, vsize, txid, locktime, sequence e, por último, <b>arquivo</b>, com o nome do PSBT que está aberto. A taxa é a diferença entre a soma das entradas e a soma das saídas; o vsize é estimado enquanto não há assinatura; o txid leva <code>~</code> quando a assinatura ainda pode alterá-lo. A revisão aparece para PSBT sem assinatura ou já assinado; no assinado, o botão <b>assinar</b> não aparece. Se o PSBT está finalizado, vsize e txid são reais; se é parcial, são estimados. <b>locktime</b> mostra <code>0 (sem trava)</code> ou o bloco/data antes do qual a transação não pode entrar; <b>sequence</b> mostra <code>0xffffffff (final; sem RBF)</code> ou o valor/“misto” com o aviso de que não é final (RBF/trava relativa). No PSBT do projeto principal esses dois são 0 e final. Os valores levam sinal e cor: <b>saída</b> e <b>taxa</b> aparecem com <b>-</b> no tom de erro; <b>troco</b> com <b>+</b> no verde. Depois de um divisor <code>|</code>, em <code>--dim</code>, vem a fatia que cada valor representa da soma das entradas do PSBT (não do saldo da conta), com uma casa acima de 10%, duas acima de 1% e três abaixo; o que arredondaria para zero fica <code>&lt;0.001%</code>. Em seguida vêm os <b>avisos</b>, como taxa fora do comum e script não padronizado. A origem BIP32 que o PSBT declara é conferida contra o script real; não há varredura de contas. Sem origem válida, a entrada de um PSBT sem assinatura é recusada; num PSBT já assinado ela é só exibida. Destino de outra chave leva <code>[ externo ]</code> no fim do endereço, no tom de atenção. Confira tudo antes de assinar.</li>
               <li><b>psbt assinado</b> — assim que a assinatura termina, o .psbt com as assinaturas é baixado. Se o navegador bloquear o download, <b>baixar</b>, ao lado de <b>fechar</b>, baixa o mesmo arquivo de novo. A revisão é refeita a partir desse arquivo: ele é relido, analisado e finalizado, e daí saem o vsize real, o txid e a taxa, com o nome do .psbt baixado na linha <b>arquivo</b>. O hex não é exibido; para publicar, use o arquivo baixado em outro programa.</li>
               <li><b>rodapé</b> — o texto <code>[ offline ] nada sai deste arquivo</code> lembra a política da página; o botão redondo à direita alterna tema claro e escuro.</li>
             </ul>
@@ -2070,7 +2072,7 @@ hex:    80 60 00 … 00 01   (32 bytes; 29 bytes 00 entre 60 e 01)</pre>
               <li>não aceita passphrase BIP39: a passphrase é sempre vazia; usar outra numa carteira externa muda todas as contas.</li>
               <li>não monta transações nem escolhe UTXOs: só recebe, revisa, assina e finaliza um PSBT pronto. Não publica nada.</li>
               <li>não lista endereços nem saldos da carteira: as tabelas são de chaves de conta; endereços aparecem apenas na revisão do PSBT importado.</li>
-              <li>não cobre PSBT v2, P2WSH, multisig, Taproot com script path, time lock exigido pelo PSBT ou hash types fora de <b>SIGHASH_ALL</b> — no Taproot, só o <b>SIGHASH padrão</b> (0x00) é aceito. Entrada de outra chave é recusada; PSBT já assinado, parcial, finalizado por outra ferramenta ou com <code>SIGHASH_ALL</code> no Taproot não é importado.</li>
+              <li>não cobre PSBT v2, P2WSH, multisig, Taproot com script path, time lock exigido pelo PSBT ou hash types fora de <b>SIGHASH_ALL</b> — o cofre só <b>assina</b> Taproot com o <b>SIGHASH padrão</b> (0x00); PSBT <b>sem assinatura</b> com <code>SIGHASH_ALL</code> no Taproot é recusado. Entrada de outra chave num PSBT sem assinatura é recusada; PSBT já assinado, parcial ou finalizado por outra ferramenta é aceito só para exibição, nunca para assinar.</li>
               <li>não substitui carteira de hardware: a máquina onde o arquivo roda pode estar comprometida e não oferece as garantias de um dispositivo dedicado.</li>
             </ul>
 
@@ -3685,9 +3687,9 @@ var BTC = (function () {
     return !!(finalWitness && finalWitness.value.length > 0);
   }
 
-  /* O import do cofre aceita só o PSBT sem assinatura do projeto principal.
-     Diferente de inputSigned, aqui qualquer campo final conta, inclusive o
-     final_scriptSig vazio que o próprio cofre grava no segwit/Taproot. */
+  /* Qualquer campo de assinatura, inclusive o final_scriptSig vazio que o
+     próprio cofre grava no segwit/Taproot. PSBT com assinatura é só
+     exibido; o cofre não assina. */
   function hasAnySignature(map) {
     if (mapFind(map, 0x07) || mapFind(map, 0x08) || mapFind(map, 0x13)) return true;
     return mapFindAll(map, 0x02).some(function (e) { return e.value.length > 0; });
@@ -3707,21 +3709,16 @@ var BTC = (function () {
   }
 
   /* ---------------------------------------------- análise de um PSBT */
-  /* internal=true é só para o cofre reler o próprio .psbt assinado depois de
-     assinar; o import normal (internal falso) aceita só PSBT sem assinatura. */
-  async function analyzePsbt(bytes, hd, internal) {
+  async function analyzePsbt(bytes, hd) {
     var psbt = parsePsbt(bytes);
     var tx = psbt.tx;
     var session = createSession(hd);
     var inputs = [], warnings = [];
     var totalIn = 0n;
     var signedInputs = 0;
-    var allFinalized = psbt.inputs.length > 0 && psbt.inputs.every(inputSigned);
+    var anySigned = psbt.inputs.some(hasAnySignature);
     for (var i = 0; i < tx.inputs.length; i++) {
       var map = psbt.inputs[i];
-      if (!internal && hasAnySignature(map)) {
-        throw new Error('este PSBT já tem assinatura; o PSBT deve vir do projeto principal, sem assinatura');
-      }
       if (inputSigned(map)) signedInputs++;
       var prev = prevoutOf(map, tx.inputs[i]);
       var kind = normalizeKind(scriptKind(prev.script));
@@ -3736,9 +3733,10 @@ var BTC = (function () {
       }
       var key = await findKeyForScript(session, prev.script, map);
       if (!key) {
-        /* O finalizador do BIP174 limpa a origem do PSBT já finalizado; sem
-           ela, a entrada só pode ser exibida, nunca assinada. */
-        if (!(allFinalized && inputSigned(map))) throw new Error('o psbt não pertence a esta chave');
+        /* PSBT assinado pode chegar sem a origem (o finalizador do BIP174
+           limpa o caminho); ele é só exibido, nunca assinado. Sem assinatura,
+           a entrada precisa pertencer a esta chave. */
+        if (!anySigned) throw new Error('o psbt não pertence a esta chave');
       } else if (bytesToHex(scriptForKind(key.kind, key.Q)) !== bytesToHex(prev.script)) {
         throw new Error('entrada ' + i + ': chave derivada não corresponde ao script');
       }
@@ -3747,12 +3745,14 @@ var BTC = (function () {
       }
       var sigTypeField = mapFind(map, 0x03);
       var hashType = sigTypeField ? readLE32(sigTypeField.value, 0) : (kind === 'p2tr' ? 0x00 : 0x01);
-      if (kind === 'p2tr') {
-        if (hashType !== 0x00) {
-          throw new Error('entrada ' + i + ': Taproot com tipo de assinatura ' + hashType + '; o PSBT deve vir do projeto principal (SIGHASH padrão)');
+      if (!anySigned) {
+        if (kind === 'p2tr') {
+          if (hashType !== 0x00) {
+            throw new Error('entrada ' + i + ': Taproot com tipo de assinatura ' + hashType + '; o PSBT deve vir do projeto principal (SIGHASH padrão)');
+          }
+        } else if (hashType !== 0x01) {
+          throw new Error('entrada ' + i + ': tipo de assinatura ' + hashType + '; o PSBT deve vir do projeto principal (SIGHASH_ALL)');
         }
-      } else if (hashType !== 0x01) {
-        throw new Error('entrada ' + i + ': tipo de assinatura ' + hashType + '; o PSBT deve vir do projeto principal (SIGHASH_ALL)');
       }
       totalIn += prev.value;
       inputs.push({
@@ -3805,14 +3805,11 @@ var BTC = (function () {
     });
     if (tx.inputs.length === 0) throw new Error('a transação não tem entradas');
     if (tx.outputs.length === 0) throw new Error('a transação não tem saídas');
-    if (signedInputs > 0 && signedInputs < tx.inputs.length) {
-      warnings.push('algumas entradas já têm assinatura; assinar de novo substitui as assinaturas existentes.');
-    }
     return {
       psbt: psbt, tx: tx, session: session,
       inputs: inputs, outputs: outputs,
       totalIn: totalIn, totalOut: totalOut, fee: fee,
-      signedInputs: signedInputs, alreadySigned: signedInputs === tx.inputs.length,
+      signedInputs: signedInputs, alreadySigned: anySigned,
       txid: txidOf(tx), vsize: vsize, feerate: feerate, warnings: warnings,
       /* Em p2pkh e p2sh-p2wpkh o scriptSig só existe depois da assinatura e
          muda o txid; nas demais entradas o txid já é o final. */
@@ -3825,7 +3822,7 @@ var BTC = (function () {
   /* ------------------------------------------------ assinatura do PSBT */
   async function signPsbt(bytes, hd, auxRand) {
     var a = await analyzePsbt(bytes, hd);
-    if (a.alreadySigned) throw new Error('este psbt já está assinado');
+    if (a.alreadySigned) throw new Error('este PSBT já tem assinatura; o cofre só exibe, não assina');
     var psbt = a.psbt, tx = a.tx;
     a.inputs.forEach(function (inp) {
       var map = psbt.inputs[inp.index];
@@ -3907,12 +3904,28 @@ var BTC = (function () {
       var map = psbt.inputs[i];
       var fs = mapFind(map, 0x07);
       var fw = mapFind(map, 0x08);
-      if (!fs) throw new Error('entrada ' + i + ' não está finalizada (falta final_scriptSig)');
+      if (!fs && !fw) throw new Error('entrada ' + i + ' não está finalizada');
+      var prev = prevoutOf(map, tx.inputs[i]);
+      var kind = normalizeKind(scriptKind(prev.script));
+      var scriptSig = fs ? fs.value : new Uint8Array(0);
+      var stack = fw ? readWitness(fw.value) : [];
+      /* O formato final depende do tipo: p2pkh no scriptSig, p2sh-p2wpkh nos
+         dois, p2wpkh/p2tr só no witness. Um witness em entrada não-segwit
+         invalida a transação; um p2wpkh sem witness não está finalizado. */
+      if (kind === 'p2pkh') {
+        if (!scriptSig.length || stack.length) throw new Error('entrada ' + i + ' p2pkh não está finalizada como esperado');
+      } else if (kind === 'p2sh-p2wpkh') {
+        if (!scriptSig.length || !stack.length) throw new Error('entrada ' + i + ' p2sh-p2wpkh não está finalizada como esperado');
+      } else if (kind === 'p2wpkh' || kind === 'p2tr') {
+        if (scriptSig.length || !stack.length) throw new Error('entrada ' + i + ' ' + kind + ' não está finalizada como esperado');
+      } else {
+        throw new Error('entrada ' + i + ' tem script não suportado');
+      }
       finalInputs.push({
         txid: tx.inputs[i].txid, vout: tx.inputs[i].vout,
-        scriptSig: fs.value, sequence: tx.inputs[i].sequence
+        scriptSig: scriptSig, sequence: tx.inputs[i].sequence
       });
-      witnesses.push(fw ? readWitness(fw.value) : []);
+      witnesses.push(stack);
     }
     var final = {
       version: tx.version, inputs: finalInputs, outputs: tx.outputs,
@@ -4006,6 +4019,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var reviewFee = $('#review-fee');
   var reviewVsize = $('#review-vsize');
   var reviewTxid = $('#review-txid');
+  var reviewLocktime = $('#review-locktime');
+  var reviewSequence = $('#review-sequence');
   var reviewFile = $('#review-file');
   var reviewWarnings = $('#review-warnings');
   var reviewWarningsList = $('#review-warnings-list');
@@ -4732,6 +4747,33 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       tbody.insertBefore(address, reviewFeeRow);
     });
   }
+  /* Locktime e sequence são só informativos: o cofre só assina PSBT sem
+     assinatura, e o resumo mostra o que a transação carrega. Locktime 0 é
+     "sem trava"; sequence 0xffffffff é "final, sem RBF". */
+  function locktimeText(tx) {
+    if (!tx) return '—';
+    var value = tx.locktime >>> 0;
+    if (value === 0) return '0 (sem trava)';
+    if (value < 500000000) return value + ' (não antes do bloco ' + value + ')';
+    var date = new Date(value * 1000);
+    if (isNaN(date.getTime())) return value + ' (data Unix)';
+    var iso = date.toISOString().slice(0, 19).replace('T', ' ');
+    return value + ' (não antes de ' + iso + ' UTC)';
+  }
+  function sequenceText(tx) {
+    if (!tx || !tx.inputs || !tx.inputs.length) return '—';
+    var seqs = tx.inputs.map(function (inp) { return inp.sequence >>> 0; });
+    var allFinal = seqs.every(function (seq) { return seq === 0xffffffff; });
+    if (allFinal) return '0xffffffff (final; sem RBF)';
+    var first = seqs[0];
+    var same = seqs.every(function (seq) { return seq === first; });
+    var text = first.toString(16);
+    while (text.length < 8) text = '0' + text;
+    var rbf = (tx.version >>> 0) >= 2;
+    return (same ? '0x' + text : 'misto') + (rbf
+      ? ' (não final; RBF/trava relativa)'
+      : ' (não final)');
+  }
   /* `signed` troca o vsize estimado pelo real da transação final, que é o
      que o PSBT assinado carrega. */
   function renderReview(a, file, signed) {
@@ -4739,6 +4781,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (reviewFee) reviewFee.innerHTML = valueLine(a.fee, 'out', a.totalIn);
     reviewCell(reviewVsize, (signed ? '' : '~') + a.vsize + ' vB');
     reviewCell(reviewTxid, (signed || !a.txidEstimated ? '' : '~') + a.txid);
+    reviewCell(reviewLocktime, locktimeText(a.tx));
+    reviewCell(reviewSequence, sequenceText(a.tx));
     reviewCell(reviewFile, file);
     if (reviewWarningsList) {
       reviewWarningsList.textContent = '';
@@ -4798,7 +4842,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         signBtn.disabled = true;
         signBtn.hidden = true;
         psbtSepSign.hidden = true;
-        setStatus(signStatus, 'aviso', 'este psbt já está assinado.');
+        setStatus(signStatus, 'aviso', 'este PSBT já tem assinatura; o cofre só exibe, não assina.');
       } else {
         signBtn.disabled = false;
         signBtn.hidden = false;
@@ -4874,11 +4918,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      bytes que o download leva são relidos, analisados e finalizados, em vez
      de aproveitar os números que a assinatura devolveu. */
   async function summarizeSignedPsbt(base64) {
-    var a = await BTC.analyzePsbt(BTC.psbtParseInput(base64), state.hd, true);
+    var a = await BTC.analyzePsbt(BTC.psbtParseInput(base64), state.hd);
     var fin = BTC.psbtFinalTx(a.psbt);
     return {
       fee: a.fee, outputs: a.outputs, warnings: a.warnings,
-      totalIn: a.totalIn, vsize: fin.vsize, txid: fin.txid
+      totalIn: a.totalIn, vsize: fin.vsize, txid: fin.txid, tx: a.tx
     };
   }
   if (signBtn) {
