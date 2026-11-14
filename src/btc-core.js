@@ -1221,7 +1221,7 @@ var BTC = (function () {
     return { at: at, account: account, hd: hd };
   }
 
-  async function findKeyForScript(session, script, map, limit, isOutput) {
+  async function findKeyForScript(session, script, map, isOutput) {
     var kind = normalizeKind(scriptKind(script));
     if (kind === 'p2wsh' || kind === 'outro' || kind === 'witness') {
       throw new Error('tipo de script não suportado (' + kind + ')');
@@ -1229,7 +1229,7 @@ var BTC = (function () {
     var wanted = bytesToHex(script);
     var i, j;
 
-    /* 1. Informação de derivação que o PSBT já carrega. BIP174 usa 0x06
+    /* Informação de derivação que o PSBT já carrega. BIP174 usa 0x06
        (bip32) e 0x16 (tap_bip32) nas entradas; nas saídas são 0x02 e 0x07. */
     var bip32Type = isOutput ? 0x02 : 0x06;
     var tapType = isOutput ? 0x07 : 0x16;
@@ -1276,22 +1276,9 @@ var BTC = (function () {
       };
     }
 
-    /* Saída sem origem declarada não é varrida: o assinador não tenta
-       adivinhar conta/índice. A origem declarada já foi conferida contra o
-       script acima; se não serviu, a saída é externa. A entrada continua com
-       a varredura, que é necessária para achar a chave de assinatura. */
-    if (isOutput) return null;
-
-    /* 2. Varredura das contas: só a conta do tipo do script, 0/1 e o gap. */
-    var accountId = kind === 'p2pkh' ? 'bip44' : kind === 'p2sh-p2wpkh' ? 'bip49' : kind === 'p2wpkh' ? 'bip84' : 'bip86';
-    if (!session.hd.accounts[accountId]) throw new Error('conta ' + accountId + ' indisponível');
-    var max = limit || 100;
-    for (var chain = 0; chain < 2; chain++) {
-      for (var index = 0; index < max; index++) {
-        var key = await session.at(accountId, chain, index);
-        if (bytesToHex(scriptForKind(key.kind, key.Q)) === wanted) return key;
-      }
-    }
+    /* Sem origem declarada não há varredura: a entrada é recusada na análise
+       (não há chave para assinar) e a saída fica externa. A conferência acima
+       já validou a origem contra o script real. */
     return null;
   }
 
@@ -1552,7 +1539,7 @@ var BTC = (function () {
       var own = null;
       /* Saída: só a origem que o PSBT declara, conferida contra o script.
          Sem origem válida não há varredura; a saída fica externa. */
-      try { own = await findKeyForScript(session, out.script, psbt.outputs[j], 0, true); } catch (e) { own = null; }
+      try { own = await findKeyForScript(session, out.script, psbt.outputs[j], true); } catch (e) { own = null; }
       outputs.push({
         index: j, value: out.value, script: out.script, kind: outKind,
         address: addressFromScript(out.script),

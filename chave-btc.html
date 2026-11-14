@@ -2352,7 +2352,7 @@
               <li><b>privadas</b> — quatro linhas, uma por conta: <b>bip86</b> mostra a chave estendida privada da conta <code>m/86'/0'/0'</code> (prefixo <code>xprv</code>), <b>bip84</b> a de <code>m/84'/0'/0'</code> (<code>zprv</code>), <b>bip49</b> a de <code>m/49'/0'/0'</code> (<code>yprv</code>) e <b>bip44</b> a de <code>m/44'/0'/0'</code> (<code>xprv</code>). São chaves de conta, não de endereço: delas saem os ramos de recebimento (<code>/0/*</code>) e de troco (<code>/1/*</code>). Essas linhas não têm botão de copiar; o conteúdo aparece inteiro para conferência. Sem chave, cada célula mostra <code>—</code>.</li>
               <li><b>públicas</b> — as mesmas quatro contas em chave estendida pública: <code>xpub</code> no BIP86 e no BIP44, <code>zpub</code> no BIP84 e <code>ypub</code> no BIP49. Cada linha tem <b>copiar</b>, e o botão vira <b>copiado</b> por alguns instantes. A pública é watch-only: não gasta, mas permite reconstruir os endereços e, com eles, consultar o histórico da conta — também merece cuidado. O BIP86 e o BIP44 compartilham o prefixo <code>xpub</code>; o que distingue é o tipo de conta, então, ao importar numa carteira, informe que a conta do BIP86 é Taproot. O <code>xpub</code> do BIP86 é o que uma carteira watch-only (como o projeto 2) usa para derivar os endereços de recebimento e de troco.</li>
               <li><b>importar psbt</b> — o anexo só responde depois que existe uma chave; com o arquivo carregado ele vira <b>cancelar</b>. O arquivo importado fica só na memória: a tela não repete o texto em base64/hex nem os metadados do arquivo (formato, tamanho ou contagem de entradas e saídas), porque não ajudam na conferência; da identificação do arquivo, só o nome aparece, na linha <b>arquivo</b> da revisão. Na mesma linha, <b>assinar</b> surge quando a revisão termina, depois dos avisos e ao lado do anexo ou do <b>cancelar</b>, desde que o PSBT ainda não tenha assinatura; se todas as entradas já estiverem assinadas, o botão não aparece e a linha de estado avisa; se só algumas tiverem assinatura, a revisão avisa que as existentes serão substituídas. Ao clicar em <b>assinar</b>, o .psbt é baixado assim que a assinatura termina, o botão sai e o <b>cancelar</b> vira <b>fechar</b>, que encerra a revisão do PSBT assinado (antes da assinatura, o mesmo botão descarta o arquivo importado). Abaixo dos botões, a linha de estado mostra <code>[ ... ]</code> enquanto analisa ou assina, <code>[ atenção ]</code> quando a revisão termina com avisos e <code>[ erro ]</code> com o motivo. A revisão sem avisos não escreve nada, exceto quando o PSBT já tem assinatura; a assinatura concluída também não escreve: a própria revisão passa a mostrar o resultado.</li>
-              <li><b>revisão</b> — aparece sozinha ao importar, numa tabela. O <b>resumo</b> traz um par <b>saída</b>/<b>destino</b> por pagamento e um par <b>troco</b>/<b>endereço</b> por troco, na ordem da transação; a taxa, o vsize e o txid — estimados enquanto o PSBT não tem assinatura, extraídos da transação final quando ele já vem finalizado —, e no fim a linha <b>arquivo</b>, com o nome do PSBT que está na tela. Nesse resumo, os valores levam sinal e cor: o que sai (<b>saída</b> e <b>taxa</b>) fica em <b>-</b> no tom do erro e o que volta (<b>troco</b>) em <b>+</b> no verde do sucesso. Cada valor leva também, depois de um divisor <code>|</code> e em <code>--dim</code>, a fatia que representa da soma das entradas do PSBT — a base é o total que a transação gasta, e não o saldo da conta —, com as casas pelo tamanho (uma acima de 10%, duas acima de 1% e três abaixo; o que arredondaria para zero fica <code>&lt;0.001%</code>). Depois, os <b>avisos</b> (taxa fora do comum, script não padronizado). A classificação de cada saída usa só a origem BIP32 que o PSBT declara, conferida contra o script real; não há varredura de contas para saídas. Sem origem válida, a saída é externa. O destino que não pertence a esta chave leva <code>[ externo ]</code> no fim do endereço, no tom do <code>[ atenção ]</code>. Leia antes de assinar.</li>
+              <li><b>revisão</b> — aparece sozinha ao importar, numa tabela. O <b>resumo</b> traz um par <b>saída</b>/<b>destino</b> por pagamento e um par <b>troco</b>/<b>endereço</b> por troco, na ordem da transação; a taxa, o vsize e o txid — estimados enquanto o PSBT não tem assinatura, extraídos da transação final quando ele já vem finalizado —, e no fim a linha <b>arquivo</b>, com o nome do PSBT que está na tela. Nesse resumo, os valores levam sinal e cor: o que sai (<b>saída</b> e <b>taxa</b>) fica em <b>-</b> no tom do erro e o que volta (<b>troco</b>) em <b>+</b> no verde do sucesso. Cada valor leva também, depois de um divisor <code>|</code> e em <code>--dim</code>, a fatia que representa da soma das entradas do PSBT — a base é o total que a transação gasta, e não o saldo da conta —, com as casas pelo tamanho (uma acima de 10%, duas acima de 1% e três abaixo; o que arredondaria para zero fica <code>&lt;0.001%</code>). Depois, os <b>avisos</b> (taxa fora do comum, script não padronizado). Entradas e saídas usam só a origem BIP32 que o PSBT declara, conferida contra o script real; não há varredura de contas. Sem origem válida, a entrada é recusada e a saída é externa. O destino que não pertence a esta chave leva <code>[ externo ]</code> no fim do endereço, no tom do <code>[ atenção ]</code>. Leia antes de assinar.</li>
               <li><b>psbt assinado</b> — o PSBT com as assinaturas é baixado assim que a assinatura termina, e a revisão passa a mostrar os dados extraídos do próprio arquivo gerado: o arquivo é relido e finalizado, daí saem o txid, o vsize real (não o estimado) e a taxa, com o nome do .psbt baixado na linha <b>arquivo</b>. O hex não aparece na tela: para publicar a transação, use o .psbt baixado em outro programa.</li>
               <li><b>rodapé</b> — <code>[ offline ] nada sai deste arquivo</code> resume a política da página; o botão redondo troca o tema.</li>
             </ul>
@@ -3570,7 +3570,7 @@ var BTC = (function () {
     return { at: at, account: account, hd: hd };
   }
 
-  async function findKeyForScript(session, script, map, limit, isOutput) {
+  async function findKeyForScript(session, script, map, isOutput) {
     var kind = normalizeKind(scriptKind(script));
     if (kind === 'p2wsh' || kind === 'outro' || kind === 'witness') {
       throw new Error('tipo de script não suportado (' + kind + ')');
@@ -3578,7 +3578,7 @@ var BTC = (function () {
     var wanted = bytesToHex(script);
     var i, j;
 
-    /* 1. Informação de derivação que o PSBT já carrega. BIP174 usa 0x06
+    /* Informação de derivação que o PSBT já carrega. BIP174 usa 0x06
        (bip32) e 0x16 (tap_bip32) nas entradas; nas saídas são 0x02 e 0x07. */
     var bip32Type = isOutput ? 0x02 : 0x06;
     var tapType = isOutput ? 0x07 : 0x16;
@@ -3625,22 +3625,9 @@ var BTC = (function () {
       };
     }
 
-    /* Saída sem origem declarada não é varrida: o assinador não tenta
-       adivinhar conta/índice. A origem declarada já foi conferida contra o
-       script acima; se não serviu, a saída é externa. A entrada continua com
-       a varredura, que é necessária para achar a chave de assinatura. */
-    if (isOutput) return null;
-
-    /* 2. Varredura das contas: só a conta do tipo do script, 0/1 e o gap. */
-    var accountId = kind === 'p2pkh' ? 'bip44' : kind === 'p2sh-p2wpkh' ? 'bip49' : kind === 'p2wpkh' ? 'bip84' : 'bip86';
-    if (!session.hd.accounts[accountId]) throw new Error('conta ' + accountId + ' indisponível');
-    var max = limit || 100;
-    for (var chain = 0; chain < 2; chain++) {
-      for (var index = 0; index < max; index++) {
-        var key = await session.at(accountId, chain, index);
-        if (bytesToHex(scriptForKind(key.kind, key.Q)) === wanted) return key;
-      }
-    }
+    /* Sem origem declarada não há varredura: a entrada é recusada na análise
+       (não há chave para assinar) e a saída fica externa. A conferência acima
+       já validou a origem contra o script real. */
     return null;
   }
 
@@ -3901,7 +3888,7 @@ var BTC = (function () {
       var own = null;
       /* Saída: só a origem que o PSBT declara, conferida contra o script.
          Sem origem válida não há varredura; a saída fica externa. */
-      try { own = await findKeyForScript(session, out.script, psbt.outputs[j], 0, true); } catch (e) { own = null; }
+      try { own = await findKeyForScript(session, out.script, psbt.outputs[j], true); } catch (e) { own = null; }
       outputs.push({
         index: j, value: out.value, script: out.script, kind: outKind,
         address: addressFromScript(out.script),

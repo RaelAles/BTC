@@ -90,12 +90,12 @@ function mapFind(map, type) {
   await fake.close();
 }
 
-/* ---------------- 2. envio bip84 acima da varredura do assinante ---------------- */
+/* ---------------- 2. envio bip84 para índice alto, com origem BIP32 ---------------- */
 {
   const account = parseXpub(hd.accounts.bip84.xpub);
-  /* 0, 49 e 99 estendem a varredura até 149: com isso o índice 120 entra na
-     margem e o PSBT pode ser assinado mesmo fora do fallback de 100 do
-     assinante. */
+  /* 0, 49 e 99 estendem a varredura da carteira até 149: com isso o índice
+     120 entra na margem. O assinador o reconhece pela origem da entrada, não
+     por varredura de contas. */
   const addrIdx = [0, 49, 99, 120];
   const rows = [];
   const histories = {};
@@ -182,7 +182,7 @@ function mapFind(map, type) {
   assert.equal(mapFind(psbt.outputs[0], 0x02), null, 'destino externo não leva origem no PSBT');
 
   /* o assinante (núcleo do chave-btc.html) acha as chaves mesmo com o índice
-     120, que fica fora da varredura de 100 do fallback. */
+     120 porque a origem BIP32 da entrada está no PSBT; não há varredura. */
   const signed = await BTC.signPsbt(bytes, hd, new Uint8Array(32));
   assert.equal(signed.txid, BTC.txidOf(BTC.readTx(BTC.hexToBytes(signed.txHex))));
   const final = BTC.readTx(BTC.hexToBytes(signed.txHex));
@@ -427,6 +427,15 @@ function mapFind(map, type) {
   const tap = mapFind(psbt.inputs[0], 0x16);
   assert.ok(tap, 'entrada taproot leva tap_bip32_derivation');
   assert.equal(tap.value[0], 0);
+
+  /* Sem origem na entrada não há varredura: o assinador recusa, mesmo que o
+     índice esteja dentro da antiga janela de 100. */
+  const noInputOrigin = BTC.parsePsbt(BTC.psbtParseInput(prepared.psbt));
+  noInputOrigin.inputs[0] = noInputOrigin.inputs[0].filter(e =>
+    !(e.key.length > 0 && (e.key[0] === 0x06 || e.key[0] === 0x16)));
+  await assert.rejects(BTC.analyzePsbt(BTC.writePsbt(noInputOrigin), hd),
+    /não pertence às contas derivadas/);
+
   const signed = await BTC.signPsbt(BTC.psbtParseInput(prepared.psbt), hd, new Uint8Array(32));
   assert.equal(signed.outputs[0].value, 120000n);
   assert.ok(signed.feerate > 3.5);

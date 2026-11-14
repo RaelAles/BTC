@@ -674,9 +674,9 @@ ramo `/1`; `recipient.own` repete a classificação do destino. Quando o destino
 é da própria carteira, a saída de destino leva
 `PSBT_OUT_BIP32_DERIVATION`/`PSBT_OUT_TAP_BIP32_DERIVATION`, para o assinador
 reconhecê-lo pela origem sem varrer as contas. Na revisão do `chave-btc.html`,
-a classificação de saída usa só essa origem, conferida contra o script real;
-não há varredura de contas para saídas. Sem origem válida, a saída é externa.
-A varredura de entradas continua existindo, para achar a chave de assinatura.
+entradas e saídas usam só a origem BIP32 declarada, conferida contra o script
+real; não há varredura de contas. Entrada sem origem válida é recusada (não há
+chave para assinar); saída sem origem válida é externa.
 Cada entrada traz `pending: true` quando é troco de uma transação ainda no
 mempool (gasto encadeado): a transação nova confirma depois — e junto — da
 anterior. O PSBT carrega `witness_utxo` e a origem BIP32 (`bip32_derivation` ou
@@ -890,10 +890,11 @@ com valor (taxa e troco iguais aos do PSBT, e as cotas dos níveis para o
 seletor), PSBT v0 com
 origem da conta, `non_witness_utxo` no p2pkh, `tap_bip32_derivation` no
 taproot, o destino próprio no índice 30 reconhecido pela origem da saída, sem
-varredura, e a saída sem origem — mesmo no índice 1 — tratada como externa;
-recusa de endereço/taxa/saldo inválidos, e a **assinatura do PSBT no
-próprio `btc-core`** com um índice 120 — fora do fallback de 100 — provando a
-compatibilidade com o `chave-btc.html`. A taxa também é conferida depois da
+varredura, a saída sem origem — mesmo no índice 1 — tratada como externa e a
+entrada sem origem recusada; recusa de endereço/taxa/saldo inválidos, e a
+**assinatura do PSBT no próprio `btc-core`** com um índice 120, reconhecido
+pela origem da entrada, sem varredura, provando a compatibilidade com o
+`chave-btc.html`. A taxa também é conferida depois da
 assinatura, nos quatro tipos de entrada (p2wpkh, p2sh-p2wpkh, p2pkh e p2tr) e
 em duas taxas (1 e 1,926 sat/vB): a vsize estimada tem de cobrir o tamanho
 real da transação assinada e a taxa paga tem de cobrir a taxa pedida. O
