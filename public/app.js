@@ -1792,8 +1792,15 @@
         value.td.innerHTML = signedBtcShare(out.value, change ? 'in' : 'out');
         value.tr.setAttribute('data-broadcast-output', '');
         metaBody.insertBefore(value.tr, feeRow);
+        /* O destino externo leva o marcador no próprio endereço, no tom do
+           "[ atenção ]"; as saídas da carteira seguem como texto puro. */
         var address = broadcastMetaRow(change ? 'endereço' : 'destino', true);
-        address.td.textContent = out.address || '—';
+        if (out.own === 'externo') {
+          address.td.innerHTML = esc(out.address || '—') +
+            ' <span class="review-external">[ externo ]</span>';
+        } else {
+          address.td.textContent = out.address || '—';
+        }
         address.tr.setAttribute('data-broadcast-output', '');
         metaBody.insertBefore(address.tr, feeRow);
       });

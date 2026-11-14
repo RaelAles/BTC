@@ -97,8 +97,9 @@ tela mostra:
    publica: o servidor confere o arquivo contra a carteira (cada entrada tem
    de ser sua, o valor tem de bater, todas as entradas têm de estar
    finalizadas) e só então aparecem o subtítulo **transmitir**, com o resumo
-   no mesmo desenho do PSBT (arquivo, um par saída/destino por pagamento e um
-   par troco/endereço por troco, taxa, vsize e txid), e o botão
+   no mesmo desenho do PSBT (arquivo, um par saída/destino por pagamento — o
+   destino externo leva `[ externo ]` — e um par troco/endereço por troco,
+   taxa, vsize e txid), e o botão
    **confirmar**; o botão do seletor some assim que o
    arquivo é escolhido e, se a conferência falhar, o arquivo é descartado
    com o motivo no lugar, e o seletor volta de imediato para a próxima
