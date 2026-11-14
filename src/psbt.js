@@ -183,9 +183,11 @@ export function sendLimits({ utxos, address, feeRate, amountSats, changeScript, 
 
 /* Monta o PSBT. `utxos` vem do scanner com a linha de origem já anexada;
    `changeRow` é o próximo endereço livre do ramo de troco; `rawTxFor` devolve
-   a transação anterior crua (só o p2pkh precisa dela). */
+   a transação anterior crua (só o p2pkh precisa dela). `ownScripts` é o mapa
+   de scripts derivados da xpub: é o que distingue um destino externo de um
+   recebimento para a própria carteira. */
 export async function preparePsbt({
-  account, utxos, address, amountSats, feeRate, changeRow, rawTxFor
+  account, utxos, address, amountSats, feeRate, changeRow, rawTxFor, ownScripts
 }) {
   if (!Number.isInteger(amountSats) || amountSats <= 0) {
     throw new Error('valor inválido');
@@ -197,6 +199,8 @@ export async function preparePsbt({
   let recipientScript;
   try { recipientScript = BTC.scriptFromAddress(address); }
   catch (e) { throw new Error('endereço de destino: ' + e.message); }
+  const recipientOwn = !!(ownScripts && ownScripts.has(hex(recipientScript)));
+  const recipientKind = recipientOwn ? 'recebimento' : 'externo';
   if (!changeRow) throw new Error('endereço de troco indisponível');
   const changeScript = BTC.hexToBytes(changeRow.script);
   const fingerprint = hex(BTC.hash160(account.pub)).slice(0, 8);
@@ -248,16 +252,16 @@ export async function preparePsbt({
     change: pick.withChange
       ? { address: changeRow.address, value: pick.change, path: changeRow.path }
       : null,
-    recipient: { address, value: amountSats },
+    recipient: { address, value: amountSats, own: recipientKind },
     inputs: pick.selected.map((u, i) => ({
       txid: u.txid, vout: u.vout, value: u.value,
       address: u.row.address, path: paths[i], type: u.row.account_type,
       pending: u.height === 0
     })),
     outputs: [
-      { address, value: amountSats, own: false },
+      { address, value: amountSats, own: recipientKind },
       ...(pick.withChange
-        ? [{ address: changeRow.address, value: pick.change, own: true, path: changeRow.path }]
+        ? [{ address: changeRow.address, value: pick.change, own: 'troco', path: changeRow.path }]
         : [])
     ]
   };

@@ -1508,13 +1508,12 @@
     var outValue = $('#send-meta-out-value');
     if (outValue) outValue.innerHTML = j.recipient ? signedBtcShare(j.recipient.value, 'out') : '';
     /* O destino externo leva o marcador no próprio endereço, no mesmo tom do
-       "[ atenção ]" do chave-btc.html; o troco, que é da carteira, segue como
-       texto puro. */
+       "[ atenção ]" do chave-btc.html; o destino da própria carteira
+       (`recebimento`) e o troco seguem como texto puro. */
     var outAddress = $('#send-meta-out-address');
     if (outAddress) {
       var external = !!j.recipient && (j.outputs || []).some(function (out) {
-        return out.address === j.recipient.address &&
-          (out.own === false || out.own === 'externo');
+        return out.address === j.recipient.address && out.own === 'externo';
       });
       outAddress.textContent = j.recipient ? j.recipient.address : '';
       if (external) {
@@ -1552,7 +1551,7 @@
     if (j.recipient && Number(j.recipient.value) !== amountSats()) {
       warn.push('o valor no psbt difere do campo de quantidade');
     }
-    var externos = (j.outputs || []).filter(function (out) { return !out.own; });
+    var externos = (j.outputs || []).filter(function (out) { return out.own === 'externo'; });
     if (externos.length > 1) warn.push('o psbt tem ' + externos.length + ' saídas externas');
     /* Gasto encadeado: a entrada é o troco de uma transação nossa que ainda
        não confirmou. É permitido e é o que evita o saldo zerado, mas a nova

@@ -66,9 +66,10 @@ tela mostra:
    arquivo no botão
    **baixar**, ao fim do bloco; a tela mostra os detalhes (saída,
    destino, troco, endereço, pó, taxa, vsize e txid) na mesma tabela de
-   leitura do "receber", sem o base64 como campo. O destino externo leva
-   `[ externo ]` no fim do endereço, no tom do `[ atenção ]`; o troco, que
-   pertence à carteira, fica sem marcador. A linha **pó** só aparece
+   leitura do "receber", sem o base64 como campo. O destino que não pertence
+   à carteira leva `[ externo ]` no fim do endereço, no tom do `[ atenção ]`;
+   o destino de um endereço da própria carteira e o troco ficam sem marcador.
+   A linha **pó** só aparece
    quando o troco não foi criado: ela mostra quanto do valor ficou na taxa
    por isso, para a taxa (que já inclui esse resto) não parecer erro, e fica
    sem sinal porque é uma parte da taxa, não uma segunda saída. Os outros
@@ -652,20 +653,23 @@ Resposta (resumida):
   "total_out": 7148,
   "amount_sats": 5000,
   "change": { "address": "bc1p...", "value": 2148, "path": "m/86'/0'/0'/1/0" },
-  "recipient": { "address": "bc1q...", "value": 5000 },
+  "recipient": { "address": "bc1q...", "value": 5000, "own": "externo" },
   "inputs": [
     { "txid": "7e964b27...", "vout": 1, "value": 8000,
       "address": "bc1p...", "path": "m/86'/0'/0'/0/1",
       "type": "bip86", "pending": false }
   ],
   "outputs": [
-    { "address": "bc1q...", "value": 5000, "own": false },
-    { "address": "bc1p...", "value": 2148, "own": true, "path": "m/86'/0'/0'/1/0" }
+    { "address": "bc1q...", "value": 5000, "own": "externo" },
+    { "address": "bc1p...", "value": 2148, "own": "troco", "path": "m/86'/0'/0'/1/0" }
   ]
 }
 ```
 
-Cada entrada traz `pending: true` quando é troco de uma transação ainda no
+O `own` de cada saída é `externo` quando o script não foi derivado da xpub,
+`recebimento` quando o destino é um endereço da própria carteira e `troco` no
+ramo `/1`; `recipient.own` repete a classificação do destino. Cada entrada traz
+`pending: true` quando é troco de uma transação ainda no
 mempool (gasto encadeado): a transação nova confirma depois — e junto — da
 anterior. O PSBT carrega `witness_utxo` e a origem BIP32 (`bip32_derivation` ou
 `tap_bip32_derivation`) em cada entrada; p2pkh carrega `non_witness_utxo`

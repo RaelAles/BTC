@@ -372,7 +372,8 @@ export class WalletScanner {
       return raw ? BTC.hexToBytes(raw) : null;
     };
     return await preparePsbt({
-      account: this.account, utxos, address, amountSats, feeRate, changeRow, rawTxFor
+      account: this.account, utxos, address, amountSats, feeRate, changeRow, rawTxFor,
+      ownScripts: this.byScript
     });
   }
 

@@ -128,7 +128,19 @@ function mapFind(map, type) {
   assert.equal(j.change.path, "m/84'/0'/0'/1/0");
   assert.equal(j.outputs[0].address, destination);
   assert.equal(j.outputs[0].value, 50000);
-  assert.equal(j.outputs[1].own, true);
+  assert.equal(j.outputs[0].own, 'externo');
+  assert.equal(j.outputs[1].own, 'troco');
+
+  /* Destino da própria carteira: o servidor reconhece o script derivado da
+     xpub e não o classifica como externo. */
+  const self = await deriveAddress('bip84', account, 0, 1);
+  const own = await reqPsbt({
+    xpub: hd.accounts.bip84.xpub, address: self.address,
+    amount_sats: 10000, fee_rate: 5
+  }, env);
+  assert.equal(own.status, 200, JSON.stringify(own.j));
+  assert.equal(own.j.outputs[0].own, 'recebimento', 'destino da própria carteira não é externo');
+  assert.equal(own.j.recipient.own, 'recebimento');
 
   const bytes = BTC.psbtParseInput(j.psbt);
   const psbt = BTC.parsePsbt(bytes);
