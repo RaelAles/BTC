@@ -1440,6 +1440,10 @@
     gap: var(--space-4) var(--space-7);
     flex-wrap: wrap;
   }
+  /* O rodapé lê só o navigator.onLine, sem requisição: com rede ativa ele
+     avisa para desconectar e usa o --warning do "[ atenção ]"; sem rede, o
+     recado de uso fica no --dim do próprio rodapé. */
+  #foot-state.is-warning { color: var(--warning); }
   /* Sem tooltip e sem rótulo visível (VG-BOT-11): o nome acessível fica só
      no aria-label e o estado visível no próprio código do idioma (PT, EN) e
      no glifo do tema (●, ○).
@@ -2052,7 +2056,7 @@ hex:    80 60 00 … 00 01   (32 bytes; 29 bytes 00 entre 60 e 01)</pre>
     <div class="edge" aria-hidden="true"></div>
 
     <footer class="status">
-      <span id="foot-state">[ offline ] nada sai deste arquivo</span>
+      <span id="foot-state" role="status">[ offline ] sem rede: use máquina dedicada e confira o hash</span>
       <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Ativar tema claro"><span class="glyph"><span class="glyph-ring">○</span></span></button>
     </footer>
 
@@ -5131,6 +5135,24 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       setTheme(root.dataset.theme === 'light' ? 'dark' : 'light');
     });
   }
+
+  /* --------------------------------------------------------- estado da rede */
+  // Nenhuma requisição sai do arquivo: navigator.onLine só informa se o
+  // navegador tem uma conexão de rede ativa. O sinal não prova internet, mas
+  // qualquer rede já basta para pedir a desconexão; os eventos online/offline
+  // mantêm o rodapé em dia sem recarregar a página.
+  var footState = $('#foot-state');
+  function paintFootState() {
+    if (!footState) return;
+    var online = !!navigator.onLine;
+    footState.classList.toggle('is-warning', online);
+    footState.textContent = online ?
+      '[ atenção ] rede ativa: desconecte a máquina da internet' :
+      '[ offline ] sem rede: use máquina dedicada e confira o hash';
+  }
+  window.addEventListener('online', paintFootState);
+  window.addEventListener('offline', paintFootState);
+  paintFootState();
 
   /* ----------------------------------------------- grão, rolagem e página */
   // Grão (VG-FND-05): a tinta não é --line. A cobertura média dos glifos e o
