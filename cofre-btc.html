@@ -1990,6 +1990,7 @@
 
             <h3><span class="prompt" aria-hidden="true">##</span> o que são as coordenadas</h3>
             <p>São apenas nomes para cada um dos 256 bits. O primeiro bit se chama <code>a0</code>, o segundo <code>a1</code>, e assim por diante: <code>a0</code> a <code>a9</code>, depois <code>b0</code> a <code>b9</code>, até <code>z5</code>, que é o último bit. A linha <code>z</code> para no 5: <code>z6</code> a <code>z9</code> não existem, porque 26 letras × 10 dígitos dariam 260 nomes e só há 256 bits.</p>
+            <p>Elas aparecem <b>agrupadas por letra</b>: a letra abre o grupo e os dígitos que vêm depois pertencem a ela, até a próxima letra. Assim <code>a012</code> quer dizer <code>a0</code>, <code>a1</code> e <code>a2</code>. O agrupamento é só a forma de escrever a lista: a ordem dos dígitos dentro do grupo não muda nada.</p>
             <p>A posição de uma coordenada é <code>letra × 10 + dígito</code>, contando <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Assim <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 e <code>z5</code> = 255.</p>
             <p>A tela mostra só as coordenadas que ficaram em <code>1</code>. Todas as outras posições valem <code>0</code>, e a ordem em que aparecem não muda nada: o que conta é o conjunto.</p>
 
