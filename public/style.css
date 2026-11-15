@@ -1500,6 +1500,17 @@
     background: var(--bg);
     color: var(--fg);
   }
+  /* O texto do controle fica um passo acima do corpo, em --text-lg (1rem,
+     16 px no padrão). Abaixo de 16 px, o Safari do iOS dá zoom ao focar o
+     campo e a página passa a rolar por cima do card: menu e rodapé saem da
+     tela e o usuário precisa rolar para achá-los. O aumento vale só para o
+     que o usuário digita; rótulos, recados e o resto da tela continuam na
+     escala normal. */
+  .field-box input,
+  .field-box textarea,
+  .field-box select {
+    font-size: var(--text-lg);
+  }
   .field-select-mark {
     position: absolute;
     top: 50%;
