@@ -341,9 +341,14 @@
     #grain { transition: none; }
   }
 
-  /* Régua do viewport dinâmico (VG-LAY-12): mede o mesmo 100dvh que o card
-     usa, para o syncPageMode() decidir quando a página inteira rola. Fica
-     fora do fluxo, sem largura e sem pintura: nada muda no desenho. */
+  /* Régua do viewport (VG-LAY-12): mede a mesma altura que o card usa, para
+     o syncPageMode() decidir quando a página inteira rola. Fica fora do
+     fluxo, sem largura e sem pintura: nada muda no desenho. A medida vem de
+     --app-h (window.innerHeight, escrito pelo syncViewportHeight()), porque
+     o Chrome do Android pode publicar 100dvh com a altura da barra do
+     navegador a mais logo depois de recarregar; aí o card passa da tela e o
+     rodapé fica atrás dos botões do aparelho até a página rolar. O 100svh
+     fica de reserva para o primeiro quadro, antes de o script rodar. */
   .vh-probe {
     position: absolute;
     top: 0;
@@ -351,6 +356,8 @@
     width: 0;
     height: 100vh;
     height: 100dvh;
+    height: 100svh;
+    height: var(--app-h, 100svh);
     visibility: hidden;
     pointer-events: none;
   }
@@ -360,6 +367,8 @@
     z-index: var(--layer-page);
     min-height: 100vh;
     min-height: 100dvh;
+    min-height: 100svh;
+    min-height: var(--app-h, 100svh);
     display: flex;
     /* O respiro é --gap mais a área segura do lado (VG-LAY-10): no celular
        com recorte, o card não encosta no notch nem na barra de gestos. */
@@ -386,6 +395,8 @@
        continua inteiro dentro da tela com recorte. */
     height: calc(100vh - var(--gap-top) - var(--gap-bottom));
     height: calc(100dvh - var(--gap-top) - var(--gap-bottom));
+    height: calc(100svh - var(--gap-top) - var(--gap-bottom));
+    height: calc(var(--app-h, 100svh) - var(--gap-top) - var(--gap-bottom));
     min-height: var(--card-min-h);
     margin: 0 auto;
     display: flex;
@@ -650,7 +661,7 @@
      mais os respiros, a página inteira rola para preservar o card (VG-LAY-09).
      Nesse estado o card cresce com o conteúdo e a rolagem interna sai de
      cena, para não haver duas rolagens ao mesmo tempo. Quem põe a classe é o
-     syncPageMode(), que mede o 100dvh pelo .vh-probe. */
+     syncPageMode(), que mede o --app-h pelo .vh-probe. */
   .page.is-page-scroll .window { height: auto; }
   .page.is-page-scroll .content-scroll { overflow: visible; }
   /* Degradê de borda: máscara no conteúdo que rola, não uma camada pintada.
@@ -5415,6 +5426,31 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }).catch(function () {});
   }
 
+  /* Altura real da janela (VG-LAY-12): o Chrome do Android pode publicar
+     100dvh maior que a área visível logo depois de recarregar, contando a
+     barra do navegador; o card passa da tela e o rodapé só aparece quando a
+     página rola. window.innerHeight já desconta essa barra, então a medida
+     vai para --app-h e o CSS a usa no lugar da unidade de viewport. Reavaliar
+     em resize/orientação cobre a barra que aparece e some; o visualViewport
+     cobre o WebKit do iOS, que muda a área visível sem disparar resize. */
+  function syncViewportHeight() {
+    var h = window.innerHeight;
+    if (h > 0) root.style.setProperty('--app-h', h + 'px');
+  }
+
+  /* Reavalia a altura medida em toda mudança de viewport que não passa pelo
+     resize da janela: a barra do iOS, a volta do bfcache, a retomada do PWA.
+     O quadro único evita medir e reflowar mais de uma vez por mudança. */
+  var viewportFrame = 0;
+  function syncViewportSoon() {
+    if (viewportFrame) return;
+    viewportFrame = requestAnimationFrame(function () {
+      viewportFrame = 0;
+      syncViewportHeight();
+      syncPageMode();
+    });
+  }
+
   function updateScrollState() {
     if (!scrollEl || !contentEl) return;
     var max = scrollEl.scrollHeight - scrollEl.clientHeight;
@@ -5445,10 +5481,20 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   var resizeTimer = 0;
   window.addEventListener('resize', function () {
+    syncViewportHeight();
     syncPageMode();
     window.clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(resizeGrain, 150);
   });
+  window.addEventListener('orientationchange', syncViewportSoon);
+  window.addEventListener('pageshow', syncViewportSoon);
+  window.addEventListener('load', syncViewportSoon);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) syncViewportSoon();
+  });
+  if (window.visualViewport && window.visualViewport.addEventListener) {
+    window.visualViewport.addEventListener('resize', syncViewportSoon);
+  }
 
   /* ---------------------------------------------------------------- início */
   updateThemeButton();
@@ -5460,10 +5506,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   buildKeyCells();
   paintValues();
   showScreen(screenName(location.hash.replace(/^#/, '')));
+  syncViewportHeight();
   syncPageMode();
   buildGrain();
   if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(syncPageMode).catch(function () {});
+    document.fonts.ready.then(function () {
+      syncViewportHeight();
+      syncPageMode();
+    }).catch(function () {});
   }
 })();
 
