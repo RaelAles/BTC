@@ -1587,7 +1587,7 @@ var BTC = (function () {
     var fee = totalIn - totalOut;
     var vsize = estimateVsize(inputs.map(function (x) { return x.kind; }), tx.outputs.map(function (x) { return x.script; }));
     var feerate = vsize > 0 ? Number(fee) / vsize : 0;
-    if (feerate < 1) warnings.push('taxa abaixo de 1 sat/vB: a transação pode demorar a confirmar');
+    if (feerate > 0 && feerate < 0.1) warnings.push('taxa abaixo de 0,1 sat/vB: a transação pode ser recusada pelo piso de relay padrão');
     if (feerate > 500) warnings.push('taxa acima de 500 sat/vB: confira o valor da taxa');
     if (fee === 0n) warnings.push('taxa zero: a rede pode recusar a transação');
     /* No p2pkh o valor não entra no sighash: aceitar só o witness_utxo

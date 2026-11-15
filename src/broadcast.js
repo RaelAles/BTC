@@ -25,6 +25,10 @@ import BTC from './btc-core.js';
    cobre p2pkh (546) e fica acima do pó de p2wpkh e p2tr. */
 const DUST_SATS = 546;
 
+/* Piso de relay padrão do Bitcoin Core (`-minrelaytxfee`): 100 sat/kvB =
+   0,1 sat/vB desde a v30 (nas versões anteriores era 1000 sat/kvB). */
+const RELAY_MIN_RATE = 0.1;
+
 /* Um PSBT de várias entradas fica na casa de dezenas de KB em base64; o teto
    existe para uma colagem gigante não virar trabalho à toa no Worker. */
 export const MAX_PSBT_TEXT = 400000;
@@ -176,8 +180,9 @@ export function inspectSignedPsbt({ psbtText, byScript, utxos }) {
   const rbf = (fin.tx.version >>> 0) >= 2 && fin.tx.inputs.some(inp => (inp.sequence >>> 0) < 0xffffffff);
   const warnings = [];
   if (!fee) warnings.push('taxa zero: a rede pode recusar a transação');
-  if (fee > 0 && feeRate < 1) {
-    warnings.push('taxa de ' + feeRate.toFixed(2) + ' sat/vB, abaixo do piso de relay: a transação pode ser recusada');
+  if (fee > 0 && feeRate < RELAY_MIN_RATE) {
+    warnings.push('taxa de ' + feeRate.toFixed(2) +
+      ' sat/vB, abaixo do piso de relay padrão (0,1 sat/vB): a transação pode ser recusada');
   }
   if (feeRate > 500) {
     warnings.push('taxa de ' + Math.round(feeRate) + ' sat/vB, acima de 500: confira o valor');

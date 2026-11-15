@@ -49,7 +49,7 @@ function signedText(signed) { return signed.psbtBase64; }
 /* Monta uma carteira com uma saída, um PSBT de envio e a assinatura no
    próprio btc-core (o mesmo caminho do cofre-btc.html). */
 async function fixture({ acct = account, hd: signer = hd, xpub = hd.accounts.bip84.xpub,
-  value = 100000, destination } = {}) {
+  value = 100000, destination, feeRate = 3 } = {}) {
   const a = await deriveAddress('bip84', acct, 0, 0);
   const tx = makeTx([{ txid: 'a0'.repeat(32), vout: 0 }], [{ value, script: a.script }]);
   const fake = await startFakeElectrum({
@@ -59,7 +59,7 @@ async function fixture({ acct = account, hd: signer = hd, xpub = hd.accounts.bip
   const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const dest = destination || BTC.derive('10' + '0'.repeat(254)).addresses.p2wpkh;
   const r = await postJson('/api/psbt', {
-    xpub, address: dest, amount_sats: value - 20000, fee_rate: 3
+    xpub, address: dest, amount_sats: value - 20000, fee_rate: feeRate
   }, env);
   assert.equal(r.status, 200, JSON.stringify(r.j));
   const signed = await BTC.signPsbt(BTC.psbtParseInput(r.j.psbt), signer, new Uint8Array(32));
@@ -139,6 +139,32 @@ async function fixture({ acct = account, hd: signer = hd, xpub = hd.accounts.bip
     'o preview não transmite nem no caminho avulso');
   console.log('ok   psbt assinado conferido e transmitido (hex igual ao do assinante)');
   await f.fake.close();
+}
+
+/* ---------------- 1b. aviso de taxa segue o piso de relay padrão ---------------- */
+{
+  const xpub = hd.accounts.bip84.xpub;
+
+  /* 0,12 sat/vB está acima do piso padrão (0,1 sat/vB): sem aviso de relay */
+  const low = await fixture({ feeRate: 0.12 });
+  const aboveMin = await postJson('/api/broadcast', {
+    xpub, psbt: signedText(low.signed), preview: true
+  }, low.env);
+  assert.equal(aboveMin.status, 200, JSON.stringify(aboveMin.j));
+  assert.ok(!aboveMin.j.warnings.some(w => /piso de relay/.test(w)),
+    '0,12 sat/vB não é avisado: o piso padrão é 0,1');
+  await low.fake.close();
+
+  /* 0,05 sat/vB fica abaixo do piso padrão: avisa */
+  const tiny = await fixture({ feeRate: 0.05 });
+  const belowMin = await postJson('/api/broadcast', {
+    xpub, psbt: signedText(tiny.signed), preview: true
+  }, tiny.env);
+  assert.equal(belowMin.status, 200, JSON.stringify(belowMin.j));
+  assert.ok(belowMin.j.warnings.some(w => /piso de relay padrão \(0,1 sat\/vB\)/.test(w)),
+    JSON.stringify(belowMin.j.warnings));
+  await tiny.fake.close();
+  console.log('ok   aviso de taxa segue o piso de relay padrão (0,1 sat/vB)');
 }
 
 /* ---------------- 2. recusas antes de qualquer transmissão ---------------- */

@@ -760,8 +760,9 @@ Sem `preview`, a mesma resposta ganha `"broadcast": true` e `server_txid`, e
 o hex da transação final vai ao Electrum — o hex não volta para o navegador.
 O depósito que a sessão ainda não viu vira aviso (`não está entre as saídas
 não gastas`), não recusa: a rede é quem decide, e a assinatura já foi feita.
-Taxa zero ou abaixo de 1 sat/vB, taxa acima de 500 sat/vB, saída abaixo do pó
-e mais de uma saída externa também são avisos, para a revisão da tela.
+Taxa zero ou abaixo de 0,1 sat/vB (o piso de relay padrão), taxa acima de
+500 sat/vB, saída abaixo do pó e mais de uma saída externa também são avisos,
+para a revisão da tela.
 
 Com sessão, o Durable Object usa a conexão e as assinaturas já abertas; a
 transação entra no mempool e o `scripthash.subscribe` empurra o saldo novo
