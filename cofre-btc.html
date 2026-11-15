@@ -1415,15 +1415,20 @@
      com o ponto médio entre os controles. O grupo fica
      centralizado sob a revisão, na mesma medida da tabela de 28rem
      (VG-BOT-01/VG-BOT-05). O envio perde a margem própria, que aqui
-     pertence ao grupo. */
+     pertence ao grupo. O vão e o respiro dos botões seguem o menu do topo:
+     o ponto médio fica à mesma distância do rótulo. */
   .psbt-actions {
     display: flex;
     justify-content: center;
     align-items: baseline;
+    gap: var(--space-3) var(--space-2);
     margin-top: var(--space-5);
   }
   .psbt-actions .form-submit { margin: 0; }
-  .psbt-actions button { font-size: var(--text-md); }
+  .psbt-actions button {
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-md);
+  }
   /* O label do anexo tem display: flex próprio, então o [hidden] nativo
      precisa vencer essa regra para o "cancelar"/"fechar" e os demais controles
      tomarem o lugar dele. */
@@ -3763,7 +3768,6 @@ var BTC = (function () {
     var fee = totalIn - totalOut;
     var vsize = estimateVsize(inputs.map(function (x) { return x.kind; }), tx.outputs.map(function (x) { return x.script; }));
     var feerate = vsize > 0 ? Number(fee) / vsize : 0;
-    if (feerate > 0 && feerate < 0.1) warnings.push('a <b>taxa</b> está abaixo de <code>0,1 sat/vB</code>: a transação pode ser recusada pelo piso de relay padrão.');
     if (feerate > 500) warnings.push('a <b>taxa</b> está acima de <code>500 sat/vB</code>: confira o valor da taxa.');
     if (fee === 0n) warnings.push('a <b>taxa</b> é zero: a rede pode recusar a transação.');
     /* No p2pkh o valor não entra no sighash: aceitar só o witness_utxo
