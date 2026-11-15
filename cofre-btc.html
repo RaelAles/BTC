@@ -242,6 +242,22 @@
     --motion-ease-draw: cubic-bezier(.65,0,.35,1);
   }
 
+  /* Piso da área segura no PWA instalado do iOS: o WebKit pode publicar
+     env(safe-area-inset-bottom) só depois do primeiro layout e, ao recarregar
+     o app, deixá-lo em 0 até o primeiro gesto de rolagem. Sem esse piso o
+     rodapé cai atrás da barra de gestos e só aparece quando a página rola.
+     34 px é a altura da área da barra de gestos no iPhone e cobre também a
+     do iPad; quando o env() real chega maior, o max() mantém a medida do
+     sistema. Fora do modo instalado (e fora do WebKit do iOS) o desenho
+     continua o de sempre. */
+  @supports (-webkit-touch-callout: none) {
+    @media (display-mode: standalone) {
+      :root {
+        --safe-bottom: max(env(safe-area-inset-bottom, 0px), 34px);
+      }
+    }
+  }
+
   [data-theme="light"] {
     --bg: #ffffff;
     /* Cada token reproduz a razão de contraste do tema escuro: card/fundo
