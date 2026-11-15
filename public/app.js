@@ -682,10 +682,35 @@
     });
   }
 
+  /* Altura real da janela (VG-LAY-12): o Chrome do Android pode publicar
+     100dvh maior que a área visível logo depois de recarregar, contando a
+     barra do navegador; o card passa da tela e o rodapé só aparece quando a
+     página rola. window.innerHeight já desconta essa barra, então a medida
+     vai para --app-h e o CSS a usa no lugar da unidade de viewport. Reavaliar
+     em resize/orientação cobre a barra que aparece e some; o visualViewport
+     cobre o WebKit do iOS, que muda a área visível sem disparar resize. */
+  function syncViewportHeight() {
+    var h = window.innerHeight;
+    if (h > 0) document.documentElement.style.setProperty('--app-h', h + 'px');
+  }
+
+  /* Reavalia a altura medida em toda mudança de viewport que não passa pelo
+     resize da janela: a barra do iOS, a volta do bfcache, a retomada do PWA.
+     O quadro único evita medir e reflowar mais de uma vez por mudança. */
+  var viewportFrame = 0;
+  function syncViewportSoon() {
+    if (viewportFrame) return;
+    viewportFrame = requestAnimationFrame(function () {
+      viewportFrame = 0;
+      syncViewportHeight();
+      syncPageMode();
+    });
+  }
+
   /* Rolagem única (VG-LAY-12): quando a janela fica abaixo do piso do card
      mais os respiros, a página é a única a rolar e o card cresce. O piso e os
-     respiros são lidos já em px, e o 100dvh vem do .vh-probe, que mede o
-     mesmo valor do card. */
+     respiros são lidos já em px, e a altura vem do .vh-probe, que mede o
+     mesmo --app-h do card. */
   function syncPageMode() {
     var probe = $('.vh-probe');
     var win = $('.window');
@@ -2563,6 +2588,7 @@
       else if (grain.ctx && !prefersReducedMotion()) startGrain();
       // aba em segundo plano continua aberta: a sessão e o tempo real
       // seguem; só sair da página (pagehide) encerra tudo
+      if (!document.hidden) syncViewportSoon();
       if (!document.hidden && state.xpub && state.data &&
           (!state.watch || state.watch.readyState > 1)) load(true);
       if (!document.hidden && state.xpub) loadFees();
@@ -2713,11 +2739,21 @@
     if (sc) sc.addEventListener('scroll', updateScroll);
     watchContentHeight();
 
+    /* Reavalia a altura medida em toda mudança de viewport que não passa
+       pelo resize da janela (a barra do iOS, a volta do bfcache). */
+    window.addEventListener('orientationchange', syncViewportSoon);
+    window.addEventListener('pageshow', syncViewportSoon);
+    window.addEventListener('load', syncViewportSoon);
+    if (window.visualViewport && window.visualViewport.addEventListener) {
+      window.visualViewport.addEventListener('resize', syncViewportSoon);
+    }
+
     var resizeTimer = 0;
     window.addEventListener('resize', function () {
       if (resizeTimer) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(function () {
         resizeTimer = 0;
+        syncViewportHeight();
         syncBars();
         syncPageMode();
         resizeGrain();
@@ -2755,6 +2791,7 @@
        tremer na abertura. */
     var initial = readUrl();
     showScreen(initial.screen, { page: initial.page, noUrl: true, noReveal: true });
+    syncViewportHeight();
     syncBars();
     syncPageMode();
 
@@ -2762,6 +2799,7 @@
        carregar para medir, e o desenho entra estático nesse intervalo. */
     var startVisuals = function () {
       initGrain();
+      syncViewportHeight();
       syncBars();
       syncPageMode();
     };

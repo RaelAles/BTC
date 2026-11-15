@@ -299,9 +299,14 @@
     #grain { transition: none; }
   }
 
-  /* Régua do viewport dinâmico (VG-LAY-12): mede o mesmo 100dvh que o card
-     usa, para o syncPageMode() decidir quando a página inteira rola. Fica
-     fora do fluxo, sem largura e sem pintura: nada muda no desenho. */
+  /* Régua do viewport (VG-LAY-12): mede a mesma altura que o card usa, para
+     o syncPageMode() decidir quando a página inteira rola. Fica fora do
+     fluxo, sem largura e sem pintura: nada muda no desenho. A medida vem de
+     --app-h (window.innerHeight, escrito pelo syncViewportHeight()), porque
+     o Chrome do Android pode publicar 100dvh com a altura da barra do
+     navegador a mais logo depois de recarregar; aí o card passa da tela e o
+     rodapé fica atrás dos botões do aparelho até a página rolar. O 100svh
+     fica de reserva para o primeiro quadro, antes de o script rodar. */
   .vh-probe {
     position: absolute;
     top: 0;
@@ -309,6 +314,8 @@
     width: 0;
     height: 100vh;
     height: 100dvh;
+    height: 100svh;
+    height: var(--app-h, 100svh);
     visibility: hidden;
     pointer-events: none;
   }
@@ -318,6 +325,8 @@
     z-index: var(--layer-page);
     min-height: 100vh;
     min-height: 100dvh;
+    min-height: 100svh;
+    min-height: var(--app-h, 100svh);
     display: flex;
     /* O respiro é --gap mais a área segura do lado (VG-LAY-10): no celular
        com recorte, o card não encosta no notch nem na barra de gestos. */
@@ -344,6 +353,8 @@
        continua inteiro dentro da tela com recorte. */
     height: calc(100vh - var(--gap-top) - var(--gap-bottom));
     height: calc(100dvh - var(--gap-top) - var(--gap-bottom));
+    height: calc(100svh - var(--gap-top) - var(--gap-bottom));
+    height: calc(var(--app-h, 100svh) - var(--gap-top) - var(--gap-bottom));
     min-height: var(--card-min-h);
     margin: 0 auto;
     display: flex;
