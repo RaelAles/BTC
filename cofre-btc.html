@@ -1985,34 +1985,23 @@
 
           <div class="prose reveal-block">
             <h3><span class="prompt" aria-hidden="true">##</span> o que é esta ferramenta</h3>
-            <p>Este arquivo transforma 256 bits em uma chave Bitcoin. Os bits podem vir de 256 jogadas de moeda — cara vale 1, coroa vale 0 — ou de uma lista de coordenadas <code>a0</code>–<code>z5</code>. A partir deles, a página mostra a frase de 24 palavras e quatro contas da rede principal, cada uma com sua chave privada e pública. Com uma chave carregada, ela também revisa e assina PSBTs compatíveis — arquivos de transação preparados por outro programa —, sem transmitir nada.</p>
-            <p>É uma página só, sem biblioteca externa, sem build e sem servidor. Ela não faz nenhuma conexão de rede: nada é consultado, enviado ou publicado. O tema é a única preferência que o navegador guarda; os bits, a frase e as chaves ficam apenas na memória da aba e somem ao recarregar. A ferramenta não monta transações nem escolhe quais moedas serão gastas; quem publica a transação é você, em outro programa.</p>
-            <p>Este arquivo pode assinar transações de dinheiro real como assinador offline, mas é software rodando no navegador. Use-o numa máquina dedicada, de preferência air-gapped, sem extensões, e confira o hash do arquivo contra uma cópia confiável antes de abrir. Guarde as 24 palavras — ou as coordenadas — em local seguro e redundante: quem tiver essa lista tem a chave.</p>
+            <p>É uma página que transforma 256 bits em uma chave Bitcoin. Os bits saem de 256 jogadas de moeda na própria tela — cara vale <code>1</code>, coroa vale <code>0</code> — ou de uma lista de coordenadas. Eles viram a frase de 24 palavras e as quatro contas que a tela mostra. Com uma chave carregada, ela também revisa e assina PSBTs, que são arquivos de transação montados em outro programa.</p>
+            <p>É um arquivo só, sem servidor e sem internet: nada é enviado nem consultado. Os bits, a frase e as chaves ficam apenas na memória da aba e somem ao recarregar. Quem tiver as 24 palavras — ou as coordenadas — tem a chave: guarde essa lista em local seguro e confira o hash do arquivo antes de abrir.</p>
 
-            <h3><span class="prompt" aria-hidden="true">##</span> as coordenadas e os 256 bits no papel</h3>
-            <p>As coordenadas são a forma portátil de guardar os 256 bits. Não são uma chave nem um código secreto: são apenas nomes para as 256 posições do número binário que vira entropia. Cada posição recebe uma letra de <code>a</code> a <code>z</code> e um dígito de <code>0</code> a <code>9</code>, nesta ordem: <code>a0</code>, <code>a1</code>, …, <code>a9</code>, <code>b0</code>, … até <code>z5</code>. São 26 × 10 = 260 nomes possíveis, mas só existem 256 bits; por isso <code>z6</code>, <code>z7</code>, <code>z8</code> e <code>z9</code> ficam de fora. O primeiro bit é <code>a0</code>; o último é <code>z5</code>.</p>
-            <p>A posição de cada coordenada sai de <code>(posição da letra) × 10 + dígito</code>, com <code>a</code> = 0, <code>b</code> = 1, …, <code>z</code> = 25. Assim <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77, <code>s3</code> = 183 e <code>z5</code> = 255. A base de cada letra, para poupar a conta no papel:</p>
-            <pre class="code-block">a   0   b  10   c  20   d  30   e  40   f  50   g  60
-h  70   i  80   j  90   k 100   l 110   m 120   n 130
-o 140   p 150   q 160   r 170   s 180   t 190   u 200
-v 210   w 220   x 230   y 240   z 250</pre>
-            <p>O campo mostra só as coordenadas marcadas; todas as outras posições valem <code>0</code>. Um conjunto vazio não gera chave. O campo agrupa os dígitos por letra — <code>a012</code> marca <code>a0</code>, <code>a1</code> e <code>a2</code> —, repetição não soma e <code>z6</code>–<code>z9</code> são descartados. A ordem em que as coordenadas aparecem não muda nenhum bit: o que importa é o conjunto.</p>
-            <p><b>Reproduzir os 256 bits no papel.</b> Você só precisa da lista das coordenadas marcadas, copiada do campo. Não copie a ordem dos cliques, copie os nomes.</p>
+            <h3><span class="prompt" aria-hidden="true">##</span> o que são as coordenadas</h3>
+            <p>São apenas nomes para cada um dos 256 bits. O primeiro bit se chama <code>a0</code>, o segundo <code>a1</code>, e assim por diante: <code>a0</code> a <code>a9</code>, depois <code>b0</code> a <code>b9</code>, até <code>z5</code>, que é o último bit. A linha <code>z</code> para no 5: <code>z6</code> a <code>z9</code> não existem, porque 26 letras × 10 dígitos dariam 260 nomes e só há 256 bits.</p>
+            <p>A posição de uma coordenada é <code>letra × 10 + dígito</code>, contando <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Assim <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 e <code>z5</code> = 255.</p>
+            <p>A tela mostra só as coordenadas que ficaram em <code>1</code>. Todas as outras posições valem <code>0</code>, e a ordem em que aparecem não muda nada: o que conta é o conjunto.</p>
+
+            <h3><span class="prompt" aria-hidden="true">##</span> como refazer os 256 bits sem a ferramenta</h3>
+            <p>Você só precisa da lista das coordenadas marcadas. Com ela:</p>
             <ul>
-              <li><b>1. Monte a grade 26 × 10.</b> Desenhe 26 linhas, uma para cada letra de <code>a</code> a <code>z</code>, e dez colunas, os dígitos <code>0</code> a <code>9</code>. Marque <code>1</code> em cada coordenada da lista; deixe as outras em branco ou com <code>0</code>.</li>
-              <li><b>2. Leia a grade.</b> Da linha <code>a</code> para a linha <code>z</code>, e dentro de cada linha do dígito <code>0</code> ao <code>9</code>, escrevendo <code>1</code> ou <code>0</code> em cada célula. Pare em <code>z5</code>: as quatro últimas células da linha <code>z</code> (<code>z6</code>–<code>z9</code>) não são bits e ficam fora. O resultado deve ter exatamente 256 caracteres, sem espaço, vírgula ou separador.</li>
-              <li><b>3. Confira a contagem.</b> São 256 bits: 26 linhas × 10 colunas menos as quatro células que não existem. Se a string tiver outro tamanho, a leitura saiu do lugar.</li>
+              <li><b>1.</b> Escreva 256 zeros seguidos.</li>
+              <li><b>2.</b> Numere as posições de 0 a 255, começando no primeiro zero.</li>
+              <li><b>3.</b> Troque por <code>1</code> cada posição que aparece na lista, com o número saindo de <code>letra × 10 + dígito</code>.</li>
             </ul>
-            <p>Sem a grade, a mesma leitura pode ser feita por posição: numere de 0 a 255, escreva <code>0</code> em todas e troque por <code>1</code> as posições da lista. O resultado é idêntico. Depois, agrupe a string de oito em oito caracteres, da esquerda para a direita: os bits 0–7 formam o primeiro byte, os bits 8–15 o segundo, e assim até o 32º byte. O primeiro bit de cada grupo é o mais significativo (vale 128) e o último é o menos significativo (vale 1). Esses 32 bytes são a entropia que qualquer implementação de BIP39 consome para chegar às mesmas 24 palavras e, com BIP32, às mesmas contas. As 24 palavras são a forma portátil dos mesmos bits: com elas, uma carteira BIP39 compatível, com passphrase vazia, chega à mesma raiz e, com os mesmos caminhos, às mesmas contas.</p>
-            <p>Exemplo. Se a lista marcada for <code>a0</code>, <code>a9</code>, <code>b0</code> e <code>z5</code>, as posições são 0, 9, 10 e 255; todas as outras 252 valem <code>0</code>. A string começa com <code>1</code>, segue com oito zeros, <code>11</code>, 244 zeros e termina com <code>1</code>:</p>
-            <pre class="code-block">bits 0–7      10000000  = 0x80
-bits 8–15     01100000  = 0x60
-bits 16–247   00000000  = 0x00   (29 bytes iguais)
-bits 248–255  00000001  = 0x01
-
-string: 10000000 01100000 00000000 … 00000000 00000001
-hex:    80 60 00 … 00 01   (32 bytes; 29 bytes 00 entre 60 e 01)</pre>
-            <p>Este exemplo tem só quatro bits em <code>1</code> e serve apenas para conferir a leitura; não o use como chave. A tela não mostra a string binária nem o hex: ela mostra as coordenadas, as 24 palavras e as chaves. Logo, a conferência manual termina nas palavras ou nas chaves. O checksum não corrige erro: uma coordenada trocada muda os bits e gera outra chave, sem aviso. Ao reconstruir, compare com a tela ou com uma segunda implementação, sempre offline.</p>
+            <p>No papel dá para usar uma grade de 26 linhas (as letras <code>a</code> a <code>z</code>) por 10 colunas (os dígitos <code>0</code> a <code>9</code>): marque <code>1</code> nas coordenadas da lista e leia da esquerda para a direita, de cima para baixo, parando em <code>z5</code>. O resultado tem sempre 256 caracteres, sem espaço nem vírgula.</p>
+            <p>Esses 256 bits são a entrada da chave. Transformá-los em palavras, hex ou qualquer outra coisa é por sua conta: a conferência manual termina nos bits.</p>
 
             <h3><span class="prompt" aria-hidden="true">##</span> os BIPs usados</h3>
             <p>A ferramenta segue os BIPs abaixo. Eles cobrem a chave, os endereços, as assinaturas e o PSBT.</p>
@@ -2044,7 +2033,7 @@ hex:    80 60 00 … 00 01   (32 bytes; 29 bytes 00 entre 60 e 01)</pre>
               <li><b>BIP371</b> — campos Taproot do PSBT, como <code>tap_bip32_derivation</code>.</li>
             </ul>
             <p>Fora dos BIPs, o ECDSA é determinístico conforme a RFC 6979, e todas as contas são da rede principal.</p>
-            <p><b>Data de referência.</b> Esta lista foi conferida pela última vez em <time datetime="2026-11-14">14 de novembro de 2026</time>. BIPs publicados depois dessa data não estão contemplados: quem retomar o arquivo deve revisar os BIPs novos — e as alterações nos já listados — a partir de 15 de novembro de 2026 e implementar o que se aplicar a esta ferramenta.</p>
+            <p><b>Última atualização:</b> <time datetime="2026-11-15">15 de novembro de 2026</time>.</p>
 
           </div>
         </section>
