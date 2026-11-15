@@ -18,8 +18,10 @@ const DUST_SATS = 546;
 
 /* Faixa aceita para a taxa, em sat/vB. O estimador responde em sat/kvB, então
    a taxa pode ter casas decimais; a conta é feita em sat/kvB inteiro e só o
-   valor final da taxa vira satoshi inteiro (ver `feeSats`). */
-export const FEE_RATE_MIN = 1;
+   valor final da taxa vira satoshi inteiro (ver `feeSats`). Não há piso de
+   relay: a taxa estimada é usada como veio, inclusive abaixo de 1 sat/vB. O
+   mínimo é o menor valor que o sat/kvB representa (1 sat/kvB). */
+export const FEE_RATE_MIN = 0.001;
 export const FEE_RATE_MAX = 10000;
 
 /* sat/vB (com casas, se vier do estimador) → sat/kvB inteiro, que é a unidade
@@ -27,7 +29,7 @@ export const FEE_RATE_MAX = 10000;
 export function feeRateKvb(rate) {
   const n = Number(rate);
   if (!Number.isFinite(n) || n < FEE_RATE_MIN || n > FEE_RATE_MAX) {
-    throw new Error('taxa inválida: use de 1 a 10 000 sat/vB');
+    throw new Error('taxa inválida: use de 0,001 a 10 000 sat/vB');
   }
   return Math.round(n * 1000);
 }

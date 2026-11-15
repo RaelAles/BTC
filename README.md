@@ -36,11 +36,11 @@ tela mostra:
    escolhido, sem moldura. Cada nível traz o **percentual da taxa sobre o valor
    enviado** à direita do prazo, em `--dim`, e um `|` em `--sep` separa dois
    níveis. Quando dois níveis caem na mesma taxa (o
-   servidor devolve a mesma estimativa para alvos vizinhos, ou os dois ficam
-   no piso de relay), a tela mostra só o mais rápido: a taxa é idêntica, então
-   o nível mais lento não acrescenta escolha. A taxa de cada nível vem **ao
-   vivo** pelo `/api/fees` e é ela que o PSBT usa; o piso de relay entra no
-   lugar da estimativa quando ela fica abaixo dele.
+   servidor devolve a mesma estimativa para alvos vizinhos), a tela mostra só
+   o mais rápido: a taxa é idêntica, então o nível mais lento não acrescenta
+   escolha. A taxa de cada nível vem **ao vivo** pelo `/api/fees` e é ela que
+   o PSBT usa, exatamente como o servidor devolveu — inclusive abaixo de
+   1 sat/vB, sem piso de relay.
    O seletor só aparece quando há valor e destino válidos; sem os dois, ou
    com o destino recusado, o custo não teria o que cotar. Os níveis são
    rádios nativos: clique ou setas escolhem, e o PSBT usa a taxa do nível
@@ -374,20 +374,22 @@ backend de Durable Object disponível no plano free).
   Electrum, não a mempool local. Servidor sem estimativa deixa o nível em
   `null` e a tela desabilita aquele nível; sem nenhum nível, o envio fica
   bloqueado e a leitura avisa que a estimativa está indisponível.
-- **Abaixo de 1 sat/vB não propaga**: o relay padrão do Bitcoin Core aceita
-  no máximo `-minrelaytxfee` = 1000 sat/kvB, então nível estimado abaixo do
-  piso entra no lugar da estimativa, e o PSBT usa o piso (1 sat/vB).
-  Num mempool quase vazio isso acontece com vários alvos ao mesmo tempo — e é
-  o resultado correto, não um erro de estimativa.
+- **A taxa usada é a estimada, sem piso**: `levels` leva o valor do servidor
+  exatamente como veio, inclusive abaixo de 1 sat/vB. O relay padrão do
+  Bitcoin Core é `-minrelaytxfee` = 100 sat/kvB (0,1 sat/vB) desde a v30
+  (era 1000 sat/kvB nas versões anteriores), e `floored` só marca o nível
+  abaixo desse piso — não troca a taxa. Num mempool quase vazio vários alvos
+  caem abaixo de 1 sat/vB: elas propagam para nós com piso menor e podem ser
+  mineradas, mas nós antigos (até a v29) recusam, então a confirmação pode
+  demorar.
 - **A vsize é um limite superior**: `estimateVsize` (btc-core.js) conta o
   pior caso de assinatura (72 bytes no ECDSA, 65 no taproot), os 2 wu do
   marcador/flag do witness e o varint real das contagens. Com isso a
   estimativa nunca fica menor que a transação assinada, e a taxa paga é
-  `ceil(preço × vsize) ≥ preço × vsize real` — no piso de 1 sat/vB a
-  transação não cai abaixo do mínimo de relay. O preço disso é uma folga de
-  no máximo 1 vB por transação (1 sat no piso): assinaturas de 71 bytes e
-  taproot com `SIGHASH_DEFAULT` gastam menos que o pior caso, e a diferença
-  fica na taxa.
+  `ceil(preço × vsize) ≥ preço × vsize real` — a taxa paga nunca fica abaixo
+  da pedida. O preço disso é uma folga de no máximo 1 vB por transação:
+  assinaturas de 71 bytes e taproot com `SIGHASH_DEFAULT` gastam menos que o
+  pior caso, e a diferença fica na taxa.
 - O servidor Electrum vê os scripthashes consultados (com TLS o caminho da
   rede não vê). Privacidade, não custódia: a xpub não gasta nada.
 - Um vazamento da xpub é perda de privacidade, não de fundos.
@@ -585,10 +587,11 @@ em sat/vB e o troco no próximo endereço livre do ramo `/1` do tipo detectado.
 Com o binding `WATCH`, quem monta é o Durable Object da sessão, reaproveitando
 a conexão, os endereços e o cache; sem ele (ou com a sessão perdida), o Worker
 faz a varredura avulsa. O valor é inteiro em sats (`amount_sats`); a taxa vai
-de 1 a 10 000 sat/vB e aceita as casas decimais do estimador (1,926), porque a
-conta é feita em sat/kvB (`Math.ceil(sat/kvB × vsize ÷ 1000)`) sobre a vsize
-estimada — que é um limite superior do tamanho real, então a taxa efetiva
-nunca fica abaixo da pedida; valor abaixo
+de 0,001 a 10 000 sat/vB e aceita as casas decimais do estimador (1,926;
+0,12), porque a conta é feita em sat/kvB
+(`Math.ceil(sat/kvB × vsize ÷ 1000)`) sobre a vsize estimada — que é um
+limite superior do tamanho real, então a taxa efetiva nunca fica abaixo da
+pedida; valor abaixo
 de 546 sats é recusado como pó. Entram no envio as entradas confirmadas e o
 troco pendente de uma transação sua (gasto encadeado); pagamento de terceiro
 no mempool não entra. As confirmadas são escolhidas antes e, em cada grupo, as
@@ -786,19 +789,20 @@ servidor, não do nome do nível — e a tela esconde o nível mais lento de cad
 taxa repetida, deixando só o mais rápido.
 
 Se o servidor não estimar um nível, ele vem `null` e a tela desabilita aquele
-nível. Abaixo do piso de relay do Bitcoin Core (`relay_min_kvb`, 1000 sat/kvB
-= 1 sat/vB) a transação não entra no mempool padrão: `sat_per_vb` e
-`sat_per_kvb` mantêm o valor exato, `floored` marca o nível e `levels` (o que
-a tela escolhe e o PSBT usa) fica no piso.
+nível. `levels` (o que a tela escolhe e o PSBT usa) leva a estimativa exata,
+sem piso de relay: 0,113 sat/vB é usado como 0,113. `sat_per_vb` e
+`sat_per_kvb` são a mesma leitura em unidades diferentes, e `floored` só
+marca o nível abaixo do piso padrão do Bitcoin Core (`relay_min_kvb`, 100
+sat/kvB = 0,1 sat/vB desde a v30) — a taxa usada não muda.
 
 ```json
 {
-  "levels": { "minimum": 1, "standard": 1, "high": 1.926, "urgent": 1.926 },
+  "levels": { "minimum": 0.112, "standard": 0.97, "high": 1.926, "urgent": 1.926 },
   "targets": { "minimum": 144, "standard": 6, "high": 3, "urgent": 1 },
   "sat_per_kvb": { "minimum": 112, "standard": 970, "high": 1926, "urgent": 1926 },
   "sat_per_vb": { "minimum": 0.112, "standard": 0.97, "high": 1.926, "urgent": 1.926 },
-  "floored": { "minimum": true, "standard": true, "high": false, "urgent": false },
-  "relay_min_kvb": 1000,
+  "floored": { "minimum": false, "standard": false, "high": false, "urgent": false },
+  "relay_min_kvb": 100,
   "unit": "sat/vB",
   "source": "electrum",
   "updated_at": "2026-11-09T21:27:52.346Z"
@@ -940,7 +944,8 @@ re-sincronizar no mesmo instante) sem apagar a sessão nova.
 
 O `psbt.test.mjs` deriva uma carteira dos 256 bits (a mesma do Cofre BTC),
 serve UTXOs por um Electrum falso e verifica: taxa ao vivo nos quatro níveis
-(`sat/kvB` exato, `sat_per_vb` com casas e `floored` abaixo do piso de relay),
+(`sat/kvB` exato, `sat_per_vb` com casas, `levels` sem piso e `floored`
+abaixo do piso padrão de 0,1 sat/vB),
 escolha de entradas para cobrir o valor, troco no próximo índice `/1`, o
 limite `max_send_sats` (incluindo o envio no máximo, sem troco) e o preview
 com valor (taxa e troco iguais aos do PSBT, e as cotas dos níveis para o

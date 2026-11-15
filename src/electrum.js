@@ -329,16 +329,18 @@ export async function transactionsMany(client, txids, opts) {
    erra sempre para cima, então o PSBT recebe o valor exato e arredonda
    apenas a taxa final, em satoshis (ver `feeSats` em psbt.js).
 
-   Abaixo do piso de relay do Bitcoin Core (1000 sat/kvB = 1 sat/vB) a
-   transação não entra no mempool padrão: o nível continua visível com o
-   valor que o servidor deu em `sat_per_vb`, mas `levels` (o que a tela
-   escolhe e o PSBT usa) fica no piso e `floored` marca o nível. Num mempool
-   quase vazio, vários alvos caem abaixo do piso — é o resultado correto, e a
-   escada artificial de +1 sat/vB que existia antes escondia isso. */
+   `levels` (o que a tela escolhe e o PSBT usa) leva a estimativa exatamente
+   como o servidor devolveu, inclusive abaixo de 1 sat/vB: não há piso de
+   relay na carteira. `floored` só marca o nível abaixo do piso padrão atual
+   do Bitcoin Core (`-minrelaytxfee` = 0,1 sat/vB desde a v30); é informação
+   para quem lê a API, não muda a taxa usada. Num mempool quase vazio, vários
+   alvos caem abaixo de 1 sat/vB e a transação ainda propaga para nós com
+   piso menor. */
 export const FEE_TARGETS = { minimum: 144, standard: 6, high: 3, urgent: 1 };
 
-/* Piso de relay do Bitcoin Core (`-minrelaytxfee` padrão): 1000 sat/kvB. */
-export const RELAY_MIN_KVB = 1000;
+/* Piso de relay padrão do Bitcoin Core (`-minrelaytxfee`): 100 sat/kvB =
+   0,1 sat/vB desde a v30 (nas versões anteriores era 1000 sat/kvB). */
+export const RELAY_MIN_KVB = 100;
 
 export async function estimateFees(client) {
   const keys = Object.keys(FEE_TARGETS);
@@ -359,7 +361,7 @@ export async function estimateFees(client) {
     satPerKvb[k] = kvb;
     satPerVb[k] = kvb === null ? null : kvb / 1000;
     floored[k] = kvb !== null && kvb < RELAY_MIN_KVB;
-    levels[k] = kvb === null ? null : Math.max(RELAY_MIN_KVB, kvb) / 1000;
+    levels[k] = kvb === null ? null : kvb / 1000;
   });
   return {
     levels,

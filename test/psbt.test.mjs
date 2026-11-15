@@ -44,32 +44,33 @@ function mapFind(map, type) {
     'BTC/kvB × 1e8 dá o sat/kvB inteiro, sem perda');
   assert.deepEqual(r.j.sat_per_vb, { minimum: 2, standard: 6, high: 9, urgent: 12 });
   assert.deepEqual(r.j.floored, { minimum: false, standard: false, high: false, urgent: false });
-  assert.equal(r.j.relay_min_kvb, 1000);
+  assert.equal(r.j.relay_min_kvb, 100);
   assert.deepEqual(r.j.targets, { minimum: 144, standard: 6, high: 3, urgent: 1 });
   assert.equal(r.j.source, 'electrum');
   console.log('ok   taxa ao vivo em quatro níveis (1 dia, 1 h, 30 min, 10 min)');
   await fake.close();
 }
 
-/* ---------------- 1b. casas decimais e piso de relay ---------------- */
+/* ---------------- 1b. casas decimais e piso de relay só marcado ---------------- */
 {
   /* 1,299, 1,076 e 1,003 sat/vB ficam exatamente assim: nada de arredondar
-     para 2 antes de multiplicar pela vsize. A de 1 dia, 0,113 sat/vB, fica
-     abaixo do piso de relay (1 sat/vB): o valor exato continua na resposta,
-     mas `levels` (o que a tela escolhe e o PSBT usa) fica no piso. */
+     para 2 antes de multiplicar pela vsize. A de 1 dia, 0,05 sat/vB, fica
+     abaixo do piso de relay padrão (0,1 sat/vB): `levels` (o que a tela
+     escolhe e o PSBT usa) leva o valor exato e `floored` só marca o nível. */
   const fake = await startFakeElectrum({
-    fees: { 1: 0.00001299, 3: 0.00001076, 6: 0.00001003, 144: 0.00000113 }
+    fees: { 1: 0.00001299, 3: 0.00001076, 6: 0.00001003, 144: 0.00000050 }
   });
   const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const r = await reqFees(env);
   assert.equal(r.status, 200);
-  assert.deepEqual(r.j.sat_per_kvb, { minimum: 113, standard: 1003, high: 1076, urgent: 1299 });
-  assert.deepEqual(r.j.sat_per_vb, { minimum: 0.113, standard: 1.003, high: 1.076, urgent: 1.299 },
+  assert.deepEqual(r.j.sat_per_kvb, { minimum: 50, standard: 1003, high: 1076, urgent: 1299 });
+  assert.deepEqual(r.j.sat_per_vb, { minimum: 0.05, standard: 1.003, high: 1.076, urgent: 1.299 },
     'o sat/vB é só a leitura do sat/kvB, sem arredondar');
-  assert.deepEqual(r.j.levels, { minimum: 1, standard: 1.003, high: 1.076, urgent: 1.299 });
+  assert.deepEqual(r.j.levels, { minimum: 0.05, standard: 1.003, high: 1.076, urgent: 1.299 },
+    'o nível usa a estimativa exata, sem piso de relay');
   assert.deepEqual(r.j.floored, { minimum: true, standard: false, high: false, urgent: false },
-    'abaixo de 1000 sat/kvB a transação não entra no mempool padrão');
-  console.log('ok   casas decimais preservadas e piso de relay marcado');
+    'abaixo de 100 sat/kvB o nível é marcado, mas a taxa não é trocada');
+  console.log('ok   casas decimais preservadas e piso de relay só marcado');
   await fake.close();
 }
 
@@ -247,7 +248,7 @@ function mapFind(map, type) {
   assert.match(lowFee.j.error, /taxa inválida/);
 
   /* a taxa com casas atravessa a rota inteira: o worker aceita, o PSBT usa
-     sat/kvB exato, e abaixo do piso de relay (1 sat/vB) é recusada */
+     sat/kvB exato, e abaixo de 1 sat/vB o valor pedido é o usado */
   const fracRate = await reqPsbt({
     xpub: hd.accounts.bip84.xpub, address: destination,
     amount_sats: 50000, fee_rate: 1.926
@@ -255,12 +256,13 @@ function mapFind(map, type) {
   assert.equal(fracRate.status, 200, JSON.stringify(fracRate.j));
   assert.equal(fracRate.j.fee_rate_requested, 1.926);
   assert.equal(fracRate.j.fee_rate_kvb, 1926);
-  const belowFloor = await reqPsbt({
+  const belowOne = await reqPsbt({
     xpub: hd.accounts.bip84.xpub, address: destination,
     amount_sats: 50000, fee_rate: 0.97
   }, env);
-  assert.equal(belowFloor.status, 400);
-  assert.match(belowFloor.j.error, /taxa inválida/);
+  assert.equal(belowOne.status, 200, JSON.stringify(belowOne.j));
+  assert.equal(belowOne.j.fee_rate_requested, 0.97);
+  assert.equal(belowOne.j.fee_rate_kvb, 970, 'abaixo de 1 sat/vB não é içado');
   const bigRate = await reqPsbt({
     xpub: hd.accounts.bip84.xpub, address: destination,
     amount_sats: 50000, fee_rate: 10000.5
@@ -385,11 +387,13 @@ function mapFind(map, type) {
   assert.equal(frac.fee_sats, Math.ceil(1926 * frac.vsize / 1000));
   assert.ok(frac.fee_sats < Math.ceil(2 * frac.vsize), 'a taxa não é arredondada para 2 antes de multiplicar');
 
-  /* abaixo do piso de relay (1 sat/vB) é recusado: a transação não entraria
-     no mempool padrão */
-  assert.throws(() => sendLimits({
-    utxos, address: destination, feeRate: 0.97, changeScript: change.script
-  }), /taxa inválida/);
+  /* abaixo de 1 sat/vB a taxa é usada como veio, sem piso de relay */
+  const low = sendLimits({
+    utxos, address: destination, feeRate: 0.97, amountSats: 120000,
+    changeScript: change.script
+  });
+  assert.equal(low.fee_rate_kvb, 970);
+  assert.equal(low.fee_sats, Math.ceil(970 * low.vsize / 1000));
 
   const prepared = await preparePsbt({
     account,

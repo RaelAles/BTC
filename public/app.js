@@ -1032,22 +1032,21 @@
     return Number(levels[level]) || 0;
   }
 
-  /* A taxa vem do servidor em sat/vB e PODE ter casas (1,075; 1,926): o
-     valor exato é sat/kvB. O que não pode é faltar, ser zero ou passar do
-     teto — a faixa fina (piso de relay, teto de 10 000) é conferida no
-     servidor, em psbt.js. Comparar com inteiro aqui deixaria a tela sem
+  /* A taxa vem do servidor em sat/vB e PODE ter casas (0,12; 1,075; 1,926):
+     o valor exato é sat/kvB. O que não pode é faltar, ser zero ou passar do
+     teto — a faixa fina (mínimo representável, teto de 10 000) é conferida
+     no servidor, em psbt.js. Comparar com inteiro aqui deixaria a tela sem
      preview e o botão bloqueado sempre que a estimativa não fosse redonda. */
   function feeRateOk(rate) {
     var n = Number(rate);
-    return isFinite(n) && n >= 1 && n <= FEE_MAX;
+    return isFinite(n) && n >= 0.001 && n <= FEE_MAX;
   }
 
   /* Níveis que a tela mostra. Quando dois níveis caem na mesma taxa — o
-     servidor devolve a mesma estimativa para alvos vizinhos, e o piso de
-     relay junta os que ficam abaixo de 1 sat/vB —, fica só o mais rápido:
-     a taxa é a mesma, então o mais lento não acrescenta escolha. Sem nenhuma
-     estimativa, os quatro continuam visíveis (vazios e desabilitados), para
-     a seção não ficar sem opção nenhuma. */
+     servidor devolve a mesma estimativa para alvos vizinhos —, fica só o
+     mais rápido: a taxa é a mesma, então o mais lento não acrescenta
+     escolha. Sem nenhuma estimativa, os quatro continuam visíveis (vazios e
+     desabilitados), para a seção não ficar sem opção nenhuma. */
   function visibleFeeLevels() {
     var levels = (state.fees && state.fees.levels) || {};
     var visible = {};
