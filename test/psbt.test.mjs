@@ -192,7 +192,7 @@ function mapFind(map, type) {
   assert.equal(psbt.outputs[1].some(e => e.key[0] === 0x02), true, 'troco tem origem no PSBT');
   assert.equal(mapFind(psbt.outputs[0], 0x02), null, 'destino externo não leva origem no PSBT');
 
-  /* o assinante (núcleo do cofre-btc.html) acha as chaves mesmo com o índice
+  /* o assinante (núcleo do Cofre BTC) acha as chaves mesmo com o índice
      120 porque a origem BIP32 da entrada está no PSBT; não há varredura. */
   const signed = await BTC.signPsbt(bytes, hd, new Uint8Array(32));
   assert.equal(signed.txid, BTC.txidOf(BTC.readTx(BTC.hexToBytes(signed.txHex))));

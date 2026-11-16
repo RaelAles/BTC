@@ -1606,7 +1606,7 @@ var BTC = (function () {
     });
     outputs.forEach(function (out) {
       /* O destino externo não vira aviso: cada saída já traz `own`, e a
-         revisão que o apresenta (cofre-btc.html) marca o endereço em vez de
+         revisão que o apresenta (Cofre BTC) marca o endereço em vez de
          repetir a informação na lista. */
       if (out.own === 'outro') warnings.push('saída ' + out.index + ' tem script não padronizado; confira no coordenador');
     });

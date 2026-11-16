@@ -1,4 +1,4 @@
-/* Teste do núcleo criptográfico embutido no cofre-btc.html.
+/* Teste do núcleo criptográfico embutido no Cofre BTC.
 
    Extrai o IIFE `var BTC = ...` do HTML e roda os mesmos vetores oficiais e
    os PSBTs do projeto. Também confere o import do cofre: PSBT já assinado
@@ -21,7 +21,7 @@ const html = readFileSync(new URL('../cofre-btc.html', import.meta.url), 'utf8')
 const start = html.indexOf('var BTC = (function () {');
 const marker = "if (typeof module !== 'undefined' && module.exports) module.exports = BTC;";
 const end = html.indexOf(marker, start);
-assert.ok(start >= 0 && end > start, 'núcleo BTC não encontrado no cofre-btc.html');
+assert.ok(start >= 0 && end > start, 'núcleo BTC não encontrado no HTML do Cofre BTC');
 const dir = mkdtempSync(join(tmpdir(), 'cofre-core-'));
 const coreFile = join(dir, 'core.cjs');
 writeFileSync(coreFile, html.slice(start, end + marker.length));
@@ -209,4 +209,4 @@ console.log('ok   PSBTs p2pkh, p2sh-p2wpkh, p2wpkh e p2tr assinados igual ao btc
 }
 
 rmSync(dir, { recursive: true, force: true });
-console.log('\ntestes do núcleo embutido no cofre-btc.html passaram');
+console.log('\ntestes do núcleo embutido no Cofre BTC passaram');

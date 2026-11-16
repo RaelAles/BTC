@@ -1735,7 +1735,7 @@
   .value-out { color: var(--error); }
   .value-none { color: var(--dim); }
   /* Destino externo na revisão do PSBT: o marcador "[ externo ]" ao fim do
-     endereço usa o --warning do "[ atenção ]" do cofre-btc.html, o aviso no
+     endereço usa o --warning do "[ atenção ]" do Cofre BTC, o aviso no
      lugar do dado que ele aponta. O marcador não quebra entre os colchetes;
      se não couber depois do endereço, desce inteiro. */
   .review-external { color: var(--warning); white-space: nowrap; }

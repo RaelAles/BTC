@@ -47,7 +47,7 @@ function mapFind(map, type) {
 function signedText(signed) { return signed.psbtBase64; }
 
 /* Monta uma carteira com uma saída, um PSBT de envio e a assinatura no
-   próprio btc-core (o mesmo caminho do cofre-btc.html). */
+   próprio btc-core (o mesmo caminho do Cofre BTC). */
 async function fixture({ acct = account, hd: signer = hd, xpub = hd.accounts.bip84.xpub,
   value = 100000, destination, feeRate = 3 } = {}) {
   const a = await deriveAddress('bip84', acct, 0, 0);
