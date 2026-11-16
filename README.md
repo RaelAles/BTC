@@ -26,7 +26,8 @@ tela mostra:
    pendência é dita só pela etiqueta `[ pendente ]`, no tom de aviso
    (`--warning`), que o endereço com atividade no mempool leva ao lado do
    ramo. O **saldo** é o disponível do endereço (inclui o troco pendente
-   dele);
+   dele). Os campos de valor zerados saem da lista e do resumo, e o vão até
+   a lista é o mesmo dos grupos do resumo do PSBT;
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e taxa em um
    **grupo de níveis** rotulado pelo **prazo médio de confirmação** —
    `~10m`, `~30m`, `~1h` e `~1d` —, na mesma linha do recado do máximo (o

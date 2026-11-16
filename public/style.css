@@ -1939,8 +1939,10 @@
   #broadcast-warn:empty { display: none; }
 
   /* Histórico: o resumo e a explicação são notas de apoio, e a lista começa
-     depois do vão da régua do título. */
-  #history-summary { margin: 0 0 var(--space-3); }
+     depois do vão da régua do título. O vão até a lista usa o --space-5 do
+     grupo do resumo do PSBT (.group-end), para separar a leitura dos totais
+     dos itens. */
+  #history-summary { margin: 0 0 var(--space-5); }
   /* Com dados, o resumo vira a tabela de leitura da carteira (VG-ABS-04): o
      total de endereços é uma linha de dados, e os valores seguem a marcação
      do extrato (VG-COR-16) — rótulo em --dim, valor com o sinal e a cor da

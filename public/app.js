@@ -2060,6 +2060,19 @@
          pendência em si é dita só pela etiqueta [ pendente ] da linha. */
       var received = (Number(a.received) || 0) + (Number(a.pending_in) || 0);
       var spent = (Number(a.spent) || 0) + (Number(a.pending_out) || 0);
+      var balance = Number(a.balance) || 0;
+      /* Valor zerado não entra na linha: só o que tem direção ou saldo é
+         lido, e os divisores ficam entre os campos que sobraram. */
+      var values = [];
+      if (received > 0) {
+        values.push('<span class="value-label">recebido</span> ' + signedBtc(received, 'in'));
+      }
+      if (spent > 0) {
+        values.push('<span class="value-label">enviado</span> ' + signedBtc(spent, 'out'));
+      }
+      if (balance > 0) {
+        values.push('<span class="value-label">saldo</span> ' + fmtBtc(balance));
+      }
       var li = document.createElement('li');
       li.className = 'item';
       li.innerHTML =
@@ -2075,13 +2088,11 @@
             ? ' <span class="tag-sep" aria-hidden="true">·</span> <span class="tag tag-pending">[ pendente ]</span>'
             : '') +
         '</p>' +
-        '<p class="item-meta history-values">' +
-          '<span class="value-label">recebido</span> ' + signedBtc(received, 'in') +
-          ' <span class="value-sep" aria-hidden="true">|</span> ' +
-          '<span class="value-label">enviado</span> ' + signedBtc(spent, 'out') +
-          ' <span class="value-sep" aria-hidden="true">|</span> ' +
-          '<span class="value-label">saldo</span> ' + fmtBtc(a.balance) +
-        '</p>';
+        (values.length
+          ? '<p class="item-meta history-values">' +
+            values.join(' <span class="value-sep" aria-hidden="true">|</span> ') +
+            '</p>'
+          : '');
       list.appendChild(li);
     });
   }
@@ -2161,14 +2172,21 @@
     /* O resumo é a tabela de leitura da carteira (VG-ABS-04): o total de
        endereços vira uma linha de dados, com o plural do rótulo pela
        contagem, e os valores repetem a marcação do extrato — rótulo em
-       --dim, valor com o sinal e a cor da direção (VG-COR-16). */
+       --dim, valor com o sinal e a cor da direção (VG-COR-16). Os valores
+       zerados não viram linha. */
+    var summaryRows =
+      '<tr><th scope="row">' + countLabel + '</th><td>' + fmtInt(rows.length) + '</td></tr>';
+    if (sum.received > 0) {
+      summaryRows +=
+        '<tr><th scope="row">recebido</th><td>' + signedBtc(sum.received, 'in') + '</td></tr>';
+    }
+    if (sum.spent > 0) {
+      summaryRows +=
+        '<tr><th scope="row">enviado</th><td>' + signedBtc(sum.spent, 'out') + '</td></tr>';
+    }
     $('#history-summary').innerHTML =
       '<table class="data-table key-readout" aria-label="totais do histórico">' +
-        '<tbody>' +
-          '<tr><th scope="row">' + countLabel + '</th><td>' + fmtInt(rows.length) + '</td></tr>' +
-          '<tr><th scope="row">recebido</th><td>' + signedBtc(sum.received, 'in') + '</td></tr>' +
-          '<tr><th scope="row">enviado</th><td>' + signedBtc(sum.spent, 'out') + '</td></tr>' +
-        '</tbody>' +
+        '<tbody>' + summaryRows + '</tbody>' +
       '</table>';
     state.historyState = 'ready';
     renderHistory();
