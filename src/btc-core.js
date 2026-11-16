@@ -431,21 +431,27 @@ var BTC = (function () {
     return v;
   }
   function int2octets(v) { return pad32(v); }
-  function rfc6979(d, digest) {
+  /* O estado K/V da RFC 6979 fica entre os candidatos: um k já devolvido não
+     se repete, porque o próximo sai da continuação do mesmo HMAC. É disso que
+     o laço de reserva do signDigest precisa quando r ou s sai zero. */
+  function rfc6979Init(d, digest) {
     var x = int2octets(d);
     var h1 = int2octets(bits2int(digest) % N);
-    var V = new Uint8Array(32).fill(1);
     var K = new Uint8Array(32);
+    var V = new Uint8Array(32).fill(1);
     K = hmacSha256(K, concatBytes(V, new Uint8Array([0]), x, h1));
     V = hmacSha256(K, V);
     K = hmacSha256(K, concatBytes(V, new Uint8Array([1]), x, h1));
     V = hmacSha256(K, V);
+    return { K: K, V: V };
+  }
+  function rfc6979Next(state) {
     for (var guard = 0; guard < 1000; guard++) {
-      V = hmacSha256(K, V);
-      var k = bits2int(V);
+      state.V = hmacSha256(state.K, state.V);
+      var k = bits2int(state.V);
       if (k >= 1n && k < N) return k;
-      K = hmacSha256(K, concatBytes(V, new Uint8Array([0])));
-      V = hmacSha256(K, V);
+      state.K = hmacSha256(state.K, concatBytes(state.V, new Uint8Array([0])));
+      state.V = hmacSha256(state.K, state.V);
     }
     throw new Error('RFC 6979 não convergiu');
   }
@@ -462,8 +468,9 @@ var BTC = (function () {
   }
   function signDigest(d, digest) {
     var z = bits2int(digest) % N;
+    var nonce = rfc6979Init(d, digest);
     for (var guard = 0; guard < 1000; guard++) {
-      var k = rfc6979(d, digest);
+      var k = rfc6979Next(nonce);
       var R = toAffine(jMul(k));
       var r = mod(R.x, N);
       if (r === 0n) continue;
