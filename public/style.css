@@ -761,6 +761,32 @@
 
   .screen[hidden] { display: none !important; }
 
+  /* Modal "sobre": um card de leitura no centro da tela, com o mesmo
+     respiro, a mesma coluna e os mesmos tokens do card principal. O fundo
+     escurece pelo ::backdrop; a rolagem fica só aqui dentro. */
+  .about-dialog {
+    width: min(calc(100% - 2 * var(--gap)), var(--measure));
+    max-width: var(--card-max-w);
+    max-height: calc(var(--app-h, 100svh) - var(--gap-top) - var(--gap-bottom));
+    margin: auto;
+    padding: var(--content-pad);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--panel);
+    color: var(--fg);
+    border: 1px solid var(--line);
+  }
+  .about-dialog::backdrop {
+    background: var(--bg);
+    opacity: .72;
+  }
+  .about-dialog > .rule { margin: 0 0 var(--space-5); }
+  .about-dialog > .rule + .prose > h3:first-child { margin-top: 0; }
+  .about-close-row {
+    margin: var(--space-8) 0 0;
+    text-align: center;
+  }
+
   /* Título de tela centralizado. O .content usa o mesmo respiro nos quatro
      lados; a régua e o primeiro bloco mantêm o vão interno do título.
      Sem --accent: o título não é link nem controle, então usa a cor do texto,

@@ -501,6 +501,26 @@
     var b = $('#lang-btn');
     if (b) b.focus({ preventScroll: true });
   }
+
+  /* Modal "sobre": abre por cima da tela em vigor, sem trocar a tela de
+     origem. O fechar, o Esc e o clique fora devolvem o foco ao botão que
+     abriu. */
+  function openAbout() {
+    var dialog = $('#about-modal');
+    if (!dialog || dialog.open) return;
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+    var head = $('#head-sobre');
+    if (head) head.focus({ preventScroll: true });
+  }
+  function closeAbout() {
+    var dialog = $('#about-modal');
+    if (!dialog || !dialog.open) return;
+    if (typeof dialog.close === 'function') dialog.close();
+    else dialog.removeAttribute('open');
+    var opener = $('#about-btn');
+    if (opener) opener.focus({ preventScroll: true });
+  }
   /* Idioma em vigor (VG-IDI-02/03): o automático fica marcado quando está em
      vigor e, como ele resolve para o idioma atual, esse idioma também aparece
      marcado — a tela mostra a escolha e o resultado ao mesmo tempo. Escolher
@@ -2490,6 +2510,27 @@
         closeLanguage();
       }
     });
+
+    /* Modal sobre: o botão do menu abre; o fechar, o Esc (nativo do
+       <dialog>) e o clique no fundo fecham. */
+    var aboutBtn = $('#about-btn');
+    if (aboutBtn) aboutBtn.addEventListener('click', openAbout);
+    var aboutClose = $('#about-close');
+    if (aboutClose) aboutClose.addEventListener('click', closeAbout);
+    var aboutModal = $('#about-modal');
+    if (aboutModal) {
+      aboutModal.addEventListener('click', function (ev) {
+        if (ev.target !== aboutModal) return;
+        var r = aboutModal.getBoundingClientRect();
+        var outside = ev.clientX < r.left || ev.clientX > r.right ||
+          ev.clientY < r.top || ev.clientY > r.bottom;
+        if (outside) closeAbout();
+      });
+      aboutModal.addEventListener('close', function () {
+        var opener = $('#about-btn');
+        if (opener) opener.focus({ preventScroll: true });
+      });
+    }
 
     /* Erro de dados do histórico (VG-ABS-10): a nova tentativa é um link de
        prosa, não um botão novo; o endereço não muda. */
