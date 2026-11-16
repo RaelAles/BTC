@@ -2017,56 +2017,60 @@
 
           <div class="prose reveal-block">
             <h3><span class="prompt" aria-hidden="true">##</span> o que é esta ferramenta</h3>
-            <p>É uma página que transforma 256 bits em uma chave Bitcoin. Os bits saem de 256 jogadas de moeda na própria tela — cara vale <code>1</code>, coroa vale <code>0</code> — ou de uma lista de coordenadas. Eles viram a frase de 24 palavras e as quatro contas que a tela mostra. Com uma chave carregada, ela também revisa e assina PSBTs, que são arquivos de transação montados em outro programa.</p>
-            <p>É um arquivo só, sem servidor e sem internet: nada é enviado nem consultado. Os bits, a frase e as chaves ficam apenas na memória da aba e somem ao recarregar. Quem tiver as 24 palavras — ou as coordenadas — tem a chave: guarde essa lista em local seguro e confira o hash do arquivo antes de abrir.</p>
+            <p>O Cofre BTC transforma 256 jogadas de moeda em uma chave Bitcoin. Cada jogada vale <code>1</code> (cara) ou <code>0</code> (coroa) e é feita na própria tela; a mesma lista também pode ser digitada como coordenadas. As 256 marcas viram a frase de 24 palavras, as quatro contas e as chaves que a tela mostra.</p>
+            <p>Ele também assina. Você abre o arquivo de transação (PSBT) montado no Monitor BTC, confere o que ele faz e assina com a chave. Quem monta e transmite é o Monitor BTC; aqui a chave privada nunca sai da página, que é um arquivo só, sem servidor e sem internet.</p>
+            <p>Nada fica guardado: as jogadas, a frase, as chaves e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página. Quem tiver as 24 palavras — ou as coordenadas — tem a chave: guarde essa lista em local seguro e confira o hash do arquivo antes de abrir.</p>
 
-            <h3><span class="prompt" aria-hidden="true">##</span> o que são as coordenadas</h3>
-            <p>São apenas nomes para cada um dos 256 bits. O primeiro bit se chama <code>a0</code>, o segundo <code>a1</code>, e assim por diante: <code>a0</code> a <code>a9</code>, depois <code>b0</code> a <code>b9</code>, até <code>z5</code>, que é o último bit. A linha <code>z</code> para no 5: <code>z6</code> a <code>z9</code> não existem, porque 26 letras × 10 dígitos dariam 260 nomes e só há 256 bits.</p>
-            <p>Elas aparecem <b>agrupadas por letra</b>: a letra abre o grupo e os dígitos que vêm depois pertencem a ela, até a próxima letra. Assim <code>a012</code> quer dizer <code>a0</code>, <code>a1</code> e <code>a2</code>. O agrupamento é só a forma de escrever a lista: a ordem dos dígitos dentro do grupo não muda nada.</p>
+            <h3><span class="prompt" aria-hidden="true">##</span> como usar</h3>
+            <p><b>Gerar.</b> Na tela “chave”, clique em “gerar” e registre 256 jogadas: cara vale <code>1</code> e coroa vale <code>0</code>. A frase de 24 palavras e as chaves aparecem quando a última jogada entra. Anote a frase no papel antes de seguir.</p>
+            <p><b>Coordenadas.</b> Se você já tem a lista, clique em “coordenadas” e digite no campo do alto: são só os nomes das jogadas que deram <code>1</code>, como <code>a0</code>, <code>b7</code> e <code>z5</code>. As outras valem <code>0</code>, e a ordem não importa. Clicar em “gerar” recomeça a entrada do zero.</p>
+            <p><b>Assinar.</b> Clique em “importar psbt” e escolha o arquivo que veio do Monitor BTC. Confira a revisão: valor, destino, troco, taxa e avisos. Se estiver tudo certo, clique em “assinar” e baixe o arquivo assinado. Transmitir é no Monitor BTC.</p>
+            <p><b>Telas.</b> O menu no alto alterna entre “chave” e “sobre”.</p>
+
+            <h3><span class="prompt" aria-hidden="true">##</span> como refazer os 256 binários e a frase em outra ferramenta</h3>
+            <p>As coordenadas são apenas nomes para cada uma das 256 posições. A primeira se chama <code>a0</code>, a segunda <code>a1</code>, e assim por diante: <code>a0</code> a <code>a9</code>, depois <code>b0</code> a <code>b9</code>, até <code>z5</code>, que é a última posição. A letra <code>z</code> para no 5: <code>z6</code> a <code>z9</code> não existem, porque 26 letras × 10 dígitos dariam 260 nomes e só há 256 posições.</p>
+            <p>Na tela elas aparecem agrupadas: a letra abre o grupo e os dígitos que vêm depois são dela até a próxima letra. Assim <code>a012</code> quer dizer <code>a0</code>, <code>a1</code> e <code>a2</code>. O agrupamento é só a forma de escrever a lista; a ordem não muda o resultado.</p>
             <p>A posição de uma coordenada é <code>letra × 10 + dígito</code>, contando <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Assim <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 e <code>z5</code> = 255.</p>
-            <p>A tela mostra só as coordenadas que ficaram em <code>1</code>. Todas as outras posições valem <code>0</code>, e a ordem em que aparecem não muda nada: o que conta é o conjunto.</p>
-
-            <h3><span class="prompt" aria-hidden="true">##</span> como refazer os 256 bits sem a ferramenta</h3>
-            <p>Você só precisa da lista das coordenadas marcadas. Com ela:</p>
+            <p>A tela mostra só as coordenadas que ficaram em <code>1</code>. Todas as outras posições valem <code>0</code>. Com a lista em mãos, refaça os 256 dígitos assim:</p>
             <ul>
               <li><b>1.</b> Escreva 256 zeros seguidos.</li>
               <li><b>2.</b> Numere as posições de 0 a 255, começando no primeiro zero.</li>
               <li><b>3.</b> Troque por <code>1</code> cada posição que aparece na lista, com o número saindo de <code>letra × 10 + dígito</code>.</li>
             </ul>
-            <p>No papel dá para usar uma grade de 26 linhas (as letras <code>a</code> a <code>z</code>) por 10 colunas (os dígitos <code>0</code> a <code>9</code>): marque <code>1</code> nas coordenadas da lista e leia da esquerda para a direita, de cima para baixo, parando em <code>z5</code>. O resultado tem sempre 256 caracteres, sem espaço nem vírgula.</p>
-            <p>Esses 256 bits são a entrada da chave. Transformá-los em palavras, hex ou qualquer outra coisa é por sua conta: a conferência manual termina nos bits.</p>
+            <p>No papel dá para usar uma grade de 26 linhas (as letras <code>a</code> a <code>z</code>) por 10 colunas (os dígitos <code>0</code> a <code>9</code>): marque <code>1</code> nas coordenadas da lista e leia da esquerda para a direita, de cima para baixo, parando em <code>z5</code>. O resultado tem sempre 256 dígitos, sem espaço nem vírgula.</p>
+            <p>Em outra ferramenta, informe esses 256 dígitos como a entrada da chave (o campo que às vezes aparece como “binário” ou “bits”). Ela devolve a mesma frase de 24 palavras, desde que use o BIP39 com a lista em inglês. Confira contra a frase que esta tela mostrou: se as 24 palavras forem iguais, a cópia está certa.</p>
 
             <h3><span class="prompt" aria-hidden="true">##</span> os BIPs usados</h3>
-            <p>A ferramenta segue os BIPs abaixo. Eles cobrem a chave, os endereços, as assinaturas e o PSBT.</p>
+            <p>Os BIPs são as regras públicas do Bitcoin que a ferramenta segue. Eles cobrem a chave, os endereços, as assinaturas e o arquivo de transação.</p>
             <p><b>Chave e contas.</b></p>
             <ul>
-              <li><b>BIP39</b> — entropia de 256 bits, frase de 24 palavras e seed (PBKDF2-HMAC-SHA512, 2048 iterações, passphrase vazia).</li>
-              <li><b>BIP32</b> — árvore hierárquica, derivação dos ramos, chaves estendidas xprv/xpub e origem BIP32 no PSBT.</li>
-              <li><b>BIP43</b> — campo <i>purpose</i> do primeiro nível dos caminhos (<code>44'</code>, <code>49'</code>, <code>84'</code>, <code>86'</code>).</li>
-              <li><b>BIP44</b> — conta <code>m/44'/0'/0'</code> e endereços p2pkh (legado).</li>
-              <li><b>BIP49</b> — conta <code>m/49'/0'/0'</code> e endereços p2sh-p2wpkh (segwit encapsulado).</li>
-              <li><b>BIP84</b> — conta <code>m/84'/0'/0'</code> e endereços p2wpkh nativos (bech32).</li>
-              <li><b>BIP86</b> — conta <code>m/86'/0'/0'</code> e endereços p2tr (Taproot, key path).</li>
+              <li><b>BIP39</b> — as 256 marcas e a frase de 24 palavras que sai delas.</li>
+              <li><b>BIP32</b> — a chave e os endereços que saem dela.</li>
+              <li><b>BIP43</b> — tipo da conta no caminho da chave.</li>
+              <li><b>BIP44</b> — conta antiga (endereços começando com <code>1</code>).</li>
+              <li><b>BIP49</b> — conta segwit aninhada (endereços começando com <code>3</code>).</li>
+              <li><b>BIP84</b> — conta segwit nativa (endereços começando com <code>bc1q</code>).</li>
+              <li><b>BIP86</b> — conta Taproot (endereços começando com <code>bc1p</code>).</li>
             </ul>
             <p><b>Endereços e assinaturas.</b></p>
             <ul>
-              <li><b>BIP13</b> — formato de endereço P2SH, usado no BIP49.</li>
-              <li><b>BIP16</b> — script P2SH e seu resgate, usado no BIP49.</li>
-              <li><b>BIP141</b> — regra do programa witness v0 usada na validação dos endereços segwit.</li>
-              <li><b>BIP143</b> — pré-imagem de assinatura do segwit v0 (p2wpkh e p2sh-p2wpkh).</li>
-              <li><b>BIP173</b> — endereços bech32 para witness v0.</li>
-              <li><b>BIP340</b> — assinaturas Schnorr.</li>
-              <li><b>BIP341</b> — Taproot: ajuste da chave de saída, <code>TapSighash</code> e gasto por key path.</li>
-              <li><b>BIP350</b> — bech32m para witness v1 (Taproot).</li>
+              <li><b>BIP13</b> — formato do endereço que começa com <code>3</code>, usado no BIP49.</li>
+              <li><b>BIP16</b> — regra do endereço que começa com <code>3</code>, usado no BIP49.</li>
+              <li><b>BIP141</b> — regra dos endereços segwit.</li>
+              <li><b>BIP143</b> — regra da assinatura dos endereços <code>bc1q</code>.</li>
+              <li><b>BIP173</b> — escrita dos endereços <code>bc1q</code>.</li>
+              <li><b>BIP340</b> — assinatura usada no Taproot.</li>
+              <li><b>BIP341</b> — chave pública do endereço <code>bc1p</code> (Taproot).</li>
+              <li><b>BIP350</b> — escrita dos endereços <code>bc1p</code>.</li>
             </ul>
-            <p><b>PSBT e transação.</b></p>
+            <p><b>Transação.</b></p>
             <ul>
-              <li><b>BIP125</b> — sinalização de RBF, exibida como <code>rbf</code> na revisão do PSBT.</li>
-              <li><b>BIP174</b> — formato PSBT v0: leitura, revisão, assinatura e finalização.</li>
-              <li><b>BIP371</b> — campos Taproot do PSBT, como <code>tap_bip32_derivation</code>.</li>
+              <li><b>BIP125</b> — aviso de que a transação pode ser substituída (RBF), mostrado no resumo.</li>
+              <li><b>BIP174</b> — formato do arquivo de transação (PSBT).</li>
+              <li><b>BIP371</b> — dados do Taproot dentro do arquivo de transação.</li>
             </ul>
-            <p>Fora dos BIPs, o ECDSA é determinístico conforme a RFC 6979, e todas as contas são da rede principal.</p>
-            <p><b>Última atualização:</b> <time datetime="2026-11-15">15 de novembro de 2026</time>.</p>
+            <p>A assinatura antiga segue a RFC 6979: é sempre a mesma para a mesma transação, sem sorteio. A ferramenta trabalha só com a rede principal do Bitcoin.</p>
+            <p><b>Última atualização:</b> <time datetime="2026-11-16">16 de novembro de 2026</time>.</p>
 
           </div>
         </section>
