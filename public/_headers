@@ -9,6 +9,14 @@
 # O Strict-Transport-Security vale para este host e, com includeSubDomains,
 # para os subdomínios dele. Não há subdomínio em HTTP neste projeto; se
 # houver, tire o includeSubDomains antes de publicar.
+#
+# O Cofre BTC é o assinador standalone: o link da tela "sobre" baixa o
+# arquivo. O Content-Disposition garante o download mesmo se a página for
+# aberta direto, e a CSP da página publicada não se aplica ao arquivo baixado.
+/cofre-btc.html
+  Content-Disposition: attachment; filename="cofre-btc.html"
+/cofre-btc
+  Content-Disposition: attachment; filename="cofre-btc.html"
 /*
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Content-Security-Policy: default-src 'none'; script-src 'self' 'sha256-kR29uAKyelaiu4syqyVG+sBI9dN+Cg/3gY0feNF1G/c='; style-src 'self'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'

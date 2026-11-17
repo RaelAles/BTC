@@ -119,9 +119,10 @@ blockchain.info, nem chave privada em lugar nenhum.
 > **Layout do repositório.** A raiz é o projeto do Worker (é ela que o
 > Cloudflare publica): `wrangler.jsonc`, `src/`, `public/`, `test/`. Os
 > arquivos soltos na mesma raiz não entram no deploy: o Cofre BTC (offline,
-> assina PSBT) é uma página avulsa, `projeto-2.html` é a UI standalone antiga
-> (consulta fontes públicas direto no navegador) e `teste-*.psbt` são
-> fixtures de teste. A página publicada é `public/index.html`.
+> assina PSBT) é uma página avulsa em `public/cofre-btc.html`,
+> `projeto-2.html` é a UI standalone antiga (consulta fontes públicas direto
+> no navegador) e `teste-*.psbt` são fixtures de teste. A página publicada é
+> `public/index.html`.
 
 ## O que o Worker faz
 

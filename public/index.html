@@ -262,12 +262,13 @@
           <div class="prose">
             <h3><span class="prompt" aria-hidden="true">##</span> o que é esta ferramenta</h3>
             <p>O Monitor BTC é uma carteira de acompanhamento. Você cola a chave pública da sua carteira Bitcoin (<code>xpub</code>, <code>zpub</code> ou <code>ypub</code>) e ele mostra o saldo, os endereços para receber e o histórico de endereços usados. Ele não pede senha, não guarda nada e não tem a chave privada: só lê o que já existe na rede.</p>
-            <p>Ele também prepara o envio. Você informa o valor e o destino, escolhe a taxa e a ferramenta monta um arquivo de transação (PSBT) para ser assinado em outro programa. Depois de assinado, o arquivo volta para cá e pode ser transmitido. Quem assina é você, no Cofre BTC, offline; a chave privada nunca passa por esta tela.</p>
+            <p>Ele também prepara o envio. Você informa o valor e o destino; a taxa é calculada ao vivo e a ferramenta monta um arquivo de transação (PSBT) para ser assinado em outro programa. Depois de assinado, o arquivo volta para cá e pode ser transmitido. Quem assina é você, no <a class="prose-link" href="/cofre-btc.html" download="cofre-btc.html" title="baixar o Cofre BTC (arquivo standalone)" aria-label="baixar o Cofre BTC (arquivo standalone)">Cofre BTC</a>, offline; a chave privada nunca passa por esta tela.</p>
             <p>Nada fica guardado: a chave, o saldo, os endereços e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página.</p>
 
             <h3><span class="prompt" aria-hidden="true">##</span> como usar</h3>
             <p><b>Acompanhar.</b> Na tela “carteira”, cole a chave pública no campo indicado. O saldo e os endereços aparecem sozinhos. Em “receber”, copie o endereço do tipo que o pagador aceita. Em “histórico”, veja os endereços que já foram usados, com o que entrou e o que saiu.</p>
-            <p><b>Enviar.</b> Ainda em “carteira”, desça até “enviar”. Digite o valor, o destino e escolha a taxa pelo tempo de confirmação. O arquivo é montado sozinho; clique em “baixar”. Assine esse arquivo no Cofre BTC, offline. Depois volte, abra “transmitir”, escolha o arquivo assinado, confira o resumo e clique em “confirmar”.</p>
+            <p><b>Enviar.</b> Ainda em “carteira”, desça até “enviar”. Digite o valor e o destino; a taxa aparece sozinha e o arquivo é montado na hora. Clique em “baixar”. Assine esse arquivo no Cofre BTC, offline. Depois volte, abra “transmitir”, escolha o arquivo assinado, confira o resumo e clique em “confirmar”.</p>
+            <p><b>Cofre BTC.</b> O assinador é o <a class="prose-link" href="/cofre-btc.html" download="cofre-btc.html" title="baixar o Cofre BTC (arquivo standalone)" aria-label="baixar o Cofre BTC (arquivo standalone)">Cofre BTC</a>, um arquivo único que funciona offline, sem servidor e sem internet. Clique no nome para baixar o standalone e abra-o no computador que guarda a chave.</p>
             <p><b>Telas.</b> O menu no alto alterna entre “carteira”, “histórico” e “sobre”.</p>
 
             <h3><span class="prompt" aria-hidden="true">##</span> os BIPs usados</h3>
@@ -292,12 +293,12 @@
             </ul>
             <p><b>Transação.</b></p>
             <ul>
-              <li><b>BIP125</b> — aviso de que a transação pode ser substituída (RBF), mostrado no resumo.</li>
+              <li><b>BIP125</b> — sinalização de substituição (RBF). A ferramenta não sinaliza: o resumo mostra <code>rbf</code> como <code>não</code>.</li>
               <li><b>BIP174</b> — formato do arquivo de transação (PSBT).</li>
               <li><b>BIP371</b> — dados do Taproot dentro do arquivo de transação.</li>
             </ul>
             <p>A ferramenta trabalha só com a rede principal do Bitcoin.</p>
-            <p><b>Última atualização:</b> <time datetime="2026-11-16">16 de novembro de 2026</time>.</p>
+            <p><b>Última atualização:</b> <time datetime="2026-11-17">17 de novembro de 2026</time>.</p>
           </div>
         </section>
 

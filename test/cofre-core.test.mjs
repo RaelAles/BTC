@@ -17,7 +17,7 @@ import { createRequire } from 'node:module';
 import BTC from '../src/btc-core.js';
 
 /* ---------------- extração do núcleo embutido ---------------- */
-const html = readFileSync(new URL('../cofre-btc.html', import.meta.url), 'utf8');
+const html = readFileSync(new URL('../public/cofre-btc.html', import.meta.url), 'utf8');
 const start = html.indexOf('var BTC = (function () {');
 const marker = "if (typeof module !== 'undefined' && module.exports) module.exports = BTC;";
 const end = html.indexOf(marker, start);
