@@ -96,10 +96,9 @@ function mapFind(map, type) {
   /* O histograma do Electrum traz o vsize CUMULATIVO: [[50,100k], [10,900k],
      [2,1,5M], [1,2,4M]]. Para 1 bloco (1M vB) o acumulado só alcança a
      capacidade na faixa de 2 sat/vB → 2001 sat/kvB. Para 3 blocos (3M vB)
-     nenhuma faixa alcança e vale a mais baixa (1 sat/vB) → 1001 sat/kvB. O
-     +1 sat/kvB é o desempate por ordem de chegada dentro da faixa, e 2001 ≠
-     10001 (o que sairia se o acumulado fosse lido como vsize por faixa)
-     prova que a soma não é feita duas vezes. O estimador (12/9/6/2 sat/vB)
+     nenhuma faixa alcança e vale a mais baixa (1 sat/vB) → 1050 sat/kvB com
+     os 5% de folga. 2100 ≠ 10050 (o que sairia se o acumulado fosse lido
+     como vsize por faixa) prova que a soma não é feita duas vezes. O estimador (12/9/6/2 sat/vB)
      nem entra na conta enquanto o histograma responde. */
   const fake = await startFakeElectrum({
     histogram: [[50, 100000], [10, 900000], [2, 1500000], [1, 2400000]]
@@ -107,9 +106,9 @@ function mapFind(map, type) {
   const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const r = await reqFees(env);
   assert.equal(r.status, 200);
-  assert.deepEqual(r.j.sat_per_kvb, { minimum: 1001, standard: 1001, high: 1001, urgent: 2001 },
+  assert.deepEqual(r.j.sat_per_kvb, { minimum: 1050, standard: 1050, high: 1050, urgent: 2100 },
     'o corte de fila do histograma manda, não o estimador');
-  assert.deepEqual(r.j.levels, { minimum: 1.001, standard: 1.001, high: 1.001, urgent: 2.001 });
+  assert.deepEqual(r.j.levels, { minimum: 1.05, standard: 1.05, high: 1.05, urgent: 2.1 });
   assert.deepEqual(r.j.floored, { minimum: false, standard: false, high: false, urgent: false });
   assert.equal(r.j.source, 'electrum', 'o formato da resposta não muda');
   console.log('ok   corte de fila do histograma substitui o estimatefee');

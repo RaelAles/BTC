@@ -378,8 +378,8 @@ backend de Durable Object disponível no plano free).
   antes de montar.
 - **Taxa é corte da fila**: a taxa de cada nível é o corte cumulativo do
   `mempool.get_fee_histogram` do Electrum — a taxa a partir da qual a fila
-  cabe nos blocos do alvo — mais 1 sat/kvB de desempate por ordem de chegada,
-  com piso no piso de relay padrão. `blockchain.estimatefee` é só a reserva:
+  cabe nos blocos do alvo — com **5% de folga** para
+  quem chega depois da cotação, com piso no piso de relay padrão. `blockchain.estimatefee` é só a reserva:
   ele é histórico e suavizado e pode errar para os dois lados (numa parede de
   taxa baixa, devolveu 1,003 sat/vB para 30 min quando o corte era 0,121).
   Servidor sem histograma nem estimativa deixa o nível em
@@ -797,9 +797,11 @@ O histograma é `[[fee, vsize], …]` com `fee` em sat/vB e `vsize` **por
 faixa** — a soma das faixas é o tamanho do mempool (`cutoffKvb` também aceita
 o formato cumulativo, que a doc do protocolo descreve, detectando qual é pela
 ordem da coluna). O corte de um alvo é a primeira faixa cujo vsize acumulado
-desde a mais cara alcança `alvo × 1 000 000 vB`; a ele soma-se **1 sat/kvB**,
-porque dentro de uma faixa de taxa igual quem chega primeiro é minerado
-primeiro. Alvo maior que o mempool vale a faixa mais baixa, e nada fica abaixo
+desde a mais cara alcança `alvo × 1 000 000 vB`; a ele aplica-se **5% de
+folga** (`FEE_MARGIN`). A folga existe por dois motivos medidos: dentro de uma
+faixa de taxa igual quem chega primeiro é minerado primeiro, e entre a cotação
+e o bloco entram transações novas — em 17/11/2026 a tela mostrava 1,004
+sat/vB para 1 bloco enquanto o bloco saiu cheio de 1,000 a 1,053 sat/vB. Alvo maior que o mempool vale a faixa mais baixa, e nada fica abaixo
 do piso de relay (100 sat/kvB).
 
 `blockchain.estimatefee` responde só quando o histograma falta ou falha, e
@@ -814,7 +816,7 @@ nível mais lento de cada taxa repetida, deixando só o mais rápido.
 
 Se o servidor não der nem histograma nem estimativa para um nível, ele vem
 `null` e a tela desabilita aquele nível. `levels` (o que a tela escolhe e o
-PSBT usa) leva o corte exato: 0,121 sat/vB é usado como 0,121. `sat_per_vb` e
+PSBT usa) leva o corte com folga: 0,127 sat/vB é usado como 0,127. `sat_per_vb` e
 `sat_per_kvb` são a mesma leitura em unidades diferentes, e `floored` só
 marca o nível abaixo do piso padrão do Bitcoin Core (`relay_min_kvb`, 100
 sat/kvB = 0,1 sat/vB desde a v30) — a taxa usada não muda, mas a tela mostra o
@@ -822,10 +824,10 @@ aviso do piso para o nível escolhido.
 
 ```json
 {
-  "levels": { "minimum": 0.101, "standard": 0.121, "high": 0.121, "urgent": 1.324 },
+  "levels": { "minimum": 0.105, "standard": 0.127, "high": 0.127, "urgent": 1.39 },
   "targets": { "minimum": 144, "standard": 6, "high": 3, "urgent": 1 },
-  "sat_per_kvb": { "minimum": 101, "standard": 121, "high": 121, "urgent": 1324 },
-  "sat_per_vb": { "minimum": 0.101, "standard": 0.121, "high": 0.121, "urgent": 1.324 },
+  "sat_per_kvb": { "minimum": 105, "standard": 127, "high": 127, "urgent": 1390 },
+  "sat_per_vb": { "minimum": 0.105, "standard": 0.127, "high": 0.127, "urgent": 1.39 },
   "floored": { "minimum": false, "standard": false, "high": false, "urgent": false },
   "relay_min_kvb": 100,
   "unit": "sat/vB",

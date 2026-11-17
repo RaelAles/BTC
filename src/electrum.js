@@ -366,14 +366,23 @@ export const BLOCK_VSIZE = 1000000;
    Com oito faixas ou mais, dado por faixa cair em ordem crescente por acaso
    é improvável.
 
-   O +1 sat/kvB é proposital: dentro de uma faixa de taxa igual o desempate é
-   por ordem de chegada, então pagar a taxa exata do corte cai no fim da
-   faixa. Numa parede de taxa uniforme isso custa blocos inteiros — a
+   Por que não usar a taxa exata do corte: dentro de uma faixa de taxa igual
+   o desempate é por ordem de chegada, então o valor exato cai no fim da
+   fila. Numa parede de taxa uniforme isso custa blocos inteiros — a
    transação de 0,1187 sat/vB estava 1,3 sat/kvB abaixo de uma parede de 16
    blocos, e a diferença em satoshis era zero.
 
+   FEE_MARGIN é a folga para quem chega depois: o corte é medido agora, e
+   entre a cotação e o bloco entram transações novas que empurram quem está
+   exatamente no limite. Medido em 17/11/2026: a tela mostrava 1,004 sat/vB
+   para 1 bloco enquanto o bloco saiu cheio de 1,000 a 1,053 sat/vB — ou seja,
+   o número estava certo e a transação ficaria na beirada. Cinco por cento
+   custam ~1 satoshi numa transação pequena e tiram a transação da beirada.
+
    Alvo maior que o mempool inteiro: vale a faixa mais baixa (o piso do
    servidor), nunca abaixo do piso de relay padrão. */
+export const FEE_MARGIN = 1.05;
+
 export function cutoffKvb(histogram, blocks) {
   if (!Array.isArray(histogram) || !histogram.length) return null;
   const rows = [];
@@ -397,7 +406,7 @@ export function cutoffKvb(histogram, blocks) {
   for (const [fee, acumulado] of fila) {
     if (acumulado >= alvo) { escolhida = fee; break; }
   }
-  return Math.max(Math.round(escolhida * 1000) + 1, RELAY_MIN_KVB);
+  return Math.max(Math.ceil(escolhida * 1000 * FEE_MARGIN), RELAY_MIN_KVB);
 }
 
 export async function estimateFees(client) {
