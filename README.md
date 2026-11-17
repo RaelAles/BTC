@@ -194,7 +194,7 @@ blockchain.info, nem chave privada em lugar nenhum.
   `mempool.get_fee_histogram` do Electrum para 6, 3 e 1 bloco, que a tela
   mostra como prazo médio (`~1h`, `~30m` e `~10m`, a 10 min por bloco),
   e converte para sat/kvB inteiro. O `blockchain.estimatefee` continua como
-  reserva, para servidor que não responde o histograma. A tela
+  a outra metade: cada nível fica com o **maior** dos dois. A tela
   reconsulta a cada 60 s enquanto está aberta e mostra o percentual de cada
   nível para o valor e o destino digitados.
 - **Todos os endereços usados** dos quatro tipos vão para a resposta; os
@@ -379,9 +379,13 @@ backend de Durable Object disponível no plano free).
 - **Taxa é corte da fila**: a taxa de cada nível é o corte cumulativo do
   `mempool.get_fee_histogram` do Electrum — a taxa a partir da qual a fila
   cabe nos blocos do alvo — com **5% de folga** para
-  quem chega depois da cotação, com piso no piso de relay padrão. `blockchain.estimatefee` é só a reserva:
-  ele é histórico e suavizado e pode errar para os dois lados (numa parede de
-  taxa baixa, devolveu 1,003 sat/vB para 30 min quando o corte era 0,121).
+  quem chega depois da cotação, com piso no piso de relay padrão. O outro
+  lado é o `blockchain.estimatefee`, que resume o que os blocos já minerados
+  cobraram, e cada nível fica com o **maior dos dois** — cotar só a fila
+  prometia prazo que a rede não cumpria (medido em 17/11/2026: fila a 0,127
+  sat/vB para 30 min enquanto os blocos fechavam em 1,0 e 1,872). Numa amostra
+  de 60 blocos, 0,127 foi aceito por 67% deles e ~1,07 por 88%: a espera média
+  cai de 1,5 para 1,1 bloco, ao custo de 22 → 181 sats numa transação de 169 vB.
   Servidor sem histograma nem estimativa deixa o nível em
   `null` e a tela desabilita aquele nível; sem nenhum nível, o envio fica
   bloqueado e a leitura avisa que a estimativa está indisponível.
@@ -808,8 +812,11 @@ e o bloco entram transações novas — em 17/11/2026 a tela mostrava 1,004
 sat/vB para 1 bloco enquanto o bloco saiu cheio de 1,000 a 1,053 sat/vB. Alvo maior que o mempool vale a faixa mais baixa, e nada fica abaixo
 do piso de relay (100 sat/kvB).
 
-`blockchain.estimatefee` responde só quando o histograma falta ou falha, e
-aí sim `BTC/kvB × 1e8` dá o sat/kvB inteiro exato — nada é arredondado antes
+Cada nível fica com o **maior** entre esse corte e o `blockchain.estimatefee`
+do mesmo alvo (faltando um dos dois, vale o outro): a fila diz o preço de
+agora, o estimador diz o que os blocos vêm cobrando, e o maior evita prometer
+um prazo que a rede não cumpriu. No estimador, `BTC/kvB × 1e8` dá o sat/kvB
+inteiro exato — nada é arredondado antes
 de multiplicar pela vsize. Arredondar a taxa antes de multiplicar pela vsize
 erra sempre para cima: 1,926 sat/vB em 141 vB custa 272 sats, e 2 sat/vB
 custaria 282. O PSBT recebe a taxa com as casas que o servidor deu e arredonda

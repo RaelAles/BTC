@@ -93,26 +93,30 @@ function mapFind(map, type) {
 }
 
 /* ---------------- 1d. corte de fila manda, estimador é reserva ---------------- */
+/* ---------------- 1d. fila ou estimador: fica o maior dos dois ---------------- */
 {
-  /* O histograma do Electrum traz o vsize CUMULATIVO: [[50,100k], [10,900k],
-     [2,1,5M], [1,2,4M]]. Para 1 bloco (1M vB) o acumulado só alcança a
-     capacidade na faixa de 2 sat/vB → 2001 sat/kvB. Para 3 blocos (3M vB)
-     nenhuma faixa alcança e vale a mais baixa (1 sat/vB) → 1050 sat/kvB com
-     os 5% de folga. 2100 ≠ 10050 (o que sairia se o acumulado fosse lido
-     como vsize por faixa) prova que a soma não é feita duas vezes. O estimador (12/9/6/2 sat/vB)
-     nem entra na conta enquanto o histograma responde. */
+  /* O histograma do Electrum traz o vsize POR FAIXA: [[50,100k], [10,800k],
+     [2,600k], [1,900k]]. Para 1 bloco (1M vB) o acumulado só alcança a
+     capacidade na faixa de 2 sat/vB → 2 100 sat/kvB com os 5% de folga;
+     para 3 e 6 blocos (3M e 6M vB) nenhuma faixa alcança e vale a mais baixa
+     (1 sat/vB) → 1 050. O estimador responde 2 000, 5 000 e 10 000 sat/kvB,
+     então o maior dos dois inverte o vencedor por nível: fila no urgente,
+     estimador nos outros dois. Se a soma fosse feita em cima de um
+     histograma já cumulativo, o urgente sairia bem maior — por isso o teste
+     usa o acumulado por faixa e confere os três níveis. */
   const fake = await startFakeElectrum({
-    histogram: [[50, 100000], [10, 900000], [2, 1500000], [1, 2400000]]
+    histogram: [[50, 100000], [10, 800000], [2, 600000], [1, 900000]],
+    fees: { 1: 0.00002000, 3: 0.00005000, 6: 0.00010000 }
   });
   const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const r = await reqFees(env);
   assert.equal(r.status, 200);
-  assert.deepEqual(r.j.sat_per_kvb, { standard: 1050, high: 1050, urgent: 2100 },
-    'o corte de fila do histograma manda, não o estimador');
-  assert.deepEqual(r.j.levels, { standard: 1.05, high: 1.05, urgent: 2.1 });
+  assert.deepEqual(r.j.sat_per_kvb, { standard: 10000, high: 5000, urgent: 2100 },
+    'nível fica com o maior entre a fila (2 100/1 050) e o estimador (2 000/5 000/10 000)');
+  assert.deepEqual(r.j.levels, { standard: 10, high: 5, urgent: 2.1 });
   assert.deepEqual(r.j.floored, { standard: false, high: false, urgent: false });
   assert.equal(r.j.source, 'electrum', 'o formato da resposta não muda');
-  console.log('ok   corte de fila do histograma substitui o estimatefee');
+  console.log('ok   nível fica com o maior entre fila e estimador');
   await fake.close();
 }
 

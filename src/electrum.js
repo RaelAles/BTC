@@ -317,11 +317,20 @@ export async function transactionsMany(client, txids, opts) {
 /* Taxa ao vivo: dois pedidos na mesma conexão, e o segundo manda.
 
    `mempool.get_fee_histogram` é o estado da fila agora; dele sai o corte de
-   cada alvo (ver `cutoffKvb`). `blockchain.estimatefee` é a reserva: servidor
-   que não tem o histograma (ou responde erro) cai no estimador, como antes.
-   O estimador é histórico e suavizado — numa madrugada de taxa baixa ele
-   pode devolver menos que o corte da fila, e foi assim que uma transação de
-   0,1187 sat/vB ficou 40 h atrás de 21 blocos.
+   cada alvo (ver `cutoffKvb`). `blockchain.estimatefee` é o outro lado: o
+   que os blocos já minerados cobraram, suavizado pelo Core. Cada nível fica
+   com o MAIOR dos dois.
+
+   Ficar com o menor seria prometer prazo que a rede não cumpriu. Medido em
+   17/11/2026: a fila cotava 0,127 sat/vB para 30 min enquanto os blocos
+   recentes fechavam em 1,0 e 1,872 — três dos últimos seis blocos só
+   desceram até 0,12, os outros pararam em 1,0 ou acima. Com o maior dos
+   dois, o nível de 1 h do estimador (0,125) não muda nada, mas o de 30 min
+   sobe de 0,127 para ~1,0: mais caro, e entrando de fato.
+
+   O preço disso: em transação pequena (169 vB) o nível rápido passa de ~22
+   para ~180 satoshis. É o único jeito de a tela não repetir o caso da
+   transação de 0,1187 sat/vB, que ficou 40 h parada atrás de 21 blocos.
 
    Três alvos cobrem a escolha da tela, em ordem de prioridade: padrão (6 ≈
    1 h), alta (3 ≈ 30 min) e urgente (1 bloco ≈ 10 min; o Bitcoin Core trata
@@ -433,9 +442,13 @@ export async function estimateFees(client) {
     // × 1e8 em vez de × 1e5: sat/kvB é inteiro e exato; 0.0000097 * 1e5 daria
     // 0.9700000000000001, e sat/vB só existe para a tela
     const estimado = Number.isFinite(v) && v > 0 ? Math.round(v * 1e8) : null;
-    // o corte de fila decide a inclusão; o estimador é a reserva
+    // fila (para frente) e estimador (para trás): fica o maior dos dois, que
+    // é o único jeito de o número exibido não ser menor que o preço que os
+    // blocos vêm cobrando. Faltando um deles, vale o outro.
     const corte = cutoffKvb(histogram, FEE_TARGETS[k]);
-    const kvb = corte === null ? estimado : corte;
+    const kvb = corte === null ? estimado
+      : estimado === null ? corte
+      : Math.max(corte, estimado);
     satPerKvb[k] = kvb;
     satPerVb[k] = kvb === null ? null : kvb / 1000;
     floored[k] = kvb !== null && kvb < RELAY_MIN_KVB;
