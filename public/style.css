@@ -501,9 +501,7 @@
   a,
   .field-box,
   .field-select-mark,
-  .field-choice-mark,
   .field-upload-pick,
-  .fee-level-name,
   .scroll-arrow,
   .pager {
     transition:
@@ -519,9 +517,7 @@
     a,
     .field-box,
     .field-select-mark,
-    .field-choice-mark,
     .field-upload-pick,
-    .fee-level-name,
     .scroll-arrow,
     .pager {
       transition: none;
@@ -1551,26 +1547,9 @@
   /* O erro vem depois do foco, como na caixa: o foco no campo inválido não
      pode apagar a marca. */
   .field-box.is-invalid .field-select-mark { color: var(--error); }
-  /* Marcação: o input nativo continua no DOM (é ele que guarda o estado e
-     recebe o foco), mas some do desenho; quem desenha é o glifo [ ]/[x] ou
-     ( )/(*). O glifo fica em --dim e vai ao --support quando marcado, como o
-     item de menu em vigor; no hover, --fg. O foco tracejado fica no próprio
-     glifo, e não no texto, para não manchar a frase. */
-  .field-checks {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2) var(--space-9);
-    font-size: var(--text-md);
-  }
-  .field-choice {
-    display: inline-flex;
-    align-items: baseline;
-    gap: .6ch;
-    color: var(--fg);
-    text-transform: uppercase;
-    cursor: pointer;
-  }
-  .field-choice input,
+  /* O input nativo do anexo continua no DOM — é ele que guarda o estado e
+     recebe o foco — mas some do desenho: quem desenha é o botão
+     .field-upload-pick. */
   .field-upload input {
     position: absolute;
     width: 1px;
@@ -1578,23 +1557,6 @@
     overflow: hidden;
     clip: rect(0 0 0 0);
     white-space: nowrap;
-  }
-  .field-choice-mark {
-    flex: 0 0 auto;
-    min-width: 3ch;
-    color: var(--dim);
-    white-space: pre;
-  }
-  .field-choice-mark::before { content: "[ ]"; }
-  .field-choice input[type="radio"] + .field-choice-mark::before { content: "( )"; }
-  .field-choice input:checked + .field-choice-mark { color: var(--support); }
-  .field-choice input[type="checkbox"]:checked + .field-choice-mark::before { content: "[x]"; }
-  .field-choice input[type="radio"]:checked + .field-choice-mark::before { content: "(*)"; }
-  .field-choice:hover .field-choice-mark { color: var(--fg); }
-  .field-choice:hover input:checked + .field-choice-mark { color: var(--fg); }
-  .field-choice input:focus-visible + .field-choice-mark {
-    outline: 1px dashed var(--accent);
-    outline-offset: 2px;
   }
   /* Anexo: o input de arquivo nativo não aceita o desenho da casa (o texto
      "nenhum arquivo" e o botão vêm do navegador, traduzidos por ele), então
@@ -1785,16 +1747,15 @@
   .wallet-updated[hidden] { display: none; }
 
   /* Envio: o bloco segue o desenho do formulário (rótulo, caixa, recado) e
-     não inventa controle. A taxa é um grupo de rádio nativo (VG-FRM-10):
-     cada nível é uma linha com o nome em caixa alta (ação) e o custo em BTC
-     (dado) à direita, na mesma linguagem da legenda que existia antes. O
-     custo é sempre o do valor e do destino digitados; sem os dois, a seção
+     não inventa controle. A taxa é calculada, não escolhida: uma linha
+     `taxa 0,121 sat/vB · 0,2%` à direita do recado do máximo, com o custo
+     sempre referente ao valor e ao destino digitados; sem os dois, a seção
      inteira fica escondida. O PSBT não aparece como campo: fica só no
      arquivo que o botão baixa, com os detalhes nas notas abaixo. */
   #send-amount-hint:empty { display: none; }
   #fee-section[hidden] { display: none; }
   /* O recado do máximo e a taxa dividem a linha logo abaixo do input: o
-     recado à esquerda, os níveis à direita. Em tela estreita a taxa desce e
+     recado à esquerda, a taxa à direita. Em tela estreita a taxa desce e
      continua à direita (margin-left: auto), sem pular para a esquerda quando
      o recado some. */
   .send-limit-row {
@@ -1803,24 +1764,17 @@
     align-items: baseline;
     gap: var(--space-2) var(--space-6);
     margin: var(--space-2) 0 0;
-    /* A linha já nasce com a altura das legendas: sem isso, quando o
-       máximo e a taxa aparecem, o recado abaixo e o PSBT descem. A altura
-       é a de uma opção de taxa (respiro em cima e embaixo mais uma linha
-       de --text-sm), a mais alta das duas legendas na mesma linha. */
+    /* A linha já nasce com a altura de uma das legendas: sem isso, quando o
+       máximo e a taxa aparecem, o recado abaixo e o PSBT descem. */
     min-height: calc(2 * var(--space-2) + 1.65 * var(--text-sm));
   }
-  /* Em tela estreita a taxa desce para a linha de baixo (ver acima) e, em
-     telas menores ainda, os próprios níveis quebram em duas linhas. A
-     reserva acompanha as duas quebras para o conteúdo abaixo do campo não
-     saltar quando o recado e a taxa passam a existir. */
-  @media (max-width: 34.98em) {
+  /* Abaixo de ~21em o recado do máximo e a taxa não cabem na mesma linha
+     (medido: 281px de conteúdo) e a taxa desce. A reserva acompanha a
+     quebra para o conteúdo abaixo do campo não saltar quando os dois
+     passam a existir. Acima disso a linha é uma só. */
+  @media (max-width: 21.4em) {
     .send-limit-row {
-      min-height: calc(5 * var(--space-2) + 3.3 * var(--text-sm));
-    }
-  }
-  @media (max-width: 21.37em) {
-    .send-limit-row {
-      min-height: calc(6 * var(--space-2) + 1.65 * var(--text-md) + 3.3 * var(--text-sm));
+      min-height: calc(3 * var(--space-2) + 1.65 * var(--text-sm) + 1.65 * var(--text-md));
     }
   }
   .send-limit-row #send-amount-hint { margin: 0; }
@@ -1829,67 +1783,9 @@
      sem escolha para desenhar. */
   #fee-line { margin: 0; white-space: nowrap; }
   /* Recado do piso de relay (ver renderFeeNote em app.js): só existe quando
-     o nível escolhido está abaixo do piso; vazio não ocupa linha. */
+     a taxa calculada está abaixo do piso; vazio não ocupa linha. */
   #fee-note { margin: var(--space-3) 0 0; }
   #fee-note:empty { display: none; }
-  /* A taxa ocupa a direita da linha do recado do máximo (ver
-     .send-limit-row), no desenho dos botões de copiar: caixa alta, --accent
-     em repouso, --fg no hover e --support no escolhido, sem moldura. Cada
-     botão traz o prazo e, à direita dele, o percentual sobre o valor
-     enviado em --dim. O "|" em --sep separa dois botões, como na linha de
-     dados do histórico. O grupo herda o desenho do
-     .field-checks/.field-choice; aqui só a linha e o percentual ganham
-     regra. */
-  .fee-levels {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    align-items: baseline;
-    gap: var(--space-2) var(--space-3);
-    font-size: var(--text-sm);
-  }
-  .fee-level {
-    align-items: baseline;
-    gap: var(--space-3);
-    padding: var(--space-2) 0;
-  }
-  /* Nível escondido (ver visibleFeeLevels em app.js) sai do fluxo; o
-     atributo precisa da regra porque .field-choice define display. */
-  .fee-level[hidden] { display: none; }
-  /* O divisor fica dentro do botão da direita para não se soltar dele na
-     quebra de linha; o primeiro botão visível fica sem (ver renderFees). */
-  .fee-level-sep { color: var(--sep); }
-  .fee-level-sep[hidden] { display: none; }
-  /* O prazo responde ao clique como os botões de copiar: disponível em
-     --accent, hover em --fg, escolhido e no aperto em --support, sem
-     preenchimento nem moldura. O foco tracejado envolve o botão inteiro,
-     prazo e percentual, e não o rádio escondido; ele marca só o foco de
-     teclado, para o clique não deixar o contorno preso no botão. */
-  .fee-level-name { color: var(--accent); white-space: nowrap; }
-  .fee-level:hover .fee-level-name { color: var(--fg); }
-  .fee-level input:checked ~ .fee-level-name,
-  .fee-level:hover input:checked ~ .fee-level-name,
-  .fee-level:active input:checked ~ .fee-level-name,
-  .fee-level:active .fee-level-name { color: var(--support); }
-  .fee-level:focus-within {
-    outline: 1px dashed var(--accent);
-    outline-offset: 2px;
-  }
-  /* No foco de ponteiro o rádio continua sendo o elemento ativo, mas não
-     precisa do contorno: só o foco de teclado o mostra. Onde :has() não
-     existe, a regra acima segue valendo como recurso. */
-  .fee-level:has(input:not(:focus-visible)) {
-    outline: none;
-  }
-  /* O percentual é do valor enviado e fica em --dim, ao lado do prazo. Sem a
-     cota do servidor (valor e destino ainda incompletos), fica em `—`. */
-  .fee-level-pct { color: var(--dim); white-space: nowrap; }
-  .fee-level.is-empty,
-  .fee-level.is-empty:hover { color: var(--dim); cursor: default; }
-  .fee-level.is-empty .fee-level-name,
-  .fee-level.is-empty:hover .fee-level-name,
-  .fee-level.is-empty:active .fee-level-name,
-  .fee-level.is-empty input:checked ~ .fee-level-name { color: var(--dim); }
   /* Detalhes do PSBT: mesmo desenho de leitura do "receber" — rótulo em
      --dim à esquerda, valor no --fg e uma informação por linha —, ocupando a
      coluna inteira. */
