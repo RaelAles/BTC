@@ -18,16 +18,19 @@ tela mostra:
    escolher o que o pagador aceita. O rótulo de cada linha é só o BIP
    (`bip86`, `bip84`, `bip49`, `bip44`), com o botão de copiar ao lado do
    endereço — o clique no próprio endereço também copia;
-3. **lista de endereços já usados** (recebimento e troco), do uso mais
-   recente para o mais antigo, com **recebido** (com sinal `+`, no verde do
-   sucesso), **enviado** (com sinal `-`, no tom do erro) e **saldo** de cada
-   um, cinco por página, na tela **histórico**. **recebido** e **enviado**
-   somam o confirmado e o mempool do endereço, sem marca entre parênteses; a
-   pendência é dita só pela etiqueta `[ pendente ]`, no tom de aviso
-   (`--warning`), que o endereço com atividade no mempool leva ao lado do
-   ramo. O **saldo** é o disponível do endereço (inclui o troco pendente
-   dele). Os campos de valor zerados saem da lista e do resumo, e o vão até
-   a lista é o mesmo dos grupos do resumo do PSBT;
+3. **histórico por transação**, agrupado pelo `txid`, do mempool para o
+   bloco mais recente, na tela **histórico**. Cada item mostra o estado
+   (`[ pendente ]` ou `[ confirmada ]`), a direção (enviado, recebido ou
+   auto), o número de entradas e saídas, os valores que saíram e a taxa,
+   além dos endereços da carteira que participam da transação. A transação
+   pendente que ainda tem uma saída própria não gasta ganha o botão
+   **acelerar**: ele monta um PSBT de CPFP, sem assinatura, que gasta essa
+   saída e devolve o resto para o próximo endereço de troco. O pai continua
+   o mesmo; o painel mostra a taxa do pai, a taxa do filho e a taxa do
+   pacote. O PSBT baixado é assinado no Cofre BTC e importado em
+   **carteira → transmitir**, como o envio normal. A lista de endereços
+   usados continua na resposta da API, mas a tela passou a ler a lista
+   agrupada por transação;
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e **taxa
    calculada**, sem escolha — uma linha `taxa 0,121 sat/vB · 0,2%` na mesma
    linha do recado do máximo (o recado à esquerda e a taxa à direita; em tela
@@ -38,7 +41,8 @@ tela mostra:
    o destino recusado, não há o que cotar. Não há botão de taxa: a escolha
    entre níveis saiu porque, medido em 17/11/2026, ela entregava ~12 e ~14
    minutos de espera por 8x de preço — decisão sem informação para o usuário e
-   sem plano B (o envio não é substituível). A quantidade usa
+   sem plano B no formulário; se a transação ficar presa, o histórico
+   oferece **acelerar** por CPFP. A quantidade usa
    máscara de BTC: o usuário digita só dígitos e o ponto entra sozinho, da
    direita para a esquerda (`1` → `0.00000001`, `12345678` → `0.12345678`).
    A nota abaixo do campo mostra o máximo enviável para o destino e a taxa
@@ -175,6 +179,12 @@ blockchain.info, nem chave privada em lugar nenhum.
   saída de troco: é somado à taxa, e a resposta separa esse resto
   (`dust_sats`) da tarifa (`fee_sats_at_rate`) para a tela explicar a
   diferença.
+- **CPFP**: para uma transação pendente com todas as entradas desta
+  carteira e uma saída própria ainda não gasta, `POST /api/cpfp` monta a
+  filha que gasta essa saída e devolve o resto para o próximo endereço de
+  troco. O servidor soma a taxa e a vsize do pai e dos ancestrais ainda no
+  mempool e calcula a taxa do filho para o pacote atingir a taxa pedida. A
+  filha não tem destino externo; o PSBT sai sem assinatura para o Cofre.
 - **Transmissão**: `POST /api/broadcast` recebe o PSBT assinado e confere
   cada entrada contra os scripts/UTXOs da carteira, exige as entradas
   finalizadas, classifica as saídas (destino, troco, externo) e calcula a
@@ -427,6 +437,7 @@ test/
   psbt.test.mjs       taxa, escolha de UTXO, PSBT e assinatura no btc-core
   coin-selection.test.mjs  regra da escolha (menor que cobre, par, pó, desempate)
   broadcast.test.mjs  conferência do PSBT assinado e transmissão (Worker e DO)
+  cpfp.test.mjs       histórico por txid, PSBT da filha e pacote CPFP
   fake-electrum.mjs   servidor Electrum falso (TCP em 127.0.0.1, com notify)
   tx-fixture.mjs      transações cruas montadas com o btc-core
 ```
@@ -549,6 +560,13 @@ qualquer bloco confirmado e leva a etiqueta `[ pendente ]`, no tom de aviso,
 na tela. Mesma
 altura desempata pelo índice maior, para a ordem não mudar entre consultas
 iguais.
+
+`transactions` é a lista que a tela do histórico usa: uma entrada por
+`txid`, com `pending`, `height`, `direction` (`in`, `out` ou `self`),
+`received_sats`, `sent_sats`, `fee_sats` (quando todas as entradas são desta
+carteira), `input_count`, `output_count`, `addresses` e `cpfp` (elegibilidade,
+motivo e a saída escolhida). `addresses` continua na resposta para as contas
+de saldo e para compatibilidade; a tela agrupa por transação.
 
 `types` traz **os quatro tipos**, na ordem bip86 → bip84 → bip49 → bip44 (o
 BIP mais alto, tecnologia mais recente, primeiro) e com o detectado marcado
@@ -698,6 +716,29 @@ origem usa a **impressão digital da conta**, e não a da raiz: com só a xpub,
 (`m/84'/0'/0'/0/120`) e o Cofre BTC confere a conta, deriva o caminho,
 confere a chave pública e o script antes de assinar. Nenhuma chave privada
 entra no Worker nem na resposta.
+
+### `POST /api/cpfp`
+
+```json
+{ "xpub": "xpub...", "session": "opcional",
+  "txid": "2104c1bf...", "fee_rate": 11 }
+```
+
+Monta o PSBT v0 **sem assinatura** da transação filha de CPFP. A filha gasta
+uma saída própria ainda não gasta do pai (normalmente o troco) e devolve o
+resto para o próximo endereço livre do ramo `/1` do tipo detectado; não há
+saída externa. O `txid` tem de ser de uma transação pendente, com todas as
+entradas derivadas desta carteira e com a taxa do pai conferível. O servidor
+soma a taxa e a vsize do pai e dos ancestrais ainda no mempool, calcula a
+taxa do filho para o pacote atingir `fee_rate` e recusa quando a saída do pai
+não cobre o retorno acima do pó. A resposta traz `parent`, `package`, `input`
+e `output`, além do `psbt`, `txid`, `vsize` e `fee_sats` do filho. A
+assinatura continua sendo feita no Cofre BTC; a transmissão usa
+`/api/broadcast` como no envio normal. O CPFP não elimina a confiança no
+Electrum para saber se o pai está pendente e qual é a taxa: a defesa é a
+filha devolver todo o valor para a carteira (sem destino externo) e a revisão
+no Cofre BTC. Se o pai não estiver no mempool, o caminho é reenviar o pai, não
+acelerar.
 
 ### `POST /api/broadcast`
 
@@ -1025,5 +1066,6 @@ saldo daquele endereço, agora com o enviado explícito.
   o oposto do desenho atual.
 - Cache opcional (D1/KV) para abrir mais rápido, se o tempo de varredura
   incomodar; seria opt-in e voltaria a guardar endereços derivados.
-- Política de taxa mais fina (RBF, CPFP) e escolha de moedas por privacidade,
-  se a maior-primeiro incomodar.
+- RBF com uma referência local da transação original (o CPFP já está
+  implementado) e escolha de moedas por privacidade, se a maior-primeiro
+  incomodar.

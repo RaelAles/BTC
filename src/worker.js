@@ -17,6 +17,9 @@ import BTC from './btc-core.js';
    `POST /api/psbt`    → monta o PSBT de envio (sem assinatura) com os UTXOs
                          da carteira e a taxa escolhida. A chave privada
                          não passa por aqui; quem assina é o Cofre BTC.
+   `POST /api/cpfp`   → monta o PSBT da transação filha (CPFP) que gasta uma
+                         saída da transação pendente e devolve o resto para a
+                         carteira. Sem assinatura e sem transmitir.
    `POST /api/broadcast` → confere o PSBT assinado contra a carteira e
                          (sem `preview`) publica a transação final no
                          Electrum. Só transmite o que gasta entradas desta
@@ -206,6 +209,55 @@ async function handlePsbt(request, env) {
    cruza cada entrada com os scripts/UTXOs da carteira; sem ela não há como
    dizer que a transação é sua. Com sessão, o DO reaproveita a conexão e, ao
    transmitir, as assinaturas já avisam a tela do estado novo. */
+/* CPFP: a filha gasta uma saída da transação pendente. O corpo é só o txid
+   do pai e a taxa-alvo; o servidor escolhe a saída, calcula o pacote e monta
+   o PSBT sem assinatura. A chave privada continua no Cofre BTC. */
+async function handleCpfp(request, env) {
+  let body;
+  try { body = await request.json(); } catch (e) { return fail('json inválido'); }
+  const xpub = String(body.xpub || '').trim();
+  if (!xpub) return fail('informe a xpub');
+  let account;
+  try { account = parseXpub(xpub); }
+  catch (e) { return fail(xpubHint(xpub) || e.message); }
+  const txid = String(body.txid || '').trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(txid)) return fail('txid inválido');
+  const feeRate = Number(body.fee_rate);
+  try { feeRateKvb(feeRate); }
+  catch (e) { return fail(e.message); }
+
+  const session = sessionId(body.session);
+  if (env.WATCH && session) {
+    const stub = env.WATCH.get(env.WATCH.idFromString(session));
+    const res = await stub.fetch('https://watch/cpfp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ xpub, txid, feeRate })
+    });
+    const payload = await res.json();
+    // sessão despejada: refaz a varredura avulsa e monta do mesmo jeito
+    if (res.status !== 409) return json(payload, res.status);
+  }
+
+  const cfg = electrumConfig(env);
+  if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
+  let client;
+  try {
+    client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
+  } catch (e) {
+    return fail('Electrum indisponível: ' + (e && e.message ? e.message : e), 502);
+  }
+  try {
+    const scanner = await new WalletScanner({ env, xpub, account, client }).init();
+    await scanner.fullSync();
+    return json(await scanner.prepareCpfp({ txid, feeRate }));
+  } catch (e) {
+    return fail(e && e.message ? e.message : String(e), 400);
+  } finally {
+    try { await client.close(); } catch (e) {}
+  }
+}
+
 async function handleBroadcast(request, env) {
   let body;
   try { body = await request.json(); } catch (e) { return fail('json inválido'); }
@@ -313,6 +365,10 @@ async function route(request, env) {
     if (url.pathname === '/api/psbt') {
       if (request.method !== 'POST') return fail('use POST', 405);
       return await handlePsbt(request, env);
+    }
+    if (url.pathname === '/api/cpfp') {
+      if (request.method !== 'POST') return fail('use POST', 405);
+      return await handleCpfp(request, env);
     }
     if (url.pathname === '/api/broadcast') {
       if (request.method !== 'POST') return fail('use POST', 405);

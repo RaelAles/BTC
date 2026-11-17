@@ -9,10 +9,6 @@
   var $ = function (sel, root) { return (root || document).querySelector(sel); };
   var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
 
-  /* Rótulo curto do tipo de conta: o formato do endereço (p2tr, p2wpkh…) já
-     aparece na própria chave, então a tabela fica só com o BIP. */
-  var TYPE_PURPOSE = { bip86: 86, bip84: 84, bip49: 49, bip44: 44 };
-
   /* Lista do histórico: a quantidade de itens por página é medida na área
      visível a cada desenho, em vez de um número fixo (VG-LST-03). Só o ramo
      de troco ganha palavra, para o caminho não ficar só com número. */
@@ -67,6 +63,8 @@
     broadcastBusy: false,
     broadcastSent: false, // a transação já foi publicada
     broadcastSeq: 0,    // descarta resposta de um arquivo que já saiu da tela
+    cpfp: null,         // PSBT da filha CPFP: { txid, status, data, error }
+    cpfpSeq: 0,         // descarta resposta de uma aceleração que já saiu da tela
     sendValidationError: '', // erro de campo no #send-status, separado do PSBT
     screen: 'carteira', // tela em vigor (carteira | historico)
     langOpen: false,    // a tela de idiomas está aberta
@@ -1660,17 +1658,23 @@
     }
   }
 
-  function downloadPsbt() {
-    if (!state.psbt || state.psbtStale) return;
-    var blob = new Blob([state.psbt.psbt], { type: 'text/plain' });
+  function downloadPsbtText(text, name) {
+    if (!text) return;
+    var blob = new Blob([text], { type: 'text/plain' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = 'psbt-' + String(state.psbt.txid || 'psbt').slice(0, 8) + '.psbt';
+    a.download = name;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 0);
+  }
+
+  function downloadPsbt() {
+    if (!state.psbt || state.psbtStale) return;
+    downloadPsbtText(state.psbt.psbt,
+      'psbt-' + String(state.psbt.txid || 'psbt').slice(0, 8) + '.psbt');
   }
 
   /* ------------------------------ transmitir o psbt assinado (Cofre BTC) */
@@ -1950,14 +1954,14 @@
     return signedBtc(sats, dir) + sharePct(sats);
   }
 
-  /* Extrato (VG-LST-01): um item por endereço usado, na ordem que o
-     servidor manda — o uso mais recente primeiro —, com quantos itens
-     couberem na área visível por página. O endereço é o título em texto
-     simples (sem a caixa do <code>), o caminho e o ramo de troco viram
-     tags, e a linha de dados traz recebido, enviado e saldo. O histórico é
-     só leitura: quem copia endereço é o bloco receber. */
+  /* Extrato (VG-LST-01): um item por transação, agrupado pelo txid, na
+     ordem que o servidor manda — mempool primeiro e depois o bloco mais
+     recente. O txid é o título, as entradas/saídas viram contagem e os
+     endereços da carteira que participam da transação ficam na linha de
+     apoio. A transação pendente que tem saída própria não gasta ganha a
+     ação "acelerar" (CPFP). */
   function historyRows() {
-    return (state.data && state.data.addresses) || [];
+    return (state.data && state.data.transactions) || [];
   }
 
   function historyPerPageCount() {
@@ -2045,46 +2049,57 @@
     });
   }
 
-  function historyItemNode(a) {
-    var purpose = TYPE_PURPOSE[a.account_type] || '?';
-    var chain = a.chain === 1 ? 'troco' : '';
-    /* recebido e enviado somam o confirmado e o mempool do endereço; a
-       pendência em si é dita só pela etiqueta [ pendente ] da linha. */
-    var received = (Number(a.received) || 0) + (Number(a.pending_in) || 0);
-    var spent = (Number(a.spent) || 0) + (Number(a.pending_out) || 0);
-    var balance = Number(a.balance) || 0;
-    /* Valor zerado não entra na linha: só o que tem direção ou saldo é
-       lido, e os divisores ficam entre os campos que sobraram. */
+  function historyItemNode(t) {
+    var sep = ' <span class="tag-sep" aria-hidden="true">·</span> ';
+    var status = t.pending
+      ? '<span class="tag tag-pending">[ pendente ]</span>'
+      : '<span class="tag">[ confirmada ]</span>';
+    var direction = t.direction === 'out' ? 'enviado'
+      : t.direction === 'in' ? 'recebido' : 'auto';
     var values = [];
-    if (received > 0) {
-      values.push('<span class="value-label">recebido</span> ' + signedBtc(received, 'in'));
+    if (t.direction === 'in' && Number(t.received_sats) > 0) {
+      values.push('<span class="value-label">recebido</span> ' + signedBtc(t.received_sats, 'in'));
     }
-    if (spent > 0) {
-      values.push('<span class="value-label">enviado</span> ' + signedBtc(spent, 'out'));
+    if (t.direction === 'out' && Number(t.sent_sats) > 0) {
+      values.push('<span class="value-label">enviado</span> ' + signedBtc(t.sent_sats, 'out'));
     }
-    if (balance > 0) {
-      values.push('<span class="value-label">saldo</span> ' + fmtBtc(balance));
+    if (t.direction === 'self' && Number(t.received_sats) > 0) {
+      values.push('<span class="value-label">auto</span> ' + fmtBtc(t.received_sats));
     }
-    var li = document.createElement('li');
-    li.className = 'item';
-    li.innerHTML =
-      '<h3><span class="item-title is-static">' + esc(a.address) + '</span></h3>' +
-      '<p class="item-meta">m/' + purpose + "'/0'/0'/" + a.chain + '/' + a.idx +
-        (chain
-          ? ' <span class="tag-sep" aria-hidden="true">·</span> ' +
-            '<span class="tag">' + chain + '</span>'
-          : '') +
-        ' <span class="tag-sep" aria-hidden="true">·</span> ' +
-        '<span class="tag">bip' + purpose + '</span>' +
-        (a.pending
-          ? ' <span class="tag-sep" aria-hidden="true">·</span> <span class="tag tag-pending">[ pendente ]</span>'
-          : '') +
-      '</p>' +
+    if (Number(t.fee_sats) > 0) {
+      values.push('<span class="value-label">taxa</span> ' + signedBtc(t.fee_sats, 'out'));
+    }
+    var meta = status + sep + '<span class="tag">' + direction + '</span>' + sep +
+      fmtInt(t.input_count) + (t.input_count === 1 ? ' entrada' : ' entradas') + sep +
+      fmtInt(t.output_count) + (t.output_count === 1 ? ' saída' : ' saídas');
+    var html =
+      '<h3><span class="item-title is-static history-txid">' + esc(t.txid) + '</span></h3>' +
+      '<p class="item-meta">' + meta + '</p>' +
       (values.length
         ? '<p class="item-meta history-values">' +
           values.join(' <span class="value-sep" aria-hidden="true">|</span> ') +
           '</p>'
         : '');
+    var addrs = t.addresses || [];
+    if (addrs.length) {
+      var labels = { entrada: 'entrada', troco: 'troco', recebimento: 'recebimento' };
+      var shown = addrs.slice(0, 2).map(function (a) {
+        return '<span class="history-address">' + esc(a.address) + '</span> ' +
+          '<span class="tag">' + (labels[a.role] || a.role) + '</span>';
+      });
+      if (addrs.length > 2) shown.push('<span class="tag">+' + (addrs.length - 2) + '</span>');
+      html += '<p class="item-meta history-addresses">' + shown.join(sep) + '</p>';
+    }
+    if (t.cpfp && t.cpfp.eligible) {
+      html += '<div class="chips history-actions" role="group" aria-label="Ações da transação">' +
+        '<button type="button" data-cpfp="' + esc(t.txid) + '">acelerar</button></div>';
+    } else if (t.pending && t.direction !== 'in' && t.cpfp && t.cpfp.reason) {
+      html += '<p class="item-meta history-cpfp-note">[ não acelerável ] ' +
+        esc(t.cpfp.reason) + '</p>';
+    }
+    var li = document.createElement('li');
+    li.className = 'item';
+    li.innerHTML = html;
     return li;
   }
 
@@ -2146,6 +2161,144 @@
     updateScroll();
   }
 
+  /* ------------------------------ acelerar (CPFP) */
+  function setCpfpStatus(kind, text) {
+    setStatusTo($('#cpfp-status'), kind, text);
+  }
+
+  function resetCpfp() {
+    state.cpfpSeq++;
+    state.cpfp = null;
+    var out = $('#cpfp-out');
+    if (out) out.hidden = true;
+    setCpfpStatus('', '');
+    updateScroll();
+  }
+
+  function renderCpfp() {
+    var out = $('#cpfp-out');
+    var c = state.cpfp;
+    if (out) out.hidden = !c;
+    if (!c) return;
+    var d = c.data;
+    var meta = $('#cpfp-meta');
+    var download = $('#cpfp-download');
+    if (meta) meta.hidden = !d;
+    if (download) {
+      if (d) download.removeAttribute('aria-disabled');
+      else download.setAttribute('aria-disabled', 'true');
+    }
+    if (!d) {
+      ['#cpfp-parent', '#cpfp-parent-fee', '#cpfp-parent-vsize', '#cpfp-child-txid',
+        '#cpfp-child-fee', '#cpfp-child-vsize', '#cpfp-package', '#cpfp-target',
+        '#cpfp-return'].forEach(function (sel) {
+        var el = $(sel);
+        if (el) el.textContent = '—';
+      });
+      var warn = $('#cpfp-warn');
+      if (warn) warn.textContent = '';
+      if (c.status === 'loading') setCpfpStatus('', 'montando o psbt...');
+      else if (c.status === 'error') setCpfpStatus('error', c.error || 'não foi possível montar o psbt.');
+      updateScroll();
+      return;
+    }
+    var rate = function (value) {
+      var n = Number(value) || 0;
+      return String(Math.round(n * 100) / 100).replace('.', ',');
+    };
+    var parent = $('#cpfp-parent');
+    if (parent) parent.textContent = d.parent.txid;
+    var parentFee = $('#cpfp-parent-fee');
+    if (parentFee) parentFee.innerHTML = signedBtc(d.parent.fee_sats, 'out');
+    var parentVsize = $('#cpfp-parent-vsize');
+    if (parentVsize) parentVsize.textContent = fmtInt(d.parent.vsize) + ' vB';
+    var child = $('#cpfp-child-txid');
+    if (child) child.textContent = d.txid;
+    var childFee = $('#cpfp-child-fee');
+    if (childFee) childFee.innerHTML = signedBtc(d.fee_sats, 'out');
+    var childVsize = $('#cpfp-child-vsize');
+    if (childVsize) childVsize.textContent = fmtInt(d.vsize) + ' vB';
+    var pkg = $('#cpfp-package');
+    if (pkg) {
+      pkg.innerHTML = signedBtc(d.package.fee_sats, 'out') +
+        ' <span class="value-sep" aria-hidden="true">|</span> ' +
+        '<span class="value-pct">' + rate(d.package.fee_rate) + ' sat/vB</span>';
+    }
+    var target = $('#cpfp-target');
+    if (target) target.textContent = rate(d.package.target_fee_rate) + ' sat/vB';
+    var ret = $('#cpfp-return');
+    if (ret) {
+      ret.innerHTML = signedBtc(d.output.value, 'in') +
+        ' <span class="value-sep" aria-hidden="true">|</span> ' +
+        '<span class="history-address">' + esc(d.output.address) + '</span>';
+    }
+    var warnings = [];
+    if (Number(d.package.ancestors) > 0) {
+      warnings.push('o pacote inclui ' + fmtInt(d.package.ancestors) + ' transação(ões) anterior(es) ainda no mempool.');
+    }
+    if (Array.isArray(d.warnings) && d.warnings.length) warnings = warnings.concat(d.warnings);
+    var warnEl = $('#cpfp-warn');
+    if (warnEl) warnEl.textContent = warnings.join(' ');
+    setCpfpStatus('', 'psbt montado; baixe e assine no Cofre BTC.');
+    updateScroll();
+  }
+
+  async function startCpfp(txid) {
+    if (!state.xpub) return;
+    var seq = ++state.cpfpSeq;
+    state.cpfp = { txid: txid, status: 'loading', data: null, error: '' };
+    renderCpfp();
+    var panel = $('#cpfp-out');
+    if (panel && panel.scrollIntoView) panel.scrollIntoView({ block: 'nearest' });
+    try {
+      var rate = feeRateNow();
+      if (!feeRateOk(rate)) {
+        await loadFees();
+        rate = feeRateNow();
+      }
+      if (!feeRateOk(rate)) throw new Error('taxa indisponível; tente de novo.');
+      var xpub = state.xpub;
+      var body = { xpub: xpub, txid: txid, fee_rate: rate };
+      if (state.session) body.session = state.session;
+      var r = await fetch('/api/cpfp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      var j = await r.json();
+      // sessão do Durable Object caiu: reenvia a xpub e tenta uma vez
+      if (r.status === 409) {
+        await load(true);
+        if (state.xpub !== xpub) throw new Error('a carteira mudou; tente de novo.');
+        if (!state.session) throw new Error('sessão expirada; recarregue a carteira.');
+        body.session = state.session;
+        r = await fetch('/api/cpfp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        j = await r.json();
+      }
+      if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+      if (seq !== state.cpfpSeq || state.xpub !== xpub) return;
+      state.cpfp = { txid: txid, status: 'ready', data: j, error: '' };
+      renderCpfp();
+    } catch (e) {
+      if (seq !== state.cpfpSeq) return;
+      state.cpfp = {
+        txid: txid, status: 'error', data: null,
+        error: e && e.message ? e.message : String(e)
+      };
+      renderCpfp();
+    }
+  }
+
+  function downloadCpfp() {
+    var d = state.cpfp && state.cpfp.data;
+    if (!d || !d.psbt) return;
+    downloadPsbtText(d.psbt, 'cpfp-' + String(d.txid || 'psbt').slice(0, 8) + '.psbt');
+  }
+
   function render(d) {
     stopScan();
     state.data = d;
@@ -2167,20 +2320,20 @@
     renderReceive(d);
     $('#v-warnings').innerHTML = (d.warnings || []).map(function (w) { return esc(w); }).join('<br>');
 
-    var rows = d.addresses || [];
-    var sum = { received: 0, spent: 0 };
-    rows.forEach(function (a) {
-      sum.received += (Number(a.received) || 0) + (Number(a.pending_in) || 0);
-      sum.spent += (Number(a.spent) || 0) + (Number(a.pending_out) || 0);
+    var txs = d.transactions || [];
+    var sum = { received: 0, sent: 0 };
+    txs.forEach(function (t) {
+      if (t.direction === 'in') sum.received += Number(t.received_sats) || 0;
+      if (t.direction === 'out') sum.sent += Number(t.sent_sats) || 0;
     });
-    var countLabel = rows.length === 1 ? 'endereço' : 'endereços';
+    var countLabel = txs.length === 1 ? 'transação' : 'transações';
     /* O resumo é a tabela de leitura da carteira (VG-ABS-04): o total de
-       endereços vira uma linha de dados, com o plural do rótulo pela
+       transações vira uma linha de dados, com o plural do rótulo pela
        contagem, e os valores repetem a marcação do extrato — rótulo em
        --dim, valor com o sinal e a cor da direção (VG-COR-16). Os valores
        zerados não viram linha. */
     var summaryRows =
-      '<tr><th scope="row">' + countLabel + '</th><td>' + fmtInt(rows.length) + '</td></tr>';
+      '<tr><th scope="row">' + countLabel + '</th><td>' + fmtInt(txs.length) + '</td></tr>';
     if (sum.received > 0) {
       summaryRows +=
         '<tr><th scope="row">recebido</th><td>' + signedBtc(sum.received, 'in') + '</td></tr>';
@@ -2236,6 +2389,7 @@
     if (summary) summary.textContent = 'cole a xpub, zpub ou ypub na carteira para ver o histórico.';
     resetSend();
     resetBroadcast();
+    resetCpfp();
     setStatus('', '');
     syncHistoryState();
     updateScroll();
@@ -2661,6 +2815,16 @@
       if (!btn || btn.getAttribute('aria-disabled') === 'true') return;
       goPage(btn.id === 'history-next' ? 1 : -1);
     });
+    var historyList = $('#history-list');
+    if (historyList) historyList.addEventListener('click', function (ev) {
+      var btn = ev.target.closest ? ev.target.closest('[data-cpfp]') : null;
+      if (!btn) return;
+      startCpfp(btn.getAttribute('data-cpfp'));
+    });
+    var cpfpDownload = $('#cpfp-download');
+    if (cpfpDownload) cpfpDownload.addEventListener('click', downloadCpfp);
+    var cpfpClear = $('#cpfp-clear');
+    if (cpfpClear) cpfpClear.addEventListener('click', resetCpfp);
 
     var scanContinue = $('#scan-continue');
     if (scanContinue) scanContinue.addEventListener('click', function () {

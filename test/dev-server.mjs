@@ -13,6 +13,7 @@ import { deriveAddress, parseXpub } from '../src/derivation.js';
 import { scripthash, setConnectOverride } from '../src/electrum.js';
 import { startFakeElectrum, nodeConnect } from './fake-electrum.mjs';
 import { makeTx } from './tx-fixture.mjs';
+import BTC from '../src/btc-core.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pub = path.join(__dirname, '..', 'public');
@@ -23,6 +24,7 @@ const ua = parseXpub(USER);
 const t86a = await deriveAddress('bip86', ua, 0, 0);
 const t86b = await deriveAddress('bip86', ua, 0, 1);
 const t84a = await deriveAddress('bip84', ua, 0, 0);
+const t86c = await deriveAddress('bip86', ua, 1, 0);
 
 const txA = makeTx([{ txid: '11'.repeat(32), vout: 0 }], [{ value: 11100, script: t86a.script }]);
 const txB = makeTx([{ txid: '12'.repeat(32), vout: 0 }], [{ value: 4000, script: t86b.script }]);
@@ -30,16 +32,27 @@ const txC = makeTx([{ txid: txA.txid, vout: 0 }], [
   { value: 3000, script: t84a.script },
   { value: 8000, script: t86b.script }
 ]);
+/* Pendente e com troco próprio: é o caso que ganha o botão "acelerar". */
+const other = BTC.derive('10' + '0'.repeat(254));
+const txD = makeTx([{ txid: txC.txid, vout: 1 }], [
+  { value: 3000, script: BTC.scriptFromAddress(other.addresses.p2wpkh) },
+  { value: 4800, script: t86c.script }
+]);
 
 const histories = {
   [scripthash(t86a.script)]: [{ height: 700000, tx_hash: txA.txid }],
   [scripthash(t86b.script)]: [
     { height: 700100, tx_hash: txB.txid },
-    { height: 700200, tx_hash: txC.txid }
+    { height: 700200, tx_hash: txC.txid },
+    { height: 0, tx_hash: txD.txid }
   ],
-  [scripthash(t84a.script)]: [{ height: 700200, tx_hash: txC.txid }]
+  [scripthash(t84a.script)]: [{ height: 700200, tx_hash: txC.txid }],
+  [scripthash(t86c.script)]: [{ height: 0, tx_hash: txD.txid }]
 };
-const txs = { [txA.txid]: txA.raw, [txB.txid]: txB.raw, [txC.txid]: txC.raw };
+const txs = {
+  [txA.txid]: txA.raw, [txB.txid]: txB.raw,
+  [txC.txid]: txC.raw, [txD.txid]: txD.raw
+};
 
 const fake = await startFakeElectrum({ histories, txs });
 setConnectOverride(nodeConnect);

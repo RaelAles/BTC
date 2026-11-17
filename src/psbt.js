@@ -14,7 +14,7 @@ import BTC from './btc-core.js';
 /* Abaixo disso a saída de troco vira pó e é mais barato somar à taxa. O
    valor é conservador: cobre p2pkh (546) e fica acima do pó de p2wpkh e
    p2tr, que é menor. */
-const DUST_SATS = 546;
+export const DUST_SATS = 546;
 
 /* Faixa aceita para a taxa, em sat/vB. O estimador responde em sat/kvB, então
    a taxa pode ter casas decimais; a conta é feita em sat/kvB inteiro e só o
@@ -481,5 +481,77 @@ export async function preparePsbt({
         ? [{ address: changeRow.address, value: pick.change, own: 'troco', path: changeRow.path }]
         : [])
     ]
+  };
+}
+
+/* CPFP: monta a transação filha que gasta uma saída da transação presa e
+   devolve o resto para o próximo endereço de troco da carteira. O pai não é
+   alterado; a taxa extra sai do valor dessa saída. A função é só a montagem:
+   quem escolhe a saída e calcula a taxa do pacote é o chamador (wallet-sync),
+   que tem a transação crua e os valores das entradas. */
+export async function prepareCpfpPsbt({
+  account, spend, changeRow, childFee, feeRate, rawTxFor, parent, packageBefore
+}) {
+  if (!spend || !spend.row) throw new Error('saída do pai indisponível');
+  if (!changeRow) throw new Error('endereço de troco indisponível');
+  const fee = Number(childFee);
+  if (!Number.isSafeInteger(fee) || fee <= 0) throw new Error('taxa do filho inválida');
+  const value = Number(spend.value) - fee;
+  if (!Number.isSafeInteger(value) || value < DUST_SATS) {
+    throw new Error('a saída do pai não cobre a taxa necessária (o retorno ficaria abaixo do pó de ' +
+      DUST_SATS + ' sats)');
+  }
+  const rawTx = rawTxFor ? await rawTxFor(spend.txid) : null;
+  if (!rawTx) throw new Error('transação pai não encontrada para o non_witness_utxo');
+  const fingerprint = hex(BTC.hash160(account.pub)).slice(0, 8);
+  const changeScript = BTC.hexToBytes(changeRow.script);
+  const inputs = [{
+    txid: spend.txid,
+    vout: spend.vout,
+    value: spend.value,
+    script: BTC.hexToBytes(spend.script),
+    kind: spend.row.kind,
+    pub: BTC.hexToBytes(spend.row.pub),
+    path: spend.row.path,
+    fingerprint,
+    rawTx
+  }];
+  const outputs = [{
+    value,
+    script: changeScript,
+    origin: rowOrigin(changeRow, fingerprint)
+  }];
+  const built = BTC.buildPsbt({ inputs, outputs });
+  const tx = built.tx;
+  const packageFee = Number(packageBefore.fee_sats) + fee;
+  const packageVsize = Number(packageBefore.vsize) + built.vsize;
+  const rateKvb = feeRateKvb(feeRate);
+  return {
+    psbt: built.base64,
+    txid: built.txid,
+    vsize: built.vsize,
+    locktime: tx.locktime >>> 0,
+    rbf: (tx.version >>> 0) >= 2 && tx.inputs.some(inp => (inp.sequence >>> 0) < 0xffffffff),
+    fee_sats: fee,
+    fee_rate: built.vsize ? fee / built.vsize : 0,
+    total_in: Number(spend.value),
+    total_out: value,
+    parent,
+    package: {
+      fee_sats: packageFee,
+      vsize: packageVsize,
+      fee_rate: packageVsize ? packageFee / packageVsize : 0,
+      target_fee_sats: feeSats(rateKvb, packageVsize),
+      target_fee_rate: Number(feeRate),
+      ancestors: Math.max(0, Number(packageBefore.count || 1) - 1)
+    },
+    input: {
+      txid: spend.txid, vout: spend.vout, value: spend.value,
+      address: spend.row.address, path: spend.row.path,
+      type: spend.row.account_type, kind: spend.row.kind
+    },
+    output: {
+      address: changeRow.address, value, path: changeRow.path, own: 'troco'
+    }
   };
 }

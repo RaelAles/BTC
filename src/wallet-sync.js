@@ -9,7 +9,7 @@
 import { chainNode, deriveChild, TYPE_INFO } from './derivation.js';
 import { historiesMany, transactionsMany } from './electrum.js';
 import { totalsForScripts, utxosForScripts } from './address-totals.js';
-import { preparePsbt, sendLimits } from './psbt.js';
+import { preparePsbt, sendLimits, prepareCpfpPsbt, feeRateKvb, feeSats, DUST_SATS } from './psbt.js';
 import BTC from './btc-core.js';
 
 const DEFAULT_GAP = 50;
@@ -23,6 +23,7 @@ const HIST_CONCURRENCY = 100;
 const TX_CONCURRENCY = 20;
 
 function now() { return new Date().toISOString(); }
+function hex(bytes) { return BTC.bytesToHex(bytes); }
 
 function rowKey(type, chain) { return type + ':' + chain; }
 
@@ -172,7 +173,10 @@ export class WalletScanner {
       for (const [txid, raw] of [...cached, ...fetched.raw]) {
         try {
           const tx = BTC.readTx(BTC.hexToBytes(raw));
-          entries.push({ txid, height: heights.get(txid) || 0, outputs: tx.outputs, inputs: tx.inputs });
+          entries.push({
+            txid, height: heights.get(txid) || 0, outputs: tx.outputs, inputs: tx.inputs,
+            vsize: BTC.vsizeOf(tx)
+          });
         } catch (e) {
           errors.set(txid, 'transação ilegível');
         }
@@ -182,6 +186,22 @@ export class WalletScanner {
     /* UTXOs = saídas nossas que nenhuma transação conhecida gastou. Só são
        usados para montar PSBT; se faltou transação, prepare() recusa. */
     this.utxos = utxosForScripts(entries, scripts);
+    /* Índices em memória para o extrato por transação e para o CPFP. O mapa
+       de saídas cobre TODAS as saídas conhecidas (inclusive as externas),
+       porque o valor de uma entrada nossa vem da transação anterior. */
+    this.entries = entries;
+    this.entryByTxid = new Map(entries.map(tx => [tx.txid, tx]));
+    this.outpointIndex = new Map();
+    for (const tx of entries) {
+      for (let vout = 0; vout < tx.outputs.length; vout++) {
+        const out = tx.outputs[vout];
+        this.outpointIndex.set(tx.txid + ':' + vout, {
+          txid: tx.txid, vout, value: Number(out.value) || 0,
+          script: hex(out.script), height: tx.height || 0
+        });
+      }
+    }
+    this.utxoByKey = new Map(this.utxos.map(u => [u.txid + ':' + u.vout, u]));
 
     /* Disponível = saída confirmada não gasta + troco de transação nossa
        ainda pendente. O troco é uma saída da mesma transação do envio e some
@@ -226,6 +246,207 @@ export class WalletScanner {
     if (errors.size) this.errors = errors;
     else this.errors = null;
     return totals;
+  }
+
+  /* Resumo de uma transação para o extrato por txid. `own_inputs` e
+     `own_outputs` guardam a linha derivada (com pub/chave) só para o CPFP;
+     `publicTransaction` remove o que não precisa ir ao navegador. */
+  transactionInfo(entry) {
+    const addressOf = script => {
+      try { return BTC.addressFromScript(script) || ''; } catch (e) { return ''; }
+    };
+    const ownInputs = [];
+    let allPrevKnown = true;
+    for (const input of entry.inputs) {
+      const prev = this.outpointIndex.get(input.txid + ':' + input.vout);
+      if (!prev) { allPrevKnown = false; continue; }
+      const row = this.byScript.get(prev.script);
+      if (row) ownInputs.push({
+        txid: input.txid, vout: input.vout, value: prev.value,
+        script: prev.script, row
+      });
+    }
+    const outputs = entry.outputs.map((out, vout) => {
+      const script = hex(out.script);
+      const row = this.byScript.get(script);
+      const key = entry.txid + ':' + vout;
+      const value = Number(out.value) || 0;
+      return {
+        txid: entry.txid, vout, value, script, row,
+        address: row ? row.address : addressOf(out.script),
+        own: !!row,
+        spendable: this.utxoByKey.has(key)
+      };
+    });
+    const ownOutputs = outputs.filter(o => o.own);
+    const externalOutputs = outputs.filter(o => !o.own);
+    const allInputsOwn = allPrevKnown && ownInputs.length === entry.inputs.length;
+    const totalIn = allInputsOwn
+      ? ownInputs.reduce((sum, i) => sum + i.value, 0)
+      : null;
+    const totalOut = outputs.reduce((sum, o) => sum + o.value, 0);
+    const fee = totalIn == null ? null : totalIn - totalOut;
+    const received = ownOutputs.reduce((sum, o) => sum + o.value, 0);
+    const sent = externalOutputs.reduce((sum, o) => sum + o.value, 0);
+    const direction = ownInputs.length
+      ? (externalOutputs.length ? 'out' : 'self')
+      : 'in';
+
+    const addresses = [];
+    const seen = new Set();
+    const addAddress = (row, role) => {
+      if (!row || seen.has(row.address)) return;
+      seen.add(row.address);
+      addresses.push({
+        address: row.address, role, chain: row.chain, idx: row.idx,
+        account_type: row.account_type, path: row.path
+      });
+    };
+    ownInputs.forEach(i => addAddress(i.row, 'entrada'));
+    ownOutputs.forEach(o => addAddress(o.row, o.row.chain === 1 ? 'troco' : 'recebimento'));
+
+    const candidates = ownOutputs
+      .filter(o => o.spendable && o.value >= DUST_SATS)
+      .sort((a, b) => b.value - a.value);
+    let reason = '';
+    if (entry.height > 0) reason = 'já confirmada';
+    else if (!ownInputs.length) reason = 'não é uma transação de envio desta carteira';
+    else if (!allInputsOwn) reason = 'nem todas as entradas são desta carteira';
+    else if (fee == null || fee < 0) reason = 'taxa da transação pai indisponível';
+    else if (!candidates.length) reason = 'sem saída própria disponível para acelerar';
+    const cpfpOutput = candidates[0] || null;
+
+    return {
+      txid: entry.txid,
+      height: Number(entry.height) || 0,
+      pending: !entry.height,
+      vsize: Number(entry.vsize) || 0,
+      direction,
+      received_sats: received,
+      sent_sats: sent,
+      fee_sats: fee,
+      total_in_sats: totalIn,
+      total_out_sats: totalOut,
+      input_count: entry.inputs.length,
+      output_count: entry.outputs.length,
+      addresses,
+      own_inputs: ownInputs,
+      own_outputs: ownOutputs,
+      all_inputs_own: allInputsOwn,
+      cpfp: {
+        eligible: !entry.height && ownInputs.length > 0 && allInputsOwn &&
+          fee != null && fee >= 0 && !!cpfpOutput,
+        reason,
+        output: cpfpOutput ? {
+          txid: cpfpOutput.txid, vout: cpfpOutput.vout,
+          outpoint: cpfpOutput.txid + ':' + cpfpOutput.vout,
+          value: cpfpOutput.value, address: cpfpOutput.address,
+          path: cpfpOutput.row.path, chain: cpfpOutput.row.chain,
+          idx: cpfpOutput.row.idx
+        } : null
+      }
+    };
+  }
+
+  /* O que vai no payload: sem as linhas derivadas nem os Map internos. */
+  publicTransaction(t) {
+    return {
+      txid: t.txid,
+      height: t.height,
+      pending: t.pending,
+      vsize: t.vsize,
+      direction: t.direction,
+      received_sats: t.received_sats,
+      sent_sats: t.sent_sats,
+      fee_sats: t.fee_sats,
+      total_in_sats: t.total_in_sats,
+      total_out_sats: t.total_out_sats,
+      input_count: t.input_count,
+      output_count: t.output_count,
+      addresses: t.addresses,
+      cpfp: t.cpfp
+    };
+  }
+
+  /* Soma taxa e vsize do pai e de todos os ancestrais ainda no mempool. Se
+     algum deles não for inteiramente desta carteira, a taxa não pode ser
+     conferida e o CPFP é recusado (não há como garantir o pacote). */
+  cpfpPackage(entry) {
+    const seen = new Set();
+    const queue = [entry];
+    let fee = 0;
+    let vsize = 0;
+    let count = 0;
+    while (queue.length) {
+      const tx = queue.pop();
+      if (seen.has(tx.txid)) continue;
+      seen.add(tx.txid);
+      const info = this.transactionInfo(tx);
+      if (!info.all_inputs_own || info.fee_sats == null || info.fee_sats < 0) {
+        return { fee_sats: null, vsize: null, count: null };
+      }
+      fee += info.fee_sats;
+      vsize += Number(tx.vsize) || 0;
+      count++;
+      for (const input of tx.inputs) {
+        const prev = this.entryByTxid.get(input.txid);
+        if (prev && !prev.height) queue.push(prev);
+      }
+    }
+    return { fee_sats: fee, vsize, count };
+  }
+
+  /* CPFP: monta o PSBT da filha que gasta a maior saída própria ainda não
+     gasta do pai e devolve o resto para o próximo endereço de troco. A taxa
+     do filho é a diferença entre a taxa-alvo do pacote e o que o pai (e os
+     ancestrais pendentes) já paga. */
+  async prepareCpfp({ txid, feeRate }) {
+    if (this.errors && this.errors.size) {
+      throw new Error('histórico incompleto (faltou transação do servidor); atualize a carteira e tente de novo');
+    }
+    if (!this.utxos) throw new Error('carteira ainda não sincronizada');
+    const entry = this.entryByTxid && this.entryByTxid.get(String(txid || '').toLowerCase());
+    if (!entry) throw new Error('transação não encontrada nesta carteira');
+    if (entry.height > 0) throw new Error('a transação já foi confirmada; CPFP só vale para pendente');
+    const info = this.transactionInfo(entry);
+    if (!info.own_inputs.length) throw new Error('a transação não é um envio desta carteira');
+    if (!info.all_inputs_own) throw new Error('nem todas as entradas da transação são desta carteira; não é possível assinar a filha');
+    if (info.fee_sats == null || info.fee_sats < 0) throw new Error('taxa da transação pai indisponível');
+    const spend = info.own_outputs
+      .filter(o => o.spendable && o.value >= DUST_SATS)
+      .sort((a, b) => b.value - a.value)[0];
+    if (!spend) throw new Error('não há saída própria ainda não gasta para acelerar');
+    const pkg = this.cpfpPackage(entry);
+    if (pkg.fee_sats == null || !(pkg.vsize > 0)) {
+      throw new Error('há ancestral pendente com taxa que não é desta carteira; não é possível calcular o pacote com segurança');
+    }
+    const rateKvb = feeRateKvb(feeRate);
+    const changeRow = this.nextChangeRow(this.chooseType());
+    if (!changeRow) throw new Error('endereço de troco indisponível');
+    const childVsize = BTC.estimateVsize([spend.row.kind], [BTC.hexToBytes(changeRow.script)]);
+    const targetFee = feeSats(rateKvb, pkg.vsize + childVsize);
+    const childFee = targetFee - pkg.fee_sats;
+    if (!(childFee > 0)) {
+      throw new Error('a transação já paga a taxa alvo; não há o que acelerar');
+    }
+    const rawTxFor = async id => {
+      const cached = this.txCache.get(id);
+      if (cached) return BTC.hexToBytes(cached);
+      const got = await transactionsMany(this.client, [id], { concurrency: 1 });
+      const raw = got.raw.get(id);
+      if (raw) this.txCache.set(id, raw);
+      return raw ? BTC.hexToBytes(raw) : null;
+    };
+    const parent = {
+      txid: entry.txid,
+      vsize: Number(entry.vsize) || 0,
+      fee_sats: info.fee_sats,
+      fee_rate: entry.vsize ? info.fee_sats / entry.vsize : 0
+    };
+    return await prepareCpfpPsbt({
+      account: this.account, spend, changeRow, childFee, feeRate, rawTxFor,
+      parent, packageBefore: pkg
+    });
   }
 
   /* Caminha a varredura em um lote de no máximo SCAN_BATCH endereços novos.
@@ -456,6 +677,18 @@ export class WalletScanner {
         pending_out: r.pendingOut
       }));
 
+    /* Extrato agrupado por txid: uma linha por transação, do mempool para o
+       bloco mais recente. A ordem é estável (txid desempata) para a lista não
+       dançar entre duas consultas iguais. */
+    const transactions = (this.entries || [])
+      .map(e => this.transactionInfo(e))
+      .sort((a, b) =>
+        (Number(b.pending) - Number(a.pending)) ||
+        (b.height - a.height) ||
+        (a.txid < b.txid ? -1 : a.txid > b.txid ? 1 : 0)
+      )
+      .map(t => this.publicTransaction(t));
+
     const warnings = [];
     if (this.errors) {
       warnings.push('Transações não obtidas do servidor: ' + [...this.errors.keys()].join(', ') +
@@ -474,6 +707,7 @@ export class WalletScanner {
       },
       types,
       addresses,
+      transactions,
       warnings,
       updated_at: now()
     };

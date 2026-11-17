@@ -1757,7 +1757,7 @@ var BTC = (function () {
     bip39Mnemonic: bip39Mnemonic,
     masterFromSeed: masterFromSeed, derivePath: derivePath, ckdPriv: ckdPriv,
     extendedKey: extendedKey, addressFor: addressFor, HD_ACCOUNTS: HD_ACCOUNTS,
-    readTx: readTx, writeTx: writeTx, txidOf: txidOf, readTxOut: readTxOut,
+    readTx: readTx, writeTx: writeTx, txidOf: txidOf, readTxOut: readTxOut, vsizeOf: vsizeOf,
     scriptForKind: scriptForKind, scriptKind: scriptKind, addressFromScript: addressFromScript,
     b64encode: b64encode, b64decode: b64decode,
     parsePsbt: parsePsbt, writePsbt: writePsbt, buildPsbt: buildPsbt, psbtParseInput: psbtParseInput,

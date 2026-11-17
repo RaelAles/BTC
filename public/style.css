@@ -1880,6 +1880,33 @@
   .history-values { color: var(--fg); }
   .history-values .value-label { color: var(--dim); }
   .history-values .value-sep { color: var(--sep); }
+  /* O txid é o título do item: o corpo desce para o tamanho de leitura, e a
+     quebra em qualquer ponto impede que 64 caracteres empurrem a coluna. */
+  .item h3 .history-txid {
+    font-size: var(--text-md);
+    letter-spacing: .02em;
+    overflow-wrap: anywhere;
+  }
+  .history-address { overflow-wrap: anywhere; }
+  .history-addresses { color: var(--fg-weak); }
+  .history-actions { margin: var(--space-3) 0 0; }
+  .history-cpfp-note { color: var(--dim); }
+
+  /* CPFP: o resumo usa o mesmo desenho do PSBT de envio, com a coluna do
+     rótulo mais larga para "taxa do pai" e "vsize do pai" não encostarem. */
+  #cpfp-out { margin-top: var(--space-7); }
+  #cpfp-meta {
+    width: 100%;
+    margin: var(--space-4) 0 0;
+  }
+  #cpfp-meta tbody th { width: 13ch; }
+  #cpfp-meta tbody tr.group-end th,
+  #cpfp-meta tbody tr.group-end td { padding-bottom: var(--space-5); }
+  #cpfp-warn {
+    margin: var(--space-3) 0 0;
+    color: var(--warning);
+  }
+  #cpfp-warn:empty { display: none; }
 
   /* O paginador só existe quando há mais de uma página: o hidden tira a
      navegação inteira do fluxo e da leitura, e o show-pager continua

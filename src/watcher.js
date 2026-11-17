@@ -104,6 +104,23 @@ export class WalletWatcher {
           return json({ error: e && e.message ? e.message : String(e) }, 400);
         }
       }
+      if (url.pathname === '/cpfp' && request.method === 'POST') {
+        let body = {};
+        try { body = await request.json(); } catch (e) {}
+        const xpub = String(body.xpub || '').trim();
+        if (!xpub) return json({ error: 'informe a xpub' }, 400);
+        const txid = String(body.txid || '').trim().toLowerCase();
+        if (!/^[0-9a-f]{64}$/.test(txid)) return json({ error: 'txid inválido' }, 400);
+        const feeRate = Number(body.feeRate);
+        const scanner = await this.ensureScanner(xpub);
+        if (this.scanning || !this.lastPayload) await this.sync(xpub, true);
+        else await scanner.recompute();
+        try {
+          return json(await scanner.prepareCpfp({ txid, feeRate }));
+        } catch (e) {
+          return json({ error: e && e.message ? e.message : String(e) }, 400);
+        }
+      }
       if (url.pathname === '/broadcast' && request.method === 'POST') {
         let body = {};
         try { body = await request.json(); } catch (e) {}
