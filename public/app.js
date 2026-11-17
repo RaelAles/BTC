@@ -651,12 +651,14 @@
     var max = el.scrollHeight - el.clientHeight;
     // Durante a entrada em foco os blocos ficam REVEAL_RISE abaixo e isso entra
     // no scrollHeight; descontar o deslocamento evita acender a seta de baixo
-    // numa tela que cabe inteira. O paginador continua com a medida sem
-    // desconto, para não aparecer antes de o fim da lista estar à vista.
+    // numa tela que cabe inteira. O paginador usa a mesma medida: com o
+    // deslocamento da animação ele entenderia que ainda há conteúdo para rolar
+    // e sumiria até o fim da entrada em foco, um segundo depois da troca de
+    // página.
     var scrollable = max - revealLift;
     c.classList.toggle('can-scroll-up', max > 2 && el.scrollTop > 2);
     c.classList.toggle('can-scroll-down', scrollable > 2 && el.scrollTop < scrollable - 2);
-    updatePager(max);
+    updatePager(scrollable);
     handOffBottomFocus();
   }
 
@@ -2172,7 +2174,7 @@
     else btn.setAttribute('aria-disabled', 'true');
   }
 
-  function updatePager(max) {
+  function updatePager(reach) {
     var pager = $('#history-pager');
     var content = $('#content');
     var screen = $('#screen-historico');
@@ -2181,7 +2183,7 @@
     var visible = state.historyState === 'ready' && !screen.hidden && pages > 1;
     pager.hidden = !visible;
     var el = $('#content-scroll');
-    var atEnd = !el || max <= 2 || el.scrollTop >= max - 2;
+    var atEnd = !el || reach <= 2 || el.scrollTop >= reach - 2;
     content.classList.toggle('show-pager', visible && atEnd);
     if (!visible) return;
     var current = $('#history-page');
