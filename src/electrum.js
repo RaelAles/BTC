@@ -332,14 +332,14 @@ export async function transactionsMany(client, txids, opts) {
    para ~180 satoshis. É o único jeito de a tela não repetir o caso da
    transação de 0,1187 sat/vB, que ficou 40 h parada atrás de 21 blocos.
 
-   Duas opções cobrem a escolha da tela: `fast` (o próximo bloco — a menor
-   taxa que já coloca a transação na frente dos próximos ~1 M vB da fila) e
-   `standard` (o preço de escoar a fila em 6 blocos, o ritmo econômico).
-   Labels sem prazo escrito de propósito: o prazo era a conta mais frágil da
-   tela ("~10 min" vinha de um alvo de 1 bloco que o próprio Core se recusa
-   a estimar, e ~30 min e ~1 h apareciam ou sumiam conforme o arredondamento).
-   Servidor que não responde fica sem estimativa naquele nível (null) e a
-   tela desabilita aquele nível.
+   Não há escolha de taxa na tela: um número só, o do próximo bloco — a
+   menor taxa que já coloca a transação na frente dos próximos ~1 M vB da
+   fila. A escolha entre níveis saiu porque, medido em 17/11/2026, as duas
+   opções entregavam ~12 e ~14 minutos de espera por 8x de preço: a escolha
+   não era sobre tempo, era sobre seguro, e transferia ao usuário uma decisão
+   sem informação (e sem RBF para corrigir depois).
+   Servidor que não responde fica sem estimativa (null) e o envio fica
+   bloqueado.
 
    Nada de folga fixa (FEE_MARGIN saiu): a folga percentual era cerimônia
    diante da variação real dos blocos (0,12 contra 1,87 no mesmo dia). O que
@@ -357,14 +357,13 @@ export async function transactionsMany(client, txids, opts) {
    não há piso econômico na carteira, só o piso de relay. `floored` marca o
    nível abaixo do piso padrão atual do Bitcoin Core (`-minrelaytxfee` =
    0,1 sat/vB desde a v30) e a tela mostra o aviso para o nível escolhido. */
-export const FEE_TARGETS = { standard: 6, fast: 1 };
+export const FEE_TARGETS = { next: 1 };
 
-/* Alvo pedido ao `blockchain.estimatefee` de cada nível. Igual ao do corte,
-   menos no rápido: o Core se recusa a estimar 1 bloco ("It's not possible to
-   get reasonable estimates for confTarget of 1") e calcula com 2. Pedir 2
-   explicitamente deixa claro que o número do estimador, nesse nível, fala de
-   dois blocos — não de um. */
-export const ESTIMATE_TARGETS = { standard: 6, fast: 2 };
+/* Alvo pedido ao `blockchain.estimatefee`. Diferente do corte (1 bloco)
+   porque o Core se recusa a estimar 1 bloco — "It's not possible to get
+   reasonable estimates for confTarget of 1" — e calcula com 2. Pedir 2
+   explicitamente deixa claro que o número do estimador fala de dois blocos. */
+export const ESTIMATE_TARGETS = { next: 2 };
 
 /* Piso de relay padrão do Bitcoin Core (`-minrelaytxfee`): 100 sat/kvB =
    0,1 sat/vB desde a v30 (nas versões anteriores era 1000 sat/kvB). */

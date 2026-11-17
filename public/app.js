@@ -45,7 +45,6 @@
     page: 1,            // página da lista do histórico
     fees: null,         // estimativa ao vivo do Electrum
     feeQuotes: null,    // custo de cada nível para o valor atual
-    feeLevel: 'standard', // standard (padrão) | fast (rápida)
     feeTimer: 0,        // reconsulta periódica da taxa
     amountDigits: '',   // satoshis digitados (o ponto é só desenho)
     limits: null,       // máximo enviável para o destino e a taxa
@@ -1053,86 +1052,25 @@
   }
 
   /* ---------------------------------------------------------- enviar */
-  /* FEE_ORDER é a ordem das chaves na tela, do mais rápido ao mais lento;
-     o rótulo que aparece é a escolha ("rápida", "padrão", ver FEE_TARGETS em
-     src/electrum.js). A taxa de cada nível vem do /api/fees e o percentual
+  /* Não há escolha de taxa: um número só, o do próximo bloco (ver
+     FEE_TARGETS em src/electrum.js). O valor vem do /api/fees e o percentual
      sobre o valor enviado, do preview do valor e do destino digitados. */
-  var FEE_ORDER = ['fast', 'standard'];
   var FEE_MAX = 10000;
 
-  function feeRateOf(level) {
+  /* A taxa vem do servidor em sat/vB e PODE ter casas (0,12; 1,075; 1,926):
+     o valor exato é sat/kvB. */
+  function feeRateNow() {
     var levels = (state.fees && state.fees.levels) || {};
-    return Number(levels[level]) || 0;
+    return Number(levels.next) || 0;
   }
 
-  /* A taxa vem do servidor em sat/vB e PODE ter casas (0,12; 1,075; 1,926):
-     o valor exato é sat/kvB. O que não pode é faltar, ser zero ou passar do
-     teto — a faixa fina (mínimo representável, teto de 10 000) é conferida
-     no servidor, em psbt.js. Comparar com inteiro aqui deixaria a tela sem
-     preview e o botão bloqueado sempre que a estimativa não fosse redonda. */
+  /* O que não pode é faltar, ser zero ou passar do teto — a faixa fina
+     (mínimo representável, teto de 10 000) é conferida no servidor, em
+     psbt.js. Comparar com inteiro aqui deixaria a tela sem preview e o botão
+     bloqueado sempre que a estimativa não fosse redonda. */
   function feeRateOk(rate) {
     var n = Number(rate);
     return isFinite(n) && n >= 0.001 && n <= FEE_MAX;
-  }
-
-  /* Níveis que a tela mostra. Quando dois níveis caem na mesma taxa — o
-     servidor devolve a mesma estimativa para alvos vizinhos —, fica só o
-     mais rápido: a taxa é a mesma, então o mais lento não acrescenta
-     escolha. Sem nenhuma estimativa, os quatro continuam visíveis (vazios e
-     desabilitados), para a seção não ficar sem opção nenhuma. */
-  function visibleFeeLevels() {
-    var levels = (state.fees && state.fees.levels) || {};
-    var visible = {};
-    var seen = {};
-    var any = false;
-    for (var i = 0; i < FEE_ORDER.length; i++) { // do mais rápido ao mais lento
-      var key = FEE_ORDER[i];
-      var rate = Number(levels[key]) || 0;
-      if (!(rate > 0) || seen[rate]) { visible[key] = false; continue; }
-      seen[rate] = true;
-      visible[key] = true;
-      any = true;
-    }
-    if (!any) FEE_ORDER.forEach(function (key) { visible[key] = true; });
-    return visible;
-  }
-
-  /* A escolha precisa cair num nível visível: se o nível selecionado foi
-     escondido por ter a mesma taxa de um mais rápido, a seleção passa para
-     esse mais rápido (a taxa não muda, então o PSBT também não); se ele
-     perdeu a estimativa, vale o nível de menor taxa entre os visíveis. */
-  function normalizeFeeLevel() {
-    var visible = visibleFeeLevels();
-    if (visible[state.feeLevel]) return;
-    var levels = (state.fees && state.fees.levels) || {};
-    var rate = Number(levels[state.feeLevel]) || 0;
-    if (rate > 0) {
-      for (var i = 0; i < FEE_ORDER.length; i++) { // do mais rápido ao mais lento
-        var key = FEE_ORDER[i];
-        if (visible[key] && (Number(levels[key]) || 0) === rate) { state.feeLevel = key; return; }
-      }
-    }
-    var lowest = lowestFeeLevel();
-    if (lowest) state.feeLevel = lowest;
-  }
-
-  /* Menor taxa entre os níveis visíveis, a escolha padrão do envio. Empate
-     fica com o mais rápido — FEE_ORDER já vem nessa ordem, e é o único que a
-     tela mostra quando duas taxas coincidem. Sem estimativa nenhuma devolve
-     vazio, e a escolha atual não muda. */
-  function lowestFeeLevel() {
-    var visible = visibleFeeLevels();
-    var levels = (state.fees && state.fees.levels) || {};
-    var best = '';
-    var bestRate = Infinity;
-    for (var i = 0; i < FEE_ORDER.length; i++) {
-      var key = FEE_ORDER[i];
-      var rate = Number(levels[key]) || 0;
-      if (!visible[key] || !(rate > 0) || rate >= bestRate) continue;
-      best = key;
-      bestRate = rate;
-    }
-    return best;
   }
 
   /* Valor em BTC com máscara de 8 casas: o usuário digita só dígitos e o
@@ -1193,7 +1131,7 @@
     var addressInput = $('#send-address');
     var amountInput = $('#send-amount');
     var address = addressInput ? addressInput.value.trim() : '';
-    var rate = feeRateOf(state.feeLevel);
+    var rate = feeRateNow();
     var hint = $('#send-amount-hint');
     var max = state.limits ? Number(state.limits.max_send_sats) || 0 : 0;
     var amountProblem = '';
@@ -1244,7 +1182,7 @@
     updateFeeVisibility(addressProblem);
     /* o custo de cada nível depende do valor, do destino e do preview que
        acabou de mudar; é o único lugar em que todos os três se encontram */
-    renderFeeLevels();
+    renderFeeLine();
     /* formulário completo: o PSBT se monta sozinho, com o respiro da
        digitação (é aqui que destino, valor, taxa e máximo se encontram) */
     schedulePsbt();
@@ -1276,7 +1214,7 @@
     }
     updateSendAvailability();
     var address = $('#send-address') ? $('#send-address').value.trim() : '';
-    var rate = feeRateOf(state.feeLevel);
+    var rate = feeRateNow();
     var amount = amountSats();
     if (!state.xpub || !addressLooksValid(address) || !feeRateOk(rate)) return;
     if (keep && !amount) return;
@@ -1291,14 +1229,9 @@
     var xpub = state.xpub;
     var body = { xpub: xpub, address: address, fee_rate: rate, preview: true };
     if (amount > 0) body.amount_sats = amount;
-    /* As taxas estimadas vão junto para o servidor cotar o custo de cada
-       nível para o mesmo valor, numa seleção de entradas só. Níveis que
-       caem na mesma taxa entram uma vez: a cota é a mesma. */
-    var quoteRates = FEE_ORDER.map(function (k) {
-      return Number((state.fees && state.fees.levels || {})[k]) || 0;
-    }).filter(function (r) { return r > 0; })
-      .filter(function (r, i, all) { return all.indexOf(r) === i; });
-    if (quoteRates.length) body.quote_rates = quoteRates;
+    /* A taxa vai também em `quote_rates` para o servidor devolver o custo
+       dela em sats para o valor digitado, na mesma seleção de entradas. */
+    if (rate > 0) body.quote_rates = [rate];
     if (state.session) body.session = state.session;
     try {
       var r = await fetch('/api/psbt', {
@@ -1343,51 +1276,25 @@
     updateSendAvailability();
   }
 
-  /* Desenha a taxa: o percentual de cada nível nas opções. A taxa em si é a
-     do servidor; o grupo de rádio é nativo: o navegador guarda a escolha,
-     anda com as setas e leva o foco ao marcador; o JavaScript só reflete o
-     estado da estimativa. Nível escondido também fica desabilitado, para as
-     setas e o Tab não pararem num rádio fora da tela. O "|" fica dentro do
-     botão da direita (some junto com ele e quebra de linha junto), e o do
-     primeiro botão visível sai: sem isso a linha começaria com o divisor. */
+  /* Não há opção para desenhar: a seção só precisa refletir a taxa única do
+     momento — a linha de custo e o aviso de piso de relay. */
   function renderFees() {
-    var levels = (state.fees && state.fees.levels) || {};
-    normalizeFeeLevel();
-    var visible = visibleFeeLevels();
-    FEE_ORDER.forEach(function (key) {
-      var input = $('input[name="fee-level"][value="' + key + '"]');
-      if (!input) return;
-      var available = Number(levels[key]) > 0;
-      input.disabled = !available || !visible[key];
-      input.checked = state.feeLevel === key;
-      var label = input.closest ? input.closest('.fee-level') : null;
-      if (!label) return;
-      label.hidden = !visible[key];
-      label.classList.toggle('is-empty', !available);
-    });
-    var first = true;
-    $$('#fee-levels .fee-level').forEach(function (label) {
-      var sep = label.querySelector('.fee-level-sep');
-      if (sep) sep.hidden = first;
-      if (!label.hidden) first = false;
-    });
-    renderFeeLevels();
+    renderFeeLine();
     renderFeeNote();
   }
 
-  /* Aviso do piso de relay: `/api/fees` marca em `floored` o nível cuja taxa
+  /* Aviso do piso de relay: `/api/fees` marca em `floored.next` a taxa que
      está abaixo do piso padrão do Bitcoin Core (`relay_min_kvb`, 0,1 sat/vB
-     desde a v30). A taxa continua sendo a estimada — quem decide a taxa é o
+     desde a v30). A taxa continua sendo a estimada — quem decide é o
      servidor —, mas o recado é o que faltava: abaixo do piso a transação
      pode não ser aceita pelos nós, e o pior caso é propagar para alguns e
-     ficar parada indefinidamente. Só o nível escolhido importa, porque é a
-     taxa que vai no PSBT. */
+     ficar parada indefinidamente. */
   function renderFeeNote() {
     var note = $('#fee-note');
     if (!note) return;
     var fees = state.fees || {};
-    var rate = feeRateOf(state.feeLevel);
-    if (!(fees.floored || {})[state.feeLevel] || !(rate > 0)) {
+    var rate = feeRateNow();
+    if (!(fees.floored || {}).next || !(rate > 0)) {
       note.textContent = '';
       return;
     }
@@ -1398,11 +1305,9 @@
       '): a transação pode ser recusada pelos nós.';
   }
 
-  /* Percentual de cada nível para o valor que está no formulário. Só vale
-     quando o preview respondeu para o mesmo valor e o mesmo destino; fora
-     disso a opção fica em `—`, como manda a regra da tela. Níveis que caem
-     na mesma taxa compartilham a cota (e a tela mostra só o mais rápido
-     deles): o valor é do sat/vB, não do nome. */
+  /* Custo da taxa única para o valor que está no formulário. Só vale quando
+     o preview respondeu para o mesmo valor e o mesmo destino; fora disso a
+     linha fica só com a taxa, sem o percentual. */
   function feeQuotes() {
     var cached = state.feeQuotes;
     var amount = amountSats();
@@ -1412,20 +1317,15 @@
     return cached.byRate;
   }
 
-  function renderFeeLevels() {
-    var levels = (state.fees && state.fees.levels) || {};
-    var quotes = feeQuotes();
+  function renderFeeLine() {
+    var line = $('#fee-line');
+    if (!line) return;
+    var rate = feeRateNow();
+    if (!(rate > 0)) { line.textContent = ''; return; }
+    var fee = feeQuotes()[rate];
     var amount = amountSats();
-    FEE_ORDER.forEach(function (key) {
-      var label = $('.fee-level[data-level="' + key + '"]');
-      if (!label) return;
-      var rate = Number(levels[key]) || 0;
-      var fee = rate > 0 ? quotes[rate] : null;
-      var pct = $('.fee-level-pct', label);
-      if (pct) pct.textContent = fee > 0 && amount > 0
-        ? fmtPercent(fee, amount) + '%'
-        : '—';
-    });
+    line.textContent = 'taxa ' + String(rate).replace('.', ',') + ' sat/vB' +
+      (fee > 0 && amount > 0 ? ' · ' + fmtPercent(fee, amount) + '%' : '');
   }
 
   /* Taxa ao vivo: a rota usa a conexão da sessão quando ela existe e o
@@ -1440,12 +1340,12 @@
       if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
       if (!j.levels) throw new Error('resposta sem níveis de taxa');
       if (state.xpub !== xpub) return;
-      var before = feeRateOf(state.feeLevel);
+      var before = feeRateNow();
       state.fees = j;
       renderFees(); // normaliza a escolha e esconde os níveis de taxa repetida
       /* taxa escolhida mudou: o máximo é recalculado sem manter o antigo.
          Só os níveis mudaram: mantém o máximo e refaz as cotas das opções. */
-      if (!state.limits || feeRateOf(state.feeLevel) !== before) scheduleLimits();
+      if (!state.limits || feeRateNow() !== before) scheduleLimits();
       else scheduleLimits(true);
     } catch (e) {
       renderFees();
@@ -1527,7 +1427,6 @@
     state.sendBusy = false;
     state.fees = null;
     state.feeQuotes = null;
-    state.feeLevel = 'standard';
     state.amountDigits = '';
     state.limits = null;
     state.limitsError = '';
@@ -1650,14 +1549,14 @@
      Fora do intervalo válido nada é montado: o aviso fica na nota do valor. */
   function psbtKey() {
     var address = $('#send-address') ? $('#send-address').value.trim() : '';
-    return address + '|' + amountSats() + '|' + feeRateOf(state.feeLevel);
+    return address + '|' + amountSats() + '|' + feeRateNow();
   }
 
   function psbtReady() {
     var amount = amountSats();
     var address = $('#send-address') ? $('#send-address').value.trim() : '';
     return amount >= DUST_SATS && addressLooksValid(address) &&
-      feeRateOk(feeRateOf(state.feeLevel)) &&
+      feeRateOk(feeRateNow()) &&
       !!state.limits && Number(state.limits.max_send_sats) >= DUST_SATS &&
       amount <= Number(state.limits.max_send_sats);
   }
@@ -1687,7 +1586,7 @@
     var seq = ++state.psbtSeq;
     var amount = amountSats();
     var address = $('#send-address').value.trim();
-    var rate = feeRateOf(state.feeLevel);
+    var rate = feeRateNow();
     // No primeiro retrato a frase de "montando" ocupa a linha reservada; numa
     // remontagem o retrato anterior fica na tela, então a linha não muda de
     // altura (era ela que empurrava o rodapé a cada mudança).
@@ -2775,17 +2674,6 @@
       ev.preventDefault();
       updateSendAvailability();
       focusFirstInvalid(sendForm);
-    });
-    /* A taxa é um grupo de rádio nativo: o navegador guarda a escolha e
-       anda com as setas; aqui só o estado da tela e o preview acompanham. */
-    var feeLevels = $('#fee-levels');
-    if (feeLevels) feeLevels.addEventListener('change', function (ev) {
-      var input = ev.target;
-      if (!input || input.name !== 'fee-level') return;
-      state.feeLevel = input.value;
-      renderFees();
-      invalidatePsbt();
-      scheduleLimits();
     });
     /* Máscara de satoshis: dígitos entram da direita, o ponto é automático,
        backspace apaga o último dígito e colar aceita BTC com ponto/vírgula. */

@@ -32,92 +32,95 @@ function mapFind(map, type) {
   return map.find(e => e.key.length > 0 && e.key[0] === type) || null;
 }
 
-/* ---------------- 1. taxa ao vivo nas duas opções ---------------- */
+/* ---------------- 1. taxa ao vivo, uma opção só ---------------- */
 {
   const fake = await startFakeElectrum({});
   const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const r = await reqFees(env);
   assert.equal(r.status, 200);
-  assert.deepEqual(r.j.levels, { standard: 6, fast: 11 },
+  assert.deepEqual(r.j.levels, { next: 11 },
     'o sat/vB da taxa é o exato, não arredondado');
-  assert.deepEqual(r.j.sat_per_kvb, { standard: 6000, fast: 11000 },
+  assert.deepEqual(r.j.sat_per_kvb, { next: 11000 },
     'BTC/kvB × 1e8 dá o sat/kvB inteiro, sem perda');
-  assert.deepEqual(r.j.sat_per_vb, { standard: 6, fast: 11 });
-  assert.deepEqual(r.j.floored, { standard: false, fast: false });
+  assert.deepEqual(r.j.sat_per_vb, { next: 11 });
+  assert.deepEqual(r.j.floored, { next: false });
   assert.equal(r.j.relay_min_kvb, 100);
-  assert.deepEqual(r.j.targets, { standard: 6, fast: 1 },
-    'a opção rápida é 1 bloco; o estimador é consultado em 2');
+  assert.deepEqual(r.j.targets, { next: 1 },
+    'a cotação é de 1 bloco; o estimador é consultado em 2');
   assert.equal(r.j.source, 'electrum');
-  console.log('ok   taxa ao vivo nas duas opções (rápida e padrão)');
+  console.log('ok   taxa ao vivo, uma opção só (próximo bloco)');
   await fake.close();
 }
 
 /* ---------------- 1b. casas decimais e piso de relay só marcado ---------------- */
 {
   /* 1,299 sat/vB fica exatamente assim: nada de arredondar para 2 antes de
-     multiplicar pela vsize. A padrão, 0,05 sat/vB, fica abaixo do piso de
-     relay padrão (0,1 sat/vB): `levels` (o que a tela escolhe e o PSBT usa)
-     leva o valor exato e `floored` só marca o nível. */
-  const fake = await startFakeElectrum({
-    fees: { 2: 0.00001299, 6: 0.00000050 }
-  });
+     multiplicar pela vsize. */
+  const fake = await startFakeElectrum({ fees: { 2: 0.00001299 } });
   const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const r = await reqFees(env);
   assert.equal(r.status, 200);
-  assert.deepEqual(r.j.sat_per_kvb, { standard: 50, fast: 1299 });
-  assert.deepEqual(r.j.sat_per_vb, { standard: 0.05, fast: 1.299 },
+  assert.deepEqual(r.j.sat_per_kvb, { next: 1299 });
+  assert.deepEqual(r.j.sat_per_vb, { next: 1.299 },
     'o sat/vB é só a leitura do sat/kvB, sem arredondar');
-  assert.deepEqual(r.j.levels, { standard: 0.05, fast: 1.299 },
-    'o nível usa a estimativa exata, sem piso de relay');
-  assert.deepEqual(r.j.floored, { standard: true, fast: false },
+  assert.deepEqual(r.j.floored, { next: false });
+  await fake.close();
+
+  /* 0,05 sat/vB fica abaixo do piso de relay padrão (0,1 sat/vB): `levels`
+     (o que o PSBT usa) leva o valor exato e `floored` só marca. */
+  const baixo = await startFakeElectrum({ fees: { 2: 0.00000050 } });
+  const env2 = { ELECTRUM_SERVERS: '127.0.0.1:' + baixo.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
+  const r2 = await reqFees(env2);
+  assert.equal(r2.status, 200);
+  assert.deepEqual(r2.j.levels, { next: 0.05 }, 'o nível usa a estimativa exata, sem piso de relay');
+  assert.deepEqual(r2.j.floored, { next: true },
     'abaixo de 100 sat/kvB o nível é marcado, mas a taxa não é trocada');
   console.log('ok   casas decimais preservadas e piso de relay só marcado');
-  await fake.close();
+  await baixo.close();
 }
 
-/* ---------------- 1c. nível sem estimativa fica null ---------------- */
+/* ---------------- 1c. sem estimativa e sem histograma fica null ---------------- */
 {
-  const fake = await startFakeElectrum({
-    fees: { 2: 0.00012 }
-  });
+  const fake = await startFakeElectrum({ fees: {} });
   const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const r = await reqFees(env);
   assert.equal(r.status, 200);
-  assert.deepEqual(r.j.levels, { standard: null, fast: 12 },
+  assert.deepEqual(r.j.levels, { next: null },
     'servidor que responde -1 deixa o nível sem estimativa');
-  assert.deepEqual(r.j.sat_per_kvb, { standard: null, fast: 12000 });
-  assert.deepEqual(r.j.floored, { standard: false, fast: false },
+  assert.deepEqual(r.j.sat_per_kvb, { next: null });
+  assert.deepEqual(r.j.floored, { next: false },
     'nível sem estimativa não é nível no piso');
-  console.log('ok   nível sem estimativa vem null e a tela o desabilita');
+  console.log('ok   sem estimativa o nível vem null e a tela o desabilita');
   await fake.close();
 }
 
-/* ---------------- 1d. corte de fila manda, estimador é reserva ---------------- */
 /* ---------------- 1d. fila ou estimador: fica o maior dos dois ---------------- */
 {
   /* O histograma do Electrum traz o vsize POR FAIXA: [[50,100k], [10,800k],
      [2,600k], [1,900k]]. Para 1 bloco (1M vB) o acumulado só alcança a
      capacidade na faixa de 2 sat/vB → 2 001 sat/kvB (1 sat/kvB acima do
-     corte, sem folga percentual); para 6 blocos (6M vB) nenhuma faixa
-     alcança e vale a mais baixa (1 sat/vB) → 1 001. O estimador responde
-     2 000 (alvo 2) e 10 000 (alvo 6), então o maior dos dois inverte o
-     vencedor por nível: fila na rápida, estimador na padrão. Se a soma fosse
-     feita em cima de um histograma já cumulativo, a rápida sairia bem maior —
-     por isso o teste usa o acumulado por faixa. */
-  const fake = await startFakeElectrum({
-    histogram: [[50, 100000], [10, 800000], [2, 600000], [1, 900000]],
-    fees: { 2: 0.00002000, 6: 0.00010000 }
-  });
-  const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
-  const r = await reqFees(env);
-  assert.equal(r.status, 200);
-  assert.deepEqual(r.j.sat_per_kvb, { standard: 10000, fast: 2001 },
-    'nível fica com o maior entre a fila (2 001/1 001) e o estimador (2 000/10 000)');
-  assert.deepEqual(r.j.levels, { standard: 10, fast: 2.001 });
-  assert.deepEqual(r.j.floored, { standard: false, fast: false });
-  assert.equal(r.j.source, 'electrum', 'o formato da resposta não muda');
+     corte, sem folga percentual). Se a soma fosse feita em cima de um
+     histograma já cumulativo, o resultado sairia bem maior. */
+  const fila = [[50, 100000], [10, 800000], [2, 600000], [1, 900000]];
+  const barato = await startFakeElectrum({ histogram: fila, fees: { 2: 0.00002000 } });
+  const envBarato = { ELECTRUM_SERVERS: '127.0.0.1:' + barato.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
+  const rBarato = await reqFees(envBarato);
+  assert.equal(rBarato.status, 200);
+  assert.deepEqual(rBarato.j.sat_per_kvb, { next: 2001 },
+    'fila (2 001) acima do estimador (2 000): fica a fila');
+  await barato.close();
+
+  const caro = await startFakeElectrum({ histogram: fila, fees: { 2: 0.00010000 } });
+  const envCaro = { ELECTRUM_SERVERS: '127.0.0.1:' + caro.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
+  const rCaro = await reqFees(envCaro);
+  assert.equal(rCaro.status, 200);
+  assert.deepEqual(rCaro.j.sat_per_kvb, { next: 10000 },
+    'estimador (10 000) acima da fila (2 001): fica o estimador');
+  assert.deepEqual(rCaro.j.levels, { next: 10 });
+  assert.deepEqual(rCaro.j.floored, { next: false });
+  assert.equal(rCaro.j.source, 'electrum', 'o formato da resposta não muda');
   console.log('ok   nível fica com o maior entre fila e estimador');
-  await fake.close();
+  await caro.close();
 }
 
 /* ---------------- 2. envio bip84 para índice alto, com origem BIP32 ---------------- */
