@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import {
   scripthash, parseServerList, openElectrum, setConnectOverride,
-  historiesMany, transactionsMany
+  historiesMany, transactionsMany, cutoffKvb, BLOCK_VSIZE, RELAY_MIN_KVB
 } from '../src/electrum.js';
 import { startFakeElectrum, nodeConnect, deadPort } from './fake-electrum.mjs';
 import { makeTx } from './tx-fixture.mjs';
@@ -130,6 +130,29 @@ function ok(label) { passed++; console.log('ok   ' + label); }
   assert.ok(err instanceof Error);
   assert.match(err.message, /TCP indisponível|nenhum servidor Electrum/);
   ok('sem cloudflare:sockets o erro é explícito');
+}
+
+/* 7. Corte de fila: o acumulado é que manda, e o piso de relay é o limite. */
+{
+  /* vsize POR FAIXA (o formato dos servidores reais): 1 bloco (1 M vB) só é
+     alcançado somando 100k + 800k + 600k, na faixa de 2 sat/vB; 3 blocos
+     (3 M vB) estouram o histograma e valem a faixa mais baixa. O +1 sat/kvB
+     desempata a ordem de chegada dentro da faixa. */
+  const porFaixa = [[50, 100000], [10, 800000], [2, 600000], [1, 900000]];
+  assert.equal(cutoffKvb(porFaixa, 1), 2001);
+  assert.equal(cutoffKvb(porFaixa, 3), 1001);
+  /* vsize já cumulativo, que a doc do protocolo descreve: não soma de novo. */
+  const cumulativo = [[50, 100000], [10, 900000], [2, 1500000], [1, 2400000]];
+  assert.equal(cutoffKvb(cumulativo, 1), 2001);
+  assert.equal(cutoffKvb(cumulativo, 3), 1001);
+  assert.equal(cutoffKvb([[0.05, 4000000]], 1), RELAY_MIN_KVB,
+    'abaixo do piso de relay padrão o corte sobe até o piso');
+  assert.equal(cutoffKvb([], 1), null);
+  assert.equal(cutoffKvb(null, 1), null);
+  assert.equal(cutoffKvb([[NaN, 1], ['x', 2], [0, 3]], 1), null,
+    'faixa inválida é descartada');
+  assert.equal(BLOCK_VSIZE, 1000000);
+  ok('cutoffKvb: por faixa e cumulativo, +1 sat/kvB e piso de relay');
 }
 
 console.log('\n' + passed + ' grupos de teste passaram');

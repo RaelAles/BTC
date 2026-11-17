@@ -1825,6 +1825,10 @@
   }
   .send-limit-row #send-amount-hint { margin: 0; }
   .send-limit-row #fee-section { margin-left: auto; }
+  /* Recado do piso de relay (ver renderFeeNote em app.js): só existe quando
+     o nível escolhido está abaixo do piso; vazio não ocupa linha. */
+  #fee-note { margin: var(--space-3) 0 0; }
+  #fee-note:empty { display: none; }
   /* A taxa ocupa a direita da linha do recado do máximo (ver
      .send-limit-row), no desenho dos botões de copiar: caixa alta, --accent
      em repouso, --fg no hover e --support no escolhido, sem moldura. Cada

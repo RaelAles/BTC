@@ -80,6 +80,8 @@ export async function startFakeElectrum(opts) {
           const table = o.fees || { 1: 0.00012, 2: 0.00011, 3: 0.00009, 6: 0.00006, 144: 0.00002 };
           const value = table[Number(arg)];
           result = value === undefined ? -1 : value;
+        } else if (req.method === 'mempool.get_fee_histogram' && o.histogram) {
+          result = o.histogram;
         } else if (req.method === 'blockchain.transaction.broadcast') {
           const hex = String(arg || '').toLowerCase();
           if (!/^[0-9a-f]+$/.test(hex) || hex.length % 2) {

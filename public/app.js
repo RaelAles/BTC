@@ -1372,6 +1372,30 @@
       if (!label.hidden) first = false;
     });
     renderFeeLevels();
+    renderFeeNote();
+  }
+
+  /* Aviso do piso de relay: `/api/fees` marca em `floored` o nível cuja taxa
+     está abaixo do piso padrão do Bitcoin Core (`relay_min_kvb`, 0,1 sat/vB
+     desde a v30). A taxa continua sendo a estimada — quem decide a taxa é o
+     servidor —, mas o recado é o que faltava: abaixo do piso a transação
+     pode não ser aceita pelos nós, e o pior caso é propagar para alguns e
+     ficar parada indefinidamente. Só o nível escolhido importa, porque é a
+     taxa que vai no PSBT. */
+  function renderFeeNote() {
+    var note = $('#fee-note');
+    if (!note) return;
+    var fees = state.fees || {};
+    var rate = feeRateOf(state.feeLevel);
+    if (!(fees.floored || {})[state.feeLevel] || !(rate > 0)) {
+      note.textContent = '';
+      return;
+    }
+    var relay = Number(fees.relay_min_kvb);
+    var relayText = relay > 0 ? String(relay / 1000).replace('.', ',') + ' sat/vB' : 'o piso padrão';
+    note.textContent = '[ atenção ] taxa de ' + rate.toFixed(2).replace('.', ',') +
+      ' sat/vB, abaixo do piso de relay padrão (' + relayText +
+      '): a transação pode ser recusada pelos nós.';
   }
 
   /* Percentual de cada nível para o valor que está no formulário. Só vale

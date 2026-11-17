@@ -314,14 +314,22 @@ export async function transactionsMany(client, txids, opts) {
   return { raw, errors };
 }
 
-/* Taxa ao vivo: `blockchain.estimatefee` devolve BTC/kvB para um alvo em
-   blocos. Quatro alvos cobrem a escolha da tela, em ordem de prioridade:
-   mínima (144 blocos ≈ 1 dia), padrão (6 ≈ 1 h), alta (3 ≈ 30 min) e
-   urgente (1 bloco ≈ 10 min; o Bitcoin Core trata o alvo 1 como 2, o menor
-   que ele estima). A tela mostra essas chaves como prazo médio, sem citar
-   bloco: o tempo é alvo × 10 min, a média do intervalo entre blocos, não uma
-   previsão do `estimatefee`. Servidor que responde -1 fica sem estimativa
-   naquele nível (null) e a tela desabilita aquele nível.
+/* Taxa ao vivo: dois pedidos na mesma conexão, e o segundo manda.
+
+   `mempool.get_fee_histogram` é o estado da fila agora; dele sai o corte de
+   cada alvo (ver `cutoffKvb`). `blockchain.estimatefee` é a reserva: servidor
+   que não tem o histograma (ou responde erro) cai no estimador, como antes.
+   O estimador é histórico e suavizado — numa madrugada de taxa baixa ele
+   pode devolver menos que o corte da fila, e foi assim que uma transação de
+   0,1187 sat/vB ficou 40 h atrás de 21 blocos.
+
+   Quatro alvos cobrem a escolha da tela, em ordem de prioridade: mínima (144
+   blocos ≈ 1 dia), padrão (6 ≈ 1 h), alta (3 ≈ 30 min) e urgente (1 bloco ≈
+   10 min; o Bitcoin Core trata o alvo 1 como 2, o menor que ele estima). A
+   tela mostra essas chaves como prazo médio, sem citar bloco: o tempo é alvo
+   × 10 min, a média do intervalo entre blocos, não uma previsão do
+   `estimatefee`. Servidor que não responde fica sem estimativa naquele nível
+   (null) e a tela desabilita aquele nível.
 
    O valor NÃO é arredondado: BTC/kvB × 1e8 dá sat/kvB inteiro exato (é a
    unidade em que o servidor de fato responde: 1926, 970, 112), e `sat_per_vb`
@@ -329,26 +337,79 @@ export async function transactionsMany(client, txids, opts) {
    erra sempre para cima, então o PSBT recebe o valor exato e arredonda
    apenas a taxa final, em satoshis (ver `feeSats` em psbt.js).
 
-   `levels` (o que a tela escolhe e o PSBT usa) leva a estimativa exatamente
-   como o servidor devolveu, inclusive abaixo de 1 sat/vB: não há piso de
-   relay na carteira. `floored` só marca o nível abaixo do piso padrão atual
-   do Bitcoin Core (`-minrelaytxfee` = 0,1 sat/vB desde a v30); é informação
-   para quem lê a API, não muda a taxa usada. Num mempool quase vazio, vários
-   alvos caem abaixo de 1 sat/vB e a transação ainda propaga para nós com
-   piso menor. */
+   `levels` (o que a tela escolhe e o PSBT usa) pode ficar abaixo de 1 sat/vB:
+   não há piso econômico na carteira, só o piso de relay. `floored` marca o
+   nível abaixo do piso padrão atual do Bitcoin Core (`-minrelaytxfee` =
+   0,1 sat/vB desde a v30) e a tela mostra o aviso para o nível escolhido. */
 export const FEE_TARGETS = { minimum: 144, standard: 6, high: 3, urgent: 1 };
 
 /* Piso de relay padrão do Bitcoin Core (`-minrelaytxfee`): 100 sat/kvB =
    0,1 sat/vB desde a v30 (nas versões anteriores era 1000 sat/kvB). */
 export const RELAY_MIN_KVB = 100;
 
+/* Capacidade de um bloco em vB (peso de 4 M / 4). É a régua do corte de
+   fila: no mempool cheio o bloco sai com ~1 000 000 vB. */
+export const BLOCK_VSIZE = 1000000;
+
+/* Corte de fila para confirmar DENTRO de `blocks` blocos, em sat/kvB, a
+   partir do histograma do mempool.
+
+   `mempool.get_fee_histogram` devolve [[fee, vsize], …] com `fee` em sat/vB.
+   O `vsize` vem POR FAIXA nos servidores reais — conferido em
+   electrum.blockstream.info, onde a soma das faixas dá o tamanho do mempool
+   (31,9 M vB) e a última faixa tem 2 296 vB —, embora a doc do protocolo
+   diga "cumulative virtual size". Ler faixa como acumulado subestima a fila
+   de um fator de ~10 mil e devolve a mesma taxa para todos os alvos.
+
+   Aceita os dois formatos sem adivinhar às cegas: depois de ordenar por taxa
+   desc, se a coluna já é não-decrescente ela é cumulativa; senão acumula.
+   Com oito faixas ou mais, dado por faixa cair em ordem crescente por acaso
+   é improvável.
+
+   O +1 sat/kvB é proposital: dentro de uma faixa de taxa igual o desempate é
+   por ordem de chegada, então pagar a taxa exata do corte cai no fim da
+   faixa. Numa parede de taxa uniforme isso custa blocos inteiros — a
+   transação de 0,1187 sat/vB estava 1,3 sat/kvB abaixo de uma parede de 16
+   blocos, e a diferença em satoshis era zero.
+
+   Alvo maior que o mempool inteiro: vale a faixa mais baixa (o piso do
+   servidor), nunca abaixo do piso de relay padrão. */
+export function cutoffKvb(histogram, blocks) {
+  if (!Array.isArray(histogram) || !histogram.length) return null;
+  const rows = [];
+  for (const row of histogram) {
+    if (!Array.isArray(row) || row.length < 2) continue;
+    const fee = Number(row[0]);
+    const vsize = Number(row[1]);
+    if (!Number.isFinite(fee) || !Number.isFinite(vsize) || fee <= 0 || vsize < 0) continue;
+    rows.push([fee, vsize]);
+  }
+  if (!rows.length) return null;
+  rows.sort((a, b) => b[0] - a[0]);
+  const cumulativo = rows.every((r, i) => i === 0 || r[1] >= rows[i - 1][1]);
+  let soma = 0;
+  const fila = rows.map(([fee, vsize]) => {
+    soma += vsize;
+    return [fee, cumulativo ? vsize : soma];
+  });
+  const alvo = blocks * BLOCK_VSIZE;
+  let escolhida = fila[fila.length - 1][0];
+  for (const [fee, acumulado] of fila) {
+    if (acumulado >= alvo) { escolhida = fee; break; }
+  }
+  return Math.max(Math.round(escolhida * 1000) + 1, RELAY_MIN_KVB);
+}
+
 export async function estimateFees(client) {
   const keys = Object.keys(FEE_TARGETS);
   // um nível que o servidor não estima não derruba os outros: cada pedido
   // falha isolado e vira null (a tela desabilita aquele nível)
-  const values = await Promise.all(keys.map(k =>
-    client.request('blockchain.estimatefee', [FEE_TARGETS[k]]).catch(() => null)
-  ));
+  const [values, histogram] = await Promise.all([
+    Promise.all(keys.map(k =>
+      client.request('blockchain.estimatefee', [FEE_TARGETS[k]]).catch(() => null)
+    )),
+    client.request('mempool.get_fee_histogram', []).catch(() => null)
+  ]);
   const levels = {};
   const satPerKvb = {};
   const satPerVb = {};
@@ -357,7 +418,10 @@ export async function estimateFees(client) {
     const v = Number(values[i]);
     // × 1e8 em vez de × 1e5: sat/kvB é inteiro e exato; 0.0000097 * 1e5 daria
     // 0.9700000000000001, e sat/vB só existe para a tela
-    const kvb = Number.isFinite(v) && v > 0 ? Math.round(v * 1e8) : null;
+    const estimado = Number.isFinite(v) && v > 0 ? Math.round(v * 1e8) : null;
+    // o corte de fila decide a inclusão; o estimador é a reserva
+    const corte = cutoffKvb(histogram, FEE_TARGETS[k]);
+    const kvb = corte === null ? estimado : corte;
     satPerKvb[k] = kvb;
     satPerVb[k] = kvb === null ? null : kvb / 1000;
     floored[k] = kvb !== null && kvb < RELAY_MIN_KVB;

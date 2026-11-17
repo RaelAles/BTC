@@ -36,12 +36,11 @@ tela mostra:
    caixa alta, `--accent` em repouso, `--fg` no hover e `--support` no
    escolhido, sem moldura. Cada nível traz o **percentual da taxa sobre o valor
    enviado** à direita do prazo, em `--dim`, e um `|` em `--sep` separa dois
-   níveis. Quando dois níveis caem na mesma taxa (o
-   servidor devolve a mesma estimativa para alvos vizinhos), a tela mostra só
+   níveis. Quando dois níveis caem na mesma taxa (o corte da
+   fila é o mesmo para alvos vizinhos), a tela mostra só
    o mais rápido: a taxa é idêntica, então o nível mais lento não acrescenta
    escolha. A taxa de cada nível vem **ao vivo** pelo `/api/fees` e é ela que
-   o PSBT usa, exatamente como o servidor devolveu — inclusive abaixo de
-   1 sat/vB, sem piso de relay.
+   o PSBT usa, sem arredondar.
    O seletor só aparece quando há valor e destino válidos; sem os dois, ou
    com o destino recusado, o custo não teria o que cotar. Os níveis são
    rádios nativos: clique ou setas escolhem, e o PSBT usa a taxa do nível
@@ -191,10 +190,11 @@ blockchain.info, nem chave privada em lugar nenhum.
   `blockchain.transaction.broadcast`; com sessão, pela conexão já aberta, e o
   `scripthash.subscribe` atualiza o saldo em seguida. É o único ponto que
   entrega a transação a um servidor, e só no clique em **confirmar**.
-- **Taxa ao vivo**: `GET /api/fees` pergunta `blockchain.estimatefee` para
-  144, 6, 3 e 1 bloco, que a tela mostra como prazo médio (`~1d`, `~1h`,
-  `~30m` e `~10m`, a 10 min por bloco), e converte BTC/kvB em sat/kvB
-  inteiro — o valor exato que o servidor devolve, sem arredondar. A tela
+- **Taxa ao vivo**: `GET /api/fees` lê o corte da fila pelo
+  `mempool.get_fee_histogram` do Electrum para 144, 6, 3 e 1 bloco, que a tela
+  mostra como prazo médio (`~1d`, `~1h`, `~30m` e `~10m`, a 10 min por bloco),
+  e converte para sat/kvB inteiro. O `blockchain.estimatefee` continua como
+  reserva, para servidor que não responde o histograma. A tela
   reconsulta a cada 60 s enquanto está aberta e mostra o percentual de cada
   nível para o valor e o destino digitados.
 - **Todos os endereços usados** dos quatro tipos vão para a resposta; os
@@ -376,18 +376,23 @@ backend de Durable Object disponível no plano free).
   assinatura/transmissão, a rede recusa a transação e é preciso criar outro
   PSBT. Se a sessão estiver em modo avulso, a varredura completa é refeita
   antes de montar.
-- **Taxa é estimativa do servidor**: `blockchain.estimatefee` é um palpite do
-  Electrum, não a mempool local. Servidor sem estimativa deixa o nível em
+- **Taxa é corte da fila**: a taxa de cada nível é o corte cumulativo do
+  `mempool.get_fee_histogram` do Electrum — a taxa a partir da qual a fila
+  cabe nos blocos do alvo — mais 1 sat/kvB de desempate por ordem de chegada,
+  com piso no piso de relay padrão. `blockchain.estimatefee` é só a reserva:
+  ele é histórico e suavizado e pode errar para os dois lados (numa parede de
+  taxa baixa, devolveu 1,003 sat/vB para 30 min quando o corte era 0,121).
+  Servidor sem histograma nem estimativa deixa o nível em
   `null` e a tela desabilita aquele nível; sem nenhum nível, o envio fica
   bloqueado e a leitura avisa que a estimativa está indisponível.
-- **A taxa usada é a estimada, sem piso**: `levels` leva o valor do servidor
-  exatamente como veio, inclusive abaixo de 1 sat/vB. O relay padrão do
-  Bitcoin Core é `-minrelaytxfee` = 100 sat/kvB (0,1 sat/vB) desde a v30
-  (era 1000 sat/kvB nas versões anteriores), e `floored` só marca o nível
-  abaixo desse piso — não troca a taxa. Num mempool quase vazio vários alvos
-  caem abaixo de 1 sat/vB: elas propagam para nós com piso menor e podem ser
-  mineradas, mas nós antigos (até a v29) recusam, então a confirmação pode
-  demorar.
+- **A taxa usada é o corte, sem piso econômico**: `levels` leva o corte do
+  histograma mais 1 sat/kvB. O piso de relay padrão do
+  Bitcoin Core (`-minrelaytxfee` = 100 sat/kvB, 0,1 sat/vB desde a v30; era
+  1000 sat/kvB até a v29) entra só como limite de sanidade do corte, e não
+  como piso de 1 sat/vB: num mempool quase vazio o `minimum` fica em
+  0,101 sat/vB. Quando o nível vem do `estimatefee` (servidor sem histograma),
+  o valor é usado como veio, inclusive abaixo de 0,1 sat/vB: `floored` marca o
+  nível e a tela mostra o aviso, sem trocar a taxa.
 - **A vsize é um limite superior**: `estimateVsize` (btc-core.js) conta o
   pior caso de assinatura (72 bytes no ECDSA, 65 no taproot), os 2 wu do
   marcador/flag do witness e o varint real das contagens. Com isso a
@@ -782,36 +787,45 @@ mensagem, sem publicar nada.
 
 ### `GET /api/fees?session=<id opcional>`
 
-Taxa ao vivo pelo `blockchain.estimatefee` do Electrum, em quatro alvos:
+Taxa ao vivo pelo `mempool.get_fee_histogram` do Electrum, em quatro alvos:
 144 blocos (`minimum`, prazo médio de 1 dia), 6 (`standard`, 1 h), 3 (`high`,
-30 min) e 1 (`urgent`, 10 min; o Bitcoin Core trata o alvo 1 como 2, o menor
-que ele estima). O prazo que a tela mostra é `alvo × 10 min`, a média do
-intervalo entre blocos: o `estimatefee` devolve só a taxa, sem prazo nem
-probabilidade, então o número é ordem de grandeza, não previsão.
+30 min) e 1 (`urgent`, 10 min). O prazo que a tela mostra é `alvo × 10 min`, a
+média do intervalo entre blocos: o corte é a taxa para entrar nos blocos do
+alvo, então o número é ordem de grandeza, não previsão.
 
-Nada é arredondado: `BTC/kvB × 1e8` dá o **sat/kvB inteiro exato** que o
-servidor respondeu, e `sat_per_vb` é só a leitura ÷1000. Arredondar a taxa
-antes de multiplicar pela vsize erra sempre para cima: 1,926 sat/vB em 141 vB
-custa 272 sats, e 2 sat/vB custaria 282. O PSBT recebe a taxa com as casas que
-o servidor deu e arredonda **apenas a taxa final, em satoshis**
-(`Math.ceil(sat/kvB × vsize ÷ 1000)`). Nada é somado para separar níveis:
-alvos que respondem a mesma taxa aparecem com a mesma taxa, porque o dado é do
-servidor, não do nome do nível — e a tela esconde o nível mais lento de cada
-taxa repetida, deixando só o mais rápido.
+O histograma é `[[fee, vsize], …]` com `fee` em sat/vB e `vsize` **por
+faixa** — a soma das faixas é o tamanho do mempool (`cutoffKvb` também aceita
+o formato cumulativo, que a doc do protocolo descreve, detectando qual é pela
+ordem da coluna). O corte de um alvo é a primeira faixa cujo vsize acumulado
+desde a mais cara alcança `alvo × 1 000 000 vB`; a ele soma-se **1 sat/kvB**,
+porque dentro de uma faixa de taxa igual quem chega primeiro é minerado
+primeiro. Alvo maior que o mempool vale a faixa mais baixa, e nada fica abaixo
+do piso de relay (100 sat/kvB).
 
-Se o servidor não estimar um nível, ele vem `null` e a tela desabilita aquele
-nível. `levels` (o que a tela escolhe e o PSBT usa) leva a estimativa exata,
-sem piso de relay: 0,113 sat/vB é usado como 0,113. `sat_per_vb` e
+`blockchain.estimatefee` responde só quando o histograma falta ou falha, e
+aí sim `BTC/kvB × 1e8` dá o sat/kvB inteiro exato — nada é arredondado antes
+de multiplicar pela vsize. Arredondar a taxa antes de multiplicar pela vsize
+erra sempre para cima: 1,926 sat/vB em 141 vB custa 272 sats, e 2 sat/vB
+custaria 282. O PSBT recebe a taxa com as casas que o servidor deu e arredonda
+**apenas a taxa final, em satoshis** (`Math.ceil(sat/kvB × vsize ÷ 1000)`).
+Nada é somado para separar níveis: alvos que caem na mesma taxa aparecem com a
+mesma taxa, porque o dado é da fila, não do nome do nível — e a tela esconde o
+nível mais lento de cada taxa repetida, deixando só o mais rápido.
+
+Se o servidor não der nem histograma nem estimativa para um nível, ele vem
+`null` e a tela desabilita aquele nível. `levels` (o que a tela escolhe e o
+PSBT usa) leva o corte exato: 0,121 sat/vB é usado como 0,121. `sat_per_vb` e
 `sat_per_kvb` são a mesma leitura em unidades diferentes, e `floored` só
 marca o nível abaixo do piso padrão do Bitcoin Core (`relay_min_kvb`, 100
-sat/kvB = 0,1 sat/vB desde a v30) — a taxa usada não muda.
+sat/kvB = 0,1 sat/vB desde a v30) — a taxa usada não muda, mas a tela mostra o
+aviso do piso para o nível escolhido.
 
 ```json
 {
-  "levels": { "minimum": 0.112, "standard": 0.97, "high": 1.926, "urgent": 1.926 },
+  "levels": { "minimum": 0.101, "standard": 0.121, "high": 0.121, "urgent": 1.324 },
   "targets": { "minimum": 144, "standard": 6, "high": 3, "urgent": 1 },
-  "sat_per_kvb": { "minimum": 112, "standard": 970, "high": 1926, "urgent": 1926 },
-  "sat_per_vb": { "minimum": 0.112, "standard": 0.97, "high": 1.926, "urgent": 1.926 },
+  "sat_per_kvb": { "minimum": 101, "standard": 121, "high": 121, "urgent": 1324 },
+  "sat_per_vb": { "minimum": 0.101, "standard": 0.121, "high": 0.121, "urgent": 1.324 },
   "floored": { "minimum": false, "standard": false, "high": false, "urgent": false },
   "relay_min_kvb": 100,
   "unit": "sat/vB",
