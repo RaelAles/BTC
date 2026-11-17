@@ -150,12 +150,17 @@ function ok(label) { passed++; console.log('ok   ' + label); }
     'abaixo do piso de relay padrão o corte sobe até o piso');
   assert.equal(cutoffKvb([[5, 2000000]], 1), 5001,
     'alvo dentro da faixa mais cara: sem teto no histograma, fica o piso + 1');
+  /* mediana: alvo de 0,5 bloco (500k vB). 300k na faixa de 2,02; +250k na
+     de 2,00 → o acumulado chega a 550k, então o alvo cai na faixa de 2,00,
+     cujo teto é 2,02 (o piso da faixa imediatamente mais cara) → 2 021. */
+  const mediana = [[2.02, 300000], [2.00, 250000], [1.98, 450000]];
+  assert.equal(cutoffKvb(mediana, 0.5), 2021);
   assert.equal(cutoffKvb([], 1), null);
   assert.equal(cutoffKvb(null, 1), null);
   assert.equal(cutoffKvb([[NaN, 1], ['x', 2], [0, 3]], 1), null,
     'faixa inválida é descartada');
   assert.equal(BLOCK_VSIZE, 1000000);
-  ok('cutoffKvb: por faixa e cumulativo, acima do teto da faixa que cruza o alvo');
+  ok('cutoffKvb: por faixa e cumulativo, acima do teto da faixa que cruza o alvo (bloco e mediana)');
 }
 
 console.log('\n' + passed + ' grupos de teste passaram');

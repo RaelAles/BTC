@@ -314,42 +314,42 @@ export async function transactionsMany(client, txids, opts) {
   return { raw, errors };
 }
 
-/* Taxa ao vivo: dois pedidos na mesma conexão, e o segundo manda.
+/* Taxa ao vivo: o histograma manda; o estimador é só fallback.
 
-   `mempool.get_fee_histogram` é o estado da fila agora; dele sai o corte de
-   cada alvo (ver `cutoffKvb`). `blockchain.estimatefee` é o outro lado: o
-   que os blocos já minerados cobraram, suavizado pelo Core. Cada nível fica
-   com o MAIOR dos dois.
+   `mempool.get_fee_histogram` é o estado da fila agora. O nível é a
+   **mediana do primeiro bloco**: o preço da faixa em que o acumulado alcança
+   metade da vsize do bloco (0,5 × 1 000 000 vB). Metade do bloco paga mais,
+   metade paga menos; é o mínimo que compra uma chance razoável de entrar no
+   próximo bloco, sem ficar na borda da fila.
 
-   Ficar com o menor seria prometer prazo que a rede não cumpriu. Medido em
-   17/11/2026: a fila cotava 0,127 sat/vB para 30 min enquanto os blocos
-   recentes fechavam em 1,0 e 1,872 — três dos últimos seis blocos só
-   desceram até 0,12, os outros pararam em 1,0 ou acima. Com o maior dos
-   dois, o nível de 1 h do estimador (0,125) não muda nada, mas o de 30 min
-   sobe de 0,127 para ~1,0: mais caro, e entrando de fato.
+   O alvo de 1 bloco inteiro (o piso) era o menor valor que *podia* entrar,
+   mas ficava no fim da fila e qualquer transação nova podia empurrá-lo para
+   o segundo bloco. Medido em 17/11/2026, a fila cotava 0,127 sat/vB para
+   30 min enquanto os blocos recentes fechavam em 1,0 e 1,872 — três dos
+   últimos seis blocos só desceram até 0,12, os outros pararam em 1,0 ou
+   acima. A mediana acompanha o miolo do bloco; o estimador do Core é
+   consultado em 2 blocos, mas só entra quando o histograma não responde.
 
-   O preço disso: em transação pequena (169 vB) o nível rápido passa de ~22
-   para ~180 satoshis. É o único jeito de a tela não repetir o caso da
-   transação de 0,1187 sat/vB, que ficou 40 h parada atrás de 21 blocos.
+   O `max` com o estimador saiu: em regime de fila baixa ele fazia a taxa
+   ficar ~8× acima da fila (1,003 sat/vB contra uma mediana de ~0,12). O
+   estimador continua sendo o fallback para servidor sem histograma; sem
+   ele, o nível fica null e o envio é bloqueado.
 
-   Não há escolha de taxa na tela: um número só, o do próximo bloco — a
-   menor taxa que, pelo histograma, fica acima da faixa que cruza os próximos
-   ~1 M vB da fila. A escolha entre níveis saiu porque, medido em 17/11/2026,
-   as duas opções entregavam ~12 e ~14 minutos de espera por 8x de preço: a
-   escolha não era sobre tempo, era sobre seguro, e transferia ao usuário uma
-   decisão sem informação (e sem RBF para corrigir depois).
-   Servidor que não responde fica sem estimativa (null) e o envio fica
-   bloqueado.
+   Não há escolha de taxa na tela: um número só, a mediana do próximo bloco.
+   A escolha entre níveis saiu porque, medido em 17/11/2026, as duas opções
+   entregavam ~12 e ~14 minutos de espera por 8x de preço: a escolha não era
+   sobre tempo, era sobre seguro, e transferia ao usuário uma decisão sem
+   informação (e sem RBF para corrigir depois).
 
    Nada de folga fixa (FEE_MARGIN saiu): a folga percentual era cerimônia
    diante da variação real dos blocos (0,12 contra 1,87 no mesmo dia). O que
    sobra é o teto da faixa que cruza o alvo (o piso da faixa imediatamente
    mais cara), mais 1 sat/kvB para não empatar com esse teto. O piso da faixa
    não basta: a faixa pode ser mais larga que 1 sat/kvB, e a taxa real do
-   corte fica dentro dela. Medido em 17/11/2026, a faixa do corte ia de
-   1,004245 a 1,005909 sat/vB; o piso + 1 sat/kvB dava 1,005, abaixo do 1º
-   percentil do primeiro bloco (1,00535), enquanto o teto + 1 sat/kvB dava
-   1,006.
+   corte fica dentro dela. Medido em 17/11/2026, a faixa do corte de 1 bloco
+   ia de 1,004245 a 1,005909 sat/vB; o piso + 1 sat/kvB dava 1,005, abaixo do
+   1º percentil do primeiro bloco (1,00535), enquanto o teto + 1 sat/kvB dava
+   1,006. O mesmo teto é aplicado à mediana.
 
    O valor NÃO é arredondado: BTC/kvB × 1e8 dá sat/kvB inteiro exato (é a
    unidade em que o servidor de fato responde: 1926, 970, 112), e `sat_per_vb`
@@ -361,12 +361,15 @@ export async function transactionsMany(client, txids, opts) {
    não há piso econômico na carteira, só o piso de relay. `floored` marca o
    nível abaixo do piso padrão atual do Bitcoin Core (`-minrelaytxfee` =
    0,1 sat/vB desde a v30) e a tela mostra o aviso para o nível escolhido. */
-export const FEE_TARGETS = { next: 1 };
+/* Fração do bloco que define o alvo: 0,5 = mediana do primeiro bloco
+   (metade da vsize). O alvo de 1 bloco inteiro é o piso da fila; a mediana
+   é o mínimo que compra uma chance razoável de entrar no próximo bloco. */
+export const FEE_TARGETS = { next: 0.5 };
 
-/* Alvo pedido ao `blockchain.estimatefee`. Diferente do corte (1 bloco)
-   porque o Core se recusa a estimar 1 bloco — "It's not possible to get
-   reasonable estimates for confTarget of 1" — e calcula com 2. Pedir 2
-   explicitamente deixa claro que o número do estimador fala de dois blocos. */
+/* Alvo pedido ao `blockchain.estimatefee`. Diferente do corte (mediana do
+   primeiro bloco) porque o Core se recusa a estimar 1 bloco — "It's not
+   possible to get reasonable estimates for confTarget of 1" — e calcula com
+   2. É o fallback quando o servidor não devolve histograma. */
 export const ESTIMATE_TARGETS = { next: 2 };
 
 /* Piso de relay padrão do Bitcoin Core (`-minrelaytxfee`): 100 sat/kvB =
@@ -377,8 +380,9 @@ export const RELAY_MIN_KVB = 100;
    fila: no mempool cheio o bloco sai com ~1 000 000 vB. */
 export const BLOCK_VSIZE = 1000000;
 
-/* Corte de fila para confirmar DENTRO de `blocks` blocos, em sat/kvB, a
-   partir do histograma do mempool.
+/* Corte de fila para a fração `blocks` do bloco (0,5 = mediana do
+   primeiro bloco; 1 = bloco inteiro), em sat/kvB, a partir do histograma do
+   mempool.
 
    `mempool.get_fee_histogram` devolve [[fee, vsize], …] com `fee` em sat/vB.
    O `vsize` vem POR FAIXA nos servidores reais — conferido em
@@ -462,13 +466,12 @@ export async function estimateFees(client) {
     // × 1e8 em vez de × 1e5: sat/kvB é inteiro e exato; 0.0000097 * 1e5 daria
     // 0.9700000000000001, e sat/vB só existe para a tela
     const estimado = Number.isFinite(v) && v > 0 ? Math.round(v * 1e8) : null;
-    // fila (para frente) e estimador (para trás): fica o maior dos dois, que
-    // é o único jeito de o número exibido não ser menor que o preço que os
-    // blocos vêm cobrando. Faltando um deles, vale o outro.
+    // O histograma manda: a taxa é a mediana do primeiro bloco, já com o
+    // teto da faixa + 1 sat/kvB (ver `cutoffKvb`). O estimatefee é só
+    // fallback quando não há histograma; usá-lo como piso fazia a taxa ficar
+    // ~8× acima da fila em regime de fila baixa.
     const corte = cutoffKvb(histogram, FEE_TARGETS[k]);
-    const kvb = corte === null ? estimado
-      : estimado === null ? corte
-      : Math.max(corte, estimado);
+    const kvb = corte === null ? estimado : corte;
     satPerKvb[k] = kvb;
     satPerVb[k] = kvb === null ? null : kvb / 1000;
     floored[k] = kvb !== null && kvb < RELAY_MIN_KVB;

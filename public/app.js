@@ -1052,7 +1052,7 @@
   }
 
   /* ---------------------------------------------------------- enviar */
-  /* Não há escolha de taxa: um número só, o do próximo bloco (ver
+  /* Não há escolha de taxa: um número só, a mediana do próximo bloco (ver
      FEE_TARGETS em src/electrum.js). O valor vem do /api/fees e o percentual
      sobre o valor enviado, do preview do valor e do destino digitados. */
   var FEE_MAX = 10000;

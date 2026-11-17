@@ -45,8 +45,8 @@ function mapFind(map, type) {
   assert.deepEqual(r.j.sat_per_vb, { next: 11 });
   assert.deepEqual(r.j.floored, { next: false });
   assert.equal(r.j.relay_min_kvb, 100);
-  assert.deepEqual(r.j.targets, { next: 1 },
-    'a cotação é de 1 bloco; o estimador é consultado em 2');
+  assert.deepEqual(r.j.targets, { next: 0.5 },
+    'a cotação é da mediana do 1º bloco; o estimador é consultado em 2 blocos');
   assert.equal(r.j.source, 'electrum');
   console.log('ok   taxa ao vivo, uma opção só (próximo bloco)');
   await fake.close();
@@ -94,34 +94,35 @@ function mapFind(map, type) {
   await fake.close();
 }
 
-/* ---------------- 1d. fila ou estimador: fica o maior dos dois ---------------- */
+/* ---------------- 1d. mediana da fila; estimador só como fallback ---------------- */
 {
-  /* O histograma do Electrum traz o vsize POR FAIXA: [[50,100k], [10,800k],
-     [2,600k], [1,900k]]. Para 1 bloco (1M vB) o acumulado só alcança a
-     capacidade na faixa de 2 sat/vB, cujo teto é 10 sat/vB (o piso da faixa
-     imediatamente mais cara) → 10 001 sat/kvB (teto + 1 sat/kvB, sem folga
-     percentual). Se a soma fosse feita em cima de um histograma já
-     cumulativo, o resultado sairia bem maior. */
-  const fila = [[50, 100000], [10, 800000], [2, 600000], [1, 900000]];
-  const barato = await startFakeElectrum({ histogram: fila, fees: { 2: 0.00002000 } });
-  const envBarato = { ELECTRUM_SERVERS: '127.0.0.1:' + barato.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
-  const rBarato = await reqFees(envBarato);
-  assert.equal(rBarato.status, 200);
-  assert.deepEqual(rBarato.j.sat_per_kvb, { next: 10001 },
-    'fila (10 001) acima do estimador (2 000): fica a fila');
-  await barato.close();
-
-  const caro = await startFakeElectrum({ histogram: fila, fees: { 2: 0.00020000 } });
+  /* O histograma traz o vsize POR FAIXA. A mediana é o alvo de 0,5 bloco
+     (500k vB): 300k na faixa de 2,02; +250k na de 2,00 → o acumulado chega a
+     550k, então o alvo cai na faixa de 2,00, cujo teto é 2,02. Teto + 1
+     sat/kvB = 2 021. O estimador (10 sat/vB) é maior, mas não é mais piso:
+     quem manda é a mediana. */
+  const fila = [[2.02, 300000], [2.00, 250000], [1.98, 450000]];
+  const caro = await startFakeElectrum({ histogram: fila, fees: { 2: 0.00010000 } });
   const envCaro = { ELECTRUM_SERVERS: '127.0.0.1:' + caro.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const rCaro = await reqFees(envCaro);
   assert.equal(rCaro.status, 200);
-  assert.deepEqual(rCaro.j.sat_per_kvb, { next: 20000 },
-    'estimador (20 000) acima da fila (10 001): fica o estimador');
-  assert.deepEqual(rCaro.j.levels, { next: 20 });
+  assert.deepEqual(rCaro.j.sat_per_kvb, { next: 2021 },
+    'mediana (2 021) vence o estimador (10 000): o estimador é só fallback');
+  assert.deepEqual(rCaro.j.levels, { next: 2.021 });
   assert.deepEqual(rCaro.j.floored, { next: false });
   assert.equal(rCaro.j.source, 'electrum', 'o formato da resposta não muda');
-  console.log('ok   nível fica com o maior entre fila e estimador');
   await caro.close();
+
+  /* Sem histograma, o estimador de 2 blocos entra como fallback. */
+  const semHist = await startFakeElectrum({ fees: { 2: 0.00010000 } });
+  const envSemHist = { ELECTRUM_SERVERS: '127.0.0.1:' + semHist.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
+  const rSemHist = await reqFees(envSemHist);
+  assert.equal(rSemHist.status, 200);
+  assert.deepEqual(rSemHist.j.sat_per_kvb, { next: 10000 },
+    'sem histograma, o estimador de 2 blocos é o fallback');
+  assert.deepEqual(rSemHist.j.levels, { next: 10 });
+  await semHist.close();
+  console.log('ok   mediana da fila manda; estimador só como fallback');
 }
 
 /* ---------------- 2. envio bip84 para índice alto, com origem BIP32 ---------------- */
