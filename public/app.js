@@ -45,7 +45,7 @@
     page: 1,            // página da lista do histórico
     fees: null,         // estimativa ao vivo do Electrum
     feeQuotes: null,    // custo de cada nível para o valor atual
-    feeLevel: 'standard', // standard | high | urgent
+    feeLevel: 'standard', // standard (padrão) | fast (rápida)
     feeTimer: 0,        // reconsulta periódica da taxa
     amountDigits: '',   // satoshis digitados (o ponto é só desenho)
     limits: null,       // máximo enviável para o destino e a taxa
@@ -1053,11 +1053,11 @@
   }
 
   /* ---------------------------------------------------------- enviar */
-  /* FEE_ORDER é a ordem das chaves na tela, do prazo mais curto ao mais
-     longo; o rótulo que aparece é o prazo médio ("~10m", "~30m", "~1h").
-     A taxa de cada nível vem do /api/fees e o percentual sobre o
-     valor enviado, do preview do valor e do destino digitados. */
-  var FEE_ORDER = ['urgent', 'high', 'standard'];
+  /* FEE_ORDER é a ordem das chaves na tela, do mais rápido ao mais lento;
+     o rótulo que aparece é a escolha ("rápida", "padrão", ver FEE_TARGETS em
+     src/electrum.js). A taxa de cada nível vem do /api/fees e o percentual
+     sobre o valor enviado, do preview do valor e do destino digitados. */
+  var FEE_ORDER = ['fast', 'standard'];
   var FEE_MAX = 10000;
 
   function feeRateOf(level) {

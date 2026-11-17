@@ -332,18 +332,20 @@ export async function transactionsMany(client, txids, opts) {
    para ~180 satoshis. É o único jeito de a tela não repetir o caso da
    transação de 0,1187 sat/vB, que ficou 40 h parada atrás de 21 blocos.
 
-   Três alvos cobrem a escolha da tela, em ordem de prioridade: padrão (6 ≈
-   1 h), alta (3 ≈ 30 min) e urgente (1 bloco ≈ 10 min; o Bitcoin Core trata
-   o alvo 1 como 2, o menor que ele estima). A tela mostra essas chaves como
-   prazo médio, sem citar bloco: o tempo é alvo × 10 min, a média do intervalo
-   entre blocos, não uma previsão do `estimatefee`. Servidor que não responde
-   fica sem estimativa naquele nível (null) e a tela desabilita aquele nível.
+   Duas opções cobrem a escolha da tela: `fast` (o próximo bloco — a menor
+   taxa que já coloca a transação na frente dos próximos ~1 M vB da fila) e
+   `standard` (o preço de escoar a fila em 6 blocos, o ritmo econômico).
+   Labels sem prazo escrito de propósito: o prazo era a conta mais frágil da
+   tela ("~10 min" vinha de um alvo de 1 bloco que o próprio Core se recusa
+   a estimar, e ~30 min e ~1 h apareciam ou sumiam conforme o arredondamento).
+   Servidor que não responde fica sem estimativa naquele nível (null) e a
+   tela desabilita aquele nível.
 
-   Não existe alvo de 1 dia (144 blocos): a fila raramente passa de ~30
-   blocos, então esse nível nunca era uma medida da fila — quando o alvo passa
-   do tamanho do mempool, a conta cai no atalho da faixa mais baixa, que é o
-   piso de relay. O resultado era um botão chamado "1 dia" com preço mínimo
-   da rede, atrás de toda a fila e a 4 satoshis de diferença do prazo de 1 h.
+   Nada de folga fixa (FEE_MARGIN saiu): a folga percentual era cerimônia
+   diante da variação real dos blocos (0,12 contra 1,87 no mesmo dia). O que
+   sobra é o passo mínimo de 1 sat/kvB acima do corte, que existe só para não
+   empatar com a faixa de taxa que fecha o bloco — empate é decidido por
+   ordem de chegada, e a transação nova chega por último.
 
    O valor NÃO é arredondado: BTC/kvB × 1e8 dá sat/kvB inteiro exato (é a
    unidade em que o servidor de fato responde: 1926, 970, 112), e `sat_per_vb`
@@ -355,7 +357,14 @@ export async function transactionsMany(client, txids, opts) {
    não há piso econômico na carteira, só o piso de relay. `floored` marca o
    nível abaixo do piso padrão atual do Bitcoin Core (`-minrelaytxfee` =
    0,1 sat/vB desde a v30) e a tela mostra o aviso para o nível escolhido. */
-export const FEE_TARGETS = { standard: 6, high: 3, urgent: 1 };
+export const FEE_TARGETS = { standard: 6, fast: 1 };
+
+/* Alvo pedido ao `blockchain.estimatefee` de cada nível. Igual ao do corte,
+   menos no rápido: o Core se recusa a estimar 1 bloco ("It's not possible to
+   get reasonable estimates for confTarget of 1") e calcula com 2. Pedir 2
+   explicitamente deixa claro que o número do estimador, nesse nível, fala de
+   dois blocos — não de um. */
+export const ESTIMATE_TARGETS = { standard: 6, fast: 2 };
 
 /* Piso de relay padrão do Bitcoin Core (`-minrelaytxfee`): 100 sat/kvB =
    0,1 sat/vB desde a v30 (nas versões anteriores era 1000 sat/kvB). */
@@ -384,19 +393,12 @@ export const BLOCK_VSIZE = 1000000;
    o desempate é por ordem de chegada, então o valor exato cai no fim da
    fila. Numa parede de taxa uniforme isso custa blocos inteiros — a
    transação de 0,1187 sat/vB estava 1,3 sat/kvB abaixo de uma parede de 16
-   blocos, e a diferença em satoshis era zero.
-
-   FEE_MARGIN é a folga para quem chega depois: o corte é medido agora, e
-   entre a cotação e o bloco entram transações novas que empurram quem está
-   exatamente no limite. Medido em 17/11/2026: a tela mostrava 1,004 sat/vB
-   para 1 bloco enquanto o bloco saiu cheio de 1,000 a 1,053 sat/vB — ou seja,
-   o número estava certo e a transação ficaria na beirada. Cinco por cento
-   custam ~1 satoshi numa transação pequena e tiram a transação da beirada.
+   blocos, e a diferença em satoshis era zero. O passo é o menor possível
+   (1 sat/kvB acima do corte), e não uma porcentagem: a folga percentual que
+   existia aqui (5%) não mudava nada diante da variação real dos blocos.
 
    Alvo maior que o mempool inteiro: vale a faixa mais baixa (o piso do
    servidor), nunca abaixo do piso de relay padrão. */
-export const FEE_MARGIN = 1.05;
-
 export function cutoffKvb(histogram, blocks) {
   if (!Array.isArray(histogram) || !histogram.length) return null;
   const rows = [];
@@ -420,7 +422,7 @@ export function cutoffKvb(histogram, blocks) {
   for (const [fee, acumulado] of fila) {
     if (acumulado >= alvo) { escolhida = fee; break; }
   }
-  return Math.max(Math.ceil(escolhida * 1000 * FEE_MARGIN), RELAY_MIN_KVB);
+  return Math.max(Math.floor(escolhida * 1000) + 1, RELAY_MIN_KVB);
 }
 
 export async function estimateFees(client) {
@@ -429,7 +431,7 @@ export async function estimateFees(client) {
   // falha isolado e vira null (a tela desabilita aquele nível)
   const [values, histogram] = await Promise.all([
     Promise.all(keys.map(k =>
-      client.request('blockchain.estimatefee', [FEE_TARGETS[k]]).catch(() => null)
+      client.request('blockchain.estimatefee', [ESTIMATE_TARGETS[k]]).catch(() => null)
     )),
     client.request('mempool.get_fee_histogram', []).catch(() => null)
   ]);
