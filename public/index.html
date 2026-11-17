@@ -149,9 +149,10 @@
                 <p class="note" id="send-amount-hint"></p>
 
                 <div id="fee-section" hidden>
-                  <!-- Sem escolha de taxa: uma linha só com a mediana do
-                       próximo bloco (ver FEE_TARGETS em src/electrum.js) e o
-                       custo dela sobre o valor digitado. -->
+                  <!-- Sem escolha de taxa: uma linha só com o
+                       `estimatefee(2)` do Bitcoin Core (ver
+                       ESTIMATE_TARGETS em src/electrum.js) e o custo dele
+                       sobre o valor digitado. -->
                   <p class="note" id="fee-line"></p>
                 </div>
               </div>
@@ -363,6 +364,6 @@
   </main>
 </div>
 
-<script src="/app.js" defer integrity="sha384-x8CWpfH9ztzR7zqOUbx8zNA7i7F0xRJQA06yswRL/d2TxOGr982ivT8sZTgZd9IO"></script>
+<script src="/app.js" defer integrity="sha384-Pw1xpSEdW95qlALJ2nXIa9O0HXLGIgGZNTrHKJ9MH6/sLDXGpHE8NdImwGJADnoB"></script>
 </body>
 </html>

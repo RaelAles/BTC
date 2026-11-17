@@ -45,10 +45,10 @@ function mapFind(map, type) {
   assert.deepEqual(r.j.sat_per_vb, { next: 11 });
   assert.deepEqual(r.j.floored, { next: false });
   assert.equal(r.j.relay_min_kvb, 100);
-  assert.deepEqual(r.j.targets, { next: 0.5 },
-    'a cotação é da mediana do 1º bloco; o estimador é consultado em 2 blocos');
+  assert.deepEqual(r.j.targets, { next: 2 },
+    'a cotação é o estimatefee(2)');
   assert.equal(r.j.source, 'electrum');
-  console.log('ok   taxa ao vivo, uma opção só (próximo bloco)');
+  console.log('ok   taxa ao vivo, estimatefee(2)');
   await fake.close();
 }
 
@@ -79,7 +79,7 @@ function mapFind(map, type) {
   await baixo.close();
 }
 
-/* ---------------- 1c. sem estimativa e sem histograma fica null ---------------- */
+/* ---------------- 1c. sem estimativa fica null ---------------- */
 {
   const fake = await startFakeElectrum({ fees: {} });
   const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
@@ -94,35 +94,38 @@ function mapFind(map, type) {
   await fake.close();
 }
 
-/* ---------------- 1d. mediana da fila; estimador só como fallback ---------------- */
+/* ---------------- 1d. só o estimatefee do Core; histograma é ignorado ---------------- */
 {
-  /* O histograma traz o vsize POR FAIXA. A mediana é o alvo de 0,5 bloco
-     (500k vB): 300k na faixa de 2,02; +250k na de 2,00 → o acumulado chega a
-     550k, então o alvo cai na faixa de 2,00, cujo teto é 2,02. Teto + 1
-     sat/kvB = 2 021. O estimador (10 sat/vB) é maior, mas não é mais piso:
-     quem manda é a mediana. */
-  const fila = [[2.02, 300000], [2.00, 250000], [1.98, 450000]];
-  const caro = await startFakeElectrum({ histogram: fila, fees: { 2: 0.00010000 } });
-  const envCaro = { ELECTRUM_SERVERS: '127.0.0.1:' + caro.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
-  const rCaro = await reqFees(envCaro);
-  assert.equal(rCaro.status, 200);
-  assert.deepEqual(rCaro.j.sat_per_kvb, { next: 2021 },
-    'mediana (2 021) vence o estimador (10 000): o estimador é só fallback');
-  assert.deepEqual(rCaro.j.levels, { next: 2.021 });
-  assert.deepEqual(rCaro.j.floored, { next: false });
-  assert.equal(rCaro.j.source, 'electrum', 'o formato da resposta não muda');
-  await caro.close();
+  /* O servidor devolve histograma e estimatefee; o projeto usa só o
+     estimatefee, sem mediana nem corte. 10 sat/vB = 10 000 sat/kvB. */
+  const fake = await startFakeElectrum({
+    histogram: [[2.02, 300000], [2.00, 250000], [1.98, 450000]],
+    fees: { 2: 0.00010000 }
+  });
+  const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
+  const r = await reqFees(env);
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.j.sat_per_kvb, { next: 10000 },
+    'o histograma não entra: a taxa é o estimatefee(2)');
+  assert.deepEqual(r.j.levels, { next: 10 });
+  assert.deepEqual(r.j.floored, { next: false });
+  assert.deepEqual(r.j.targets, { next: 2 });
+  assert.equal(r.j.source, 'electrum', 'o formato da resposta não muda');
+  await fake.close();
 
-  /* Sem histograma, o estimador de 2 blocos entra como fallback. */
-  const semHist = await startFakeElectrum({ fees: { 2: 0.00010000 } });
-  const envSemHist = { ELECTRUM_SERVERS: '127.0.0.1:' + semHist.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
-  const rSemHist = await reqFees(envSemHist);
-  assert.equal(rSemHist.status, 200);
-  assert.deepEqual(rSemHist.j.sat_per_kvb, { next: 10000 },
-    'sem histograma, o estimador de 2 blocos é o fallback');
-  assert.deepEqual(rSemHist.j.levels, { next: 10 });
-  await semHist.close();
-  console.log('ok   mediana da fila manda; estimador só como fallback');
+  /* Sem estimatefee, o histograma NÃO é fallback: o nível fica null. */
+  const semEstimativa = await startFakeElectrum({
+    histogram: [[2.02, 300000], [2.00, 250000], [1.98, 450000]],
+    fees: {}
+  });
+  const envSem = { ELECTRUM_SERVERS: '127.0.0.1:' + semEstimativa.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
+  const rSem = await reqFees(envSem);
+  assert.equal(rSem.status, 200);
+  assert.deepEqual(rSem.j.levels, { next: null },
+    'sem estimatefee, o histograma não é fallback');
+  assert.deepEqual(rSem.j.sat_per_kvb, { next: null });
+  await semEstimativa.close();
+  console.log('ok   só o estimatefee do Core; histograma é ignorado');
 }
 
 /* ---------------- 2. envio bip84 para índice alto, com origem BIP32 ---------------- */

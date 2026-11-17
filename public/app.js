@@ -1052,9 +1052,10 @@
   }
 
   /* ---------------------------------------------------------- enviar */
-  /* Não há escolha de taxa: um número só, a mediana do próximo bloco (ver
-     FEE_TARGETS em src/electrum.js). O valor vem do /api/fees e o percentual
-     sobre o valor enviado, do preview do valor e do destino digitados. */
+  /* Não há escolha de taxa: um número só, o `estimatefee(2)` do Bitcoin
+     Core (ver ESTIMATE_TARGETS em src/electrum.js). O valor vem do
+     /api/fees e o percentual sobre o valor enviado, do preview do valor e do
+     destino digitados. */
   var FEE_MAX = 10000;
 
   /* A taxa vem do servidor em sat/vB e PODE ter casas (0,12; 1,075; 1,926):

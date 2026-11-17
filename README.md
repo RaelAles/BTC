@@ -31,8 +31,8 @@ tela mostra:
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e **taxa
    calculada**, sem escolha — uma linha `taxa 0,121 sat/vB · 0,2%` na mesma
    linha do recado do máximo (o recado à esquerda e a taxa à direita; em tela
-   estreita a taxa desce e continua à direita), em `--dim`. A taxa é a
-   mediana do próximo bloco, vem **ao vivo** pelo `/api/fees` e é ela que o
+   estreita a taxa desce e continua à direita), em `--dim`. A taxa vem do
+   `estimatefee` do Bitcoin Core, **ao vivo** pelo `/api/fees`, e é ela que o
    PSBT usa, sem arredondar. O percentual é o custo dela sobre o valor digitado.
    A linha só aparece quando há valor e destino válidos; sem os dois, ou com
    o destino recusado, não há o que cotar. Não há botão de taxa: a escolha
@@ -181,12 +181,11 @@ blockchain.info, nem chave privada em lugar nenhum.
   `blockchain.transaction.broadcast`; com sessão, pela conexão já aberta, e o
   `scripthash.subscribe` atualiza o saldo em seguida. É o único ponto que
   entrega a transação a um servidor, e só no clique em **confirmar**.
-- **Taxa ao vivo**: `GET /api/fees` lê a mediana do primeiro bloco pelo
-  `mempool.get_fee_histogram` do Electrum (0,5 × 1 000 000 vB) e converte
-  para sat/kvB inteiro. O `blockchain.estimatefee` é só fallback quando o
-  histograma falta (estimador pedido em 2 blocos, porque o Core se recusa a
-  estimar 1). A tela reconsulta a cada 60 s enquanto está aberta e mostra o
-  percentual dessa taxa sobre o valor digitado.
+- **Taxa ao vivo**: `GET /api/fees` lê o `blockchain.estimatefee` do Bitcoin
+  Core (2 blocos, porque o Core se recusa a estimar 1) e converte de BTC/kvB
+  para sat/kvB inteiro. É a única fonte de taxa do projeto. A tela
+  reconsulta a cada 60 s enquanto está aberta e mostra o percentual dessa
+  taxa sobre o valor digitado.
 - **Todos os endereços usados** dos quatro tipos vão para a resposta; os
   outros tipos também entram no saldo disponível (união), não só o detectado.
 - **Sem cache durável**: cada consulta deriva e consulta de novo. Enquanto a
@@ -366,28 +365,20 @@ backend de Durable Object disponível no plano free).
   assinatura/transmissão, a rede recusa a transação e é preciso criar outro
   PSBT. Se a sessão estiver em modo avulso, a varredura completa é refeita
   antes de montar.
-- **Taxa é a mediana do primeiro bloco**: a taxa vem do
-  `mempool.get_fee_histogram` do Electrum — a primeira faixa cujo vsize
-  acumulado alcança **metade do bloco** (0,5 × 1 000 000 vB), com o preço no
-  **teto dessa faixa** (o piso da faixa imediatamente mais cara) mais
-  **1 sat/kvB** para não empatar com o teto. O piso de 1 bloco inteiro era o
-  menor valor que *podia* entrar, mas ficava na borda da fila; a mediana
-  compra uma chance razoável de entrar no próximo bloco. O
-  `blockchain.estimatefee` do Core (2 blocos) é só **fallback** quando o
-  histograma não responde: usá-lo como piso fazia a taxa ficar ~8× acima da
-  fila em regime de fila baixa (1,003 contra ~0,12 sat/vB). A alternância
-  real (blocos de 0,12 e 1,87 no mesmo dia) é o motivo de não usar o piso.
-  Servidor sem histograma nem estimativa deixa o nível em `null` e a tela
-  desabilita aquele nível; sem nenhum nível, o envio fica bloqueado.
-- **A taxa usada é a mediana, sem piso econômico**: `levels` leva a mediana
-  do primeiro bloco (o teto da faixa que cruza 0,5 bloco) mais 1 sat/kvB. O
-  piso de relay padrão do
-  Bitcoin Core (`-minrelaytxfee` = 100 sat/kvB, 0,1 sat/vB desde a v30; era
-  1000 sat/kvB até a v29) entra só como limite de sanidade do corte, e não
-  como piso de 1 sat/vB: num mempool quase vazio o `minimum` fica em
-  0,101 sat/vB. Quando o nível vem do `estimatefee` (servidor sem histograma),
-  o valor é usado como veio, inclusive abaixo de 0,1 sat/vB: `floored` marca o
-  nível e a tela mostra o aviso, sem trocar a taxa.
+- **Taxa é o `estimatefee` do Core**: a taxa vem do `blockchain.estimatefee`
+  do Bitcoin Core, pedido em 2 blocos porque o Core se recusa a estimar 1. O
+  valor é convertido de BTC/kvB para sat/kvB e usado como veio, sem
+  histograma, mediana ou corte de fila. O estimador é histórico: olha o que
+  os blocos já minerados cobraram, não a fila atual; por isso pode ficar
+  acima da fila quando ela está baixa e abaixo quando ela sobe. Servidor sem
+  estimativa deixa o nível em `null` e a tela desabilita aquele nível; sem
+  nenhum nível, o envio fica bloqueado.
+- **A taxa usada é a do estimador, sem piso econômico**: `levels` leva o
+  `estimatefee` de 2 blocos. O piso de relay padrão do Bitcoin Core
+  (`-minrelaytxfee` = 100 sat/kvB, 0,1 sat/vB desde a v30; era 1000 sat/kvB
+  até a v29) entra só como aviso: o valor é usado como veio, inclusive abaixo
+  de 0,1 sat/vB; `floored` marca o nível e a tela mostra o recado, sem trocar
+  a taxa.
 - **A vsize é um limite superior**: `estimateVsize` (btc-core.js) conta o
   pior caso de assinatura (72 bytes no ECDSA, 65 no taproot), os 2 wu do
   marcador/flag do witness e o varint real das contagens. Com isso a
@@ -782,58 +773,31 @@ mensagem, sem publicar nada.
 
 ### `GET /api/fees?session=<id opcional>`
 
-Taxa ao vivo pelo `mempool.get_fee_histogram` do Electrum, um alvo só: a
-**mediana do primeiro bloco** — o preço da faixa em que o vsize acumulado
-alcança metade do bloco (0,5 × 1 000 000 vB). O estimador do Core é
-consultado em 2 blocos, porque ele se recusa a estimar 1 ("It's not
-possible to get reasonable estimates for confTarget of 1"), mas só entra
-como **fallback** quando o histograma não responde. A tela não mostra prazo
-nem escolha: um `~10m` vinha de um alvo que o estimador não calcula, e as
-opções de 1 h e 30 min entregavam ~12 e ~14 minutos de espera por 8x de
-preço.
+Taxa ao vivo pelo `blockchain.estimatefee` do Bitcoin Core, um alvo só: 2
+blocos — o Core se recusa a estimar 1 ("It's not possible to get reasonable
+estimates for confTarget of 1"). A tela não mostra prazo nem escolha: um
+`~10m` vinha de um alvo que o estimador não calcula, e as opções de 1 h e
+30 min entregavam ~12 e ~14 minutos de espera por 8x de preço.
 
-O histograma é `[[fee, vsize], …]` com `fee` em sat/vB e `vsize` **por
-faixa** — a soma das faixas é o tamanho do mempool (`cutoffKvb` também aceita
-o formato cumulativo, que a doc do protocolo descreve, detectando qual é pela
-ordem da coluna). O corte de um alvo é a primeira faixa cujo vsize acumulado
-desde a mais cara alcança `alvo × 1 000 000 vB`; para a mediana, `alvo` é
-0,5. O preço usa o **teto dessa faixa** (o piso da faixa imediatamente mais
-cara), e não o piso dela, mais **1 sat/kvB** para não empatar com o teto. O
-piso + 1 sat/kvB podia ficar dentro da faixa e abaixo do corte real (a faixa
-pode ser mais larga que isso): em 17/11/2026 a faixa ia de 1,004245 a
-1,005909 sat/vB e o 1º percentil do primeiro bloco era 1,00535; o piso + 1
-dava 1,005 e o teto + 1 dava 1,006. Não há folga percentual: 5% era
-cerimônia diante da variação real entre blocos (0,12 contra 1,87 no mesmo
-dia). Alvo maior que o mempool vale a faixa mais baixa + 1 sat/kvB; alvo
-dentro da faixa mais cara fica no piso + 1 sat/kvB, porque o histograma não
-dá o teto dessa faixa. Nada fica abaixo do piso de relay (100 sat/kvB).
+O valor vem em BTC/kvB e é usado como veio: `BTC/kvB × 1e8` dá o sat/kvB
+inteiro exato — nada é arredondado antes de multiplicar pela vsize.
+Arredondar a taxa antes de multiplicar pela vsize erra sempre para cima:
+1,926 sat/vB em 141 vB custa 272 sats, e 2 sat/vB custaria 282. O PSBT
+recebe a taxa com as casas que o servidor deu e arredonda **apenas a taxa
+final, em satoshis** (`Math.ceil(sat/kvB × vsize ÷ 1000)`).
 
-O `blockchain.estimatefee` é só fallback: quando o histograma falta, o nível
-usa o estimador de 2 blocos; quando os dois faltam, o nível é `null`. O
-estimador não é mais um piso — usá-lo como piso fazia a taxa ficar ~8× acima
-da fila em regime de fila baixa (1,003 contra ~0,12 sat/vB). No estimador,
-`BTC/kvB × 1e8` dá o sat/kvB
-inteiro exato — nada é arredondado antes
-de multiplicar pela vsize. Arredondar a taxa antes de multiplicar pela vsize
-erra sempre para cima: 1,926 sat/vB em 141 vB custa 272 sats, e 2 sat/vB
-custaria 282. O PSBT recebe a taxa com as casas que o servidor deu e arredonda
-**apenas a taxa final, em satoshis** (`Math.ceil(sat/kvB × vsize ÷ 1000)`).
-Nada é somado para separar níveis: alvos que caem na mesma taxa aparecem com a
-mesma taxa, porque o dado é da fila, não do nome do nível — e a tela esconde o
-nível mais lento de cada taxa repetida, deixando só o mais rápido.
-
-Se o servidor não der nem histograma nem estimativa para um nível, ele vem
-`null` e a tela desabilita aquele nível. `levels` (o que a tela escolhe e o
-PSBT usa) leva a mediana exata: 0,127 sat/vB é usado como 0,127. `sat_per_vb` e
-`sat_per_kvb` são a mesma leitura em unidades diferentes, e `floored` só
-marca o nível abaixo do piso padrão do Bitcoin Core (`relay_min_kvb`, 100
-sat/kvB = 0,1 sat/vB desde a v30) — a taxa usada não muda, mas a tela mostra o
-aviso do piso para o nível escolhido.
+Se o servidor não der estimativa, o nível vem `null` e a tela desabilita
+aquele nível. `levels` (o que a tela escolhe e o PSBT usa) leva o valor
+exato: 0,127 sat/vB é usado como 0,127. `sat_per_vb` e `sat_per_kvb` são a
+mesma leitura em unidades diferentes, e `floored` só marca o nível abaixo do
+piso padrão do Bitcoin Core (`relay_min_kvb`, 100 sat/kvB = 0,1 sat/vB desde
+a v30) — a taxa usada não muda, mas a tela mostra o aviso do piso para o
+nível escolhido.
 
 ```json
 {
   "levels": { "next": 1.072 },
-  "targets": { "next": 0.5 },
+  "targets": { "next": 2 },
   "sat_per_kvb": { "next": 1072 },
   "sat_per_vb": { "next": 1.072 },
   "floored": { "next": false },
