@@ -13,9 +13,11 @@
      aparece na própria chave, então a tabela fica só com o BIP. */
   var TYPE_PURPOSE = { bip86: 86, bip84: 84, bip49: 49, bip44: 44 };
 
-  /* Lista do histórico: cinco itens por página (VG-LST-03). Só o ramo de
-     troco ganha palavra, para o caminho não ficar só com número. */
-  var PER_PAGE = 5;
+  /* Lista do histórico: a quantidade de itens por página é medida na área
+     visível a cada desenho, em vez de um número fixo (VG-LST-03). Só o ramo
+     de troco ganha palavra, para o caminho não ficar só com número. */
+  var PER_PAGE_FALLBACK = 5;
+  var historyPerPage = 0; // itens que cabem na área visível (medido)
 
   /* Movimento (VG-FND-09): as durações e curvas saem dos mesmos tokens que o
      CSS usa, então o ritmo muda num lugar só. */
@@ -435,8 +437,8 @@
       // abrir a lista pelo menu recomeça na primeira página (VG-LST-03); a
       // abertura pelo endereço e o popstate devolvem a página pedida.
       state.page = opts.page == null ? 1 : opts.page;
-      renderHistory();
       syncHistoryState();
+      renderHistory();
     }
     document.title = SCREEN_TITLES[name];
     if (!opts.keepScroll) {
@@ -706,6 +708,7 @@
       viewportFrame = 0;
       syncViewportHeight();
       syncPageMode();
+      relayoutHistory();
     });
   }
 
@@ -751,7 +754,8 @@
     var box = $('#history-skeleton');
     if (!box || box.childElementCount) return;
     var html = '';
-    for (var i = 0; i < PER_PAGE; i++) {
+    var count = historyPerPage > 0 ? historyPerPage : PER_PAGE_FALLBACK;
+    for (var i = 0; i < count; i++) {
       if (i) html += '<div class="rule rule-dots" aria-hidden="true"></div>';
       html += '<div class="item-skeleton">' +
         '<span class="item-skeleton-line is-title"></span>' +
@@ -2020,23 +2024,84 @@
     return signedBtc(sats, dir) + sharePct(sats);
   }
 
-  /* Extrato (VG-LST-01): um item por endereço usado, cinco por página, na
-     ordem que o servidor manda — o uso mais recente primeiro. O endereço é o
-     título em texto simples (sem a caixa do <code>), o caminho e o ramo de
-     troco viram tags, e a linha de dados traz recebido, enviado e saldo. O
-     histórico é só leitura: quem copia endereço é o bloco receber. */
+  /* Extrato (VG-LST-01): um item por endereço usado, na ordem que o
+     servidor manda — o uso mais recente primeiro —, com quantos itens
+     couberem na área visível por página. O endereço é o título em texto
+     simples (sem a caixa do <code>), o caminho e o ramo de troco viram
+     tags, e a linha de dados traz recebido, enviado e saldo. O histórico é
+     só leitura: quem copia endereço é o bloco receber. */
   function historyRows() {
     return (state.data && state.data.addresses) || [];
   }
 
+  function historyPerPageCount() {
+    return historyPerPage > 0 ? historyPerPage : PER_PAGE_FALLBACK;
+  }
+
   function historyPages() {
-    return Math.max(1, Math.ceil(historyRows().length / PER_PAGE));
+    return Math.max(1, Math.ceil(historyRows().length / historyPerPageCount()));
+  }
+
+  function historySeparatorNode() {
+    var sep = document.createElement('li');
+    sep.className = 'rule-dots';
+    sep.setAttribute('aria-hidden', 'true');
+    return sep;
+  }
+
+  /* Mede quantos itens cabem entre o topo da lista e o fim da área que rola.
+     As posições são relativas à própria lista, então a rolagem e a entrada
+     em foco não mudam o resultado. Abaixo do piso do card a página inteira
+     rola (VG-LAY-12) e a referência passa a ser a altura da janela. */
+  function fitHistoryItems(rows) {
+    var list = $('#history-list');
+    var sc = $('#content-scroll');
+    var page = $('.page');
+    if (!list || !sc || list.hidden) return 0;
+    var pageScroll = !!page && page.classList.contains('is-page-scroll');
+    var listRect = list.getBoundingClientRect();
+    /* na rolagem única a página inteira rola, então a página da lista vale
+       uma tela de itens; prender a sobra abaixo do cabeçalho deixaria uma ou
+       duas linhas por página em telas baixas. */
+    var limit = pageScroll
+      ? window.innerHeight
+      : sc.clientHeight - (listRect.top - sc.getBoundingClientRect().top + sc.scrollTop);
+    // pelo menos um item por página, mesmo quando o cabeçalho ocupa tudo
+    if (!(limit > 1)) return 1;
+    list.innerHTML = '';
+    var count = 0;
+    for (var i = 0; i < rows.length; i++) {
+      if (i) list.appendChild(historySeparatorNode());
+      var li = historyItemNode(rows[i]);
+      list.appendChild(li);
+      /* o respiro do último parágrafo do item escapa da caixa do <li> (não há
+         borda nem padding que o segure) e entra na sobra da rolagem: contá-lo
+         evita que a página preencha até o último pixel e o paginador só
+         apareça depois de rolar alguns pixels. */
+      var tail = li.lastElementChild;
+      var tailGap = tail ? parseFloat(getComputedStyle(tail).marginBottom) || 0 : 0;
+      if (li.getBoundingClientRect().bottom - listRect.top + tailGap > limit) {
+        list.removeChild(li);
+        if (i) list.removeChild(list.lastChild);
+        break;
+      }
+      count = i + 1;
+    }
+    return count || 1;
   }
 
   function renderHistory() {
     var list = $('#history-list');
     if (!list) return;
     var rows = historyRows();
+    var screen = $('#screen-historico');
+    /* a medida só vale com a tela e a lista à vista: dados chegando enquanto
+       a carteira está aberta não podem trocar o número de itens. */
+    if (state.data && rows.length && state.historyState === 'ready' &&
+        screen && !screen.hidden && !list.hidden) {
+      var fits = fitHistoryItems(rows);
+      if (fits > 0) historyPerPage = fits;
+    }
     // sem dados, a página pedida pelo endereço espera a resposta; com dados,
     // um número fora do intervalo cai na última sem reescrever o endereço
     // (VG-MET-10).
@@ -2045,56 +2110,56 @@
       if (state.page > pages) state.page = pages;
       if (state.page < 1) state.page = 1;
     }
-    var start = (state.page - 1) * PER_PAGE;
+    var perPage = historyPerPageCount();
+    var start = (state.page - 1) * perPage;
     list.innerHTML = '';
-    rows.slice(start, start + PER_PAGE).forEach(function (a, i) {
-      if (i) {
-        var sep = document.createElement('li');
-        sep.className = 'rule-dots';
-        sep.setAttribute('aria-hidden', 'true');
-        list.appendChild(sep);
-      }
-      var purpose = TYPE_PURPOSE[a.account_type] || '?';
-      var chain = a.chain === 1 ? 'troco' : '';
-      /* recebido e enviado somam o confirmado e o mempool do endereço; a
-         pendência em si é dita só pela etiqueta [ pendente ] da linha. */
-      var received = (Number(a.received) || 0) + (Number(a.pending_in) || 0);
-      var spent = (Number(a.spent) || 0) + (Number(a.pending_out) || 0);
-      var balance = Number(a.balance) || 0;
-      /* Valor zerado não entra na linha: só o que tem direção ou saldo é
-         lido, e os divisores ficam entre os campos que sobraram. */
-      var values = [];
-      if (received > 0) {
-        values.push('<span class="value-label">recebido</span> ' + signedBtc(received, 'in'));
-      }
-      if (spent > 0) {
-        values.push('<span class="value-label">enviado</span> ' + signedBtc(spent, 'out'));
-      }
-      if (balance > 0) {
-        values.push('<span class="value-label">saldo</span> ' + fmtBtc(balance));
-      }
-      var li = document.createElement('li');
-      li.className = 'item';
-      li.innerHTML =
-        '<h3><span class="item-title is-static">' + esc(a.address) + '</span></h3>' +
-        '<p class="item-meta">m/' + purpose + "'/0'/0'/" + a.chain + '/' + a.idx +
-          (chain
-            ? ' <span class="tag-sep" aria-hidden="true">·</span> ' +
-              '<span class="tag">' + chain + '</span>'
-            : '') +
-          ' <span class="tag-sep" aria-hidden="true">·</span> ' +
-          '<span class="tag">bip' + purpose + '</span>' +
-          (a.pending
-            ? ' <span class="tag-sep" aria-hidden="true">·</span> <span class="tag tag-pending">[ pendente ]</span>'
-            : '') +
-        '</p>' +
-        (values.length
-          ? '<p class="item-meta history-values">' +
-            values.join(' <span class="value-sep" aria-hidden="true">|</span> ') +
-            '</p>'
-          : '');
-      list.appendChild(li);
+    rows.slice(start, start + perPage).forEach(function (a, i) {
+      if (i) list.appendChild(historySeparatorNode());
+      list.appendChild(historyItemNode(a));
     });
+  }
+
+  function historyItemNode(a) {
+    var purpose = TYPE_PURPOSE[a.account_type] || '?';
+    var chain = a.chain === 1 ? 'troco' : '';
+    /* recebido e enviado somam o confirmado e o mempool do endereço; a
+       pendência em si é dita só pela etiqueta [ pendente ] da linha. */
+    var received = (Number(a.received) || 0) + (Number(a.pending_in) || 0);
+    var spent = (Number(a.spent) || 0) + (Number(a.pending_out) || 0);
+    var balance = Number(a.balance) || 0;
+    /* Valor zerado não entra na linha: só o que tem direção ou saldo é
+       lido, e os divisores ficam entre os campos que sobraram. */
+    var values = [];
+    if (received > 0) {
+      values.push('<span class="value-label">recebido</span> ' + signedBtc(received, 'in'));
+    }
+    if (spent > 0) {
+      values.push('<span class="value-label">enviado</span> ' + signedBtc(spent, 'out'));
+    }
+    if (balance > 0) {
+      values.push('<span class="value-label">saldo</span> ' + fmtBtc(balance));
+    }
+    var li = document.createElement('li');
+    li.className = 'item';
+    li.innerHTML =
+      '<h3><span class="item-title is-static">' + esc(a.address) + '</span></h3>' +
+      '<p class="item-meta">m/' + purpose + "'/0'/0'/" + a.chain + '/' + a.idx +
+        (chain
+          ? ' <span class="tag-sep" aria-hidden="true">·</span> ' +
+            '<span class="tag">' + chain + '</span>'
+          : '') +
+        ' <span class="tag-sep" aria-hidden="true">·</span> ' +
+        '<span class="tag">bip' + purpose + '</span>' +
+        (a.pending
+          ? ' <span class="tag-sep" aria-hidden="true">·</span> <span class="tag tag-pending">[ pendente ]</span>'
+          : '') +
+      '</p>' +
+      (values.length
+        ? '<p class="item-meta history-values">' +
+          values.join(' <span class="value-sep" aria-hidden="true">|</span> ') +
+          '</p>'
+        : '');
+    return li;
   }
 
   /* Paginador mínimo (VG-LST-08): uma página por vez, com a seta fora de
@@ -2138,6 +2203,20 @@
     runReveal($('#screen-historico'));
     var sc = $('#content-scroll');
     if (sc) sc.scrollTop = 0;
+    updateScroll();
+  }
+
+  /* A tela mudou de tamanho: mede de novo a área útil e redesenha a lista na
+     mesma página, devolvendo o ponto de leitura. */
+  function relayoutHistory() {
+    if (state.screen !== 'historico' || state.historyState !== 'ready') return;
+    var list = $('#history-list');
+    var screen = $('#screen-historico');
+    if (!list || !screen || screen.hidden || !historyRows().length) return;
+    var sc = $('#content-scroll');
+    var top = sc ? sc.scrollTop : 0;
+    renderHistory();
+    if (sc && top) sc.scrollTop = top;
     updateScroll();
   }
 
@@ -2189,8 +2268,8 @@
         '<tbody>' + summaryRows + '</tbody>' +
       '</table>';
     state.historyState = 'ready';
-    renderHistory();
     syncHistoryState();
+    renderHistory();
     $('#out').hidden = false;
     // saldo novo pode mudar o máximo enviável
     scheduleLimits();
@@ -2777,6 +2856,7 @@
         syncBars();
         syncPageMode();
         resizeGrain();
+        relayoutHistory();
       }, 150);
     });
 
@@ -2822,6 +2902,7 @@
       syncViewportHeight();
       syncBars();
       syncPageMode();
+      relayoutHistory();
     };
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(startVisuals).catch(startVisuals);
