@@ -98,25 +98,26 @@ function mapFind(map, type) {
 {
   /* O histograma do Electrum traz o vsize POR FAIXA: [[50,100k], [10,800k],
      [2,600k], [1,900k]]. Para 1 bloco (1M vB) o acumulado só alcança a
-     capacidade na faixa de 2 sat/vB → 2 001 sat/kvB (1 sat/kvB acima do
-     corte, sem folga percentual). Se a soma fosse feita em cima de um
-     histograma já cumulativo, o resultado sairia bem maior. */
+     capacidade na faixa de 2 sat/vB, cujo teto é 10 sat/vB (o piso da faixa
+     imediatamente mais cara) → 10 001 sat/kvB (teto + 1 sat/kvB, sem folga
+     percentual). Se a soma fosse feita em cima de um histograma já
+     cumulativo, o resultado sairia bem maior. */
   const fila = [[50, 100000], [10, 800000], [2, 600000], [1, 900000]];
   const barato = await startFakeElectrum({ histogram: fila, fees: { 2: 0.00002000 } });
   const envBarato = { ELECTRUM_SERVERS: '127.0.0.1:' + barato.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const rBarato = await reqFees(envBarato);
   assert.equal(rBarato.status, 200);
-  assert.deepEqual(rBarato.j.sat_per_kvb, { next: 2001 },
-    'fila (2 001) acima do estimador (2 000): fica a fila');
+  assert.deepEqual(rBarato.j.sat_per_kvb, { next: 10001 },
+    'fila (10 001) acima do estimador (2 000): fica a fila');
   await barato.close();
 
-  const caro = await startFakeElectrum({ histogram: fila, fees: { 2: 0.00010000 } });
+  const caro = await startFakeElectrum({ histogram: fila, fees: { 2: 0.00020000 } });
   const envCaro = { ELECTRUM_SERVERS: '127.0.0.1:' + caro.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const rCaro = await reqFees(envCaro);
   assert.equal(rCaro.status, 200);
-  assert.deepEqual(rCaro.j.sat_per_kvb, { next: 10000 },
-    'estimador (10 000) acima da fila (2 001): fica o estimador');
-  assert.deepEqual(rCaro.j.levels, { next: 10 });
+  assert.deepEqual(rCaro.j.sat_per_kvb, { next: 20000 },
+    'estimador (20 000) acima da fila (10 001): fica o estimador');
+  assert.deepEqual(rCaro.j.levels, { next: 20 });
   assert.deepEqual(rCaro.j.floored, { next: false });
   assert.equal(rCaro.j.source, 'electrum', 'o formato da resposta não muda');
   console.log('ok   nível fica com o maior entre fila e estimador');

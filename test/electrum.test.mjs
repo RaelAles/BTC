@@ -135,24 +135,27 @@ function ok(label) { passed++; console.log('ok   ' + label); }
 /* 7. Corte de fila: o acumulado é que manda, e o piso de relay é o limite. */
 {
   /* vsize POR FAIXA (o formato dos servidores reais): 1 bloco (1 M vB) só é
-     alcançado somando 100k + 800k + 600k, na faixa de 2 sat/vB; 3 blocos
-     (3 M vB) estouram o histograma e valem a faixa mais baixa. Sem folga
-     percentual: 1 sat/kvB acima do corte → 2 001 e 1 001 sat/kvB. */
+     alcançado somando 100k + 800k + 600k, e o alvo cai na faixa de 2 sat/vB,
+     cujo teto é 10 sat/vB (o piso da faixa imediatamente mais cara). O corte
+     usa o teto da faixa, não o piso: 10 001 sat/kvB. 3 blocos (3 M vB)
+     estouram o histograma e valem a faixa mais baixa + 1 sat/kvB: 1 001. */
   const porFaixa = [[50, 100000], [10, 800000], [2, 600000], [1, 900000]];
-  assert.equal(cutoffKvb(porFaixa, 1), 2001);
+  assert.equal(cutoffKvb(porFaixa, 1), 10001);
   assert.equal(cutoffKvb(porFaixa, 3), 1001);
   /* vsize já cumulativo, que a doc do protocolo descreve: não soma de novo. */
   const cumulativo = [[50, 100000], [10, 900000], [2, 1500000], [1, 2400000]];
-  assert.equal(cutoffKvb(cumulativo, 1), 2001);
+  assert.equal(cutoffKvb(cumulativo, 1), 10001);
   assert.equal(cutoffKvb(cumulativo, 3), 1001);
   assert.equal(cutoffKvb([[0.05, 4000000]], 1), RELAY_MIN_KVB,
     'abaixo do piso de relay padrão o corte sobe até o piso');
+  assert.equal(cutoffKvb([[5, 2000000]], 1), 5001,
+    'alvo dentro da faixa mais cara: sem teto no histograma, fica o piso + 1');
   assert.equal(cutoffKvb([], 1), null);
   assert.equal(cutoffKvb(null, 1), null);
   assert.equal(cutoffKvb([[NaN, 1], ['x', 2], [0, 3]], 1), null,
     'faixa inválida é descartada');
   assert.equal(BLOCK_VSIZE, 1000000);
-  ok('cutoffKvb: por faixa e cumulativo, 1 sat/kvB acima do corte e piso de relay');
+  ok('cutoffKvb: por faixa e cumulativo, acima do teto da faixa que cruza o alvo');
 }
 
 console.log('\n' + passed + ' grupos de teste passaram');

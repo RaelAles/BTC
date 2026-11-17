@@ -333,19 +333,23 @@ export async function transactionsMany(client, txids, opts) {
    transação de 0,1187 sat/vB, que ficou 40 h parada atrás de 21 blocos.
 
    Não há escolha de taxa na tela: um número só, o do próximo bloco — a
-   menor taxa que já coloca a transação na frente dos próximos ~1 M vB da
-   fila. A escolha entre níveis saiu porque, medido em 17/11/2026, as duas
-   opções entregavam ~12 e ~14 minutos de espera por 8x de preço: a escolha
-   não era sobre tempo, era sobre seguro, e transferia ao usuário uma decisão
-   sem informação (e sem RBF para corrigir depois).
+   menor taxa que, pelo histograma, fica acima da faixa que cruza os próximos
+   ~1 M vB da fila. A escolha entre níveis saiu porque, medido em 17/11/2026,
+   as duas opções entregavam ~12 e ~14 minutos de espera por 8x de preço: a
+   escolha não era sobre tempo, era sobre seguro, e transferia ao usuário uma
+   decisão sem informação (e sem RBF para corrigir depois).
    Servidor que não responde fica sem estimativa (null) e o envio fica
    bloqueado.
 
    Nada de folga fixa (FEE_MARGIN saiu): a folga percentual era cerimônia
    diante da variação real dos blocos (0,12 contra 1,87 no mesmo dia). O que
-   sobra é o passo mínimo de 1 sat/kvB acima do corte, que existe só para não
-   empatar com a faixa de taxa que fecha o bloco — empate é decidido por
-   ordem de chegada, e a transação nova chega por último.
+   sobra é o teto da faixa que cruza o alvo (o piso da faixa imediatamente
+   mais cara), mais 1 sat/kvB para não empatar com esse teto. O piso da faixa
+   não basta: a faixa pode ser mais larga que 1 sat/kvB, e a taxa real do
+   corte fica dentro dela. Medido em 17/11/2026, a faixa do corte ia de
+   1,004245 a 1,005909 sat/vB; o piso + 1 sat/kvB dava 1,005, abaixo do 1º
+   percentil do primeiro bloco (1,00535), enquanto o teto + 1 sat/kvB dava
+   1,006.
 
    O valor NÃO é arredondado: BTC/kvB × 1e8 dá sat/kvB inteiro exato (é a
    unidade em que o servidor de fato responde: 1926, 970, 112), e `sat_per_vb`
@@ -388,16 +392,20 @@ export const BLOCK_VSIZE = 1000000;
    Com oito faixas ou mais, dado por faixa cair em ordem crescente por acaso
    é improvável.
 
-   Por que não usar a taxa exata do corte: dentro de uma faixa de taxa igual
-   o desempate é por ordem de chegada, então o valor exato cai no fim da
-   fila. Numa parede de taxa uniforme isso custa blocos inteiros — a
-   transação de 0,1187 sat/vB estava 1,3 sat/kvB abaixo de uma parede de 16
-   blocos, e a diferença em satoshis era zero. O passo é o menor possível
-   (1 sat/kvB acima do corte), e não uma porcentagem: a folga percentual que
-   existia aqui (5%) não mudava nada diante da variação real dos blocos.
+   O corte não é o piso da faixa que cruza o alvo: a faixa contém taxas até
+   o piso da faixa imediatamente mais cara, e a taxa real do corte fica
+   dentro dela. Pagar o piso + 1 sat/kvB podia ficar abaixo do corte quando
+   a faixa era mais larga que isso (medido em 17/11/2026: faixa de 1,004245
+   a 1,005909 sat/vB, corte real em 1,00535; o piso + 1 dava 1,005). O teto
+   da faixa + 1 sat/kvB é o menor valor que fica acima de todas as
+   transações dela. É um passo de 1 sat/kvB, não uma porcentagem: a folga
+   percentual que existia aqui (5%) não mudava nada diante da variação real
+   dos blocos.
 
-   Alvo maior que o mempool inteiro: vale a faixa mais baixa (o piso do
-   servidor), nunca abaixo do piso de relay padrão. */
+   Alvo dentro da faixa mais cara: o histograma não dá o teto dessa faixa,
+   então fica o piso + 1 sat/kvB. Alvo maior que o mempool inteiro: vale a
+   faixa mais baixa (o piso do servidor), nunca abaixo do piso de relay
+   padrão. */
 export function cutoffKvb(histogram, blocks) {
   if (!Array.isArray(histogram) || !histogram.length) return null;
   const rows = [];
@@ -417,11 +425,22 @@ export function cutoffKvb(histogram, blocks) {
     return [fee, cumulativo ? vsize : soma];
   });
   const alvo = blocks * BLOCK_VSIZE;
-  let escolhida = fila[fila.length - 1][0];
-  for (const [fee, acumulado] of fila) {
-    if (acumulado >= alvo) { escolhida = fee; break; }
+  let indice = -1;
+  for (let i = 0; i < fila.length; i++) {
+    if (fila[i][1] >= alvo) { indice = i; break; }
   }
-  return Math.max(Math.floor(escolhida * 1000) + 1, RELAY_MIN_KVB);
+  let base;
+  if (indice < 0) {
+    // alvo maior que o mempool inteiro: vale a faixa mais baixa
+    base = fila[fila.length - 1][0];
+  } else if (indice === 0) {
+    // alvo dentro da faixa mais cara: o histograma não dá o teto dela
+    base = fila[0][0];
+  } else {
+    // teto da faixa que cruza o alvo = piso da faixa imediatamente mais cara
+    base = fila[indice - 1][0];
+  }
+  return Math.max(Math.floor(base * 1000) + 1, RELAY_MIN_KVB);
 }
 
 export async function estimateFees(client) {

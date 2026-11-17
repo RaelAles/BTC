@@ -367,10 +367,13 @@ backend de Durable Object disponível no plano free).
   PSBT. Se a sessão estiver em modo avulso, a varredura completa é refeita
   antes de montar.
 - **Taxa é o corte da fila ou o estimador, o maior**: a taxa de cada opção é
-  o corte cumulativo do `mempool.get_fee_histogram` do Electrum — a taxa a
-  partir da qual a fila cabe nos blocos do alvo — **1 sat/kvB acima** do
-  corte (o passo mínimo, para não empatar com a faixa que fecha o bloco, sem
-  folga percentual), com piso no piso de relay padrão. O outro lado é o
+  o corte cumulativo do `mempool.get_fee_histogram` do Electrum — a primeira
+  faixa cujo vsize acumulado alcança o alvo —, e o preço usa o **teto dessa
+  faixa** (o piso da faixa imediatamente mais cara), não o piso dela, mais
+  **1 sat/kvB** para não empatar com o teto. O piso + 1 sat/kvB podia ficar
+  dentro da faixa e abaixo do corte real (a faixa pode ser mais larga que
+  isso); o teto fica acima de todas as transações dela. Sem folga
+  percentual, com piso no piso de relay padrão. O outro lado é o
   `blockchain.estimatefee`, que resume o que os blocos já minerados cobraram,
   e a taxa fica com o **maior dos dois** — cotar só a fila prometia prazo
   que a rede não cumpria (medido em 17/11/2026: fila a 0,127 sat/vB para
@@ -380,8 +383,8 @@ backend de Durable Object disponível no plano free).
   Servidor sem histograma nem estimativa deixa o nível em
   `null` e a tela desabilita aquele nível; sem nenhum nível, o envio fica
   bloqueado e a leitura avisa que a estimativa está indisponível.
-- **A taxa usada é o corte, sem piso econômico**: `levels` leva o corte do
-  histograma mais 1 sat/kvB. O piso de relay padrão do
+- **A taxa usada é o corte, sem piso econômico**: `levels` leva o teto da
+  faixa que cruza o alvo mais 1 sat/kvB. O piso de relay padrão do
   Bitcoin Core (`-minrelaytxfee` = 100 sat/kvB, 0,1 sat/vB desde a v30; era
   1000 sat/kvB até a v29) entra só como limite de sanidade do corte, e não
   como piso de 1 sat/vB: num mempool quase vazio o `minimum` fica em
@@ -783,7 +786,8 @@ mensagem, sem publicar nada.
 ### `GET /api/fees?session=<id opcional>`
 
 Taxa ao vivo pelo `mempool.get_fee_histogram` do Electrum, um alvo só: 1
-bloco — a menor taxa que já coloca a transação no próximo bloco. O estimador
+bloco — a menor taxa que, pelo histograma, fica acima da faixa que cruza o
+alvo. O estimador
 do Core é consultado em 2 blocos, porque ele se recusa a estimar 1 ("It's not
 possible to get reasonable estimates for confTarget of 1"). A tela não mostra
 prazo nem escolha: um `~10m` vinha de um alvo que o estimador não calcula, e
@@ -794,11 +798,17 @@ O histograma é `[[fee, vsize], …]` com `fee` em sat/vB e `vsize` **por
 faixa** — a soma das faixas é o tamanho do mempool (`cutoffKvb` também aceita
 o formato cumulativo, que a doc do protocolo descreve, detectando qual é pela
 ordem da coluna). O corte de um alvo é a primeira faixa cujo vsize acumulado
-desde a mais cara alcança `alvo × 1 000 000 vB`, e usa-se **1 sat/kvB acima**
-dele — o passo mínimo, porque dentro de uma faixa de taxa igual quem chega
-primeiro é minerado primeiro. Não há folga percentual: 5% era cerimônia
-diante da variação real entre blocos (0,12 contra 1,87 no mesmo dia). Alvo maior que o mempool vale a faixa mais baixa, e nada fica abaixo
-do piso de relay (100 sat/kvB).
+desde a mais cara alcança `alvo × 1 000 000 vB`; o preço usa o **teto dessa
+faixa** (o piso da faixa imediatamente mais cara), e não o piso dela, mais
+**1 sat/kvB** para não empatar com o teto. O piso + 1 sat/kvB podia ficar
+dentro da faixa e abaixo do corte real (a faixa pode ser mais larga que
+isso): em 17/11/2026 a faixa ia de 1,004245 a 1,005909 sat/vB e o 1º
+percentil do primeiro bloco era 1,00535; o piso + 1 dava 1,005 e o teto + 1
+dava 1,006. Não há folga percentual: 5% era cerimônia diante da variação
+real entre blocos (0,12 contra 1,87 no mesmo dia). Alvo maior que o mempool
+vale a faixa mais baixa + 1 sat/kvB; alvo dentro da faixa mais cara fica no
+piso + 1 sat/kvB, porque o histograma não dá o teto dessa faixa. Nada fica
+abaixo do piso de relay (100 sat/kvB).
 
 Cada nível fica com o **maior** entre esse corte e o `blockchain.estimatefee`
 do mesmo alvo (faltando um dos dois, vale o outro): a fila diz o preço de
