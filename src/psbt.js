@@ -81,40 +81,239 @@ function spendableUtxos(utxos) {
   return (utxos || []).filter(u => Number(u.height) > 0 || u.own);
 }
 
-/* Escolhe as confirmadas antes do troco pendente e, em cada grupo, as maiores
-   primeiro: menos entradas, menos taxa, resultado determinístico. O laço pára
-   quando o saldo cobre o valor + taxa com troco acima do pó; se o troco
-   ficaria pó, ele é somado à taxa (saída única). */
-export function selectCoins(utxos, amountSats, feeRate, recipientScript, changeScript) {
-  const rateKvb = feeRateKvb(feeRate);
-  const sorted = spendableUtxos(utxos).sort((a, b) =>
-    (a.height === 0 ? 1 : 0) - (b.height === 0 ? 1 : 0) || b.value - a.value
-  );
-  const selected = [];
+/* Entradas que valem menos que a taxa de gastá-las saem do máximo enviável:
+   incluí-las custa mais do que elas valem. Continuam sendo suas (entram no
+   saldo), mas não compensam entrar numa transação. A diferença de taxa entre
+   gastar a carteira toda e gastar sem uma entrada é exatamente a taxa daquela
+   entrada, e é isso que a comparação usa. */
+function economicalUtxos(utxos, rateKvb, recipientScript) {
+  if (!utxos.length) return utxos;
+  const kinds = utxos.map(u => u.row.kind);
+  const feeAll = feeSats(rateKvb, BTC.estimateVsize(kinds, [recipientScript]));
+  /* Teto da taxa de uma entrada (p2pkh é a mais pesada). Acima dele a entrada
+     compensa com certeza, e a conta exata só roda para as pequenas — que são
+     poucas, mas podem ser muitas: com muitas, o corte continua O(n) vezes o
+     custo de uma vsize. */
+  const heaviest = feeSats(rateKvb,
+    BTC.estimateVsize(['p2pkh'], [recipientScript]) - BTC.estimateVsize([], [recipientScript]));
+  return utxos.filter((u, i) => {
+    if (u.value > heaviest) return true;
+    const rest = kinds.slice(0, i).concat(kinds.slice(i + 1));
+    const feeRest = feeSats(rateKvb, BTC.estimateVsize(rest, [recipientScript]));
+    return u.value > feeAll - feeRest;
+  });
+}
+
+/* Peso relativo de cada tipo de entrada, só para o desempate: gastar p2tr
+   custa menos vB que gastar p2pkh. A taxa calculada já carrega essa
+   diferença; este ranking serve para ordenar a busca de forma estável. */
+const KIND_ORDER = { p2tr: 0, p2wpkh: 1, 'p2sh-p2wpkh': 2, p2pkh: 3 };
+
+function kindOf(utxo) {
+  return (utxo && utxo.row && utxo.row.kind) || 'p2wpkh';
+}
+function kindRank(utxo) {
+  const r = KIND_ORDER[kindOf(utxo)];
+  return r === undefined ? 9 : r;
+}
+
+/* Um arranjo de entradas vira candidato quando cobre o valor. Há duas formas
+   e elas não se misturam:
+   - com troco, quando o resto passa do pó e vira saída;
+   - sem troco, quando o resto fica abaixo do pó: ele é somado à taxa, porque
+     criar a saída custaria mais do que esse resto.
+   `stake` é o que sobra para o usuário ou para a taxa: é o número que a
+   escolha minimiza dentro de cada forma. */
+function candidateFor(selected, amountSats, rateKvb, recipientScript, changeScript) {
   let total = 0;
-  for (const utxo of sorted) {
-    selected.push(utxo);
-    total += utxo.value;
-    const noChange = [recipientScript];
-    const withChange = [recipientScript, changeScript];
-    const vsizeNoChange = estimateFor(selected, noChange);
-    const vsizeWithChange = estimateFor(selected, withChange);
-    const feeNoChange = feeSats(rateKvb, vsizeNoChange);
-    const feeWithChange = feeSats(rateKvb, vsizeWithChange);
-    if (total < amountSats + feeNoChange) continue;
-    const change = total - amountSats - feeWithChange;
+  for (const u of selected) total += u.value;
+  const vsizeNoChange = estimateFor(selected, [recipientScript]);
+  const feeNoChange = feeSats(rateKvb, vsizeNoChange);
+  if (total < amountSats + feeNoChange) return null;
+  if (changeScript) {
+    const vsizeChange = estimateFor(selected, [recipientScript, changeScript]);
+    const feeChange = feeSats(rateKvb, vsizeChange);
+    const change = total - amountSats - feeChange;
     if (change >= DUST_SATS) {
       return {
-        selected, total, fee: feeWithChange, change,
-        vsize: vsizeWithChange, withChange: true
+        selected, total, fee: feeChange, change, vsize: vsizeChange,
+        withChange: true, stake: change
       };
     }
-    return {
-      selected, total, fee: total - amountSats, change: 0,
-      vsize: vsizeNoChange, withChange: false
-    };
   }
-  const available = sorted.reduce((s, u) => s + u.value, 0);
+  return {
+    selected, total, fee: total - amountSats, change: 0, vsize: vsizeNoChange,
+    withChange: false, stake: total - amountSats - feeNoChange
+  };
+}
+
+/* Altura só compara o que está confirmado: entrada no mempool é tratada
+   como a menos assentada, e não como a "mais antiga" (altura 0). */
+function oldestHeight(selected) {
+  let h = Infinity;
+  for (const u of selected) {
+    const height = Number(u.height) || 0;
+    if (height > 0 && height < h) h = height;
+  }
+  return h;
+}
+
+/* Desempate final, reprodutível: primeiro a derivação (cadeia e índice, na
+   ordem em que aparecem), depois a própria saída. Sem isto, dois candidatos
+   equivalentes ficariam na ordem em que o servidor devolveu os UTXOs. */
+function tieKey(selected) {
+  const byDerivation = selected
+    .map(u => String(u.row && u.row.chain) + ':' + String(u.row && u.row.idx).padStart(10, '0'))
+    .sort().join(',');
+  const byOutpoint = selected.map(u => u.txid + ':' + u.vout).sort().join(',');
+  return byDerivation + '|' + byOutpoint;
+}
+
+/* Ordem reprodutível de uma saída: cadeia, índice, outpoint. */
+function cmpUtxo(a, b) {
+  return (a.row.chain - b.row.chain) || (a.row.idx - b.row.idx) ||
+    (a.txid < b.txid ? -1 : a.txid > b.txid ? 1 : 0) || (a.vout - b.vout);
+}
+
+/* Ordem da escolha, do critério mais forte para o mais fraco:
+   1. menos entradas (menos taxa e menos vínculo entre notas);
+   2. sem troco antes de com troco (não publica saída de troco);
+   3. menor sobra/troco;
+   4. menor taxa (o que resolve "tipo mais barato");
+   5. mais confirmações (bloco mais antigo);
+   6. menor índice de derivação, depois o outpoint. */
+function better(a, b) {
+  if (!b) return true;
+  if (a.selected.length !== b.selected.length) return a.selected.length < b.selected.length;
+  if (a.withChange !== b.withChange) return !a.withChange;
+  if (a.stake !== b.stake) return a.stake < b.stake;
+  if (a.fee !== b.fee) return a.fee < b.fee;
+  const ha = oldestHeight(a.selected);
+  const hb = oldestHeight(b.selected);
+  if (ha !== hb) return ha < hb;
+  return tieKey(a.selected) < tieKey(b.selected);
+}
+
+function consider(best, selected, amountSats, rateKvb, recipientScript, changeScript) {
+  const c = candidateFor(selected, amountSats, rateKvb, recipientScript, changeScript);
+  return c && better(c, best) ? c : best;
+}
+
+/* Duas entradas: por par de tipos, a menor soma que cobre. A taxa é fixa
+   dentro do par, então a menor soma é também o menor troco. São dez
+   combinações de tipo no máximo e, em cada uma, uma busca binária por
+   entrada: o custo é O(n log n) por combinação. */
+function bestPair(pool, amountSats, rateKvb, recipientScript, changeScript) {
+  const byKind = new Map();
+  for (const u of pool) {
+    const k = kindOf(u);
+    if (!byKind.has(k)) byKind.set(k, []);
+    byKind.get(k).push(u);
+  }
+  const kinds = [...byKind.keys()];
+  const asc = (a, b) => (a.value - b.value) || cmpUtxo(a, b);
+  for (const list of byKind.values()) list.sort(asc);
+  let best = null;
+  for (let i = 0; i < kinds.length; i++) {
+    for (let j = i; j < kinds.length; j++) {
+      const a = byKind.get(kinds[i]);
+      const b = byKind.get(kinds[j]);
+      const same = i === j;
+      if (same && a.length < 2) continue;
+      const target = amountSats + feeSats(rateKvb,
+        BTC.estimateVsize([kinds[i], kinds[j]], [recipientScript]));
+      for (let p = 0; p < a.length; p++) {
+        const lo = same ? p + 1 : 0;
+        if (lo >= b.length) continue;
+        const need = target - a[p].value;
+        let left = lo;
+        let right = b.length;
+        while (left < right) {
+          const mid = (left + right) >> 1;
+          if (b[mid].value >= need) right = mid;
+          else left = mid + 1;
+        }
+        if (left < b.length) {
+          best = consider(best, [a[p], b[left]], amountSats, rateKvb,
+            recipientScript, changeScript);
+        }
+      }
+    }
+  }
+  return best;
+}
+
+/* Três ou mais entradas (só quando uma ou duas não cobrem): as maiores
+   primeiro, que é o que fecha com menos entradas, e depois uma passada que
+   devolve entradas enquanto o resto ainda cobre. Quando a seleção usa a
+   carteira inteira, nada é devolvido: o máximo enviável é justamente a
+   transação que gasta tudo. */
+function bestMany(pool, amountSats, rateKvb, recipientScript, changeScript) {
+  const desc = [...pool].sort((a, b) => (b.value - a.value) || (kindRank(a) - kindRank(b)) ||
+    cmpUtxo(a, b));
+  const selected = [];
+  let best = null;
+  for (const u of desc) {
+    selected.push(u);
+    const c = candidateFor(selected, amountSats, rateKvb, recipientScript, changeScript);
+    if (c) { best = c; break; }
+  }
+  if (!best || best.selected.length === pool.length) return best;
+  let again = true;
+  while (again) {
+    again = false;
+    const order = best.selected.slice().sort((a, b) => a.value - b.value);
+    for (const u of order) {
+      if (best.selected.length < 3) break;
+      const rest = best.selected.filter(x => x !== u);
+      const c = candidateFor(rest, amountSats, rateKvb, recipientScript, changeScript);
+      if (c) { best = c; again = true; break; }
+    }
+  }
+  return best;
+}
+
+/* Ordem das entradas do PSBT: derivação e outpoint, para o resultado não
+   depender de como o servidor devolveu a lista nem de qual regra escolheu. */
+function finalize(pick) {
+  const selected = pick.selected.slice().sort(cmpUtxo);
+  return {
+    selected, total: pick.total, fee: pick.fee, change: pick.change,
+    vsize: pick.vsize, withChange: pick.withChange
+  };
+}
+
+function bestFor(pool, amountSats, rateKvb, recipientScript, changeScript) {
+  if (!pool.length) return null;
+  let best = null;
+  /* 1 e 2: uma entrada que cobre, sem troco antes de com troco. */
+  for (const u of pool) {
+    best = consider(best, [u], amountSats, rateKvb, recipientScript, changeScript);
+  }
+  if (best) return best;
+  /* 3: duas entradas, o menor par que cobre. */
+  best = bestPair(pool, amountSats, rateKvb, recipientScript, changeScript);
+  if (best) return best;
+  /* 4: três ou mais. */
+  return bestMany(pool, amountSats, rateKvb, recipientScript, changeScript);
+}
+
+/* Escolhe as entradas nesta ordem: a menor que cobre sozinha (com troco ou
+   com o resto virando pó), depois o menor par que cobre e, por fim, as
+   maiores de todas. As confirmadas vêm antes do troco pendente: só quando
+   elas não bastam o troco nosso que ainda está no mempool entra. Nada de
+   aviso: o resultado é o mesmo pedido de sempre, só que com a sobra menor e
+   sem publicar saída de troco quando ela não é necessária. */
+export function selectCoins(utxos, amountSats, feeRate, recipientScript, changeScript) {
+  const rateKvb = feeRateKvb(feeRate);
+  const spendable = spendableUtxos(utxos);
+  const confirmed = spendable.filter(u => Number(u.height) > 0);
+  let pick = bestFor(confirmed, amountSats, rateKvb, recipientScript, changeScript);
+  if (!pick && confirmed.length !== spendable.length) {
+    pick = bestFor(spendable, amountSats, rateKvb, recipientScript, changeScript);
+  }
+  if (pick) return finalize(pick);
+  const available = spendable.reduce((s, u) => s + u.value, 0);
   const error = new Error('saldo disponível insuficiente: disponível ' + available +
     ' sats, precisa de ' + amountSats + ' sats + taxa' +
     ' (entrada de terceiro no mempool só conta depois de confirmada)');
@@ -125,9 +324,12 @@ export function selectCoins(utxos, amountSats, feeRate, recipientScript, changeS
 
 /* Limite de envio para a taxa escolhida: o máximo é o total disponível
    (confirmado + troco nosso ainda pendente) menos a taxa da transação que
-   gasta todas as entradas e manda todo o resto ao destino (sem troco). É
-   exatamente o maior valor que selectCoins aceita; abaixo dele sempre existe
-   uma seleção válida.
+   gasta todas as entradas e manda todo o resto ao destino (sem troco).
+   Entrada que vale menos do que a taxa de gastá-la fica fora dessa conta:
+   mandá-la custa mais do que ela vale, então ela continua no saldo mas não
+   entra no máximo. Sem esse corte, `selectCoins` deixaria a nota de fora e
+   devolveria troco num envio "de tudo". Assim o máximo anunciado é sempre
+   aceito e gasto até o fim.
    Com `quoteRates`, devolve também `quotes`: a taxa de cada nível estimado
    para o mesmo valor, que a legenda do seletor mostra em BTC. */
 export function sendLimits({ utxos, address, feeRate, amountSats, changeScript, quoteRates }) {
@@ -135,9 +337,11 @@ export function sendLimits({ utxos, address, feeRate, amountSats, changeScript, 
   const recipientScript = BTC.scriptFromAddress(address);
   const spendable = spendableUtxos(utxos);
   const available = spendable.reduce((sum, u) => sum + u.value, 0);
-  const vsize = BTC.estimateVsize(spendable.map(u => u.row.kind), [recipientScript]);
+  const economical = economicalUtxos(spendable, rateKvb, recipientScript);
+  const spendableTotal = economical.reduce((sum, u) => sum + u.value, 0);
+  const vsize = BTC.estimateVsize(economical.map(u => u.row.kind), [recipientScript]);
   const feeAtMax = feeSats(rateKvb, vsize);
-  const max = available - feeAtMax;
+  const max = spendableTotal - feeAtMax;
   const limits = {
     recipient: address,
     available_sats: available,

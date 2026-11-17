@@ -166,8 +166,13 @@ blockchain.info, nem chave privada em lugar nenhum.
 - **UTXOs e PSBT**: a mesma conta guarda as saídas ainda não gastas. Com
   elas, `POST /api/psbt` escolhe entradas entre as **confirmadas e o troco
   pendente de uma transação sua** (gasto encadeado; pagamento de terceiro no
-  mempool não entra), as confirmadas primeiro e as maiores dentro de cada
-  grupo, calcula a taxa pela vsize estimada (um limite superior do
+  mempool não entra), as confirmadas antes do troco pendente e, entre elas,
+  a **menor entrada que cobre** o valor com a menor sobra — sem saída de troco
+  quando a sobra fica abaixo do pó (546 sats), que então entra na taxa. Sem
+  entrada que cubra sozinha, a escolha usa o **menor par** que cobre e, por
+  fim, as **maiores primeiro**. Empate no valor decide pelo tipo mais barato
+  de gastar, depois pela entrada mais antiga e, por fim, pelo menor índice de
+  derivação. Calcula a taxa pela vsize estimada (um limite superior do
   tamanho real, ver “a vsize é um limite superior” abaixo), deriva o próximo
   endereço de troco e monta um **PSBT v0** sem assinatura. Cada entrada leva
   `witness_utxo` e a origem BIP32; a saída de troco e o destino da própria
@@ -428,6 +433,7 @@ test/
   worker.test.mjs     ponta a ponta: saldo/recebido/enviado, gap, erros
   watcher.test.mjs    Durable Object: assinatura, aviso → push, descarte total
   psbt.test.mjs       taxa, escolha de UTXO, PSBT e assinatura no btc-core
+  coin-selection.test.mjs  regra da escolha (menor que cobre, par, pó, desempate)
   broadcast.test.mjs  conferência do PSBT assinado e transmissão (Worker e DO)
   fake-electrum.mjs   servidor Electrum falso (TCP em 127.0.0.1, com notify)
   tx-fixture.mjs      transações cruas montadas com o btc-core
@@ -595,8 +601,10 @@ limite superior do tamanho real, então a taxa efetiva nunca fica abaixo da
 pedida; valor abaixo
 de 546 sats é recusado como pó. Entram no envio as entradas confirmadas e o
 troco pendente de uma transação sua (gasto encadeado); pagamento de terceiro
-no mempool não entra. As confirmadas são escolhidas antes e, em cada grupo, as
-maiores primeiro.
+no mempool não entra. As confirmadas são escolhidas antes do troco pendente
+e, entre elas, vale a menor entrada que cobre o valor com a menor sobra: sobra
+abaixo do pó não vira saída de troco (fica na taxa). Se nenhuma cobre, a
+escolha usa o menor par que cobre e, por fim, as maiores primeiro.
 
 Com `"preview": true` e sem `amount_sats`, a rota não monta nada: devolve o
 limite que a tela usa para bloquear o envio antes da tentativa.
@@ -632,10 +640,11 @@ Valor acima do máximo volta com `fee_sats: null` (a tela já mostra o erro de
 limite).
 
 `max_send_sats` é o total disponível menos a taxa da transação
-que gasta todas as entradas e manda todo o resto ao destino (sem troco). É
-exatamente o maior valor que `selectCoins` aceita; abaixo dele sempre existe
-uma seleção válida, e acima o envio é recusado. No máximo não há saída de
-troco.
+que gasta todas as entradas e manda todo o resto ao destino (sem troco).
+Entrada que vale menos que a taxa de gastá-la fica fora dessa conta: continua
+no saldo, mas não entra no máximo, porque mandá-la custaria mais do que ela
+vale. O máximo é sempre aceito e gasto até o fim, sem saída de troco; acima
+dele o envio é recusado.
 
 A taxa vem separada em duas partes: `fee_sats_at_rate` é o que a tarifa
 pedida cobraria sozinha na transação montada e `dust_sats` é o que sobrou e
@@ -907,6 +916,7 @@ npm test                        # electrum + worker + psbt + watcher, sem rede
 node test/electrum.test.mjs     # protocolo contra servidor falso
 node test/worker.test.mjs       # ponta a ponta, sem D1 no env
 node test/psbt.test.mjs         # taxas, escolha de UTXO, PSBT e assinatura
+node test/coin-selection.test.mjs  # regra da escolha, em 300 carteiras aleatórias
 node test/broadcast.test.mjs    # conferência e transmissão do PSBT assinado
 node test/watcher.test.mjs      # Durable Object, timers e descarte total
 node test/dev-server.mjs        # UI local em http://127.0.0.1:8787/ (sem DO)
