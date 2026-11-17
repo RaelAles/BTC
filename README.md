@@ -30,7 +30,7 @@ tela mostra:
    a lista é o mesmo dos grupos do resumo do PSBT;
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e taxa em um
    **grupo de níveis** rotulado pelo **prazo médio de confirmação** —
-   `~10m`, `~30m`, `~1h` e `~1d` —, na mesma linha do recado do máximo (o
+   `~10m`, `~30m` e `~1h` —, na mesma linha do recado do máximo (o
    recado à esquerda e a taxa à direita; em tela estreita a taxa desce e
    continua à direita), desenhado como os botões **copiar** dos endereços:
    caixa alta, `--accent` em repouso, `--fg` no hover e `--support` no
@@ -45,7 +45,7 @@ tela mostra:
    com o destino recusado, o custo não teria o que cotar. Os níveis são
    rádios nativos: clique ou setas escolhem, e o PSBT usa a taxa do nível
    escolhido. A escolha começa
-   no nível de menor taxa (`~1d`) e, quando ele perde a estimativa, passa
+   no nível de menor taxa (`~1h`) e, quando ele perde a estimativa, passa
    para o de menor taxa entre os disponíveis; a escolha feita à mão continua
    valendo enquanto aquele nível existir. A quantidade usa
    máscara de BTC: o usuário digita só dígitos e o ponto entra sozinho, da
@@ -191,8 +191,8 @@ blockchain.info, nem chave privada em lugar nenhum.
   `scripthash.subscribe` atualiza o saldo em seguida. É o único ponto que
   entrega a transação a um servidor, e só no clique em **confirmar**.
 - **Taxa ao vivo**: `GET /api/fees` lê o corte da fila pelo
-  `mempool.get_fee_histogram` do Electrum para 144, 6, 3 e 1 bloco, que a tela
-  mostra como prazo médio (`~1d`, `~1h`, `~30m` e `~10m`, a 10 min por bloco),
+  `mempool.get_fee_histogram` do Electrum para 6, 3 e 1 bloco, que a tela
+  mostra como prazo médio (`~1h`, `~30m` e `~10m`, a 10 min por bloco),
   e converte para sat/kvB inteiro. O `blockchain.estimatefee` continua como
   reserva, para servidor que não responde o histograma. A tela
   reconsulta a cada 60 s enquanto está aberta e mostra o percentual de cada
@@ -629,7 +629,7 @@ mostrar a taxa ao lado do valor antes de qualquer montagem.
   "change_sats": 7148, "vsize": 142, "inputs_used": 2 }
 ```
 
-O mesmo preview aceita `quote_rates` (até as quatro taxas dos níveis): a
+O mesmo preview aceita `quote_rates` (até as três taxas dos níveis): a
 resposta ganha `quotes`, com a taxa de cada nível para o **mesmo valor**, na
 mesma seleção de entradas. É o que o seletor mostra em BTC; nível em que o
 valor não cabe volta com `fee_sats: null`.
@@ -787,9 +787,13 @@ mensagem, sem publicar nada.
 
 ### `GET /api/fees?session=<id opcional>`
 
-Taxa ao vivo pelo `mempool.get_fee_histogram` do Electrum, em quatro alvos:
-144 blocos (`minimum`, prazo médio de 1 dia), 6 (`standard`, 1 h), 3 (`high`,
-30 min) e 1 (`urgent`, 10 min). O prazo que a tela mostra é `alvo × 10 min`, a
+Taxa ao vivo pelo `mempool.get_fee_histogram` do Electrum, em três alvos:
+6 blocos (`standard`, prazo médio de 1 h), 3 (`high`, 30 min) e 1 (`urgent`,
+10 min). Não há alvo de 1 dia (144 blocos): a fila raramente passa de ~30
+blocos, então esse nível nunca media a fila — quando o alvo passa do tamanho
+do mempool, a conta cai no atalho da faixa mais baixa (o piso de relay), o que
+dava um botão "1 dia" com preço mínimo da rede, atrás de toda a fila e a 4
+satoshis de diferença do prazo de 1 h. O prazo que a tela mostra é `alvo × 10 min`, a
 média do intervalo entre blocos: o corte é a taxa para entrar nos blocos do
 alvo, então o número é ordem de grandeza, não previsão.
 
@@ -824,11 +828,11 @@ aviso do piso para o nível escolhido.
 
 ```json
 {
-  "levels": { "minimum": 0.105, "standard": 0.127, "high": 0.127, "urgent": 1.39 },
-  "targets": { "minimum": 144, "standard": 6, "high": 3, "urgent": 1 },
-  "sat_per_kvb": { "minimum": 105, "standard": 127, "high": 127, "urgent": 1390 },
-  "sat_per_vb": { "minimum": 0.105, "standard": 0.127, "high": 0.127, "urgent": 1.39 },
-  "floored": { "minimum": false, "standard": false, "high": false, "urgent": false },
+  "levels": { "standard": 0.127, "high": 0.127, "urgent": 1.39 },
+  "targets": { "standard": 6, "high": 3, "urgent": 1 },
+  "sat_per_kvb": { "standard": 127, "high": 127, "urgent": 1390 },
+  "sat_per_vb": { "standard": 0.127, "high": 0.127, "urgent": 1.39 },
+  "floored": { "standard": false, "high": false, "urgent": false },
   "relay_min_kvb": 100,
   "unit": "sat/vB",
   "source": "electrum",
@@ -945,13 +949,13 @@ endereço, `xprv` e texto solto deixam o campo vazio com aviso; `xpub`, `zpub`
 e `ypub` de 111 caracteres entram, disparam a consulta sozinha e carregam a
 carteira. A página abre sempre com o campo vazio, inclusive depois de
 recarregar. O bloco **enviar** também foi conferido no Chromium: o seletor
-de taxa só aparece depois de valor e destino válidos, os quatro níveis
+de taxa só aparece depois de valor e destino válidos, os três níveis
 mostram o percentual do Electrum falso, a
 escolha por rádio muda a taxa do PSBT, os detalhes do PSBT aparecem na tabela
 de leitura (sem o base64 na tela) e somem ao editar o formulário, voltando
 sozinhos quando a nova montagem termina (o bloco não tem botão de envio: o
 PSBT acompanha o formulário). Com taxa
-fracionária (1,076 sat/vB, que é o caso normal) o preview responde e os quatro
+fracionária (1,076 sat/vB, que é o caso normal) o preview responde e os três
 níveis ganham percentual: a tela não pode tratar sat/vB como inteiro, senão
 o preview nunca dispara e o PSBT nunca é montado.
 Um PSBT gerado pelo montador (bip84 e troco) foi analisado e assinado pelo
@@ -971,7 +975,7 @@ conexão/endereços/xpub quando a última tela fecha e a recarga (fechar e
 re-sincronizar no mesmo instante) sem apagar a sessão nova.
 
 O `psbt.test.mjs` deriva uma carteira dos 256 bits (a mesma do Cofre BTC),
-serve UTXOs por um Electrum falso e verifica: taxa ao vivo nos quatro níveis
+serve UTXOs por um Electrum falso e verifica: taxa ao vivo nos três níveis
 (`sat/kvB` exato, `sat_per_vb` com casas, `levels` sem piso e `floored`
 abaixo do piso padrão de 0,1 sat/vB),
 escolha de entradas para cobrir o valor, troco no próximo índice `/1`, o

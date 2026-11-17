@@ -32,43 +32,44 @@ function mapFind(map, type) {
   return map.find(e => e.key.length > 0 && e.key[0] === type) || null;
 }
 
-/* ---------------- 1. taxa ao vivo em quatro níveis ---------------- */
+/* ---------------- 1. taxa ao vivo em três níveis ---------------- */
 {
   const fake = await startFakeElectrum({});
   const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const r = await reqFees(env);
   assert.equal(r.status, 200);
-  assert.deepEqual(r.j.levels, { minimum: 2, standard: 6, high: 9, urgent: 12 },
+  assert.deepEqual(r.j.levels, { standard: 6, high: 9, urgent: 12 },
     'o sat/vB da taxa é o exato, não arredondado');
-  assert.deepEqual(r.j.sat_per_kvb, { minimum: 2000, standard: 6000, high: 9000, urgent: 12000 },
+  assert.deepEqual(r.j.sat_per_kvb, { standard: 6000, high: 9000, urgent: 12000 },
     'BTC/kvB × 1e8 dá o sat/kvB inteiro, sem perda');
-  assert.deepEqual(r.j.sat_per_vb, { minimum: 2, standard: 6, high: 9, urgent: 12 });
-  assert.deepEqual(r.j.floored, { minimum: false, standard: false, high: false, urgent: false });
+  assert.deepEqual(r.j.sat_per_vb, { standard: 6, high: 9, urgent: 12 });
+  assert.deepEqual(r.j.floored, { standard: false, high: false, urgent: false });
   assert.equal(r.j.relay_min_kvb, 100);
-  assert.deepEqual(r.j.targets, { minimum: 144, standard: 6, high: 3, urgent: 1 });
+  assert.deepEqual(r.j.targets, { standard: 6, high: 3, urgent: 1 },
+    'não há mais alvo de 1 dia (144 blocos)');
   assert.equal(r.j.source, 'electrum');
-  console.log('ok   taxa ao vivo em quatro níveis (1 dia, 1 h, 30 min, 10 min)');
+  console.log('ok   taxa ao vivo em três níveis (1 h, 30 min, 10 min)');
   await fake.close();
 }
 
 /* ---------------- 1b. casas decimais e piso de relay só marcado ---------------- */
 {
-  /* 1,299, 1,076 e 1,003 sat/vB ficam exatamente assim: nada de arredondar
-     para 2 antes de multiplicar pela vsize. A de 1 dia, 0,05 sat/vB, fica
-     abaixo do piso de relay padrão (0,1 sat/vB): `levels` (o que a tela
-     escolhe e o PSBT usa) leva o valor exato e `floored` só marca o nível. */
+  /* 1,299 e 1,076 sat/vB ficam exatamente assim: nada de arredondar para 2
+     antes de multiplicar pela vsize. A de 1 h, 0,05 sat/vB, fica abaixo do
+     piso de relay padrão (0,1 sat/vB): `levels` (o que a tela escolhe e o
+     PSBT usa) leva o valor exato e `floored` só marca o nível. */
   const fake = await startFakeElectrum({
-    fees: { 1: 0.00001299, 3: 0.00001076, 6: 0.00001003, 144: 0.00000050 }
+    fees: { 1: 0.00001299, 3: 0.00001076, 6: 0.00000050 }
   });
   const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const r = await reqFees(env);
   assert.equal(r.status, 200);
-  assert.deepEqual(r.j.sat_per_kvb, { minimum: 50, standard: 1003, high: 1076, urgent: 1299 });
-  assert.deepEqual(r.j.sat_per_vb, { minimum: 0.05, standard: 1.003, high: 1.076, urgent: 1.299 },
+  assert.deepEqual(r.j.sat_per_kvb, { standard: 50, high: 1076, urgent: 1299 });
+  assert.deepEqual(r.j.sat_per_vb, { standard: 0.05, high: 1.076, urgent: 1.299 },
     'o sat/vB é só a leitura do sat/kvB, sem arredondar');
-  assert.deepEqual(r.j.levels, { minimum: 0.05, standard: 1.003, high: 1.076, urgent: 1.299 },
+  assert.deepEqual(r.j.levels, { standard: 0.05, high: 1.076, urgent: 1.299 },
     'o nível usa a estimativa exata, sem piso de relay');
-  assert.deepEqual(r.j.floored, { minimum: true, standard: false, high: false, urgent: false },
+  assert.deepEqual(r.j.floored, { standard: true, high: false, urgent: false },
     'abaixo de 100 sat/kvB o nível é marcado, mas a taxa não é trocada');
   console.log('ok   casas decimais preservadas e piso de relay só marcado');
   await fake.close();
@@ -77,15 +78,15 @@ function mapFind(map, type) {
 /* ---------------- 1c. nível sem estimativa fica null ---------------- */
 {
   const fake = await startFakeElectrum({
-    fees: { 1: 0.00012, 6: 0.00006, 144: 0.00002 }
+    fees: { 1: 0.00012, 6: 0.00006 }
   });
   const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const r = await reqFees(env);
   assert.equal(r.status, 200);
-  assert.deepEqual(r.j.levels, { minimum: 2, standard: 6, high: null, urgent: 12 },
+  assert.deepEqual(r.j.levels, { standard: 6, high: null, urgent: 12 },
     'servidor que responde -1 deixa o nível sem estimativa');
-  assert.deepEqual(r.j.sat_per_kvb, { minimum: 2000, standard: 6000, high: null, urgent: 12000 });
-  assert.deepEqual(r.j.floored, { minimum: false, standard: false, high: false, urgent: false },
+  assert.deepEqual(r.j.sat_per_kvb, { standard: 6000, high: null, urgent: 12000 });
+  assert.deepEqual(r.j.floored, { standard: false, high: false, urgent: false },
     'nível sem estimativa não é nível no piso');
   console.log('ok   nível sem estimativa vem null e a tela o desabilita');
   await fake.close();
@@ -106,10 +107,10 @@ function mapFind(map, type) {
   const env = { ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp', ELECTRUM_TIMEOUT_MS: '5000' };
   const r = await reqFees(env);
   assert.equal(r.status, 200);
-  assert.deepEqual(r.j.sat_per_kvb, { minimum: 1050, standard: 1050, high: 1050, urgent: 2100 },
+  assert.deepEqual(r.j.sat_per_kvb, { standard: 1050, high: 1050, urgent: 2100 },
     'o corte de fila do histograma manda, não o estimador');
-  assert.deepEqual(r.j.levels, { minimum: 1.05, standard: 1.05, high: 1.05, urgent: 2.1 });
-  assert.deepEqual(r.j.floored, { minimum: false, standard: false, high: false, urgent: false });
+  assert.deepEqual(r.j.levels, { standard: 1.05, high: 1.05, urgent: 2.1 });
+  assert.deepEqual(r.j.floored, { standard: false, high: false, urgent: false });
   assert.equal(r.j.source, 'electrum', 'o formato da resposta não muda');
   console.log('ok   corte de fila do histograma substitui o estimatefee');
   await fake.close();

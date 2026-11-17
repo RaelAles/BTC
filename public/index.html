@@ -151,8 +151,8 @@
                 <div id="fee-section" hidden>
                   <!-- O prazo é a média de FEE_TARGETS (src/electrum.js), a
                        10 min por bloco: 1 bloco ≈ 10 min (urgent), 3 ≈
-                       30 min (high), 6 ≈ 1 h (standard), 144 ≈ 1 dia
-                       (minimum). É ordem de grandeza, não promessa. Os
+                       30 min (high), 6 ≈ 1 h (standard). É ordem de
+                       grandeza, não promessa. Os
                        botões vão do mais rápido ao mais lento, alinhados à
                        direita, com o percentual da taxa sobre o valor
                        enviado à direita de cada prazo e um "|" entre eles. -->
@@ -170,15 +170,9 @@
                       <span class="fee-level-pct">—</span>
                     </label>
                     <label class="field-choice fee-level" data-level="standard">
-                      <input type="radio" name="fee-level" value="standard">
+                      <input type="radio" name="fee-level" value="standard" checked>
                       <span class="fee-level-sep" aria-hidden="true">|</span>
                       <span class="fee-level-name">~1h</span>
-                      <span class="fee-level-pct">—</span>
-                    </label>
-                    <label class="field-choice fee-level" data-level="minimum">
-                      <input type="radio" name="fee-level" value="minimum" checked>
-                      <span class="fee-level-sep" aria-hidden="true">|</span>
-                      <span class="fee-level-name">~1d</span>
                       <span class="fee-level-pct">—</span>
                     </label>
                   </div>
@@ -392,6 +386,6 @@
   </main>
 </div>
 
-<script src="/app.js" defer integrity="sha384-Wr4y7k2/ii6ZdcXXmJitHzZ8yKSbrznfyH3HWISMh/UCXbHXfejS+b5q0YjM7vZI"></script>
+<script src="/app.js" defer integrity="sha384-5ZunWNDiwIitfGsblk8i0i+uIkf1Vb9+LCKehqFq201t1O+akfWHndufX14e9JMt"></script>
 </body>
 </html>

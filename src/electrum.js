@@ -323,13 +323,18 @@ export async function transactionsMany(client, txids, opts) {
    pode devolver menos que o corte da fila, e foi assim que uma transação de
    0,1187 sat/vB ficou 40 h atrás de 21 blocos.
 
-   Quatro alvos cobrem a escolha da tela, em ordem de prioridade: mínima (144
-   blocos ≈ 1 dia), padrão (6 ≈ 1 h), alta (3 ≈ 30 min) e urgente (1 bloco ≈
-   10 min; o Bitcoin Core trata o alvo 1 como 2, o menor que ele estima). A
-   tela mostra essas chaves como prazo médio, sem citar bloco: o tempo é alvo
-   × 10 min, a média do intervalo entre blocos, não uma previsão do
-   `estimatefee`. Servidor que não responde fica sem estimativa naquele nível
-   (null) e a tela desabilita aquele nível.
+   Três alvos cobrem a escolha da tela, em ordem de prioridade: padrão (6 ≈
+   1 h), alta (3 ≈ 30 min) e urgente (1 bloco ≈ 10 min; o Bitcoin Core trata
+   o alvo 1 como 2, o menor que ele estima). A tela mostra essas chaves como
+   prazo médio, sem citar bloco: o tempo é alvo × 10 min, a média do intervalo
+   entre blocos, não uma previsão do `estimatefee`. Servidor que não responde
+   fica sem estimativa naquele nível (null) e a tela desabilita aquele nível.
+
+   Não existe alvo de 1 dia (144 blocos): a fila raramente passa de ~30
+   blocos, então esse nível nunca era uma medida da fila — quando o alvo passa
+   do tamanho do mempool, a conta cai no atalho da faixa mais baixa, que é o
+   piso de relay. O resultado era um botão chamado "1 dia" com preço mínimo
+   da rede, atrás de toda a fila e a 4 satoshis de diferença do prazo de 1 h.
 
    O valor NÃO é arredondado: BTC/kvB × 1e8 dá sat/kvB inteiro exato (é a
    unidade em que o servidor de fato responde: 1926, 970, 112), e `sat_per_vb`
@@ -341,7 +346,7 @@ export async function transactionsMany(client, txids, opts) {
    não há piso econômico na carteira, só o piso de relay. `floored` marca o
    nível abaixo do piso padrão atual do Bitcoin Core (`-minrelaytxfee` =
    0,1 sat/vB desde a v30) e a tela mostra o aviso para o nível escolhido. */
-export const FEE_TARGETS = { minimum: 144, standard: 6, high: 3, urgent: 1 };
+export const FEE_TARGETS = { standard: 6, high: 3, urgent: 1 };
 
 /* Piso de relay padrão do Bitcoin Core (`-minrelaytxfee`): 100 sat/kvB =
    0,1 sat/vB desde a v30 (nas versões anteriores era 1000 sat/kvB). */

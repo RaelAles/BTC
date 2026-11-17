@@ -21,9 +21,9 @@ import BTC from './btc-core.js';
                          (sem `preview`) publica a transação final no
                          Electrum. Só transmite o que gasta entradas desta
                          carteira.
-   `GET  /api/fees`    → taxa estimada pelo Electrum em quatro níveis
-                         (minimum, standard, high, urgent; a tela mostra o
-                         prazo médio de 1 dia, 1 h, 30 min e 10 min), em sat/vB.
+   `GET  /api/fees`    → taxa estimada em três níveis
+                         (standard, high, urgent; a tela mostra o
+                         prazo médio de 1 h, 30 min e 10 min), em sat/vB.
    `GET  /api/events?session=…` → WebSocket do Durable Object, que empurra
                          o estado novo quando um scripthash muda.
    `GET  /api/health`  → configuração efetiva.

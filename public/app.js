@@ -45,7 +45,7 @@
     page: 1,            // página da lista do histórico
     fees: null,         // estimativa ao vivo do Electrum
     feeQuotes: null,    // custo de cada nível para o valor atual
-    feeLevel: 'minimum', // minimum | standard | high | urgent
+    feeLevel: 'standard', // standard | high | urgent
     feeTimer: 0,        // reconsulta periódica da taxa
     amountDigits: '',   // satoshis digitados (o ponto é só desenho)
     limits: null,       // máximo enviável para o destino e a taxa
@@ -1054,10 +1054,10 @@
 
   /* ---------------------------------------------------------- enviar */
   /* FEE_ORDER é a ordem das chaves na tela, do prazo mais curto ao mais
-     longo; o rótulo que aparece é o prazo médio ("~10m", "~30m", "~1h",
-     "~1d"). A taxa de cada nível vem do /api/fees e o percentual sobre o
+     longo; o rótulo que aparece é o prazo médio ("~10m", "~30m", "~1h").
+     A taxa de cada nível vem do /api/fees e o percentual sobre o
      valor enviado, do preview do valor e do destino digitados. */
-  var FEE_ORDER = ['urgent', 'high', 'standard', 'minimum'];
+  var FEE_ORDER = ['urgent', 'high', 'standard'];
   var FEE_MAX = 10000;
 
   function feeRateOf(level) {
@@ -1527,7 +1527,7 @@
     state.sendBusy = false;
     state.fees = null;
     state.feeQuotes = null;
-    state.feeLevel = 'minimum';
+    state.feeLevel = 'standard';
     state.amountDigits = '';
     state.limits = null;
     state.limitsError = '';
