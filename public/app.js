@@ -2069,27 +2069,22 @@
     var meta = fmtInt(t.input_count) +
       (t.input_count === 1 ? ' entrada' : ' entradas') + sep +
       fmtInt(t.output_count) + (t.output_count === 1 ? ' saída' : ' saídas');
-    /* O estado fica à direita das contagens: o começo da linha não muda de
-       um item pendente para um confirmado. */
+    var eligible = !!(t.cpfp && t.cpfp.eligible);
+    var valueText = values.join(' <span class="value-sep" aria-hidden="true">|</span> ');
+    /* O estado e o acelerar formam uma coluna à direita das duas linhas de
+       metadados: o começo das contagens não muda de um item pendente para
+       um confirmado, e o botão cai no eixo do [ pendente ]. */
     var html =
       '<h3><span class="item-title is-static history-txid">' + esc(t.txid) + '</span></h3>' +
-      '<p class="item-meta history-meta">' +
-      '<span class="history-counts">' + meta + '</span>' +
-      (status ? '<span class="history-status">' + status + '</span>' : '') +
-      '</p>';
-    var eligible = !!(t.cpfp && t.cpfp.eligible);
-    /* O acelerar divide a linha dos valores e encosta à direita, como o
-       botão de copiar dos endereços; sem valores ele fica sozinho ali. */
-    var action = eligible
-      ? '<span class="chips history-actions" role="group" aria-label="Ações da transação">' +
-        '<button type="button" data-cpfp="' + esc(t.txid) + '">acelerar</button></span>'
-      : '';
-    var valueText = values.join(' <span class="value-sep" aria-hidden="true">|</span> ');
-    if (valueText || action) {
-      html += '<p class="item-meta history-values">' +
-        (valueText ? '<span class="history-values-text">' + valueText + '</span>' : '') +
-        action + '</p>';
-    }
+      '<div class="history-body">' +
+      '<p class="item-meta history-counts">' + meta + '</p>' +
+      (status ? '<p class="item-meta history-status">' + status + '</p>' : '') +
+      (valueText ? '<p class="item-meta history-values">' + valueText + '</p>' : '') +
+      (eligible
+        ? '<button type="button" class="history-actions" data-cpfp="' + esc(t.txid) +
+          '">acelerar</button>'
+        : '') +
+      '</div>';
     var addrs = t.addresses || [];
     if (addrs.length) {
       var labels = { entrada: 'entrada', troco: 'troco', recebimento: 'recebimento' };

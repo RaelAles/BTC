@@ -1900,16 +1900,8 @@
   /* A linha de valores fica no tom do texto, com o rótulo em --dim: o sinal
      e a cor dos valores já dizem a direção (VG-COR-16), e o saldo é o
      resultado, sem direção própria. Os campos se separam pelo `|` do
-     divisor, como na linha de dados dos itens. O acelerar ocupa a mesma
-     linha, encostado à direita, como o botão de copiar dos endereços. */
-  .history-values {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-2) var(--space-4);
-    color: var(--fg);
-  }
-  .history-values-text { flex: 1 1 auto; min-width: 0; }
+     divisor, como na linha de dados dos itens. */
+  .history-values { color: var(--fg); }
   .history-values .value-label { color: var(--dim); }
   .history-values .value-sep { color: var(--sep); }
   /* O txid é o título do item: o corpo desce para o tamanho de leitura, e a
@@ -1921,16 +1913,25 @@
   }
   .history-address { overflow-wrap: anywhere; }
   .history-addresses { color: var(--fg-weak); }
-  /* Contagens à esquerda e estado à direita, na mesma linha: o começo do
-     texto não muda de um item pendente para um confirmado. */
-  .history-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-2) var(--space-4);
+  /* Estado e ação formam uma coluna à direita das duas linhas de metadados.
+     A coluna tem a largura do maior dos dois e cada um fica centralizado
+     nela, então o acelerar cai no eixo do [ pendente ]. O botão usa o desenho
+     do copiar dos endereços: botão simples, no corpo --text-sm da linha. */
+  .history-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-4);
   }
-  .history-status { margin-left: auto; }
-  .history-actions { margin-left: auto; }
+  .history-counts { grid-area: 1 / 1; }
+  .history-status { grid-area: 1 / 2; justify-self: center; }
+  .history-values { grid-area: 2 / 1; }
+  .history-actions {
+    grid-area: 2 / 2;
+    align-self: center;
+    justify-self: center;
+    display: block;
+    font-size: var(--text-sm);
+  }
   .history-cpfp-note { color: var(--dim); }
 
   /* CPFP: o recado da aceleração só ocupa lugar quando há erro para
