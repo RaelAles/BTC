@@ -2051,8 +2051,8 @@
   function historyItemNode(t) {
     var sep = ' <span class="tag-sep" aria-hidden="true">·</span> ';
     var status = t.pending
-      ? '<span class="tag tag-pending">[ pendente ]</span>'
-      : '<span class="tag">[ confirmada ]</span>';
+      ? '<span class="tag tag-pending">[ pendente ]</span>' + sep
+      : '';
     var direction = t.direction === 'out' ? 'enviado'
       : t.direction === 'in' ? 'recebido' : 'auto';
     var values = [];
@@ -2068,7 +2068,7 @@
     if (Number(t.fee_sats) > 0) {
       values.push('<span class="value-label">taxa</span> ' + signedBtc(t.fee_sats, 'out'));
     }
-    var meta = status + sep + '<span class="tag">' + direction + '</span>' + sep +
+    var meta = status + '<span class="tag">' + direction + '</span>' + sep +
       fmtInt(t.input_count) + (t.input_count === 1 ? ' entrada' : ' entradas') + sep +
       fmtInt(t.output_count) + (t.output_count === 1 ? ' saída' : ' saídas');
     var html =
