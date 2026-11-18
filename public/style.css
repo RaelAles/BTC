@@ -1846,23 +1846,39 @@
      respiro que separa um item do outro, para a leitura dos totais não
      encostar no primeiro endereço. */
   #history-summary { margin: 0 0 var(--space-7); }
-  /* Com dados, o resumo vira a tabela de leitura da carteira (VG-ABS-04): o
-     total de endereços é uma linha de dados, e os valores seguem a marcação
-     do extrato (VG-COR-16) — rótulo em --dim, valor com o sinal e a cor da
-     direção. O vão da tabela fica com o bloco, e a linha não justifica nem
+  /* Com dados, o resumo vira a leitura curta do extrato (VG-ABS-04): quatro
+     pares legenda/valor — a legenda em cima e o valor embaixo, na mesma
+     coluna (transações, recebido, saídas, taxas). Os valores seguem a
+     marcação do extrato (VG-COR-16) — legenda em --dim, valor com o sinal e a
+     cor da direção. O vão fica com o bloco, e o resumo não justifica nem
      hifeniza, porque é leitura de dado, não prosa. Sem dados, o texto
      corrido continua sendo a nota de apoio herdada de .note, porque o texto
-     simples substitui a tabela. */
-  #history-summary .data-table {
+     simples substitui o resumo. */
+  #history-summary .history-totals {
+    display: grid;
+    /* Colunas de conteúdo (nada de valor partido no meio: um número quebrado
+       vira outro número) e bandas que se multiplicam quando a tela não cabe
+       quatro de uma vez — a coluna do card tem 268 px no piso, e os quatro
+       pares pedem ~346 px numa linha só. */
+    grid-template-columns: repeat(auto-fit, minmax(11ch, 1fr));
+    column-gap: var(--space-5);
+    row-gap: var(--space-2);
     margin: 0;
     -webkit-hyphens: none;
     hyphens: none;
+    font-size: var(--text-sm);
   }
-  /* "transações" tem 10ch e, na coluna de 7ch herdada do key-readout,
-     encostaria no valor — o rótulo não quebra (white-space: nowrap) e a
-     largura conta o padding (border-box), então a coluna ganha dois
-     caracteres de respiro. */
-  #history-summary .key-readout tbody th { width: 12ch; }
+  #history-summary .history-totals div { display: flex; flex-direction: column; }
+  #history-summary .history-totals dt { color: var(--dim); }
+  #history-summary .history-totals dd { margin: 0; white-space: nowrap; }
+  /* Abaixo de ~27em as quatro colunas não cabem numa linha (medido: 373 px de
+     conteúdo) e a banda automática deixaria uma sozinha na segunda linha.
+     Duas colunas, dois pares por banda, mantêm a leitura em grade. */
+  @media (max-width: 26.9em) {
+    #history-summary .history-totals {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
 
   /* A lista do extrato é uma coluna só, em qualquer largura (VG-LST-07). O
      endereço é o título do item, em texto simples e sem a caixa do <code>,

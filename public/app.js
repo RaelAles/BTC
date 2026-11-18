@@ -2236,31 +2236,30 @@
     $('#v-warnings').innerHTML = (d.warnings || []).map(function (w) { return esc(w); }).join('<br>');
 
     var txs = d.transactions || [];
-    var sum = { received: 0, sent: 0 };
+    var sum = { received: 0, sent: 0, fee: 0 };
     txs.forEach(function (t) {
       if (t.direction === 'in') sum.received += Number(t.received_sats) || 0;
       if (t.direction === 'out') sum.sent += Number(t.sent_sats) || 0;
+      sum.fee += Number(t.fee_sats) || 0;
     });
     var countLabel = txs.length === 1 ? 'transação' : 'transações';
-    /* O resumo é a tabela de leitura da carteira (VG-ABS-04): o total de
-       transações vira uma linha de dados, com o plural do rótulo pela
-       contagem, e os valores repetem a marcação do extrato — rótulo em
-       --dim, valor com o sinal e a cor da direção (VG-COR-16). Os valores
-       zerados não viram linha. */
-    var summaryRows =
-      '<tr><th scope="row">' + countLabel + '</th><td>' + fmtInt(txs.length) + '</td></tr>';
-    if (sum.received > 0) {
-      summaryRows +=
-        '<tr><th scope="row">recebido</th><td>' + signedBtc(sum.received, 'in') + '</td></tr>';
-    }
-    if (sum.spent > 0) {
-      summaryRows +=
-        '<tr><th scope="row">enviado</th><td>' + signedBtc(sum.spent, 'out') + '</td></tr>';
-    }
+    /* O resumo é a leitura curta do extrato (VG-ABS-04): quatro pares
+       legenda/valor — a legenda em cima e o valor embaixo, na mesma coluna —,
+       com o plural do rótulo pela contagem. Os valores repetem a marcação das
+       linhas do item — legenda em --dim, valor com o sinal e a cor da direção
+       (VG-COR-16), e o zero em --dim. */
+    var totals = [
+      [countLabel, fmtInt(txs.length)],
+      ['recebido', signedBtc(sum.received, 'in')],
+      ['saídas', signedBtc(sum.sent, 'out')],
+      ['taxas', signedBtc(sum.fee, 'out')]
+    ];
     $('#history-summary').innerHTML =
-      '<table class="data-table key-readout" aria-label="totais do histórico">' +
-        '<tbody>' + summaryRows + '</tbody>' +
-      '</table>';
+      '<dl class="history-totals" aria-label="totais do histórico">' +
+        totals.map(function (c) {
+          return '<div><dt>' + esc(c[0]) + '</dt><dd>' + c[1] + '</dd></div>';
+        }).join('') +
+      '</dl>';
     state.historyState = 'ready';
     syncHistoryState();
     renderHistory();
