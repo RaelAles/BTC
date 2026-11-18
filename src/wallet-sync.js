@@ -308,12 +308,6 @@ export class WalletScanner {
     const candidates = ownOutputs
       .filter(o => o.spendable && o.value >= DUST_SATS)
       .sort((a, b) => b.value - a.value);
-    let reason = '';
-    if (entry.height > 0) reason = 'já confirmada';
-    else if (!ownInputs.length) reason = 'não é uma transação de envio desta carteira';
-    else if (!allInputsOwn) reason = 'nem todas as entradas são desta carteira';
-    else if (fee == null || fee < 0) reason = 'taxa da transação pai indisponível';
-    else if (!candidates.length) reason = 'sem saída própria disponível para acelerar';
     const cpfpOutput = candidates[0] || null;
 
     return {
@@ -336,7 +330,6 @@ export class WalletScanner {
       cpfp: {
         eligible: !entry.height && ownInputs.length > 0 && allInputsOwn &&
           fee != null && fee >= 0 && !!cpfpOutput,
-        reason,
         output: cpfpOutput ? {
           txid: cpfpOutput.txid, vout: cpfpOutput.vout,
           outpoint: cpfpOutput.txid + ':' + cpfpOutput.vout,

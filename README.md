@@ -565,8 +565,8 @@ iguais.
 `transactions` é a lista que a tela do histórico usa: uma entrada por
 `txid`, com `pending`, `height`, `direction` (`in`, `out` ou `self`),
 `received_sats`, `sent_sats`, `fee_sats` (quando todas as entradas são desta
-carteira), `input_count`, `output_count`, `addresses` e `cpfp` (elegibilidade,
-motivo e a saída escolhida). `addresses` continua na resposta para as contas
+carteira), `input_count`, `output_count`, `addresses` e `cpfp` (elegibilidade
+e a saída escolhida). `addresses` continua na resposta para as contas
 de saldo e para compatibilidade; a tela agrupa por transação.
 
 `types` traz **os quatro tipos**, na ordem bip86 → bip84 → bip49 → bip44 (o
