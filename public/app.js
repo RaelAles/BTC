@@ -2081,7 +2081,7 @@
     if (addrs.length) {
       var labels = { entrada: 'entrada', troco: 'troco', recebimento: 'recebimento' };
       var shown = addrs.slice(0, 2).map(function (a) {
-        return '<span class="history-address">' + esc(a.address) + '</span> ' +
+        return '<span class="history-address">' + esc(a.address) + '</span>' + sep +
           '<span class="tag">' + (labels[a.role] || a.role) + '</span>';
       });
       if (addrs.length > 2) shown.push('<span class="tag">+' + (addrs.length - 2) + '</span>');

@@ -1858,10 +1858,11 @@
     -webkit-hyphens: none;
     hyphens: none;
   }
-  /* "endereços" tem 9ch e, na coluna de 7ch herdada do key-readout, encostaria
-     no valor — o rótulo não quebra (white-space: nowrap). A coluna ganha três
-     caracteres para manter o respiro do "receber". */
-  #history-summary .key-readout tbody th { width: 10ch; }
+  /* "transações" tem 10ch e, na coluna de 7ch herdada do key-readout,
+     encostaria no valor — o rótulo não quebra (white-space: nowrap) e a
+     largura conta o padding (border-box), então a coluna ganha dois
+     caracteres de respiro. */
+  #history-summary .key-readout tbody th { width: 12ch; }
 
   /* A lista do extrato é uma coluna só, em qualquer largura (VG-LST-07). O
      endereço é o título do item, em texto simples e sem a caixa do <code>,
