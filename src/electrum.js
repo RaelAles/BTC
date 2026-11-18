@@ -41,19 +41,37 @@ export function scripthash(script) {
   return out;
 }
 
-/* "host:porta[:tls|:tcp],..." — a porta 50001 assume tcp, o resto tls. */
+/* "host:porta[:tls|:tcp],..." — a porta 50001 assume tcp, o resto tls.
+   IPv6 entra entre colchetes: "[::1]:50002:tls". */
 export function parseServerList(text) {
   const out = [];
   for (const raw of String(text || '').split(',')) {
     const item = raw.trim();
     if (!item) continue;
-    const parts = item.split(':');
-    const host = parts[0];
-    const port = Number(parts[1]);
-    if (!host || !Number.isInteger(port) || port <= 0 || port > 65535) {
+    let host, portText, modeText;
+    if (item[0] === '[') {
+      const close = item.indexOf(']');
+      if (close < 0) throw new Error('servidor Electrum inválido: ' + item);
+      host = item.slice(1, close);
+      const rest = item.slice(close + 1);
+      const parts = rest[0] === ':' ? rest.slice(1).split(':') : [];
+      if (!parts.length || parts.length > 2) {
+        throw new Error('servidor Electrum inválido: ' + item);
+      }
+      portText = parts[0];
+      modeText = parts[1];
+    } else {
+      const parts = item.split(':');
+      if (parts.length > 3) throw new Error('servidor Electrum inválido: ' + item);
+      host = parts[0];
+      portText = parts[1];
+      modeText = parts[2];
+    }
+    const port = Number(portText);
+    if (!host || !portText || !Number.isInteger(port) || port <= 0 || port > 65535) {
       throw new Error('servidor Electrum inválido: ' + item);
     }
-    const mode = String(parts[2] || (port === 50001 ? 'tcp' : 'tls')).toLowerCase();
+    const mode = String(modeText || (port === 50001 ? 'tcp' : 'tls')).toLowerCase();
     if (mode !== 'tls' && mode !== 'tcp') {
       throw new Error('transporte inválido em ' + item + ' (use tls ou tcp)');
     }
@@ -173,10 +191,12 @@ export class ElectrumClient {
     const id = ++this.nextId;
     const promise = new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
+        /* só este pedido falha: derrubar a conexão por um timeout de
+           consulta matava todos os pedidos em voo de um lote. O socket
+           continua válido; uma resposta atrasada cai no `pending` vazio.
+           Falha de socket é outra coisa: _read/_write chamam _fail. */
         this.pending.delete(id);
-        const err = new Error('timeout de ' + this.timeoutMs + ' ms em ' + method);
-        this._fail(err);
-        reject(err);
+        reject(new Error('timeout de ' + this.timeoutMs + ' ms em ' + method));
       }, this.timeoutMs);
       this.pending.set(id, { resolve, reject, timer, method });
     });

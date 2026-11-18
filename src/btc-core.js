@@ -280,7 +280,8 @@ var BTC = (function () {
   function taprootOutputKey(xonly) {
     var Ppt = liftX(BigInt('0x' + bytesToHex(xonly)));
     if (!Ppt) throw new Error('ponto inválido para taproot');
-    var t = BigInt('0x' + bytesToHex(taggedHash('TapTweak', xonly))) % N;
+    var t = BigInt('0x' + bytesToHex(taggedHash('TapTweak', xonly)));
+    if (t >= N) throw new Error('tweak taproot inválido');
     var Q = toAffine(jAdd(jMul(t), [Ppt.x, Ppt.y, 1n]));
     return pad32(Q.x);
   }
@@ -780,6 +781,8 @@ var BTC = (function () {
   function readVarInt(b, o) {
     if (o >= b.length) throw new Error('varint fora do buffer');
     var c = b[o];
+    var size = c < 0xfd ? 1 : c === 0xfd ? 3 : c === 0xfe ? 5 : 9;
+    if (o + size > b.length) throw new Error('varint fora do buffer');
     if (c < 0xfd) return { value: c, size: 1 };
     if (c === 0xfd) return { value: readLE16(b, o + 1), size: 3 };
     if (c === 0xfe) return { value: readLE32(b, o + 1), size: 5 };
@@ -900,7 +903,12 @@ var BTC = (function () {
     if (script.length === 34 && h.slice(0, 4) === '0020') return 'p2wsh';
     if (script.length === 34 && h.slice(0, 4) === '5120') return 'p2tr';
     if (script.length >= 4 && script.length <= 42 && (script[0] === 0 || (script[0] >= 0x51 && script[0] <= 0x60)) &&
-        script[1] === script.length - 2) return 'witness';
+        script[1] === script.length - 2) {
+      /* BIP141: witness v0 só existe em 20 ou 32 bytes. Programa v0 de outro
+         tamanho não é endereço segwit válido (BIP173); fica como script. */
+      if (script[0] === 0 && script.length !== 22 && script.length !== 34) return 'outro';
+      return 'witness';
+    }
     return 'outro';
   }
   /* O script P2SH não diz qual é o redeem; neste cofre só existe P2SH-P2WPKH. */
@@ -985,6 +993,9 @@ var BTC = (function () {
   function b64decode(text) {
     var clean = String(text).replace(/[\s=]+/g, '');
     if (!/^[A-Za-z0-9+/]*$/.test(clean)) throw new Error('base64 inválido');
+    /* Comprimento ≡ 1 (mod 4) não completa um byte: recusar evita que um
+       arquivo corrompido vire bytes plausíveis. */
+    if (clean.length % 4 === 1) throw new Error('base64 inválido');
     var out = new Uint8Array(Math.floor(clean.length * 3 / 4));
     var acc = 0, bits = 0, p = 0;
     for (var i = 0; i < clean.length; i++) {
@@ -1048,10 +1059,17 @@ var BTC = (function () {
     var psbt = { global: g.map, inputs: [], outputs: [], tx: null, version: 0 };
     var ver = mapFind(g.map, 0xfb);
     if (ver && ver.value.length === 4) psbt.version = readLE32(ver.value, 0);
-    if (psbt.version > 1) throw new Error('PSBT v2 não é suportado; exporte em PSBT v0');
+    if (psbt.version !== 0) throw new Error('PSBT v2 não é suportado; exporte em PSBT v0');
     var utx = mapFind(g.map, 0x00);
     if (!utx) throw new Error('PSBT sem transação não assinada (v0)');
     psbt.tx = readTx(utx.value);
+    /* BIP174: a transação não assinada vai no formato antigo, sem scriptSig. */
+    if (psbt.tx.segwit) throw new Error('a transação não assinada veio no formato witness; PSBT v0 exige o formato antigo');
+    psbt.tx.inputs.forEach(function (inp) {
+      if (inp.scriptSig && inp.scriptSig.length) {
+        throw new Error('a transação não assinada veio com scriptSig; PSBT v0 exige scriptSig vazio');
+      }
+    });
     var p = g.pos;
     for (var i = 0; i < psbt.tx.inputs.length; i++) {
       var mi = readMap(b, p);
@@ -1182,12 +1200,28 @@ var BTC = (function () {
       var map = psbt.inputs[i];
       var fs = mapFind(map, 0x07);
       var fw = mapFind(map, 0x08);
-      if (!fs) throw new Error('entrada ' + i + ' não está finalizada (falta final_scriptSig)');
+      if (!fs && !fw) throw new Error('uma entrada: não está finalizada; o PSBT precisa dos campos finais para gerar a transação.');
+      var prev = prevoutOf(map, tx.inputs[i]);
+      var kind = normalizeKind(scriptKind(prev.script));
+      var scriptSig = fs ? fs.value : new Uint8Array(0);
+      var stack = fw ? readWitness(fw.value) : [];
+      /* O formato final depende do tipo: p2pkh no scriptSig, p2sh-p2wpkh nos
+         dois, p2wpkh/p2tr só no witness. Um witness em entrada não-segwit
+         invalida a transação; um p2wpkh sem witness não está finalizado. */
+      if (kind === 'p2pkh') {
+        if (!scriptSig.length || stack.length) throw new Error('uma entrada: p2pkh não está finalizada como esperado.');
+      } else if (kind === 'p2sh-p2wpkh') {
+        if (!scriptSig.length || !stack.length) throw new Error('uma entrada: p2sh-p2wpkh não está finalizada como esperado.');
+      } else if (kind === 'p2wpkh' || kind === 'p2tr') {
+        if (scriptSig.length || !stack.length) throw new Error('uma entrada: ' + kind + ' não está finalizada como esperado.');
+      } else {
+        throw new Error('uma entrada: script não suportado; use p2pkh, p2sh-p2wpkh, p2wpkh ou p2tr key path.');
+      }
       finalInputs.push({
         txid: tx.inputs[i].txid, vout: tx.inputs[i].vout,
-        scriptSig: fs.value, sequence: tx.inputs[i].sequence
+        scriptSig: scriptSig, sequence: tx.inputs[i].sequence
       });
-      witnesses.push(fw ? readWitness(fw.value) : []);
+      witnesses.push(stack);
     }
     var final = {
       version: tx.version, inputs: finalInputs, outputs: tx.outputs,

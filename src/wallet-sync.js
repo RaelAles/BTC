@@ -17,10 +17,14 @@ const TYPES = ['bip86', 'bip84', 'bip49', 'bip44'];
 
 /* A varredura não tem teto de endereços: o fim de cada ramo é a margem de
    `gap` endereços vazios. O lote limita só quanto trabalho uma requisição
-   faz por vez, para a tela mostrar progresso e continuar depois. */
+   faz por vez, para a tela mostrar progresso e continuar depois. O teto por
+   ramo existe como trava de CPU/memória do Durable Object (128 MB): passou
+   dele, a varredura para e o payload avisa que o saldo pode estar
+   incompleto. Configurável por WALLET_MAX_ADDRESSES. */
 const SCAN_BATCH = 200;
 const HIST_CONCURRENCY = 100;
 const TX_CONCURRENCY = 20;
+const DEFAULT_MAX_ADDRESSES = 5000;
 
 function now() { return new Date().toISOString(); }
 function hex(bytes) { return BTC.bytesToHex(bytes); }
@@ -52,8 +56,11 @@ export class WalletScanner {
     this.account = account;
     this.client = client;
     this.gap = Math.max(1, Number(gap) || DEFAULT_GAP);
+    this.maxAddresses = Math.max(1, Number(env && env.WALLET_MAX_ADDRESSES) || DEFAULT_MAX_ADDRESSES);
+    this.capHit = false;
     this.rows = new Map();
     this.txCache = new Map();   // txid -> hex cru, só nesta sessão
+    this.infoCache = new Map(); // txid -> resumo da transação, invalidado por aviso
     this.chainNodes = new Map();
     this.byScript = new Map();
     this.bySh = new Map();
@@ -169,6 +176,9 @@ export class WalletScanner {
         : { raw: new Map(), errors: new Map() };
       for (const [txid, raw] of fetched.raw) this.txCache.set(txid, raw);
       for (const [txid, msg] of fetched.errors) errors.set(txid, msg);
+      /* transação nova muda o índice de saídas e a conta das vizinhas:
+         zera o resumo em cache para o payload recalcular tudo uma vez */
+      if (fetched.raw.size) this.infoCache.clear();
 
       for (const [txid, raw] of [...cached, ...fetched.raw]) {
         try {
@@ -180,6 +190,12 @@ export class WalletScanner {
         } catch (e) {
           errors.set(txid, 'transação ilegível');
         }
+      }
+      /* confirmação de uma transação já conhecida muda a altura (e o
+         pendente) sem baixar nada novo: o resumo em cache tem de cair */
+      for (const tx of entries) {
+        const info = this.infoCache.get(tx.txid);
+        if (info && Number(info.height) !== (Number(tx.height) || 0)) this.infoCache.delete(tx.txid);
       }
       totals = totalsForScripts(entries, scripts);
     }
@@ -241,6 +257,7 @@ export class WalletScanner {
       r.pendingOut = t ? t.unconfirmedOut : 0;
       r.thirdIn = thirdInByScript.get(r.script) || 0;
       r.used = r.tx_count ? 1 : 0;
+      r.stale = false;
     }
 
     if (errors.size) this.errors = errors;
@@ -250,7 +267,19 @@ export class WalletScanner {
 
   /* Resumo de uma transação para o extrato por txid. `own_inputs` e
      `own_outputs` guardam a linha derivada (com pub/chave) só para o CPFP;
-     `publicTransaction` remove o que não precisa ir ao navegador. */
+     `publicTransaction` remove o que não precisa ir ao navegador. O
+     resultado fica em `infoCache` (por txid) até um aviso do Electrum tocar
+     um scripthash dessa transação: sem isso, cada payload refazia
+     `addressFromScript` para todas as saídas de todas as transações. */
+  infoOf(entry) {
+    let info = this.infoCache.get(entry.txid);
+    if (!info) {
+      info = this.transactionInfo(entry);
+      this.infoCache.set(entry.txid, info);
+    }
+    return info;
+  }
+
   transactionInfo(entry) {
     const addressOf = script => {
       try { return BTC.addressFromScript(script) || ''; } catch (e) { return ''; }
@@ -374,7 +403,7 @@ export class WalletScanner {
       const tx = queue.pop();
       if (seen.has(tx.txid)) continue;
       seen.add(tx.txid);
-      const info = this.transactionInfo(tx);
+      const info = this.infoOf(tx);
       if (!info.all_inputs_own || info.fee_sats == null || info.fee_sats < 0) {
         return { fee_sats: null, vsize: null, count: null };
       }
@@ -401,7 +430,7 @@ export class WalletScanner {
     const entry = this.entryByTxid && this.entryByTxid.get(String(txid || '').toLowerCase());
     if (!entry) throw new Error('transação não encontrada nesta carteira');
     if (entry.height > 0) throw new Error('a transação já foi confirmada; CPFP só vale para pendente');
-    const info = this.transactionInfo(entry);
+    const info = this.infoOf(entry);
     if (!info.own_inputs.length) throw new Error('a transação não é um envio desta carteira');
     if (!info.all_inputs_own) throw new Error('nem todas as entradas da transação são desta carteira; não é possível assinar a filha');
     if (info.fee_sats == null || info.fee_sats < 0) throw new Error('taxa da transação pai indisponível');
@@ -460,7 +489,9 @@ export class WalletScanner {
           const { lastUsed, maxIdx } = this.lastUsedOf(rows);
           if (maxIdx - lastUsed >= this.gap) continue;
           const from = maxIdx + 1;
-          const to = Math.min(lastUsed + this.gap, from + budget - 1);
+          const target = lastUsed + this.gap;
+          if (target > this.maxAddresses - 1) this.capHit = true;
+          const to = Math.min(target, from + budget - 1, this.maxAddresses - 1);
           if (from > to) continue;
           const fresh = [];
           for (let i = from; i <= to; i++) {
@@ -472,6 +503,8 @@ export class WalletScanner {
           }
           budget -= fresh.length;
           await this.queryRows(fresh);
+          /* endereço novo pode tornar interna uma saída antes externa */
+          if (fresh.length) this.infoCache.clear();
           added.push(...fresh);
           extended = true;
         }
@@ -486,7 +519,7 @@ export class WalletScanner {
       for (const chain of [0, 1]) {
         const rows = this.rows.get(rowKey(type, chain));
         const { lastUsed, maxIdx } = this.lastUsedOf(rows);
-        if (maxIdx - lastUsed < this.gap) return true;
+        if (maxIdx - lastUsed < this.gap && maxIdx < this.maxAddresses - 1) return true;
       }
     }
     return false;
@@ -514,7 +547,10 @@ export class WalletScanner {
       if (r) rows.push(r);
     }
     if (!rows.length) return { payload: await this.payload(), added: [] };
+    /* aviso novo pode mudar o resumo dessas transações */
+    for (const r of rows) for (const id of r.txids) this.infoCache.delete(id);
     await this.queryRows(rows);
+    for (const r of rows) for (const id of r.txids) this.infoCache.delete(id);
     let step = await this.scanStep(false);
     const added = [...step.added];
     while (step.more) {
@@ -674,7 +710,7 @@ export class WalletScanner {
        bloco mais recente. A ordem é estável (txid desempata) para a lista não
        dançar entre duas consultas iguais. */
     const transactions = (this.entries || [])
-      .map(e => this.transactionInfo(e))
+      .map(e => this.publicTransaction(this.infoOf(e)))
       .sort((a, b) =>
         (Number(b.pending) - Number(a.pending)) ||
         (b.height - a.height) ||
@@ -689,6 +725,10 @@ export class WalletScanner {
     }
     const stale = [...this.byScript.values()].filter(r => r.stale).length;
     if (stale) warnings.push(stale + ' endereço(s) com valor antigo por falta de transação.');
+    if (this.capHit) {
+      warnings.push('varredura limitada a ' + this.maxAddresses +
+        ' endereços por ramo; pode haver saldo não contabilizado.');
+    }
 
     return {
       detected_type: type,

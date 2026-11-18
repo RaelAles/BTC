@@ -7,8 +7,10 @@
    node test/watcher.test.mjs */
 import assert from 'node:assert/strict';
 import { WalletWatcher } from '../src/watcher.js';
+import { WalletScanner } from '../src/wallet-sync.js';
 import { deriveAddress, parseXpub } from '../src/derivation.js';
-import { scripthash, setConnectOverride } from '../src/electrum.js';
+import { scripthash, setConnectOverride, openElectrum } from '../src/electrum.js';
+import BTC from '../src/btc-core.js';
 import { startFakeElectrum, nodeConnect } from './fake-electrum.mjs';
 import { makeTx } from './tx-fixture.mjs';
 
@@ -168,6 +170,33 @@ assert.equal(watcher.idleTimer, null, 'tela aberta cancela o descarte');
   console.log('ok   notificação atualiza só o endereço afetado, avança o índice e empurra pelo WebSocket');
 }
 
+/* 3b. aviso de transação faltante é transitório: o `stale` volta a false
+   quando o refresh seguinte traz a transação (erro do Electrum passa). */
+{
+  const a = await deriveAddress('bip84', ua, 0, 0);
+  const tx = makeTx([{ txid: '06'.repeat(32), vout: 0 }], [{ value: 5000, script: a.script }]);
+  const fakeStale = await startFakeElectrum({
+    histories: { [scripthash(a.script)]: [{ height: 700000, tx_hash: tx.txid }] }
+    // sem txs: transaction.get falha e a conta do endereço fica stale
+  });
+  const clientStale = await openElectrum({
+    servers: [{ host: '127.0.0.1', port: fakeStale.port, secure: false }], timeoutMs: 5000
+  });
+  const scanner = await new WalletScanner({
+    env: {}, xpub: USER, account: ua, client: clientStale, gap: 2
+  }).init();
+  const before = await scanner.fullSync();
+  assert.ok(before.warnings.some(w => /valor antigo/.test(w)), JSON.stringify(before.warnings));
+
+  fakeStale.txs.set(tx.txid, tx.raw);
+  const after = await scanner.fullSync();
+  assert.ok(!after.warnings.some(w => /valor antigo/.test(w)), JSON.stringify(after.warnings));
+  assert.equal(after.balance.total, 5000, 'a conta se refaz quando a transação chega');
+  await clientStale.close();
+  await fakeStale.close();
+  console.log('ok   aviso de valor antigo some no refresh seguinte (stale volta a false)');
+}
+
 /* 4. conexão Electrum cai: o próximo sync reconecta e reaproveita a sessão */
 {
   await watcher.closeClient();
@@ -239,17 +268,24 @@ assert.equal(watcher.idleTimer, null, 'tela aberta cancela o descarte');
     ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp',
     ELECTRUM_TIMEOUT_MS: '5000'
   };
-  const watcher2 = new WalletWatcher(fakeState(), env2);
+  let watcher2 = null;
   let fetches = 0;
+  let uid = 0;
+  const watchers = new Map();
   env2.WATCH = {
-    newUniqueId: () => 'f'.repeat(64),
+    newUniqueId: () => (++uid).toString(16).padStart(64, 'f'),
     idFromString: (s) => s,
-    get: () => ({
-      fetch: (input, init) => {
-        fetches++;
-        return watcher2.fetch(typeof input === 'string' ? new Request(input, init) : input);
-      }
-    })
+    get: (id) => {
+      if (!watchers.has(id)) watchers.set(id, new WalletWatcher(fakeState(), env2));
+      const target = watchers.get(id);
+      if (!watcher2) watcher2 = target;
+      return {
+        fetch: (input, init) => {
+          fetches++;
+          return target.fetch(typeof input === 'string' ? new Request(input, init) : input);
+        }
+      };
+    }
   };
   const post = (body) => worker.fetch(new Request('https://x/api/wallet', {
     method: 'POST',
@@ -272,6 +308,24 @@ assert.equal(watcher.idleTimer, null, 'tela aberta cancela o descarte');
   const payload2 = await res2.json();
   assert.equal(payload2.session, payload.session);
   assert.equal(fetches, 2);
+
+  /* a sessão fica amarrada à xpub: outro id/cliente não troca a carteira */
+  const otherXpub = (await BTC.deriveHD('10'.repeat(128))).accounts.bip84.xpub;
+  const mismatch = await watcher2.fetch(new Request('https://watch/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ xpub: otherXpub })
+  }));
+  assert.equal(mismatch.status, 409);
+  assert.match((await mismatch.json()).error, /sessão de outra xpub/);
+  assert.equal(watcher2.xpub, USER, 'a xpub da sessão continua a original');
+
+  /* o Worker não reaproveita a sessão alheia: abre uma sessão nova */
+  const other = await post({ xpub: otherXpub, session: payload.session });
+  const otherPayload = await other.json();
+  assert.equal(other.status, 200, JSON.stringify(otherPayload));
+  assert.notEqual(otherPayload.session, payload.session, 'sessão nova para outra xpub');
+  assert.equal(watcher2.xpub, USER, 'a sessão original continua com a xpub original');
 
   /* o WebSocket vai por /api/events?session=… e valida o id */
   const bad = await worker.fetch(new Request('https://x/api/events?session=xyz'), env2);

@@ -34,7 +34,6 @@ function unref(timer) {
 
 export class WalletWatcher {
   constructor(state, env) {
-    this.state = state;
     this.env = env;
     this.xpub = null;        // só em memória; nada é gravado
     this.account = null;
@@ -52,9 +51,37 @@ export class WalletWatcher {
     this.debounceTimer = null;
     this.keepaliveTimer = null;
     this.idleTimer = null;
+    this.lock = Promise.resolve(); // serializa handlers que mexem no scanner
+  }
+
+  /* O Durable Object roda handlers concorrentes: um /sync em passos e um
+     /prepare, por exemplo, podiam trocar `this.scanner` no meio de um
+     `scanStep` do outro. A fila é simples (um elo por handler) e não usa
+     storage. */
+  withLock(fn) {
+    const run = this.lock.then(fn, fn);
+    this.lock = run.then(() => {}, () => {});
+    return run;
   }
 
   async fetch(request) {
+    return await this.withLock(() => this.handle(request));
+  }
+
+  /* 409 de sessão de outra xpub: o id da sessão viaja na URL do WebSocket e
+     não pode dar acesso à carteira de outra pessoa. */
+  otherXpub(xpub) {
+    return !!(this.xpub && xpub && this.xpub !== xpub);
+  }
+
+  /* Falha de transporte do Electrum no meio de uma rota não é erro de
+     validação do formulário: 502, para a tela não culpar o pedido. */
+  scanFailure(e) {
+    const transport = (this.client && this.client.dead) || (e && e.failures);
+    return json({ error: e && e.message ? e.message : String(e) }, transport ? 502 : 400);
+  }
+
+  async handle(request) {
     const url = new URL(request.url);
     try {
       if (url.pathname === '/sync' && request.method === 'POST') {
@@ -62,6 +89,7 @@ export class WalletWatcher {
         try { body = await request.json(); } catch (e) {}
         const xpub = String(body.xpub || '').trim();
         if (!xpub) return json({ error: 'informe a xpub' }, 400);
+        if (this.otherXpub(xpub)) return json({ error: 'sessão de outra xpub' }, 409);
         const payload = body.scan === 'step'
           ? await this.syncStep(xpub, true)
           : await this.sync(xpub, true);
@@ -83,6 +111,7 @@ export class WalletWatcher {
         try { body = await request.json(); } catch (e) {}
         const xpub = String(body.xpub || '').trim();
         if (!xpub) return json({ error: 'informe a xpub' }, 400);
+        if (this.otherXpub(xpub)) return json({ error: 'sessão de outra xpub' }, 409);
         const scanner = await this.ensureScanner(xpub);
         if (this.scanning || !this.lastPayload) await this.sync(xpub, true);
         else await scanner.recompute();
@@ -101,7 +130,7 @@ export class WalletWatcher {
             });
           return json(payload);
         } catch (e) {
-          return json({ error: e && e.message ? e.message : String(e) }, 400);
+          return this.scanFailure(e);
         }
       }
       if (url.pathname === '/cpfp' && request.method === 'POST') {
@@ -109,6 +138,7 @@ export class WalletWatcher {
         try { body = await request.json(); } catch (e) {}
         const xpub = String(body.xpub || '').trim();
         if (!xpub) return json({ error: 'informe a xpub' }, 400);
+        if (this.otherXpub(xpub)) return json({ error: 'sessão de outra xpub' }, 409);
         const txid = String(body.txid || '').trim().toLowerCase();
         if (!/^[0-9a-f]{64}$/.test(txid)) return json({ error: 'txid inválido' }, 400);
         const feeRate = Number(body.feeRate);
@@ -118,7 +148,7 @@ export class WalletWatcher {
         try {
           return json(await scanner.prepareCpfp({ txid, feeRate }));
         } catch (e) {
-          return json({ error: e && e.message ? e.message : String(e) }, 400);
+          return this.scanFailure(e);
         }
       }
       if (url.pathname === '/broadcast' && request.method === 'POST') {
@@ -126,6 +156,7 @@ export class WalletWatcher {
         try { body = await request.json(); } catch (e) {}
         const xpub = String(body.xpub || '').trim();
         if (!xpub) return json({ error: 'informe a xpub' }, 400);
+        if (this.otherXpub(xpub)) return json({ error: 'sessão de outra xpub' }, 409);
         const psbt = String(body.psbt || '');
         if (!psbt.trim()) return json({ error: 'informe o psbt assinado' }, 400);
         const preview = body.preview === true;
@@ -139,7 +170,7 @@ export class WalletWatcher {
             ? previewSignedPsbt({ scanner, psbtText: psbt })
             : await broadcastSignedPsbt({ client, scanner, psbtText: psbt }));
         } catch (e) {
-          return json({ error: e && e.message ? e.message : String(e) }, 400);
+          return this.scanFailure(e);
         }
       }
       if (url.pathname === '/state') {
@@ -163,6 +194,7 @@ export class WalletWatcher {
     if (this.client && !this.client.dead) return this.client;
     const cfg = electrumConfig(this.env);
     if (!cfg) throw new Error('Electrum desligado (ELECTRUM_SERVERS=off)');
+    if (cfg.error) throw new Error(cfg.error);
     this.client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
     this.client.onNotification = (method, params) => this.onNotify(method, params);
     this.subs.clear(); // conexão nova: precisa reassinar
@@ -268,6 +300,10 @@ export class WalletWatcher {
   }
 
   async flushDirty() {
+    return await this.withLock(() => this._flushDirty());
+  }
+
+  async _flushDirty() {
     try {
       if (this.dirty.size) {
         const dirty = [...this.dirty];
@@ -294,7 +330,7 @@ export class WalletWatcher {
     this.stopIdleClose();
     this.idleTimer = unref(setTimeout(() => {
       this.idleTimer = null;
-      if (!this.sockets.size) this.stopSession();
+      if (!this.sockets.size) this.stopSession().catch(() => {});
     }, IDLE_CLOSE_MS));
   }
 
@@ -314,7 +350,11 @@ export class WalletWatcher {
   }
 
   async ping() {
-    if (!this.sockets.size) return this.stopSession();
+    return await this.withLock(() => this._ping());
+  }
+
+  async _ping() {
+    if (!this.sockets.size) return this._stopSession();
     try {
       if (this.client && !this.client.dead) await this.client.ping();
       else await this.sync(null, true);
@@ -330,6 +370,10 @@ export class WalletWatcher {
      enquanto fechamos (troca de xpub, recarga), a sessão foi reativada e o
      estado novo é preservado. */
   async stopSession() {
+    return await this.withLock(() => this._stopSession());
+  }
+
+  async _stopSession() {
     if (this.sockets.size) return;
     const gen = this.generation;
     this.stopKeepalive();
@@ -368,13 +412,12 @@ export class WalletWatcher {
     // precisa reenviar a xpub em /api/wallet, que é o único lugar onde ela
     // pode aparecer
     if (!this.xpub) return json({ error: 'sessão expirada; envie a xpub de novo' }, 409);
-    if (this.scanning) {
-      // a varredura em passos está em andamento: o primeiro passo já criou
-      // a conexão e o scanner; não bloqueia o WebSocket com um sync completo
-    } else if (!this.lastPayload || !this.scanner || !this.client || this.client.dead) {
-      await this.sync(null, true);
-    } else {
-      await this.subscribeAll();
+    if (!this.scanning) {
+      if (!this.lastPayload || !this.scanner || !this.client || this.client.dead) {
+        await this.sync(null, true);
+      } else {
+        await this.subscribeAll();
+      }
     }
     const { client } = await this.openSocket();
     return new Response(null, { status: 101, webSocket: client });
@@ -391,7 +434,7 @@ export class WalletWatcher {
     this.sockets.add(server);
     const drop = () => {
       this.sockets.delete(server);
-      if (!this.sockets.size) this.stopSession();
+      if (!this.sockets.size) this.stopSession().catch(() => {});
     };
     server.addEventListener('close', drop);
     server.addEventListener('error', drop);

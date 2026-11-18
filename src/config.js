@@ -10,7 +10,11 @@ export function electrumConfig(env) {
   if (/^(off|0|false|no)$/i.test(text)) return null;
   let servers;
   try { servers = text ? parseServerList(text) : DEFAULT_SERVERS; }
-  catch (e) { return null; }
+  catch (e) {
+    /* lista malformada não é o mesmo que Electrum desligado: o motivo vai
+       para a resposta em vez de sumir num "off" silencioso. */
+    return { error: 'configuração inválida de ELECTRUM_SERVERS: ' + (e && e.message ? e.message : e) };
+  }
   return {
     servers,
     timeoutMs: Number((env && env.ELECTRUM_TIMEOUT_MS) || 8000)
@@ -56,7 +60,7 @@ export const SECURITY_HEADERS = {
 };
 
 export function json(data, status = 200) {
-  return new Response(JSON.stringify(data, null, 2), {
+  return new Response(JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }
   });

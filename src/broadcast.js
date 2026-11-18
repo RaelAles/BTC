@@ -20,14 +20,12 @@
    `blockchain.transaction.broadcast` no Electrum, feito pelo Worker ou pelo
    Durable Object (que reaproveita a conexão e as assinaturas da sessão). */
 import BTC from './btc-core.js';
+import { DUST_SATS } from './psbt.js';
+import { RELAY_MIN_KVB } from './electrum.js';
 
-/* Pó de saída: abaixo disso a saída não é padrão e o relay recusa. O valor
-   cobre p2pkh (546) e fica acima do pó de p2wpkh e p2tr. */
-const DUST_SATS = 546;
-
-/* Piso de relay padrão do Bitcoin Core (`-minrelaytxfee`): 100 sat/kvB =
-   0,1 sat/vB desde a v30 (nas versões anteriores era 1000 sat/kvB). */
-const RELAY_MIN_RATE = 0.1;
+/* Piso de relay padrão do Bitcoin Core (`-minrelaytxfee`):
+   RELAY_MIN_KVB sat/kvB = 0,1 sat/vB desde a v30. */
+const RELAY_MIN_RATE = RELAY_MIN_KVB / 1000;
 
 /* Um PSBT de várias entradas fica na casa de dezenas de KB em base64; o teto
    existe para uma colagem gigante não virar trabalho à toa no Worker. */
@@ -146,7 +144,7 @@ export function inspectSignedPsbt({ psbtText, byScript, utxos }) {
        atrapalha na tela; o restante das recusas mantém o detalhe. */
     let semFinal = 0;
     for (let i = 0; i < psbt.inputs.length; i++) {
-      if (!mapFind(psbt.inputs[i], 0x07)) semFinal++;
+      if (!mapFind(psbt.inputs[i], 0x07) && !mapFind(psbt.inputs[i], 0x08)) semFinal++;
     }
     if (psbt.inputs.length && semFinal === psbt.inputs.length) throw new Error('o psbt não está assinado');
     throw new Error('entrada não finalizada: ' + (e && e.message ? e.message : e));

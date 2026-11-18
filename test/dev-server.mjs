@@ -85,7 +85,7 @@ const server = http.createServer(async (req, res) => {
     }
     const file = u.pathname === '/' ? '/index.html' : u.pathname;
     const full = path.join(pub, file);
-    if (!full.startsWith(pub) || !fs.existsSync(full)) {
+    if (!full.startsWith(pub + path.sep) || !fs.existsSync(full)) {
       res.writeHead(404, Object.assign({ 'Content-Type': 'text/plain; charset=utf-8' }, SECURITY_HEADERS));
       res.end('not found');
       return;

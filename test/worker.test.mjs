@@ -198,6 +198,24 @@ setConnectOverride(nodeConnect);
   const off = await run(USER, { ELECTRUM_SERVERS: 'off' });
   assert.equal(off.status, 503);
 
+  /* lista malformada não é o mesmo que desligado: o motivo vai na resposta */
+  const bad = await run(USER, { ELECTRUM_SERVERS: 'sem-porta' });
+  assert.equal(bad.status, 503);
+  assert.match(bad.j.error, /configuração inválida de ELECTRUM_SERVERS/);
+
+  /* /api/health devolve a configuração efetiva, sem derrubar a rota */
+  const health = await worker.fetch(new Request('https://x/api/health'), {});
+  const hj = await health.json();
+  assert.equal(health.status, 200);
+  assert.equal(hj.ok, true);
+  assert.equal(hj.source, 'electrum');
+  assert.equal(hj.storage, 'nenhum');
+  assert.ok(Array.isArray(hj.electrum) && hj.electrum.length >= 1, 'lista efetiva de servidores');
+  const badHealth = await (await worker.fetch(new Request('https://x/api/health'), {
+    ELECTRUM_SERVERS: 'sem-porta'
+  })).json();
+  assert.match(String(badHealth.electrum), /configuração inválida de ELECTRUM_SERVERS/);
+
   console.log('ok   sem Electrum a resposta é erro claro (nenhum fallback)');
 }
 
@@ -254,6 +272,28 @@ setConnectOverride(nodeConnect);
   assert.equal(scanner.byScript.size, 43, 'gap 5: 8 ramos × 5 + 3 da extensão');
   assert.equal(scanner.scriptsForWatch().length, 41, 'não assina 0 e 1, vazios fora da cauda');
   await client.close();
+
+  /* teto por ramo: parou no teto e o payload avisa que a varredura foi
+     limitada (trava de CPU/memória do Durable Object) */
+  const a8 = await addr('bip84', 0, 8);
+  const tx8 = makeTx([{ txid: '07'.repeat(32), vout: 0 }], [{ value: 700, script: a8.script }]);
+  const fakeCap = await startFakeElectrum({
+    histories: { [scripthash(a8.script)]: [{ height: 700000, tx_hash: tx8.txid }] },
+    txs: { [tx8.txid]: tx8.raw }
+  });
+  const capClient = await openElectrum({
+    servers: [{ host: '127.0.0.1', port: fakeCap.port, secure: false }], timeoutMs: 5000
+  });
+  const capped = await new WalletScanner({
+    env: { WALLET_MAX_ADDRESSES: '12' }, xpub: USER, account: ua, client: capClient, gap: 10
+  }).init();
+  const cappedPayload = await capped.fullSync();
+  assert.equal(capped.capHit, true, 'o ramo usado parou no teto');
+  assert.equal(capped.byScript.size, 82, 'bip84/0 até o teto (12) + 7 ramos × 10');
+  assert.ok(cappedPayload.warnings.some(w => /varredura limitada a 12 endereços/.test(w)),
+    JSON.stringify(cappedPayload.warnings));
+  await capClient.close();
+  await fakeCap.close();
 
   console.log('ok   margem fixa de 50 por ramo, sem teto de 400');
   await fake.close();

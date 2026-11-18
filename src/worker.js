@@ -24,9 +24,8 @@ import BTC from './btc-core.js';
                          (sem `preview`) publica a transação final no
                          Electrum. Só transmite o que gasta entradas desta
                          carteira.
-   `GET  /api/fees`    → taxa estimada em duas opções
-                         (standard para escoar a fila em 6 blocos, fast para
-                         o próximo bloco), em sat/vB.
+   `GET  /api/fees`    → taxa estimada (o `estimatefee` de 2 blocos do
+                         Bitcoin Core), em sat/vB.
    `GET  /api/events?session=…` → WebSocket do Durable Object, que empurra
                          o estado novo quando um scripthash muda.
    `GET  /api/health`  → configuração efetiva.
@@ -64,22 +63,35 @@ async function handleWallet(request, env) {
     // O cliente devolve o id nas próximas consultas para reaproveitar a
     // conexão e as assinaturas enquanto a tela estiver aberta.
     const session = String(body.session || '').trim();
-    const id = /^[0-9a-f]{64}$/.test(session)
-      ? env.WATCH.idFromString(session)
-      : env.WATCH.newUniqueId();
+    const hasSession = /^[0-9a-f]{64}$/.test(session);
+    const id = hasSession ? env.WATCH.idFromString(session) : env.WATCH.newUniqueId();
     const stub = env.WATCH.get(id);
-    const res = await stub.fetch('https://watch/sync', {
+    const text = JSON.stringify({ xpub, scan: body.scan === 'step' ? 'step' : '' });
+    const post = (target) => target.fetch('https://watch/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ xpub, scan: body.scan === 'step' ? 'step' : '' })
+      body: text
     });
-    const payload = await res.json();
+    let res = await post(stub);
+    let payload = await res.json();
+    // o DO fixa a xpub por sessão: o id que veio do cliente era de outra
+    // carteira. Sessão de tela não vale como credencial; começa outra.
+    if (res.status === 409 && hasSession) {
+      const fresh = env.WATCH.newUniqueId();
+      res = await post(env.WATCH.get(fresh));
+      payload = await res.json();
+      if (res.status === 200) {
+        return json(Object.assign({}, payload, { watch: true, session: fresh.toString() }));
+      }
+      return json(payload, res.status);
+    }
     if (res.status !== 200) return json(payload, res.status);
     return json(Object.assign({}, payload, { watch: true, session: id.toString() }));
   }
 
   const cfg = electrumConfig(env);
   if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
+  if (cfg.error) return fail(cfg.error, 503);
 
   let client;
   try {
@@ -114,7 +126,7 @@ function sessionId(value) {
 
 /* Parâmetros do envio validados antes de consultar o Electrum. O valor é
    opcional: no preview ele só acrescenta a taxa daquele valor à resposta,
-   junto com `quote_rates` (as taxas dos níveis que o seletor mostra). */
+   junto com `quote_rates` (as taxas extras pedidas na mesma consulta). */
 function sendTarget(body) {
   const address = String(body.address || '').trim();
   if (!address) throw new Error('informe o endereço de destino');
@@ -132,7 +144,7 @@ function sendTarget(body) {
   };
 }
 
-/* Taxas extras que o preview cota para o mesmo valor (os níveis da
+/* Taxas extras que o preview cota para o mesmo valor (a taxa em vigor na
    tela). São só números: cada cotação faz a mesma seleção de entradas. */
 function quoteRatesOf(body) {
   if (body.quote_rates == null) return null;
@@ -158,6 +170,13 @@ function sendParams(body) {
   const params = sendTarget(body);
   if (params.amountSats == null) throw new Error('valor inválido');
   return params;
+}
+
+function scanFailure(e, client) {
+  /* Falha de transporte (Electrum caiu no meio do scan) não é erro de
+     validação: a tela trata 400 como formulário inválido. */
+  const transport = (client && client.dead) || (e && e.failures);
+  return fail(e && e.message ? e.message : String(e), transport ? 502 : 400);
 }
 
 async function handlePsbt(request, env) {
@@ -188,6 +207,7 @@ async function handlePsbt(request, env) {
 
   const cfg = electrumConfig(env);
   if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
+  if (cfg.error) return fail(cfg.error, 503);
   let client;
   try {
     client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
@@ -199,7 +219,7 @@ async function handlePsbt(request, env) {
     await scanner.fullSync();
     return json(preview ? scanner.limits(params) : await scanner.prepare(params));
   } catch (e) {
-    return fail(e && e.message ? e.message : String(e), 400);
+    return scanFailure(e, client);
   } finally {
     try { await client.close(); } catch (e) {}
   }
@@ -241,6 +261,7 @@ async function handleCpfp(request, env) {
 
   const cfg = electrumConfig(env);
   if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
+  if (cfg.error) return fail(cfg.error, 503);
   let client;
   try {
     client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
@@ -252,7 +273,7 @@ async function handleCpfp(request, env) {
     await scanner.fullSync();
     return json(await scanner.prepareCpfp({ txid, feeRate }));
   } catch (e) {
-    return fail(e && e.message ? e.message : String(e), 400);
+    return scanFailure(e, client);
   } finally {
     try { await client.close(); } catch (e) {}
   }
@@ -286,6 +307,7 @@ async function handleBroadcast(request, env) {
 
   const cfg = electrumConfig(env);
   if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
+  if (cfg.error) return fail(cfg.error, 503);
   let client;
   try {
     client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
@@ -299,7 +321,7 @@ async function handleBroadcast(request, env) {
       ? previewSignedPsbt({ scanner, psbtText: psbt })
       : await broadcastSignedPsbt({ client, scanner, psbtText: psbt }));
   } catch (e) {
-    return fail(e && e.message ? e.message : String(e), 400);
+    return scanFailure(e, client);
   } finally {
     try { await client.close(); } catch (e) {}
   }
@@ -310,10 +332,17 @@ async function handleFees(env, url) {
   if (env.WATCH && session) {
     const stub = env.WATCH.get(env.WATCH.idFromString(session));
     const res = await stub.fetch('https://watch/fees');
-    if (res.status === 200) return new Response(res.body, res);
+    if (res.status === 200) {
+      return new Response(res.body, {
+        status: res.status,
+        statusText: res.statusText,
+        headers: res.headers
+      });
+    }
   }
   const cfg = electrumConfig(env);
   if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
+  if (cfg.error) return fail(cfg.error, 503);
   let client;
   try {
     client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
@@ -343,6 +372,64 @@ function withSecurityHeaders(response) {
   });
 }
 
+/* Freio de abuso das rotas públicas. Cada POST pesado (wallet/psbt/cpfp/
+   broadcast) deriva centenas de endereços e consulta o Electrum; sem
+   credencial nenhuma, um laço externo vira custo direto de CPU/rede. O
+   contador vive só na memória do isolate (não é durável): serve para conter
+   rajada e pedido repetido, não como cota exata. */
+const RATE_WINDOW_MS = 60000;
+const RATE_MAX_REQUESTS = 120;
+const RATE_MAX_SCANS = 6;
+const rateBuckets = new Map(); // ip -> { since, count, scans }
+
+function clientIp(request) {
+  const h = request.headers;
+  const raw = h.get('cf-connecting-ip') || h.get('x-forwarded-for') || 'local';
+  return String(raw).split(',')[0].trim() || 'local';
+}
+
+function rateBucket(ip) {
+  const now = Date.now();
+  let bucket = rateBuckets.get(ip);
+  if (!bucket || now - bucket.since >= RATE_WINDOW_MS) {
+    bucket = { since: now, count: 0, scans: 0 };
+    rateBuckets.set(ip, bucket);
+    if (rateBuckets.size > 2000) {
+      for (const [key, value] of rateBuckets) {
+        if (now - value.since >= RATE_WINDOW_MS) rateBuckets.delete(key);
+      }
+    }
+  }
+  return bucket;
+}
+
+function tooMany(bucket) {
+  const retry = Math.max(1, Math.ceil((bucket.since + RATE_WINDOW_MS - Date.now()) / 1000));
+  return new Response(JSON.stringify({ error: 'muitos pedidos; tente de novo em ' + retry + ' s' }), {
+    status: 429,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'Retry-After': String(retry)
+    }
+  });
+}
+
+/* Rate por IP + teto de varreduras simultâneas para as rotas que derivam
+   endereços. O slot é liberado no finally, mesmo quando o handler falha. */
+async function withScanSlot(request, run) {
+  const bucket = rateBucket(clientIp(request));
+  bucket.count++;
+  if (bucket.count > RATE_MAX_REQUESTS) return tooMany(bucket);
+  if (bucket.scans >= RATE_MAX_SCANS) return tooMany(bucket);
+  bucket.scans++;
+  try {
+    return await run();
+  } finally {
+    bucket.scans--;
+  }
+}
+
 async function route(request, env) {
   const url = new URL(request.url);
   try {
@@ -354,27 +441,32 @@ async function route(request, env) {
         source: 'electrum',
         storage: 'nenhum',
         realtime: !!env.WATCH,
-        electrum: cfg ? cfg.servers.map(s => s.host + ':' + s.port + (s.secure ? ' tls' : ' tcp')) : 'off',
+        electrum: cfg && cfg.error ? cfg.error : cfg
+          ? cfg.servers.map(s => s.host + ':' + s.port + (s.secure ? ' tls' : ' tcp'))
+          : 'off',
         time: new Date().toISOString()
       });
     }
     if (url.pathname === '/api/wallet') {
       if (request.method !== 'POST') return fail('use POST', 405);
-      return await handleWallet(request, env);
+      return await withScanSlot(request, () => handleWallet(request, env));
     }
     if (url.pathname === '/api/psbt') {
       if (request.method !== 'POST') return fail('use POST', 405);
-      return await handlePsbt(request, env);
+      return await withScanSlot(request, () => handlePsbt(request, env));
     }
     if (url.pathname === '/api/cpfp') {
       if (request.method !== 'POST') return fail('use POST', 405);
-      return await handleCpfp(request, env);
+      return await withScanSlot(request, () => handleCpfp(request, env));
     }
     if (url.pathname === '/api/broadcast') {
       if (request.method !== 'POST') return fail('use POST', 405);
-      return await handleBroadcast(request, env);
+      return await withScanSlot(request, () => handleBroadcast(request, env));
     }
-    if (url.pathname === '/api/fees') return await handleFees(env, url);
+    if (url.pathname === '/api/fees') {
+      if (request.method !== 'GET' && request.method !== 'HEAD') return fail('use GET', 405);
+      return await handleFees(env, url);
+    }
     if (url.pathname === '/api/events') return await handleEvents(request, env, url);
     if (url.pathname.startsWith('/api/')) return fail('rota não encontrada', 404);
     if (env.ASSETS) return await env.ASSETS.fetch(request);

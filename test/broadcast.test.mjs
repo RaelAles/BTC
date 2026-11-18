@@ -141,7 +141,33 @@ async function fixture({ acct = account, hd: signer = hd, xpub = hd.accounts.bip
   await f.fake.close();
 }
 
-/* ---------------- 1b. aviso de taxa segue o piso de relay padrão ---------------- */
+/* ---------------- 1b. PSBT finalizado só com final_scriptWitness ---------------- */
+{
+  /* Assinador de terceiro finaliza segwit só com o witness (0x08), sem o
+     final_scriptSig (0x07): é PSBT válido pelo BIP174 e o Worker tem de
+     aceitar, como o próprio Cofre BTC faz. */
+  const f = await fixture();
+  const xpub = hd.accounts.bip84.xpub;
+  const psbt = BTC.parsePsbt(BTC.psbtParseInput(f.signed.psbtBase64));
+  psbt.inputs[0] = psbt.inputs[0].filter(e => !(e.key.length === 1 && e.key[0] === 0x07));
+  assert.equal(mapFind(psbt.inputs[0], 0x07), null, 'sem final_scriptSig');
+  assert.ok(mapFind(psbt.inputs[0], 0x08), 'com final_scriptWitness');
+  const witnessOnly = BTC.b64encode(BTC.writePsbt(psbt));
+
+  const final = BTC.psbtFinalTx(BTC.parsePsbt(BTC.psbtParseInput(witnessOnly)));
+  assert.equal(final.txid, f.signed.txid);
+  assert.equal(final.hex, f.signed.txHex);
+
+  const preview = await postJson('/api/broadcast', {
+    xpub, psbt: witnessOnly, preview: true
+  }, f.env);
+  assert.equal(preview.status, 200, JSON.stringify(preview.j));
+  assert.equal(preview.j.txid, f.signed.txid);
+  console.log('ok   PSBT finalizado só com final_scriptWitness é aceito');
+  await f.fake.close();
+}
+
+/* ---------------- 1c. aviso de taxa segue o piso de relay padrão ---------------- */
 {
   const xpub = hd.accounts.bip84.xpub;
 

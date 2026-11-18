@@ -10,7 +10,10 @@
   "compatibility_date": "2025-01-01",
   "assets": {
     "directory": "./public",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    // Explicito para /cofre-btc (declarado em public/_headers) não mudar
+    // de comportamento num bump do Wrangler.
+    "html_handling": "auto-trailing-slash"
     // Os estáticos continuam sendo servidos pelo asset layer, que aplica
     // os cabeçalhos de public/_headers sem acordar o Worker. As respostas
     // dinâmicas recebem os mesmos cabeçalhos em src/config.js.

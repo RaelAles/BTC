@@ -40,9 +40,12 @@
     scanning: false,    // varredura em passos em andamento
     page: 1,            // página da lista do histórico
     fees: null,         // estimativa ao vivo do Electrum
+    feesError: '',      // estimativa indisponível (taxa não veio do servidor)
+    feesRetryTimer: 0,  // reconsulta sob demanda quando a taxa falta
     feeQuotes: null,    // custo de cada nível para o valor atual
     feeTimer: 0,        // reconsulta periódica da taxa
     amountDigits: '',   // satoshis digitados (o ponto é só desenho)
+    amountError: '',    // valor recusado (acima do teto de dígitos)
     limits: null,       // máximo enviável para o destino e a taxa
     limitsError: '',    // máximo indisponível (nota neutra, não erro de campo)
     addressError: null, // destino recusado pelo servidor: { address, text }
@@ -1097,7 +1100,14 @@
   function setAmountDigits(digits) {
     var clean = String(digits == null ? '' : digits).replace(/\D/g, '');
     clean = clean.replace(/^0+(?=\d)/, '');
-    if (clean.length > AMOUNT_DIGITS_MAX) clean = clean.slice(0, AMOUNT_DIGITS_MAX);
+    /* Colagem acima do teto é recusada, não truncada: cortar em silêncio
+       mudaria o valor sem o usuário ver. O campo volta ao valor anterior. */
+    if (clean.length > AMOUNT_DIGITS_MAX) {
+      state.amountError = 'valor grande demais: máximo de ' + AMOUNT_DIGITS_MAX + ' dígitos.';
+      renderAmountInput();
+      return;
+    }
+    state.amountError = '';
     state.amountDigits = clean;
     renderAmountInput();
     scheduleLimits(true);
@@ -1132,7 +1142,7 @@
     var rate = feeRateNow();
     var hint = $('#send-amount-hint');
     var max = state.limits ? Number(state.limits.max_send_sats) || 0 : 0;
-    var amountProblem = '';
+    var amountProblem = state.amountError || '';
     var addressProblem = '';
     var hintText = '';
 
@@ -1143,8 +1153,12 @@
          servidor, e a recusa é erro do campo, não nota do máximo */
       addressProblem = state.addressError.text;
     }
-    if (amount > 0 && amount < DUST_SATS) {
+    if (state.amountError) {
+      /* o recado já está em amountProblem */
+    } else if (amount > 0 && amount < DUST_SATS) {
       amountProblem = 'valor abaixo do mínimo: ' + fmtBtc(DUST_SATS);
+    } else if (state.feesError && !feeRateOk(rate) && (amount > 0 || address)) {
+      hintText = state.feesError;
     } else if (state.limits) {
       hintText = 'máximo ' + fmtBtc(max);
       if (amount > 0 && max < DUST_SATS) {
@@ -1172,10 +1186,19 @@
     if (hint) hint.textContent = hintText;
     setSendValidation(addressProblem || amountProblem);
 
-    var ready = !addressProblem && !amountProblem && !!amount && amount >= DUST_SATS &&
-      addressLooksValid(address) && feeRateOk(rate) &&
-      !!state.limits && max >= DUST_SATS && amount <= max;
-    state.sendBlocked = !ready;
+    if (!feeRateOk(rate) && state.feesError && state.xpub) {
+      /* taxa não veio: uma reconsulta sob demanda tira a tela do
+         "calculando a taxa…" sem depender do ciclo de 60 s */
+      if (!state.feesRetryTimer) {
+        state.feesRetryTimer = setTimeout(function () {
+          state.feesRetryTimer = 0;
+          loadFees();
+        }, 5000);
+      }
+    } else if (state.feesRetryTimer) {
+      clearTimeout(state.feesRetryTimer);
+      state.feesRetryTimer = 0;
+    }
     syncDownloadButton();
     updateFeeVisibility(addressProblem);
     /* o custo de cada nível depende do valor, do destino e do preview que
@@ -1186,9 +1209,9 @@
     schedulePsbt();
   }
 
-  /* O seletor de taxa só aparece quando há valor e destino válidos: é quando
-     o preview consegue cotar cada nível em BTC. Sem os dois, a escolha não
-     teria custo para mostrar; destino recusado também esconde o grupo. */
+  /* A seção de taxa só aparece quando há valor e destino válidos: é quando
+     o preview consegue cotar a taxa em BTC. Sem os dois, não haveria custo
+     para mostrar; destino recusado também esconde o grupo. */
   function updateFeeVisibility(addressProblem) {
     var section = $('#fee-section');
     if (!section) return;
@@ -1340,19 +1363,24 @@
       if (state.xpub !== xpub) return;
       var before = feeRateNow();
       state.fees = j;
-      renderFees(); // normaliza a escolha e esconde os níveis de taxa repetida
+      state.feesError = feeRateOk(feeRateNow()) ? '' : 'taxa indisponível; tente de novo.';
+      renderFees(); // atualiza a linha de custo e o aviso de piso
       /* taxa escolhida mudou: o máximo é recalculado sem manter o antigo.
-         Só os níveis mudaram: mantém o máximo e refaz as cotas das opções. */
+         Só a taxa mudou: mantém o máximo e refaz a cota. */
       if (!state.limits || feeRateNow() !== before) scheduleLimits();
       else scheduleLimits(true);
     } catch (e) {
+      state.feesError = 'taxa indisponível; tente de novo.';
       renderFees();
+      updateSendAvailability();
     }
   }
 
   function stopFeeTimer() {
     if (state.feeTimer) clearInterval(state.feeTimer);
     state.feeTimer = 0;
+    if (state.feesRetryTimer) clearTimeout(state.feesRetryTimer);
+    state.feesRetryTimer = 0;
   }
 
   function startFeeTimer() {
@@ -1426,6 +1454,7 @@
     state.fees = null;
     state.feeQuotes = null;
     state.amountDigits = '';
+    state.amountError = '';
     state.limits = null;
     state.limitsError = '';
     state.addressError = null;
@@ -1471,7 +1500,7 @@
        leva `+`. Cada valor leva também, depois do separador `|`, a fatia que
        representa do saldo da conta (`sharePct`), em --dim: a mesma base para
        as três linhas, para a tabela ler como um recorte do saldo. A taxa
-       sobre o valor enviado é outra pergunta e fica só no seletor de taxa.
+       sobre o valor enviado é outra pergunta e fica só na linha de taxa.
        A taxa aparece sem o pó, que vem logo abaixo com `-`: a soma das duas é
        o que o PSBT paga (`fee_sats`). */
     var outValue = $('#send-meta-out-value');
@@ -1682,8 +1711,8 @@
      não é sua, valor inventado, entrada não finalizada, taxa fora do padrão)
      e devolve o resumo; publicar é o clique em confirmar, porque a
      transmissão não tem volta. O texto do arquivo fica só na memória da
-     tela, como o PSBT do envio. */
-  var BROADCAST_MAX_TEXT = 400000;
+     tela, como o PSBT do envio. O teto do texto é conferido pelo servidor
+     (MAX_PSBT_TEXT, em broadcast.js); aqui não há cópia do valor. */
 
   function setBroadcastStatus(kind, text) {
     setStatusTo($('#broadcast-status'), kind, text);
@@ -1826,10 +1855,10 @@
       var text = await file.text();
       if (seq !== state.broadcastSeq) return;
       if (!text.trim()) throw new Error('o arquivo está vazio');
-      if (text.length > BROADCAST_MAX_TEXT) throw new Error('psbt grande demais');
       if (!state.xpub) throw new Error('carregue a carteira antes de escolher o arquivo');
       state.broadcastText = text;
-      var body = { xpub: state.xpub, psbt: text, preview: true };
+      var xpub = state.xpub;
+      var body = { xpub: xpub, psbt: text, preview: true };
       if (state.session) body.session = state.session;
       var r = await fetch('/api/broadcast', {
         method: 'POST',
@@ -1837,6 +1866,20 @@
         body: JSON.stringify(body)
       });
       var j = await r.json();
+      /* sessão do Durable Object caiu ou era de outra xpub: reenvia a xpub
+         (a tela já tem o dado) e tenta uma vez com a sessão nova */
+      if (r.status === 409) {
+        await load(true);
+        if (state.xpub !== xpub) throw new Error('a carteira mudou; tente de novo.');
+        if (!state.session) throw new Error('sessão expirada; recarregue a carteira.');
+        body.session = state.session;
+        r = await fetch('/api/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        j = await r.json();
+      }
       if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
       if (seq !== state.broadcastSeq) return;
       state.broadcast = j;
@@ -1874,12 +1917,27 @@
     var body = { xpub: state.xpub, psbt: state.broadcastText };
     if (state.session) body.session = state.session;
     try {
+      var xpub = state.xpub;
       var r = await fetch('/api/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
       var j = await r.json();
+      /* sessão do Durable Object caiu ou era de outra xpub: reenvia a xpub
+         e tenta uma vez (o resumo já revisado continua válido) */
+      if (r.status === 409) {
+        await load(true);
+        if (state.xpub !== xpub) throw new Error('a carteira mudou; tente de novo.');
+        if (!state.session) throw new Error('sessão expirada; recarregue a carteira.');
+        body.session = state.session;
+        r = await fetch('/api/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        j = await r.json();
+      }
       if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
       if (seq !== state.broadcastSeq) return;
       state.broadcast = j;
@@ -1928,7 +1986,7 @@
      número da tela da carteira, que é do que o envio é uma fatia —, precedido
      do separador `|` (o mesmo divisor das linhas de dados do extrato). Uma
      base só para todas as linhas da tabela: a taxa sobre o valor enviado é
-     outra pergunta e tem lugar próprio, o seletor de taxa. As casas seguem o
+     outra pergunta e tem lugar próprio, a linha de taxa. As casas seguem o
      tamanho: uma casa no valor grande (25.4%), duas no médio e três no
      pequeno; abaixo de 0.001% o piso `<0.001%` diz que é pequeno sem fingir
      precisão. Sem saldo conhecido, nenhuma linha ganha percentual. */
@@ -2090,7 +2148,7 @@
       var labels = { entrada: 'entrada', troco: 'troco', recebimento: 'recebimento' };
       var shown = addrs.slice(0, 1).map(function (a) {
         return '<span class="history-address">' + esc(a.address) + '</span>' + sep +
-          '<span class="tag">' + (labels[a.role] || a.role) + '</span>';
+          '<span class="tag">' + esc(labels[a.role] || a.role) + '</span>';
       });
       if (addrs.length > 1) shown.push('<span class="tag">+' + (addrs.length - 1) + '</span>');
       html += '<p class="item-meta history-addresses">' + shown.join(sep) + '</p>';
