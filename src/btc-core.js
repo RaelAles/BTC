@@ -1029,6 +1029,7 @@ var BTC = (function () {
   }
   function readMap(b, p) {
     var map = [];
+    var seen = Object.create(null);
     for (;;) {
       if (p >= b.length) throw new Error('PSBT truncado');
       var vi = readVarInt(b, p); p += vi.size;
@@ -1037,6 +1038,10 @@ var BTC = (function () {
       if (p + klen > b.length) throw new Error('chave do PSBT truncada');
       var key = b.subarray(p, p + klen); p += klen;
       if (key.length === 0) throw new Error('chave vazia no PSBT');
+      /* BIP174: chave repetida dentro do mesmo mapa torna o PSBT inválido. */
+      var keyHex = bytesToHex(key);
+      if (seen[keyHex]) throw new Error('chave repetida no PSBT');
+      seen[keyHex] = true;
       var vv = readVarInt(b, p); p += vv.size;
       if (p + vv.value > b.length) throw new Error('valor do PSBT truncado');
       map.push({ key: key, value: b.subarray(p, p + vv.value) });
@@ -1051,6 +1056,126 @@ var BTC = (function () {
     parts.push(new Uint8Array([0x00]));
     return concatBytes.apply(null, parts);
   }
+  /* BIP174/BIP371: cada tipo conhecido tem uma forma fixa de chave e valor;
+     tipo desconhecido é preservado. O PSBT malformado é recusado na leitura.
+     Portado do núcleo do Cofre BTC: as duas cópias recusam o mesmo arquivo. */
+  function validPubkey(kd) {
+    return (kd.length === 33 && (kd[0] === 0x02 || kd[0] === 0x03)) ||
+      (kd.length === 65 && kd[0] === 0x04);
+  }
+  function onlyType(key, name) {
+    if (key.length !== 1) throw new Error('PSBT inválido: ' + name + ' com bytes extras na chave.');
+  }
+  function valueSize(value, size, name) {
+    if (value.length !== size) throw new Error('PSBT inválido: ' + name + ' com tamanho incorreto.');
+  }
+  function derivationPath(value, name) {
+    if (value.length < 4 || (value.length - 4) % 4 !== 0) {
+      throw new Error('PSBT inválido: ' + name + ' com caminho de derivação malformado.');
+    }
+  }
+  function tapDerivation(key, value, name) {
+    if (key.length !== 33) throw new Error('PSBT inválido: ' + name + ' com bytes extras na chave.');
+    var n = readVarInt(value, 0);
+    var p = n.size + 32 * n.value;
+    if (n.value > value.length || p + 4 > value.length || (value.length - p - 4) % 4 !== 0) {
+      throw new Error('PSBT inválido: ' + name + ' com caminho de derivação malformado.');
+    }
+  }
+  function tapLeafScript(key, value) {
+    var control = key.length - 1;
+    if (control < 33 || (control - 33) % 32 !== 0 || control > 33 + 32 * 128) {
+      throw new Error('PSBT inválido: tap_leaf_script com control block ou leaf version inválido.');
+    }
+    if (value.length < 1) throw new Error('PSBT inválido: tap_leaf_script com control block ou leaf version inválido.');
+  }
+  function tapTree(value) {
+    if (value.length === 0) throw new Error('PSBT inválido: tap_tree vazia ou truncada.');
+    var p = 0;
+    while (p < value.length) {
+      if (p + 2 > value.length) throw new Error('PSBT inválido: tap_tree vazia ou truncada.');
+      p += 2;
+      var n = readVarInt(value, p); p += n.size;
+      if (p + n.value > value.length) throw new Error('PSBT inválido: tap_tree vazia ou truncada.');
+      p += n.value;
+    }
+  }
+  function witnessValue(value, name) {
+    if (value.length === 0) throw new Error('PSBT inválido: ' + name + ' vazio.');
+    readWitness(value);
+  }
+  function validateMap(map, scope, version) {
+    map.forEach(function (entry) {
+      var t = entry.key[0], kd = entry.key.subarray(1), v = entry.value;
+      if (scope === 'global') {
+        if (version === 0 && t >= 0x02 && t <= 0x06) throw new Error('PSBT inválido: campo exclusivo de PSBT v2 dentro de um PSBT v0.');
+        if (t === 0x00) onlyType(entry.key, 'unsigned tx');
+        else if (t === 0x01) {
+          if (kd.length !== 78) throw new Error('PSBT inválido: xpub com tamanho incorreto.');
+          if (v.length !== 4 + 4 * kd[4]) throw new Error('PSBT inválido: xpub com caminho de derivação malformado.');
+        } else if (t === 0xfb) {
+          onlyType(entry.key, 'version');
+          valueSize(v, 4, 'version');
+        }
+      } else if (scope === 'input') {
+        if (version === 0 && (t === 0x0e || t === 0x0f || t === 0x10)) throw new Error('PSBT inválido: campo exclusivo de PSBT v2 dentro de um PSBT v0.');
+        if (t === 0x00) { onlyType(entry.key, 'non_witness_utxo'); readTx(v); }
+        else if (t === 0x01) {
+          onlyType(entry.key, 'witness_utxo');
+          if (readTxOut(v, 0).size !== v.length) throw new Error('PSBT inválido: witness_utxo com bytes extras.');
+        } else if (t === 0x02) {
+          if (!validPubkey(kd)) throw new Error('PSBT inválido: partial_sig com pubkey inválida.');
+          if (v.length === 0) throw new Error('PSBT inválido: partial_sig vazia.');
+        } else if (t === 0x03) {
+          onlyType(entry.key, 'sighash_type');
+          valueSize(v, 4, 'sighash_type');
+        } else if (t === 0x04) onlyType(entry.key, 'redeem_script');
+        else if (t === 0x05) onlyType(entry.key, 'witness_script');
+        else if (t === 0x06) {
+          if (!validPubkey(kd)) throw new Error('PSBT inválido: bip32_derivation com pubkey inválida.');
+          derivationPath(v, 'bip32_derivation');
+        } else if (t === 0x07) onlyType(entry.key, 'final_scriptSig');
+        else if (t === 0x08) {
+          onlyType(entry.key, 'final_scriptWitness');
+          witnessValue(v, 'final_scriptWitness');
+        } else if (t === 0x09) onlyType(entry.key, 'por_commitment');
+        else if (t === 0x0a || t === 0x0c) valueSize(kd, 20, 'preimagem hash160');
+        else if (t === 0x0b || t === 0x0d) valueSize(kd, 32, 'preimagem hash256');
+        else if (t === 0x11 || t === 0x12) {
+          onlyType(entry.key, t === 0x11 ? 'required_time_locktime' : 'required_height_locktime');
+          valueSize(v, 4, 'time lock');
+        } else if (t === 0x13) {
+          onlyType(entry.key, 'tap_key_sig');
+          if (v.length !== 64 && v.length !== 65) throw new Error('PSBT inválido: tap_key_sig com tamanho diferente de 64/65 bytes.');
+        } else if (t === 0x14) {
+          if (kd.length !== 64) throw new Error('PSBT inválido: tap_script_sig com chave ou tamanho inválido.');
+          if (v.length !== 64 && v.length !== 65) throw new Error('PSBT inválido: tap_script_sig com chave ou tamanho inválido.');
+        } else if (t === 0x15) tapLeafScript(entry.key, v);
+        else if (t === 0x16) tapDerivation(entry.key, v, 'tap_bip32_derivation');
+        else if (t === 0x17) {
+          onlyType(entry.key, 'tap_internal_key');
+          valueSize(v, 32, 'tap_internal_key');
+        } else if (t === 0x18) {
+          onlyType(entry.key, 'tap_merkle_root');
+          valueSize(v, 32, 'tap_merkle_root');
+        }
+      } else {
+        if (version === 0 && (t === 0x03 || t === 0x04)) throw new Error('PSBT inválido: campo exclusivo de PSBT v2 dentro de um PSBT v0.');
+        if (t === 0x00) onlyType(entry.key, 'redeem_script');
+        else if (t === 0x01) onlyType(entry.key, 'witness_script');
+        else if (t === 0x02) {
+          if (!validPubkey(kd)) throw new Error('PSBT inválido: bip32_derivation com pubkey inválida.');
+          derivationPath(v, 'bip32_derivation');
+        } else if (t === 0x05) {
+          onlyType(entry.key, 'tap_internal_key');
+          valueSize(v, 32, 'tap_internal_key');
+        } else if (t === 0x06) {
+          onlyType(entry.key, 'tap_tree');
+          tapTree(v);
+        } else if (t === 0x07) tapDerivation(entry.key, v, 'tap_bip32_derivation');
+      }
+    });
+  }
   function parsePsbt(b) {
     if (b.length < 5 || b[0] !== 0x70 || b[1] !== 0x73 || b[2] !== 0x62 || b[3] !== 0x74 || b[4] !== 0xff) {
       throw new Error('não começa com a marca psbt');
@@ -1059,6 +1184,7 @@ var BTC = (function () {
     var psbt = { global: g.map, inputs: [], outputs: [], tx: null, version: 0 };
     var ver = mapFind(g.map, 0xfb);
     if (ver && ver.value.length === 4) psbt.version = readLE32(ver.value, 0);
+    validateMap(g.map, 'global', psbt.version);
     if (psbt.version !== 0) throw new Error('PSBT v2 não é suportado; exporte em PSBT v0');
     var utx = mapFind(g.map, 0x00);
     if (!utx) throw new Error('PSBT sem transação não assinada (v0)');
@@ -1073,11 +1199,13 @@ var BTC = (function () {
     var p = g.pos;
     for (var i = 0; i < psbt.tx.inputs.length; i++) {
       var mi = readMap(b, p);
+      validateMap(mi.map, 'input', psbt.version);
       psbt.inputs.push(mi.map);
       p = mi.pos;
     }
     for (var j = 0; j < psbt.tx.outputs.length; j++) {
       var mo = readMap(b, p);
+      validateMap(mo.map, 'output', psbt.version);
       psbt.outputs.push(mo.map);
       p = mo.pos;
     }
@@ -1453,7 +1581,8 @@ var BTC = (function () {
     var Q = pointFromD(d);
     var xonly = pad32(Q.x);
     var base = (Q.y & 1n) ? mod(N - d, N) : d;
-    var t = BigInt('0x' + bytesToHex(taggedHash('TapTweak', concatBytes(xonly, merkleRoot || new Uint8Array(0))))) % N;
+    var t = BigInt('0x' + bytesToHex(taggedHash('TapTweak', concatBytes(xonly, merkleRoot || new Uint8Array(0)))));
+    if (t >= N) throw new Error('tweak taproot inválido');
     var out = mod(base + t, N);
     if (out === 0n) throw new Error('chave ajustada inválida');
     return out;

@@ -26,22 +26,31 @@ const NOMES = [
   'cross-origin-resource-policy'
 ];
 
-/* Lê o bloco `/*` de public/_headers (o formato do Cloudflare: linha de
+/* Lê todos os blocos de public/_headers (formato do Cloudflare: linha de
    caminho, depois cabeçalhos indentados; `#` é comentário). */
-function blocoDeHeaders(text) {
+function blocosDeHeaders(text) {
   const out = {};
-  let dentro = false;
+  let atual = null;
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
     if (!line || line.startsWith('#')) continue;
-    if (line === '/*') { dentro = true; continue; }
-    if (!dentro) continue;
+    if (line.startsWith('/')) { atual = out[line] = {}; continue; }
     const m = line.match(/^([A-Za-z0-9-]+):\s*(.+)$/);
     assert.ok(m, 'linha inválida em public/_headers: ' + line);
-    out[m[1].toLowerCase()] = m[2].trim();
+    assert.ok(atual, 'cabeçalho sem caminho em public/_headers: ' + line);
+    atual[m[1].toLowerCase()] = m[2].trim();
   }
   return out;
 }
+
+/* Lê o bloco `/*` de public/_headers (o que vale para todo caminho). */
+function blocoDeHeaders(text) {
+  return blocosDeHeaders(text)['/*'];
+}
+
+/* Valor esperado de um cabeçalho, direto de SECURITY_HEADERS. */
+const ESPERADO = {};
+for (const [nome, valor] of Object.entries(SECURITY_HEADERS)) ESPERADO[nome.toLowerCase()] = valor;
 
 /* ---------------- 1. as duas cópias batem ---------------- */
 {
@@ -52,9 +61,7 @@ function blocoDeHeaders(text) {
     'SECURITY_HEADERS tem exatamente os nove cabeçalhos'
   );
   for (const nome of NOMES) {
-    assert.equal(arquivo[nome], SECURITY_HEADERS[
-      Object.keys(SECURITY_HEADERS).find(k => k.toLowerCase() === nome)
-    ], 'public/_headers e src/config.js iguais em ' + nome);
+    assert.equal(arquivo[nome], ESPERADO[nome], 'public/_headers e src/config.js iguais em ' + nome);
   }
   console.log('ok   public/_headers e SECURITY_HEADERS iguais nos nove cabeçalhos');
 }
@@ -89,9 +96,7 @@ function blocoDeHeaders(text) {
   };
   const confere = (r, rotulo) => {
     for (const nome of NOMES) {
-      assert.equal(r.headers.get(nome), SECURITY_HEADERS[
-        Object.keys(SECURITY_HEADERS).find(k => k.toLowerCase() === nome)
-      ], rotulo + ' leva ' + nome);
+      assert.equal(r.headers.get(nome), ESPERADO[nome], rotulo + ' leva ' + nome);
     }
   };
   const asset = await worker.fetch(new Request('https://x/'), env);
@@ -147,6 +152,47 @@ function blocoDeHeaders(text) {
     'https://x/api/events?session=' + 'a'.repeat(64)), env);
   assert.equal(r, upgrade, 'o handshake 101 não é recriado');
   console.log('ok   handshake 101 do WebSocket passa intacto');
+}
+
+/* ---------------- 6. o Cofre é servido em /cofre-btc ---------------- */
+{
+  const blocos = blocosDeHeaders(read('public/_headers'));
+  for (const rota of ['/cofre-btc', '/cofre-btc.html']) {
+    assert.ok(blocos[rota], 'public/_headers tem bloco para ' + rota);
+    assert.equal(blocos[rota]['content-disposition'],
+      'attachment; filename="cofre-btc.html"', rota + ' continua baixando o arquivo');
+    for (const nome of NOMES) {
+      assert.equal(blocos[rota][nome] || blocos['/*'][nome], ESPERADO[nome],
+        rota + ' recebe ' + nome + ' do bloco /*');
+    }
+  }
+  /* A rota sem extensão só serve o HTML enquanto o asset layer faz
+     /cofre-btc → cofre-btc.html; o valor explícito prende esse comportamento. */
+  assert.match(read('wrangler.jsonc'), /"html_handling":\s*"auto-trailing-slash"/,
+    'wrangler.jsonc mantém html_handling auto-trailing-slash');
+  /* O Worker não reescreve caminho de estático: o asset layer vê a rota crua,
+     e é ele quem aplica o Content-Disposition de public/_headers. */
+  const vistos = [];
+  const env = {
+    ASSETS: {
+      fetch: async (r) => {
+        vistos.push(new URL(r.url).pathname);
+        return new Response('<!doctype html>', {
+          status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
+      }
+    }
+  };
+  for (const rota of ['/cofre-btc', '/cofre-btc.html', '/']) {
+    const r = await worker.fetch(new Request('https://x' + rota), env);
+    assert.equal(r.status, 200, rota + ' é servido pelo asset layer');
+    for (const nome of NOMES) {
+      assert.equal(r.headers.get(nome), ESPERADO[nome], rota + ' leva ' + nome);
+    }
+  }
+  assert.deepEqual(vistos, ['/cofre-btc', '/cofre-btc.html', '/'],
+    'o caminho chega ao asset layer sem reescrita');
+  console.log('ok   /cofre-btc e /cofre-btc.html servidos sem reescrita e com os cabeçalhos');
 }
 
 console.log('\ntestes dos cabeçalhos de segurança passaram');
