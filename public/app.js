@@ -2053,8 +2053,6 @@
     var status = t.pending
       ? '<span class="tag tag-pending">[ pendente ]</span>' + sep
       : '';
-    var direction = t.direction === 'out' ? 'enviado'
-      : t.direction === 'in' ? 'recebido' : 'auto';
     var values = [];
     if (t.direction === 'in' && Number(t.received_sats) > 0) {
       values.push('<span class="value-label">recebido</span> ' + signedBtc(t.received_sats, 'in'));
@@ -2068,8 +2066,8 @@
     if (Number(t.fee_sats) > 0) {
       values.push('<span class="value-label">taxa</span> ' + signedBtc(t.fee_sats, 'out'));
     }
-    var meta = status + '<span class="tag">' + direction + '</span>' + sep +
-      fmtInt(t.input_count) + (t.input_count === 1 ? ' entrada' : ' entradas') + sep +
+    var meta = status + fmtInt(t.input_count) +
+      (t.input_count === 1 ? ' entrada' : ' entradas') + sep +
       fmtInt(t.output_count) + (t.output_count === 1 ? ' saída' : ' saídas');
     var html =
       '<h3><span class="item-title is-static history-txid">' + esc(t.txid) + '</span></h3>' +
