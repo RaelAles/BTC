@@ -63,7 +63,6 @@
     broadcastBusy: false,
     broadcastSent: false, // a transação já foi publicada
     broadcastSeq: 0,    // descarta resposta de um arquivo que já saiu da tela
-    cpfp: null,         // PSBT da filha CPFP: { txid, status, data, error }
     cpfpSeq: 0,         // descarta resposta de uma aceleração que já saiu da tela
     sendValidationError: '', // erro de campo no #send-status, separado do PSBT
     screen: 'carteira', // tela em vigor (carteira | historico)
@@ -2162,94 +2161,22 @@
   }
 
   /* ------------------------------ acelerar (CPFP) */
+  /* O clique em "acelerar" monta a filha e baixa o PSBT na hora: não há
+     resumo nem segundo clique. Só a falha vira recado na tela. */
   function setCpfpStatus(kind, text) {
     setStatusTo($('#cpfp-status'), kind, text);
+    updateScroll();
   }
 
   function resetCpfp() {
     state.cpfpSeq++;
-    state.cpfp = null;
-    var out = $('#cpfp-out');
-    if (out) out.hidden = true;
     setCpfpStatus('', '');
-    updateScroll();
-  }
-
-  function renderCpfp() {
-    var out = $('#cpfp-out');
-    var c = state.cpfp;
-    if (out) out.hidden = !c;
-    if (!c) return;
-    var d = c.data;
-    var meta = $('#cpfp-meta');
-    var download = $('#cpfp-download');
-    if (meta) meta.hidden = !d;
-    if (download) {
-      if (d) download.removeAttribute('aria-disabled');
-      else download.setAttribute('aria-disabled', 'true');
-    }
-    if (!d) {
-      ['#cpfp-parent', '#cpfp-parent-fee', '#cpfp-parent-vsize', '#cpfp-child-txid',
-        '#cpfp-child-fee', '#cpfp-child-vsize', '#cpfp-package', '#cpfp-target',
-        '#cpfp-return'].forEach(function (sel) {
-        var el = $(sel);
-        if (el) el.textContent = '—';
-      });
-      var warn = $('#cpfp-warn');
-      if (warn) warn.textContent = '';
-      if (c.status === 'loading') setCpfpStatus('', 'montando o psbt...');
-      else if (c.status === 'error') setCpfpStatus('error', c.error || 'não foi possível montar o psbt.');
-      updateScroll();
-      return;
-    }
-    var rate = function (value) {
-      var n = Number(value) || 0;
-      return String(Math.round(n * 100) / 100).replace('.', ',');
-    };
-    var parent = $('#cpfp-parent');
-    if (parent) parent.textContent = d.parent.txid;
-    var parentFee = $('#cpfp-parent-fee');
-    if (parentFee) parentFee.innerHTML = signedBtc(d.parent.fee_sats, 'out');
-    var parentVsize = $('#cpfp-parent-vsize');
-    if (parentVsize) parentVsize.textContent = fmtInt(d.parent.vsize) + ' vB';
-    var child = $('#cpfp-child-txid');
-    if (child) child.textContent = d.txid;
-    var childFee = $('#cpfp-child-fee');
-    if (childFee) childFee.innerHTML = signedBtc(d.fee_sats, 'out');
-    var childVsize = $('#cpfp-child-vsize');
-    if (childVsize) childVsize.textContent = fmtInt(d.vsize) + ' vB';
-    var pkg = $('#cpfp-package');
-    if (pkg) {
-      pkg.innerHTML = signedBtc(d.package.fee_sats, 'out') +
-        ' <span class="value-sep" aria-hidden="true">|</span> ' +
-        '<span class="value-pct">' + rate(d.package.fee_rate) + ' sat/vB</span>';
-    }
-    var target = $('#cpfp-target');
-    if (target) target.textContent = rate(d.package.target_fee_rate) + ' sat/vB';
-    var ret = $('#cpfp-return');
-    if (ret) {
-      ret.innerHTML = signedBtc(d.output.value, 'in') +
-        ' <span class="value-sep" aria-hidden="true">|</span> ' +
-        '<span class="history-address">' + esc(d.output.address) + '</span>';
-    }
-    var warnings = [];
-    if (Number(d.package.ancestors) > 0) {
-      warnings.push('o pacote inclui ' + fmtInt(d.package.ancestors) + ' transação(ões) anterior(es) ainda no mempool.');
-    }
-    if (Array.isArray(d.warnings) && d.warnings.length) warnings = warnings.concat(d.warnings);
-    var warnEl = $('#cpfp-warn');
-    if (warnEl) warnEl.textContent = warnings.join(' ');
-    setCpfpStatus('', 'psbt montado; baixe e assine no Cofre BTC.');
-    updateScroll();
   }
 
   async function startCpfp(txid) {
     if (!state.xpub) return;
     var seq = ++state.cpfpSeq;
-    state.cpfp = { txid: txid, status: 'loading', data: null, error: '' };
-    renderCpfp();
-    var panel = $('#cpfp-out');
-    if (panel && panel.scrollIntoView) panel.scrollIntoView({ block: 'nearest' });
+    setCpfpStatus('', '');
     try {
       var rate = feeRateNow();
       if (!feeRateOk(rate)) {
@@ -2281,22 +2208,12 @@
       }
       if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
       if (seq !== state.cpfpSeq || state.xpub !== xpub) return;
-      state.cpfp = { txid: txid, status: 'ready', data: j, error: '' };
-      renderCpfp();
+      if (!j.psbt) throw new Error('o servidor não devolveu o psbt.');
+      downloadPsbtText(j.psbt, 'cpfp-' + String(j.txid || txid).slice(0, 8) + '.psbt');
     } catch (e) {
       if (seq !== state.cpfpSeq) return;
-      state.cpfp = {
-        txid: txid, status: 'error', data: null,
-        error: e && e.message ? e.message : String(e)
-      };
-      renderCpfp();
+      setCpfpStatus('error', e && e.message ? e.message : String(e));
     }
-  }
-
-  function downloadCpfp() {
-    var d = state.cpfp && state.cpfp.data;
-    if (!d || !d.psbt) return;
-    downloadPsbtText(d.psbt, 'cpfp-' + String(d.txid || 'psbt').slice(0, 8) + '.psbt');
   }
 
   function render(d) {
@@ -2821,10 +2738,6 @@
       if (!btn) return;
       startCpfp(btn.getAttribute('data-cpfp'));
     });
-    var cpfpDownload = $('#cpfp-download');
-    if (cpfpDownload) cpfpDownload.addEventListener('click', downloadCpfp);
-    var cpfpClear = $('#cpfp-clear');
-    if (cpfpClear) cpfpClear.addEventListener('click', resetCpfp);
 
     var scanContinue = $('#scan-continue');
     if (scanContinue) scanContinue.addEventListener('click', function () {

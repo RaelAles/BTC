@@ -26,9 +26,10 @@ tela mostra:
    pendente que ainda tem uma saída própria não gasta ganha o botão
    **acelerar**: ele monta um PSBT de CPFP, sem assinatura, que gasta essa
    saída e devolve o resto para o próximo endereço de troco. O pai continua
-   o mesmo; o painel mostra a taxa do pai, a taxa do filho e a taxa do
-   pacote. O PSBT baixado é assinado no Cofre BTC e importado em
-   **carteira → transmitir**, como o envio normal. A lista de endereços
+   o mesmo, e o PSBT é baixado assim que fica pronto, sem resumo nem
+   segundo clique; uma falha aparece como recado na tela. O PSBT baixado é
+   assinado no Cofre BTC e importado em **carteira → transmitir**, como o
+   envio normal. A lista de endereços
    usados continua na resposta da API, mas a tela passou a ler a lista
    agrupada por transação;
 4. **enviar BTC** abaixo dos endereços: quantidade, destino e **taxa

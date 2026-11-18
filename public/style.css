@@ -1892,21 +1892,9 @@
   .history-actions { margin: var(--space-3) 0 0; }
   .history-cpfp-note { color: var(--dim); }
 
-  /* CPFP: o resumo usa o mesmo desenho do PSBT de envio, com a coluna do
-     rótulo mais larga para "taxa do pai" e "vsize do pai" não encostarem. */
-  #cpfp-out { margin-top: var(--space-7); }
-  #cpfp-meta {
-    width: 100%;
-    margin: var(--space-4) 0 0;
-  }
-  #cpfp-meta tbody th { width: 13ch; }
-  #cpfp-meta tbody tr.group-end th,
-  #cpfp-meta tbody tr.group-end td { padding-bottom: var(--space-5); }
-  #cpfp-warn {
-    margin: var(--space-3) 0 0;
-    color: var(--warning);
-  }
-  #cpfp-warn:empty { display: none; }
+  /* CPFP: o recado da aceleração só ocupa lugar quando há erro para
+     mostrar; o PSBT baixa sozinho e o resumo saiu da tela. */
+  #cpfp-status:empty { display: none; }
 
   /* O paginador só existe quando há mais de uma página: o hidden tira a
      navegação inteira do fluxo e da leitura, e o show-pager continua
