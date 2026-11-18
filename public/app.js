@@ -2080,11 +2080,11 @@
     var addrs = t.addresses || [];
     if (addrs.length) {
       var labels = { entrada: 'entrada', troco: 'troco', recebimento: 'recebimento' };
-      var shown = addrs.slice(0, 2).map(function (a) {
+      var shown = addrs.slice(0, 1).map(function (a) {
         return '<span class="history-address">' + esc(a.address) + '</span>' + sep +
           '<span class="tag">' + (labels[a.role] || a.role) + '</span>';
       });
-      if (addrs.length > 2) shown.push('<span class="tag">+' + (addrs.length - 2) + '</span>');
+      if (addrs.length > 1) shown.push('<span class="tag">+' + (addrs.length - 1) + '</span>');
       html += '<p class="item-meta history-addresses">' + shown.join(sep) + '</p>';
     }
     if (t.cpfp && t.cpfp.eligible) {
