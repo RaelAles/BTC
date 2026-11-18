@@ -11,8 +11,9 @@ tela mostra:
    ainda no mempool** — ele é uma saída da mesma transação do envio, confirma
    junto com ela e pode ser gasto antes. Pagamento de terceiro no mempool não
    entra: só conta depois de confirmar. A linha abaixo mostra o que está fora
-   do número: `pendente entrada +…` para terceiro a caminho e `pendente saída
-   -…` para o que já deixou a conta (destino + taxa) numa transação pendente;
+   do número: `pendente +…/-…`, com a entrada de terceiro a caminho de um
+   lado e, do outro, o que já deixou a conta (destino + taxa) numa transação
+   pendente;
 2. **um endereço de recebimento por tipo**, os quatro, inclusive os zerados:
    sempre o primeiro índice sem uso daquele ramo (`último usado + 1`), para
    escolher o que o pagador aceita. O rótulo de cada linha é só o BIP

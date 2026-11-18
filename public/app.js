@@ -1967,19 +1967,19 @@
   /* Linha "pendente" da carteira: mostra só o que ainda não está no saldo
      disponível — entrada de terceiro que só conta depois de confirmar e o que
      já saiu de fato numa transação pendente (o troco que volta já está no
-     total, por isso não aparece aqui). Com o sinal e a cor da direção
-     (VG-COR-16); sem pendência, a linha não existe. */
+     total, por isso não aparece aqui). A direção fica no sinal e na cor
+     (VG-COR-16), com `/` entre os valores; sem pendência, a linha não existe. */
   function pendingValues(pin, pout) {
     var parts = [];
     if (Number(pin) > 0) {
-      parts.push('<span class="value-label">entrada</span> ' + signedBtc(pin, 'in'));
+      parts.push(signedBtc(pin, 'in'));
     }
     if (Number(pout) > 0) {
-      parts.push('<span class="value-label">saída</span> ' + signedBtc(pout, 'out'));
+      parts.push(signedBtc(pout, 'out'));
     }
     if (!parts.length) return '';
     return '<span class="value-label">pendente</span> ' +
-      parts.join(' <span class="value-sep" aria-hidden="true">|</span> ');
+      parts.join('<span class="value-sep">/</span>');
   }
 
   /* Percentual de uma linha de valor sobre o saldo total da conta — o mesmo
