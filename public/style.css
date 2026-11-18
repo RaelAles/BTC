@@ -1868,7 +1868,14 @@
     hyphens: none;
     font-size: var(--text-sm);
   }
-  #history-summary .history-totals div { display: flex; flex-direction: column; }
+  /* As quatro colunas dividem a largura em partes iguais e cada par fica
+     centrado na sua coluna: legenda e valor com o mesmo eixo, para a linha de
+     cima não brigar com a de baixo. */
+  #history-summary .history-totals div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
   #history-summary .history-totals dt { color: var(--dim); }
   #history-summary .history-totals dd { margin: 0; white-space: nowrap; }
   /* Abaixo de ~27em as quatro colunas não cabem numa linha (medido: 373 px de
