@@ -2095,10 +2095,6 @@
       if (addrs.length > 1) shown.push('<span class="tag">+' + (addrs.length - 1) + '</span>');
       html += '<p class="item-meta history-addresses">' + shown.join(sep) + '</p>';
     }
-    if (!eligible && t.pending && t.direction !== 'in' && t.cpfp && t.cpfp.reason) {
-      html += '<p class="item-meta history-cpfp-note">[ não acelerável ] ' +
-        esc(t.cpfp.reason) + '</p>';
-    }
     var li = document.createElement('li');
     li.className = 'item';
     li.innerHTML = html;

@@ -1932,7 +1932,6 @@
     display: block;
     font-size: var(--text-sm);
   }
-  .history-cpfp-note { color: var(--dim); }
 
   /* CPFP: o recado da aceleração só ocupa lugar quando há erro para
      mostrar; o PSBT baixa sozinho e o resumo saiu da tela. */
