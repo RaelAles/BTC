@@ -2051,7 +2051,7 @@
   function historyItemNode(t) {
     var sep = ' <span class="tag-sep" aria-hidden="true">·</span> ';
     var status = t.pending
-      ? '<span class="tag tag-pending">[ pendente ]</span>' + sep
+      ? '<span class="tag tag-pending">[ pendente ]</span>'
       : '';
     var values = [];
     if (t.direction === 'in' && Number(t.received_sats) > 0) {
@@ -2066,17 +2066,30 @@
     if (Number(t.fee_sats) > 0) {
       values.push('<span class="value-label">taxa</span> ' + signedBtc(t.fee_sats, 'out'));
     }
-    var meta = status + fmtInt(t.input_count) +
+    var meta = fmtInt(t.input_count) +
       (t.input_count === 1 ? ' entrada' : ' entradas') + sep +
       fmtInt(t.output_count) + (t.output_count === 1 ? ' saída' : ' saídas');
+    /* O estado fica à direita das contagens: o começo da linha não muda de
+       um item pendente para um confirmado. */
     var html =
       '<h3><span class="item-title is-static history-txid">' + esc(t.txid) + '</span></h3>' +
-      '<p class="item-meta">' + meta + '</p>' +
-      (values.length
-        ? '<p class="item-meta history-values">' +
-          values.join(' <span class="value-sep" aria-hidden="true">|</span> ') +
-          '</p>'
-        : '');
+      '<p class="item-meta history-meta">' +
+      '<span class="history-counts">' + meta + '</span>' +
+      (status ? '<span class="history-status">' + status + '</span>' : '') +
+      '</p>';
+    var eligible = !!(t.cpfp && t.cpfp.eligible);
+    /* O acelerar divide a linha dos valores e encosta à direita, como o
+       botão de copiar dos endereços; sem valores ele fica sozinho ali. */
+    var action = eligible
+      ? '<span class="chips history-actions" role="group" aria-label="Ações da transação">' +
+        '<button type="button" data-cpfp="' + esc(t.txid) + '">acelerar</button></span>'
+      : '';
+    var valueText = values.join(' <span class="value-sep" aria-hidden="true">|</span> ');
+    if (valueText || action) {
+      html += '<p class="item-meta history-values">' +
+        (valueText ? '<span class="history-values-text">' + valueText + '</span>' : '') +
+        action + '</p>';
+    }
     var addrs = t.addresses || [];
     if (addrs.length) {
       var labels = { entrada: 'entrada', troco: 'troco', recebimento: 'recebimento' };
@@ -2087,10 +2100,7 @@
       if (addrs.length > 1) shown.push('<span class="tag">+' + (addrs.length - 1) + '</span>');
       html += '<p class="item-meta history-addresses">' + shown.join(sep) + '</p>';
     }
-    if (t.cpfp && t.cpfp.eligible) {
-      html += '<div class="chips history-actions" role="group" aria-label="Ações da transação">' +
-        '<button type="button" data-cpfp="' + esc(t.txid) + '">acelerar</button></div>';
-    } else if (t.pending && t.direction !== 'in' && t.cpfp && t.cpfp.reason) {
+    if (!eligible && t.pending && t.direction !== 'in' && t.cpfp && t.cpfp.reason) {
       html += '<p class="item-meta history-cpfp-note">[ não acelerável ] ' +
         esc(t.cpfp.reason) + '</p>';
     }

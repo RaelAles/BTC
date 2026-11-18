@@ -1900,8 +1900,16 @@
   /* A linha de valores fica no tom do texto, com o rótulo em --dim: o sinal
      e a cor dos valores já dizem a direção (VG-COR-16), e o saldo é o
      resultado, sem direção própria. Os campos se separam pelo `|` do
-     divisor, como na linha de dados dos itens. */
-  .history-values { color: var(--fg); }
+     divisor, como na linha de dados dos itens. O acelerar ocupa a mesma
+     linha, encostado à direita, como o botão de copiar dos endereços. */
+  .history-values {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2) var(--space-4);
+    color: var(--fg);
+  }
+  .history-values-text { flex: 1 1 auto; min-width: 0; }
   .history-values .value-label { color: var(--dim); }
   .history-values .value-sep { color: var(--sep); }
   /* O txid é o título do item: o corpo desce para o tamanho de leitura, e a
@@ -1913,7 +1921,16 @@
   }
   .history-address { overflow-wrap: anywhere; }
   .history-addresses { color: var(--fg-weak); }
-  .history-actions { margin: var(--space-3) 0 0; }
+  /* Contagens à esquerda e estado à direita, na mesma linha: o começo do
+     texto não muda de um item pendente para um confirmado. */
+  .history-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2) var(--space-4);
+  }
+  .history-status { margin-left: auto; }
+  .history-actions { margin-left: auto; }
   .history-cpfp-note { color: var(--dim); }
 
   /* CPFP: o recado da aceleração só ocupa lugar quando há erro para
