@@ -1564,24 +1564,8 @@
     text-align: center;
     white-space: nowrap;
   }
-  /* Quando o nome e a etiqueta não cabem lado a lado na coluna, o flex-wrap
-     desce a etiqueta para a segunda linha do item, centralizada. */
-  .lang-soon {
-    font-size: .8em;
-    line-height: 1.25;
-    letter-spacing: .04em;
-    /* A etiqueta é estado, não rótulo de controle: fica em caixa baixa mesmo
-       dentro do botão, que sobe para caixa alta pela regra de button. */
-    text-transform: none;
-  }
   .lang-item-auto { grid-column: 1 / -1; margin-bottom: var(--space-3); }
   .lang-item-back { grid-column: 1 / -1; margin-top: var(--space-6); color: var(--accent); }
-  /* A partir de 521 px, todas as etiquetas descem: assim os itens
-     desabilitados têm o mesmo desenho e a grade não fica com buracos. */
-  @media (min-width: 521px) {
-    .lang-item { display: block; }
-    .lang-soon { display: block; }
-  }
   .lang-item-back:hover { color: var(--fg); }
   /* Idioma em vigor: em --support e sem ponteiro, como o item de menu atual;
      o clique e o Tab ficam com o JavaScript. */
