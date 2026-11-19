@@ -4407,8 +4407,21 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       if (el.tagName === 'H3' && i18nHasPrompt(el)) {
         var promptKey = i18nPromptText(el);
         if (promptKey && PT_KEYS[promptKey]) {
-          el._i18nKind = 'prompt';
-          el._i18nKey = promptKey;
+          var promptNode = null;
+          for (var n = el.childNodes.length - 1; n >= 0; n--) {
+            if (el.childNodes[n].nodeType === 3 && el.childNodes[n].nodeValue.trim()) {
+              promptNode = el.childNodes[n];
+              break;
+            }
+          }
+          if (promptNode) {
+            var promptRaw = promptNode.nodeValue;
+            var promptAt = promptRaw.indexOf(promptKey);
+            el._i18nKind = 'prompt';
+            el._i18nKey = promptKey;
+            el._i18nPrefix = promptAt >= 0 ? promptRaw.slice(0, promptAt) : (promptRaw.match(/^\s*/) || [''])[0];
+            el._i18nSuffix = promptAt >= 0 ? promptRaw.slice(promptAt + promptKey.length) : '';
+          }
         }
         return;
       }
@@ -4444,10 +4457,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         for (var i = el.childNodes.length - 1; i >= 0; i--) {
           var node = el.childNodes[i];
           if (node.nodeType === 3 && node.nodeValue.trim()) {
-            var at = node.nodeValue.indexOf(el._i18nKey);
-            node.nodeValue = at >= 0
-              ? node.nodeValue.slice(0, at) + t(el._i18nKey) + node.nodeValue.slice(at + el._i18nKey.length)
-              : t(el._i18nKey);
+            /* O espaço entre o ## e o texto é do nó original, não da
+               tradução: sem ele, o ## cola no título na segunda troca. */
+            node.nodeValue = el._i18nPrefix + t(el._i18nKey) + el._i18nSuffix;
             break;
           }
         }
