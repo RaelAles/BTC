@@ -44,7 +44,7 @@ export const SECURITY_HEADERS = {
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'Content-Security-Policy': [
     "default-src 'none'",
-    "script-src 'self' 'sha256-kR29uAKyelaiu4syqyVG+sBI9dN+Cg/3gY0feNF1G/c='",
+    "script-src 'self' 'sha256-T08kaWUFF/GqDmyLchktCTzNizp52LMczP7D96a7bT4='",
     "style-src 'self'",
     "img-src 'self' data:",
     "font-src 'self' data:",

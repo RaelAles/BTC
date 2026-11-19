@@ -598,6 +598,11 @@
     return t === 'light' || t === 'dark' ? t : '';
   }
   var themeSwapTimer = 0;
+  var themeMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+  var themeAuto = true;
+  function systemTheme() {
+    return themeMedia && themeMedia.matches ? 'light' : 'dark';
+  }
   function setTheme(theme, opts) {
     var t = theme === 'light' ? 'light' : 'dark';
     var root = document.documentElement;
@@ -625,9 +630,6 @@
       }, motionMs('--motion-theme', 150) + 50);
     }
     root.dataset.theme = t;
-    if (!(opts && opts.save === false)) {
-      try { localStorage.setItem('monitor-btc-theme', t); } catch (e) {}
-    }
     var b = $('#theme-toggle');
     if (b) {
       b.innerHTML = '<span class="glyph">' +
@@ -639,6 +641,13 @@
     if (meta && bg) meta.setAttribute('content', bg);
     syncFavicon();
     syncGrainTheme();
+  }
+  if (themeMedia) {
+    var onSystemTheme = function () {
+      if (themeAuto) setTheme(systemTheme());
+    };
+    if (themeMedia.addEventListener) themeMedia.addEventListener('change', onSystemTheme);
+    else if (themeMedia.addListener) themeMedia.addListener(onSystemTheme);
   }
   /* Foca agora se o controle já aceita foco; se a visibilidade ainda está
      no fim da transição, tenta de novo depois dela. Só insiste se o foco
@@ -2662,9 +2671,8 @@
     fillFrames();
     markLanguage();
     var themeParam = themeFromUrl();
-    var savedTheme = 'dark';
-    try { savedTheme = localStorage.getItem('monitor-btc-theme') || 'dark'; } catch (e) {}
-    setTheme(themeParam || savedTheme, { immediate: true, save: !themeParam });
+    themeAuto = !themeParam;
+    setTheme(themeParam || systemTheme(), { immediate: true });
 
     noticeWire($('#status'));
     noticeWire($('#send-status'));
@@ -2807,6 +2815,7 @@
     });
     window.addEventListener('pagehide', closeWatch);
     $('#theme-toggle').addEventListener('click', function () {
+      themeAuto = false;
       setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
     });
     // copiar o endereço no bloco receber: pelo botão ao lado ou pelo clique

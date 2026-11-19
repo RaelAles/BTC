@@ -132,7 +132,7 @@ blockchain.info, nem chave privada em lugar nenhum.
 >
 > **Download do Cofre.** `/cofre-btc` entrega `public/cofre-btc.html` como
 > anexo (`Content-Disposition: attachment`). O sha256 do arquivo publicado é
-> `7bc75c5d8302eb2fb2c249a05119c7b5c0566b79475dc2618e3f0afc1b8c065b`, e a tela
+> `bf149ee9f815448a79b3d0a0e5a200b2525bfea7da6cd346258b84e688dfbd51`, e a tela
 > “sobre” do Cofre manda conferir esse valor antes de abrir: baixe o arquivo
 > e compare com `sha256sum cofre-btc.html`. Qualquer edição no Cofre exige
 > atualizar o valor aqui — o `npm test` acusa hash vencido.
@@ -218,7 +218,7 @@ blockchain.info, nem chave privada em lugar nenhum.
   real”).
 - Sem senha: a xpub é a credencial. Ela só existe no campo da tela e na
   memória do Durable Object durante a sessão. O navegador **não** guarda a
-  xpub (nada de `localStorage`); a única coisa salva ali é o tema claro/escuro.
+  xpub, o tema nem o idioma (nada de `localStorage`).
 
 ## Electrum (fonte única)
 
@@ -472,8 +472,7 @@ test/
 
 Não há binding de D1/KV/R2 e o Durable Object não chama `storage`: os testes
 passam um `storage` que lança em qualquer acesso, então uma regressão que
-volte a gravar quebra o `npm test`. Também não há `localStorage` com a xpub no
-navegador.
+volte a gravar quebra o `npm test`. Também não há `localStorage` no navegador.
 
 Se você veio de uma versão anterior com D1, os restos ficam na sua conta e no
 disco local. Para remover:
@@ -1069,7 +1068,7 @@ POST /api/wallet          200  7,0 s   watch=true  session=0740457f…  total 0.
 GET  /api/health          200            storage=nenhum  realtime=true
 GET  /api/events?session=…  101          WebSocket: { type: "payload", total: 12862176 }
 fechar a tela             —              mesmo session → 409 (objeto esqueceu a xpub)
-abrir a página            —              campo vazio, nenhum xpub no localStorage
+abrir a página            —              campo vazio, nenhum localStorage
 ```
 
 Localmente o miniflare cria um arquivo SQLite vazio para a instância do

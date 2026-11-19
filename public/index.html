@@ -27,19 +27,18 @@
   <link rel="stylesheet" href="/fontes.css" integrity="sha384-4Z3977Tdw0X169+3bmUqa/72MhCFnLKreROwXhqYG7jQYx0eCDhkF84w03H5UjLJ">
   <link rel="stylesheet" href="/style.css" integrity="sha384-YyWYWEZznOSt4ts49DgHl0NQ4Q32o6k9UiB3BqQqlKJk/VesOaGE0/DmWTcb5dTQ">
   <script>
-    /* Tema antes da primeira pintura (VG-MET-06): o escuro é o padrão; a
-       escolha salva vai para o <html> antes de o CSS ser aplicado. O
-       ?theme=light|dark do endereço tem precedência sobre a escolha salva,
-       e a meta theme-color nasce no tom do --bg do tema escolhido. */
+    /* Tema antes da primeira pintura (VG-MET-06): segue o sistema; o
+       ?theme=light|dark do endereço tem precedência, e a meta theme-color
+       nasce no tom do --bg do tema escolhido. Nada é gravado no navegador. */
     (function () {
       var root = document.documentElement;
-      var saved = "dark";
+      var system = "dark";
       try {
-        saved = localStorage.getItem("monitor-btc-theme") === "light" ? "light" : "dark";
+        system = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
       } catch (e) {}
       var param = "";
       try { param = new URLSearchParams(location.search).get("theme") || ""; } catch (e) {}
-      var theme = param === "light" || param === "dark" ? param : saved;
+      var theme = param === "light" || param === "dark" ? param : system;
       root.dataset.theme = theme;
       var meta = document.querySelector('meta[name="theme-color"]');
       var bg = getComputedStyle(root).getPropertyValue("--bg").trim();
@@ -270,7 +269,7 @@
             <h3><span class="prompt" aria-hidden="true">##</span> o que é esta ferramenta</h3>
             <p>O Monitor BTC é uma carteira de acompanhamento. Você cola a chave pública da sua carteira Bitcoin (<code>xpub</code>, <code>zpub</code> ou <code>ypub</code>) e ele mostra o saldo, os endereços para receber e o histórico de transações. Ele não pede senha, não guarda nada e não tem a chave privada: só lê o que já existe na rede.</p>
             <p>Ele também prepara o envio. Você informa o valor e o destino; a taxa é calculada ao vivo e a ferramenta monta um arquivo de transação (PSBT) para ser assinado em outro programa. Depois de assinado, o arquivo volta para cá e pode ser transmitido. Quem assina é você, no <a class="prose-link" href="/cofre-btc.html" download="cofre-btc.html" title="baixar o Cofre BTC (arquivo standalone)" aria-label="baixar o Cofre BTC (arquivo standalone)">Cofre BTC</a>, offline; a chave privada nunca passa por esta tela.</p>
-            <p>Nada da chave fica guardado: a chave, o saldo, os endereços e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador guarda apenas o tema escolhido.</p>
+            <p>Nada fica guardado: a chave, o saldo, os endereços e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma.</p>
 
             <h3><span class="prompt" aria-hidden="true">##</span> como usar</h3>
             <p><b>Acompanhar.</b> Na tela “carteira”, cole a chave pública no campo indicado. O saldo e os endereços aparecem sozinhos. Em “receber”, copie o endereço do tipo que o pagador aceita. Em “histórico”, veja as transações agrupadas pelo txid, com o que entrou, o que saiu e a taxa.</p>
@@ -361,6 +360,6 @@
   </main>
 </div>
 
-<script src="/app.js" defer integrity="sha384-bl5rXzPk5hcUYjzmaEr4atRRSFEO4ziLDrqdBC662tdxEeljVFOJUd0sXfS4WZBm"></script>
+<script src="/app.js" defer integrity="sha384-hCOUyHxIilZbET7GFYCn8XDo5QZTH1Tv1wBKxVbIS/j4OFjct0UXrzfnWYT5IQ0c"></script>
 </body>
 </html>
