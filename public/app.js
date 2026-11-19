@@ -261,6 +261,42 @@
   function setSendStatus(kind, text) {
     setStatusTo($('#send-status'), kind, text);
   }
+  /* Toda consulta da tela passa por aqui: sem Content-Type JSON a resposta é
+     um erro do proxy/Cloudflare, não um objeto nosso; e sem timeout uma
+     requisição pendurada deixaria `state.busy` preso para sempre. */
+  var REQUEST_TIMEOUT_MS = 30000;
+  async function fetchJson(url, options, timeoutMs) {
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var opts = options || {};
+    var timer = 0;
+    if (controller) {
+      opts = Object.assign({}, opts, { signal: controller.signal });
+      timer = setTimeout(function () { controller.abort(); }, timeoutMs || REQUEST_TIMEOUT_MS);
+    }
+    try {
+      var r;
+      try {
+        r = await fetch(url, opts);
+      } catch (e) {
+        if (e && e.name === 'AbortError') throw new Error('o servidor demorou para responder; tente de novo.');
+        throw new Error('não foi possível falar com o servidor; tente de novo.');
+      }
+      var type = String(r.headers.get('Content-Type') || '').toLowerCase();
+      if (type.indexOf('application/json') < 0) {
+        throw new Error('resposta inesperada do servidor (HTTP ' + r.status + '); tente de novo.');
+      }
+      var j;
+      try {
+        j = await r.json();
+      } catch (e) {
+        if (e && e.name === 'AbortError') throw new Error('o servidor demorou para responder; tente de novo.');
+        throw new Error('resposta inválida do servidor; tente de novo.');
+      }
+      return { r: r, j: j };
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
   /* O erro de campo usa o recado geral (VG-FRM-07): o texto fica no
      #send-status, e o campo só leva o fio/rótulo em --error e aria-invalid.
      O sinal separado evita que a atualização automática do formulário apague
@@ -307,6 +343,9 @@
       : raw === 'historico' ? 'historico'
       : raw === 'sobre' ? 'sobre'
       : 'notfound';
+    // Caminho que o asset layer não conhece chega aqui pela SPA fallback
+    // (wrangler.jsonc): é 404, não a carteira.
+    if (location.pathname !== '/' && location.pathname !== '/index.html') screen = 'notfound';
     // O link de salto usa #content; qualquer outro hash desconhecido é 404.
     if (location.hash && location.hash !== '#content') screen = 'notfound';
     var page = parseInt(params.get('page'), 10);
@@ -523,7 +562,9 @@
      origem (VG-IDI-05). */
   function selectLanguage(button) {
     if (!button || button.disabled) return;
-    state.langAuto = button.getAttribute('data-lang') === 'auto';
+    var code = button.getAttribute('data-lang');
+    state.langAuto = code === 'auto';
+    if (!state.langAuto) state.lang = code;
     markLanguage();
     closeLanguage();
   }
@@ -1255,12 +1296,13 @@
     if (rate > 0) body.quote_rates = [rate];
     if (state.session) body.session = state.session;
     try {
-      var r = await fetch('/api/psbt', {
+      var res = await fetchJson('/api/psbt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
-      var j = await r.json();
+      var r = res.r;
+      var j = res.j;
       if (seq !== state.limitsSeq || state.xpub !== xpub) return;
       if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
       if (!Number.isInteger(j.max_send_sats)) throw new Error('resposta sem limite de envio');
@@ -1356,8 +1398,9 @@
     var xpub = state.xpub;
     var url = '/api/fees' + (state.session ? '?session=' + encodeURIComponent(state.session) : '');
     try {
-      var r = await fetch(url);
-      var j = await r.json();
+      var res = await fetchJson(url);
+      var r = res.r;
+      var j = res.j;
       if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
       if (!j.levels) throw new Error('resposta sem níveis de taxa');
       if (state.xpub !== xpub) return;
@@ -1634,12 +1677,13 @@
       var xpub = state.xpub;
       var body = { xpub: xpub, address: address, amount_sats: amount, fee_rate: rate };
       if (state.session) body.session = state.session;
-      var r = await fetch('/api/psbt', {
+      var res = await fetchJson('/api/psbt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
-      var j = await r.json();
+      var r = res.r;
+      var j = res.j;
       // sessão do Durable Object caiu: reenvia a xpub (a tela já tem o dado)
       // e tenta uma vez com a sessão nova
       if (r.status === 409) {
@@ -1647,12 +1691,13 @@
         if (state.xpub !== xpub) throw new Error('a carteira mudou; tente de novo.');
         if (!state.session) throw new Error('sessão expirada; recarregue a carteira.');
         body.session = state.session;
-        r = await fetch('/api/psbt', {
+        res = await fetchJson('/api/psbt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         });
-        j = await r.json();
+        r = res.r;
+        j = res.j;
       }
       if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
       // o formulário mudou enquanto o servidor montava: este retrato venceu
@@ -1711,8 +1756,8 @@
      não é sua, valor inventado, entrada não finalizada, taxa fora do padrão)
      e devolve o resumo; publicar é o clique em confirmar, porque a
      transmissão não tem volta. O texto do arquivo fica só na memória da
-     tela, como o PSBT do envio. O teto do texto é conferido pelo servidor
-     (MAX_PSBT_TEXT, em broadcast.js); aqui não há cópia do valor. */
+     tela, como o PSBT do envio. A tela recusa pelo file.size antes de ler;
+     o servidor confere o texto de novo (MAX_PSBT_TEXT, em broadcast.js). */
 
   function setBroadcastStatus(kind, text) {
     setStatusTo($('#broadcast-status'), kind, text);
@@ -1851,7 +1896,12 @@
     if (block) block.setAttribute('aria-busy', 'true');
     updateBroadcastActions();
     setBroadcastStatus('', 'conferindo o psbt...');
+    /* O arquivo é lido só depois do teto: escolher um vídeo ou um .psbt
+       inflado não pode congelar a aba. O servidor confere o mesmo teto
+       (MAX_PSBT_TEXT, em broadcast.js). */
+    var MAX_PSBT_FILE_BYTES = 400000;
     try {
+      if (file.size > MAX_PSBT_FILE_BYTES) throw new Error('arquivo grande demais para conferir');
       var text = await file.text();
       if (seq !== state.broadcastSeq) return;
       if (!text.trim()) throw new Error('o arquivo está vazio');
@@ -1860,12 +1910,13 @@
       var xpub = state.xpub;
       var body = { xpub: xpub, psbt: text, preview: true };
       if (state.session) body.session = state.session;
-      var r = await fetch('/api/broadcast', {
+      var res = await fetchJson('/api/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
-      var j = await r.json();
+      var r = res.r;
+      var j = res.j;
       /* sessão do Durable Object caiu ou era de outra xpub: reenvia a xpub
          (a tela já tem o dado) e tenta uma vez com a sessão nova */
       if (r.status === 409) {
@@ -1873,12 +1924,13 @@
         if (state.xpub !== xpub) throw new Error('a carteira mudou; tente de novo.');
         if (!state.session) throw new Error('sessão expirada; recarregue a carteira.');
         body.session = state.session;
-        r = await fetch('/api/broadcast', {
+        res = await fetchJson('/api/broadcast', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         });
-        j = await r.json();
+        r = res.r;
+        j = res.j;
       }
       if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
       if (seq !== state.broadcastSeq) return;
@@ -1918,12 +1970,13 @@
     if (state.session) body.session = state.session;
     try {
       var xpub = state.xpub;
-      var r = await fetch('/api/broadcast', {
+      var res = await fetchJson('/api/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
-      var j = await r.json();
+      var r = res.r;
+      var j = res.j;
       /* sessão do Durable Object caiu ou era de outra xpub: reenvia a xpub
          e tenta uma vez (o resumo já revisado continua válido) */
       if (r.status === 409) {
@@ -1931,12 +1984,13 @@
         if (state.xpub !== xpub) throw new Error('a carteira mudou; tente de novo.');
         if (!state.session) throw new Error('sessão expirada; recarregue a carteira.');
         body.session = state.session;
-        r = await fetch('/api/broadcast', {
+        res = await fetchJson('/api/broadcast', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         });
-        j = await r.json();
+        r = res.r;
+        j = res.j;
       }
       if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
       if (seq !== state.broadcastSeq) return;
@@ -1944,6 +1998,8 @@
       state.broadcastSent = true;
       state.broadcastText = '';
       renderBroadcast(j);
+      // o seletor volta para o próximo PSBT sem derrubar a sessão/varredura
+      state.broadcastName = '';
       setBroadcastStatus('ok', 'transação transmitida: ' + (j.txid || ''));
     } catch (e) {
       if (seq !== state.broadcastSeq) return;
@@ -2244,24 +2300,26 @@
       var xpub = state.xpub;
       var body = { xpub: xpub, txid: txid, fee_rate: rate };
       if (state.session) body.session = state.session;
-      var r = await fetch('/api/cpfp', {
+      var res = await fetchJson('/api/cpfp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
-      var j = await r.json();
+      var r = res.r;
+      var j = res.j;
       // sessão do Durable Object caiu: reenvia a xpub e tenta uma vez
       if (r.status === 409) {
         await load(true);
         if (state.xpub !== xpub) throw new Error('a carteira mudou; tente de novo.');
         if (!state.session) throw new Error('sessão expirada; recarregue a carteira.');
         body.session = state.session;
-        r = await fetch('/api/cpfp', {
+        res = await fetchJson('/api/cpfp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         });
-        j = await r.json();
+        r = res.r;
+        j = res.j;
       }
       if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
       if (seq !== state.cpfpSeq || state.xpub !== xpub) return;
@@ -2457,12 +2515,13 @@
       while (true) {
         var body = { xpub: xpub, scan: 'step' };
         if (state.session) body.session = state.session;
-        var r = await fetch('/api/wallet', {
+        var res = await fetchJson('/api/wallet', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         });
-        var j = await r.json();
+        var r = res.r;
+        var j = res.j;
         if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
         // a xpub pode ter mudado enquanto a consulta corria: descarta a resposta
         if ($('#xpub').value.trim() !== xpub) return;
@@ -2703,21 +2762,22 @@
         var data = '';
         try { data = (ev.clipboardData || window.clipboardData).getData('text') || ''; } catch (e) {}
         if (!data) return;
+        /* A colagem inteira é nossa: se deixar o paste padrão agir, o
+           maxlength corta o texto cru antes do filtro de espaços e a chave
+           fica truncada. */
+        ev.preventDefault();
         var out = filterXpub(data);
-        if (out.value !== data.replace(/\s+/g, '')) {
-          ev.preventDefault();
-          var missing = xpubProblem(out.value);
-          if (out.value && out.value.length > EXT_PREFIX_LEN) {
-            xpubInput.value = out.value;
-            syncViewToInput();
-            scheduleAutoLoad();
-          }
-          if (missing) {
-            setFieldInvalid(xpubInput, true);
-            setStatus('error', xpubProblem(data) || missing);
-          } else {
-            setFieldInvalid(xpubInput, false);
-          }
+        var missing = xpubProblem(out.value);
+        if (out.value) {
+          xpubInput.value = out.value;
+          syncViewToInput();
+          scheduleAutoLoad();
+        }
+        if (missing) {
+          setFieldInvalid(xpubInput, true);
+          setStatus('error', xpubProblem(data) || missing);
+        } else {
+          setFieldInvalid(xpubInput, false);
         }
       });
       xpubInput.addEventListener('blur', function () {
@@ -2760,7 +2820,7 @@
       if (action && action.getAttribute('aria-disabled') === 'true') return;
       var code = ev.target.closest ? ev.target.closest('code') : null;
       var value = action ? action.getAttribute('data-copy') : (code ? code.textContent.trim() : '');
-      if (!value) return;
+      if (!value || value === '—') return;
       try {
         await navigator.clipboard.writeText(value);
         if (action) {

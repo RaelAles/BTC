@@ -61,6 +61,11 @@ export async function startFakeElectrum(opts) {
         }
         requests.push(req);
         const arg = req.params && req.params[0];
+        /* Simula queda de transporte no meio da varredura. */
+        if (o.closeAfter && req.method === o.closeAfter) {
+          socket.destroy();
+          continue;
+        }
         let result;
         if (req.method === 'server.version') {
           result = ['fake-electrum 1.0', '1.4'];

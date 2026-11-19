@@ -15,10 +15,15 @@ export function electrumConfig(env) {
        para a resposta em vez de sumir num "off" silencioso. */
     return { error: 'configuração inválida de ELECTRUM_SERVERS: ' + (e && e.message ? e.message : e) };
   }
-  return {
-    servers,
-    timeoutMs: Number((env && env.ELECTRUM_TIMEOUT_MS) || 8000)
-  };
+  let timeoutMs = 8000;
+  const rawTimeout = env && env.ELECTRUM_TIMEOUT_MS;
+  if (rawTimeout != null && String(rawTimeout).trim() !== '') {
+    timeoutMs = Number(rawTimeout);
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      return { error: 'configuração inválida de ELECTRUM_TIMEOUT_MS: use um número de milissegundos maior que zero' };
+    }
+  }
+  return { servers, timeoutMs };
 }
 
 /* Cabeçalhos de segurança aplicados pelo Worker às respostas dinâmicas

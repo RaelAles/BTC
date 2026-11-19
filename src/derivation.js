@@ -18,6 +18,9 @@ function bytes() { return BTC.concatBytes.apply(null, arguments); }
 
 export function b58decode(text) {
   const s = String(text).trim();
+  /* O laço abaixo é quadrático no tamanho da entrada: um texto arbitrariamente
+     longo prende o isolate antes de qualquer validação de formato. */
+  if (s.length > 256) throw new Error('texto base58 grande demais');
   let n = 0n;
   for (let i = 0; i < s.length; i++) {
     const d = B58.indexOf(s[i]);
@@ -40,7 +43,9 @@ function be32(v) {
 }
 
 export function parseXpub(text) {
-  const raw = b58decode(text);
+  const s = String(text).trim();
+  if (s.length > 111) throw new Error('xpub com tamanho inválido');
+  const raw = b58decode(s);
   if (raw.length !== 82) throw new Error('xpub com tamanho inválido');
   const payload = raw.subarray(0, 78);
   const chk = raw.subarray(78);

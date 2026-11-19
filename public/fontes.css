@@ -6,7 +6,7 @@
    site usa. Todos os sinais da interface são texto dela: a espada (♠) da
    marca-d'água, as bolinhas do tema (● e ○), as setas (▲ ▼ ◄ ►) e o código do
    idioma (PT, EN). O que ficar fora dos intervalos segue para a pilha de
-   fallback do sistema (--mono em estilo.css), então nada some.
+   fallback do sistema (--mono em public/style.css), então nada some.
    Licença e como regerar os subsets: LICENCAS-FONTES.txt e o comentário
    abaixo (pyftsubset, layout-features vazio, renomeando a família dentro do
    arquivo, como a OFL pede para versões modificadas). */

@@ -22,13 +22,16 @@ function ok(label) { passed++; console.log('ok   ' + label); }
 
 /* 2. Lista de servidores. */
 {
-  const s = parseServerList('a.example:50002,b.example:50001,c.example:5010:tcp,d.example:50002:tls');
+  const s = parseServerList('a.example:50002,b.example:50001:tcp,c.example:5010:tcp,d.example:50002:tls');
   assert.deepEqual(s, [
     { host: 'a.example', port: 50002, secure: true },
     { host: 'b.example', port: 50001, secure: false },
     { host: 'c.example', port: 5010, secure: false },
     { host: 'd.example', port: 50002, secure: true }
   ]);
+  assert.deepEqual(parseServerList('sem-sufixo.example:50001'),
+    [{ host: 'sem-sufixo.example', port: 50001, secure: true }],
+    'sem sufixo o transporte é TLS, mesmo na 50001');
   assert.throws(() => parseServerList(''));
   assert.throws(() => parseServerList('sem-porta'));
   assert.throws(() => parseServerList('a:50002:ssl'));

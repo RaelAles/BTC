@@ -19,10 +19,10 @@ import BTC from './btc-core.js';
 
 /* Verificados em 2026-11: TLS 50002 e texto puro 50001 respondem
    `server.version` e `get_balance`. O TLS é o padrão; o texto puro só
-   como último recurso (o caminho da rede vê os endereços consultados). */
+   entra quando pedido explicitamente com `:tcp` (o caminho da rede vê os
+   endereços consultados). */
 export const DEFAULT_SERVERS = [
-  { host: 'electrum.blockstream.info', port: 50002, secure: true },
-  { host: 'electrum.blockstream.info', port: 50001, secure: false }
+  { host: 'electrum.blockstream.info', port: 50002, secure: true }
 ];
 
 const DEFAULT_TIMEOUT = 8000;
@@ -41,8 +41,8 @@ export function scripthash(script) {
   return out;
 }
 
-/* "host:porta[:tls|:tcp],..." — a porta 50001 assume tcp, o resto tls.
-   IPv6 entra entre colchetes: "[::1]:50002:tls". */
+/* "host:porta[:tls|:tcp],..." — TLS por padrão; texto puro só com `:tcp`
+   explícito. IPv6 entra entre colchetes: "[::1]:50002:tls". */
 export function parseServerList(text) {
   const out = [];
   for (const raw of String(text || '').split(',')) {
@@ -71,7 +71,7 @@ export function parseServerList(text) {
     if (!host || !portText || !Number.isInteger(port) || port <= 0 || port > 65535) {
       throw new Error('servidor Electrum inválido: ' + item);
     }
-    const mode = String(modeText || (port === 50001 ? 'tcp' : 'tls')).toLowerCase();
+    const mode = String(modeText || 'tls').toLowerCase();
     if (mode !== 'tls' && mode !== 'tcp') {
       throw new Error('transporte inválido em ' + item + ' (use tls ou tcp)');
     }

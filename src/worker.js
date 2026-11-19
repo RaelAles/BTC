@@ -7,6 +7,11 @@ import { broadcastSignedPsbt, previewSignedPsbt, MAX_PSBT_TEXT } from './broadca
 import { WalletWatcher } from './watcher.js';
 import BTC from './btc-core.js';
 
+/* Tetos de entrada antes de qualquer decodificação custosa: uma xpub válida
+   tem 111 caracteres e um endereço mainnet cabe em 90. */
+const MAX_XPUB_LENGTH = 111;
+const MAX_ADDRESS_LENGTH = 90;
+
 /* Monitor BTC — rotas HTTP.
 
    `POST /api/wallet`  → estado da carteira (saldo, endereços usados).
@@ -54,6 +59,7 @@ async function handleWallet(request, env) {
   try { body = await request.json(); } catch (e) { return fail('json inválido'); }
   const xpub = String(body.xpub || '').trim();
   if (!xpub) return fail('informe a xpub');
+  if (xpub.length > MAX_XPUB_LENGTH) return fail('xpub grande demais');
   let account;
   try { account = parseXpub(xpub); }
   catch (e) { return fail(xpubHint(xpub) || e.message); }
@@ -105,6 +111,8 @@ async function handleWallet(request, env) {
     }).init();
     const payload = await scanner.fullSync();
     return json(Object.assign({}, payload, { watch: false }));
+  } catch (e) {
+    return scanFailure(e, client);
   } finally {
     try { await client.close(); } catch (e) {}
   }
@@ -130,6 +138,7 @@ function sessionId(value) {
 function sendTarget(body) {
   const address = String(body.address || '').trim();
   if (!address) throw new Error('informe o endereço de destino');
+  if (address.length > MAX_ADDRESS_LENGTH) throw new Error('endereço de destino grande demais');
   try { BTC.scriptFromAddress(address); }
   catch (e) { throw new Error('endereço de destino: ' + e.message); }
   const feeRate = Number(body.fee_rate);
@@ -184,6 +193,7 @@ async function handlePsbt(request, env) {
   try { body = await request.json(); } catch (e) { return fail('json inválido'); }
   const xpub = String(body.xpub || '').trim();
   if (!xpub) return fail('informe a xpub');
+  if (xpub.length > MAX_XPUB_LENGTH) return fail('xpub grande demais');
   let account;
   try { account = parseXpub(xpub); }
   catch (e) { return fail(xpubHint(xpub) || e.message); }
@@ -237,6 +247,7 @@ async function handleCpfp(request, env) {
   try { body = await request.json(); } catch (e) { return fail('json inválido'); }
   const xpub = String(body.xpub || '').trim();
   if (!xpub) return fail('informe a xpub');
+  if (xpub.length > MAX_XPUB_LENGTH) return fail('xpub grande demais');
   let account;
   try { account = parseXpub(xpub); }
   catch (e) { return fail(xpubHint(xpub) || e.message); }
@@ -284,6 +295,7 @@ async function handleBroadcast(request, env) {
   try { body = await request.json(); } catch (e) { return fail('json inválido'); }
   const xpub = String(body.xpub || '').trim();
   if (!xpub) return fail('informe a xpub');
+  if (xpub.length > MAX_XPUB_LENGTH) return fail('xpub grande demais');
   let account;
   try { account = parseXpub(xpub); }
   catch (e) { return fail(xpubHint(xpub) || e.message); }
@@ -372,11 +384,10 @@ function withSecurityHeaders(response) {
   });
 }
 
-/* Freio de abuso das rotas públicas. Cada POST pesado (wallet/psbt/cpfp/
-   broadcast) deriva centenas de endereços e consulta o Electrum; sem
-   credencial nenhuma, um laço externo vira custo direto de CPU/rede. O
-   contador vive só na memória do isolate (não é durável): serve para conter
-   rajada e pedido repetido, não como cota exata. */
+/* Rate por IP. O contador é compartilhado por todas as rotas públicas:
+   sem credencial nenhuma, um laço externo vira custo direto de CPU/rede.
+   O contador vive só na memória do isolate (não é durável): serve para
+   conter rajada e pedido repetido, não como cota exata. */
 const RATE_WINDOW_MS = 60000;
 const RATE_MAX_REQUESTS = 120;
 const RATE_MAX_SCANS = 6;
@@ -415,19 +426,28 @@ function tooMany(bucket) {
   });
 }
 
-/* Rate por IP + teto de varreduras simultâneas para as rotas que derivam
-   endereços. O slot é liberado no finally, mesmo quando o handler falha. */
-async function withScanSlot(request, run) {
+/* Freio de contagem, sem consumir slot de varredura: usado também nas rotas
+   leves (fees/events) que ainda abrem conexão ou instanciam um objeto. */
+async function withRateLimit(request, run) {
   const bucket = rateBucket(clientIp(request));
   bucket.count++;
   if (bucket.count > RATE_MAX_REQUESTS) return tooMany(bucket);
-  if (bucket.scans >= RATE_MAX_SCANS) return tooMany(bucket);
-  bucket.scans++;
-  try {
-    return await run();
-  } finally {
-    bucket.scans--;
-  }
+  return await run();
+}
+
+/* Rate por IP + teto de varreduras simultâneas para as rotas que derivam
+   endereços. O slot é liberado no finally, mesmo quando o handler falha. */
+async function withScanSlot(request, run) {
+  return await withRateLimit(request, async () => {
+    const bucket = rateBucket(clientIp(request));
+    if (bucket.scans >= RATE_MAX_SCANS) return tooMany(bucket);
+    bucket.scans++;
+    try {
+      return await run();
+    } finally {
+      bucket.scans--;
+    }
+  });
 }
 
 async function route(request, env) {
@@ -465,9 +485,11 @@ async function route(request, env) {
     }
     if (url.pathname === '/api/fees') {
       if (request.method !== 'GET' && request.method !== 'HEAD') return fail('use GET', 405);
-      return await handleFees(env, url);
+      return await withRateLimit(request, () => handleFees(env, url));
     }
-    if (url.pathname === '/api/events') return await handleEvents(request, env, url);
+    if (url.pathname === '/api/events') {
+      return await withRateLimit(request, () => handleEvents(request, env, url));
+    }
     if (url.pathname.startsWith('/api/')) return fail('rota não encontrada', 404);
     if (env.ASSETS) return await env.ASSETS.fetch(request);
     return new Response('not found', { status: 404 });

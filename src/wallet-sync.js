@@ -715,8 +715,7 @@ export class WalletScanner {
         (Number(b.pending) - Number(a.pending)) ||
         (b.height - a.height) ||
         (a.txid < b.txid ? -1 : a.txid > b.txid ? 1 : 0)
-      )
-      .map(t => this.publicTransaction(t));
+      );
 
     const warnings = [];
     if (this.errors) {

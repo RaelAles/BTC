@@ -23,6 +23,7 @@ import { electrumConfig, json } from './config.js';
 const KEEPALIVE_MS = 30000;
 const DEBOUNCE_MS = 1000;
 const IDLE_CLOSE_MS = 60000;
+const MAX_XPUB_LENGTH = 111;
 
 /* Timers em memória não sobrevivem a eviction (o socket do Electrum e as
    assinaturas também não), então não há o que restaurar. No Node dos testes
@@ -89,6 +90,7 @@ export class WalletWatcher {
         try { body = await request.json(); } catch (e) {}
         const xpub = String(body.xpub || '').trim();
         if (!xpub) return json({ error: 'informe a xpub' }, 400);
+        if (xpub.length > MAX_XPUB_LENGTH) return json({ error: 'xpub grande demais' }, 400);
         if (this.otherXpub(xpub)) return json({ error: 'sessão de outra xpub' }, 409);
         const payload = body.scan === 'step'
           ? await this.syncStep(xpub, true)
@@ -111,6 +113,7 @@ export class WalletWatcher {
         try { body = await request.json(); } catch (e) {}
         const xpub = String(body.xpub || '').trim();
         if (!xpub) return json({ error: 'informe a xpub' }, 400);
+        if (xpub.length > MAX_XPUB_LENGTH) return json({ error: 'xpub grande demais' }, 400);
         if (this.otherXpub(xpub)) return json({ error: 'sessão de outra xpub' }, 409);
         const scanner = await this.ensureScanner(xpub);
         if (this.scanning || !this.lastPayload) await this.sync(xpub, true);
@@ -138,6 +141,7 @@ export class WalletWatcher {
         try { body = await request.json(); } catch (e) {}
         const xpub = String(body.xpub || '').trim();
         if (!xpub) return json({ error: 'informe a xpub' }, 400);
+        if (xpub.length > MAX_XPUB_LENGTH) return json({ error: 'xpub grande demais' }, 400);
         if (this.otherXpub(xpub)) return json({ error: 'sessão de outra xpub' }, 409);
         const txid = String(body.txid || '').trim().toLowerCase();
         if (!/^[0-9a-f]{64}$/.test(txid)) return json({ error: 'txid inválido' }, 400);
@@ -156,6 +160,7 @@ export class WalletWatcher {
         try { body = await request.json(); } catch (e) {}
         const xpub = String(body.xpub || '').trim();
         if (!xpub) return json({ error: 'informe a xpub' }, 400);
+        if (xpub.length > MAX_XPUB_LENGTH) return json({ error: 'xpub grande demais' }, 400);
         if (this.otherXpub(xpub)) return json({ error: 'sessão de outra xpub' }, 409);
         const psbt = String(body.psbt || '');
         if (!psbt.trim()) return json({ error: 'informe o psbt assinado' }, 400);
@@ -172,14 +177,6 @@ export class WalletWatcher {
         } catch (e) {
           return this.scanFailure(e);
         }
-      }
-      if (url.pathname === '/state') {
-        if (this.scanning) return json({ scanning: true, has_more: true, progress: this.progress });
-        if (!this.lastPayload) {
-          if (!this.xpub) return json({ error: 'sessão sem estado; envie a xpub em /sync' }, 409);
-          await this.sync(null, true);
-        }
-        return json(this.lastPayload || { error: 'sem estado' }, this.lastPayload ? 200 : 503);
       }
       return json({ error: 'rota do watch não encontrada' }, 404);
     } catch (e) {
@@ -407,6 +404,16 @@ export class WalletWatcher {
     const upgrade = request.headers.get('Upgrade');
     if (!upgrade || upgrade.toLowerCase() !== 'websocket') {
       return json({ error: 'use websocket' }, 426);
+    }
+    /* WebSocket não é protegido por SOP: quando o navegador manda Origin,
+       ele tem de ser o mesmo host da página. Sem Origin (clientes que não
+       são navegador, como os testes) a credencial continua sendo o id da
+       sessão. */
+    const origin = request.headers.get('Origin');
+    if (origin) {
+      let expected = '';
+      try { expected = new URL(request.url).origin; } catch (e) {}
+      if (!expected || origin !== expected) return json({ error: 'origem não permitida' }, 403);
     }
     // sessão sem xpub (objeto despejado ou nunca sincronizado): o cliente
     // precisa reenviar a xpub em /api/wallet, que é o único lugar onde ela

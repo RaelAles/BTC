@@ -235,7 +235,11 @@ Variáveis (`wrangler.jsonc` → `vars`, ou pelo dashboard):
 | variável | padrão | efeito |
 | --- | --- | --- |
 | `ELECTRUM_SERVERS` | `electrum.blockstream.info:50002:tls, blockstream.info:700:tls, electrum.diynodes.com:50022:tls` | lista `host:porta[:tls\|:tcp]`; `off` desliga (a API responde 503) |
-| `ELECTRUM_TIMEOUT_MS` | `8000` | timeout por pedido |
+| `ELECTRUM_TIMEOUT_MS` | `8000` | timeout por pedido (número de milissegundos maior que zero; valor inválido responde 503) |
+
+A lista `host:porta[:tls|:tcp]` usa TLS por padrão; texto puro exige `:tcp`
+explícito (o caminho da rede vê os scripthashes consultados). O fallback
+interno, usado quando `ELECTRUM_SERVERS` não está definido, também é só TLS.
 
 A margem de 50 endereços vazios e o lote de 200 endereços por passo são
 fixos no código (`src/wallet-sync.js`); não vêm do ambiente.
@@ -358,6 +362,11 @@ backend de Durable Object disponível no plano free).
 - **CPU**: cada abertura de tela deriva cerca de 400 endereços (8 ramos ×
   50). Cabe nos 30 s de CPU do plano pago (US$ 5/mês); no free (10 ms) não
   cabe.
+- **Freio de abuso**: 120 pedidos por minuto por IP, no máximo 6 varreduras
+  simultâneas. Cada passo da varredura em `/api/wallet` conta como um
+  pedido; uma carteira que precise de mais de ~120 passos no mesmo minuto
+  (cerca de 24 000 endereços derivados) pode ver "busca interrompida" mesmo
+  sem abuso. O contador vive na memória do isolate e zera em 60 s.
 - **Assinaturas**: só os endereços usados e a cauda de 50 de cada ramo são
   observados; endereços vazios fora da cauda não são assinados. Com o tempo
   real aberto, um pagamento para um endereço além da cauda só aparece numa
@@ -368,6 +377,14 @@ backend de Durable Object disponível no plano free).
 - Sem heartbeat da tela: quando a aba fecha, o `close` do WebSocket encerra a
   sessão na hora. Se a rede cair sem `close`, quem percebe é o runtime
   (socket morto); até lá o objeto continua com o keepalive do Electrum.
+- **Troco reutilizado entre PSBTs pendentes**: o próximo endereço de troco é
+  `último usado + 1` e só avança quando a transação é vista no mempool. Dois
+  PSBTs montados antes da primeira transmissão usam o mesmo endereço de
+  troco; é um limite de privacidade do desenho, não de saldo.
+- **Polling de segurança**: sem WebSocket em funcionamento, a tela refaz
+  `load(true)` a cada 30 s; como cada consulta começa uma varredura nova, é
+  uma varredura completa por aba a cada 30 s. Com o tempo real aberto o
+  polling fica desligado.
 - Endereços usados depois de 50 vazios seguidos não aparecem: a varredura
   procura do índice 0 até a margem de 50 em cada ramo. Se a busca for
   interrompida (erro de rede/Electrum), a tela avisa que o saldo pode estar
@@ -953,6 +970,7 @@ node test/broadcast.test.mjs    # conferência e transmissão do PSBT assinado
 node test/watcher.test.mjs      # Durable Object, timers e descarte total
 node test/dev-server.mjs        # UI local em http://127.0.0.1:8787/ (sem DO)
 node test/security-headers.test.mjs  # cópias iguais, hash do tema, 101 intacto
+node test/hardening.test.mjs    # tetos de entrada, freio de abuso e Origin do WebSocket
 node test/cdp-ui.mjs            # opcional: Chromium headless + screenshot
 ```
 

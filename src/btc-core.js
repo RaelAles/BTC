@@ -311,6 +311,8 @@ var BTC = (function () {
   function base58Decode(text) {
     var s = String(text == null ? '' : text).trim();
     if (!s) throw new Error('endereço vazio');
+    /* Decodificação quadrática no tamanho: recusa antes de qualquer conta. */
+    if (s.length > 128) throw new Error('endereço base58 grande demais');
     var n = 0n;
     for (var i = 0; i < s.length; i++) {
       var d = B58.indexOf(s[i]);
