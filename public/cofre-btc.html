@@ -1768,6 +1768,12 @@
     padding-top: var(--space-3);
     border-top: 0;
   }
+  /* O resumo do PSBT tem rótulos de tamanhos diferentes em cada idioma
+     ("destination", "destinazione", "Wechselgeld"). A coluna do rótulo
+     encolhe até o texto (1% + nowrap) e o valor fica com o resto, sem
+     sobrepor; as demais tabelas mantêm a coluna fixa alinhada. */
+  #review-table { table-layout: auto; }
+  #review-table tbody th { width: 1%; }
   /* O resumo do PSBT se lê em blocos — entrada, par de cada saída e custo —
      e a última linha de cada bloco abre o vão do próximo, como no resumo do
      PSBT do projeto principal. */

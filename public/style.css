@@ -1794,9 +1794,19 @@
     margin: var(--space-4) 0 0;
   }
   /* "endereço" tem 8ch e, na coluna de 7ch herdada do key-readout, encostaria
-     no valor — o rótulo não quebra (white-space: nowrap). A coluna ganha três
-     caracteres para manter o respiro do "receber". */
-  #send-meta tbody th { width: 10ch; }
+     no valor. Em outros idiomas o rótulo chega a 12ch ("destinazione") e, com
+     a largura fixa e nowrap, sobrepunha a informação. A coluna do rótulo
+     encolhe até o próprio texto (1% + nowrap) e o valor fica com o resto; o
+     resumo do envio e o do transmitir seguem a mesma regra. */
+  #send-meta,
+  #broadcast-meta {
+    table-layout: auto;
+  }
+  #send-meta tbody th,
+  #broadcast-meta tbody th {
+    width: 1%;
+    white-space: nowrap;
+  }
   /* O resumo se lê em blocos — valor e endereço do pagamento, valor e
      endereço do troco, custo e txid: a última linha de cada bloco abre o vão
      do próximo. O vão desaparece junto com a linha quando ela está oculta
