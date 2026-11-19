@@ -132,7 +132,7 @@ blockchain.info, nem chave privada em lugar nenhum.
 >
 > **Download do Cofre.** `/cofre-btc` entrega `public/cofre-btc.html` como
 > anexo (`Content-Disposition: attachment`). O sha256 do arquivo publicado é
-> `cc4c7d693acf18bfdaac16c57722325c5868600f0a8a2457547350ee2769268a`, e a tela
+> `7bc75c5d8302eb2fb2c249a05119c7b5c0566b79475dc2618e3f0afc1b8c065b`, e a tela
 > “sobre” do Cofre manda conferir esse valor antes de abrir: baixe o arquivo
 > e compare com `sha256sum cofre-btc.html`. Qualquer edição no Cofre exige
 > atualizar o valor aqui — o `npm test` acusa hash vencido.

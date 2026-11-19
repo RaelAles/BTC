@@ -225,7 +225,8 @@
        crossfade de tema; --motion-grain é o intervalo do grão; e
        --motion-reveal-* é a entrada em foco, do título (--motion-reveal-head)
        à régua e aos blocos (--motion-reveal), com o atraso do primeiro bloco
-       (--motion-reveal-delay) e o escalonamento (--motion-reveal-step); e
+       (--motion-reveal-delay), o escalonamento (--motion-reveal-step) e o
+       teto que libera a medida das setas (--motion-reveal-total); e
        --motion-notice é o tempo do aviso temporário (VG-ABS-07), que some
        sozinho depois de 8 s no padrão. */
     --motion-fast: 150ms;
@@ -235,6 +236,7 @@
     --motion-reveal: 250ms;
     --motion-reveal-delay: 50ms;
     --motion-reveal-step: 25ms;
+    --motion-reveal-total: 1000ms;
     --motion-rule-delay: 75ms;
     --motion-notice: 8000ms;
     --motion-ease: ease;
@@ -2136,7 +2138,7 @@
         <section class="screen" id="screen-language" hidden aria-labelledby="head-language">
           <h2 id="head-language" tabindex="-1">IDIOMAS</h2>
           <pre class="rule" aria-hidden="true"></pre>
-          <div class="lang-panel">
+          <div class="lang-panel reveal-block">
             <div class="lang-list" role="group" aria-label="Idiomas">
               <button type="button" class="lang-item lang-item-auto" data-lang="auto" aria-pressed="true" tabindex="-1">automático</button>
               <button type="button" class="lang-item" data-lang="ca">català</button>
@@ -5785,6 +5787,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   /* ------------------------------------------------------------ revelação */
   var motionCache = {};
+  var revealTimer = 0;
+  /* O bloco sobe 12 px enquanto entra; esse deslocamento não é conteúdo e
+     não pode acender a seta de baixo (VG-EFE-03), então a medida o desconta
+     enquanto a revelação roda. */
+  var REVEAL_OFFSET = 12;
   function tokenMs(name, fallback) {
     if (motionCache[name]) return motionCache[name];
     var raw = getComputedStyle(root).getPropertyValue(name).trim();
@@ -5798,10 +5805,37 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return raw || fallback;
   }
   function reveal(screen) {
-    if (!screen || reduced() || !screen.animate) return;
+    if (revealTimer) {
+      window.clearTimeout(revealTimer);
+      revealTimer = 0;
+    }
+    if (!screen || reduced() || !screen.animate) {
+      if (contentEl) contentEl.classList.remove('is-revealing');
+      updateScrollState();
+      return;
+    }
     var head = screen.querySelector('h2');
     var rule = screen.querySelector('.rule');
     var blocks = $$('.reveal-block', screen);
+    /* O teto do token libera o aria-busy; a medida das setas volta quando o
+       último bloco termina de verdade (ou no teto, se ele vier antes). */
+    var revealTotal = Math.max(
+      tokenMs('--motion-reveal-head', 250),
+      tokenMs('--motion-rule-delay', 75) + tokenMs('--motion-reveal', 250),
+      blocks.length
+        ? tokenMs('--motion-reveal-delay', 50) +
+          (blocks.length - 1) * tokenMs('--motion-reveal-step', 25) +
+          tokenMs('--motion-reveal', 250)
+        : 0
+    );
+    revealTotal = Math.min(revealTotal, tokenMs('--motion-reveal-total', 1000));
+    if (contentEl) contentEl.classList.add('is-revealing');
+    updateScrollState();
+    revealTimer = window.setTimeout(function () {
+      revealTimer = 0;
+      if (contentEl) contentEl.classList.remove('is-revealing');
+      updateScrollState();
+    }, revealTotal);
     [head, rule].concat(blocks).forEach(function (el) {
       if (el && el.getAnimations) el.getAnimations().forEach(function (a) { a.cancel(); });
     });
@@ -5819,7 +5853,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }
     blocks.forEach(function (el, i) {
       el.animate(
-        [{ opacity: 0, transform: 'translateY(12px)', filter: 'blur(3px)' },
+        [{ opacity: 0, transform: 'translateY(' + REVEAL_OFFSET + 'px)', filter: 'blur(3px)' },
          { opacity: 1, transform: 'none', filter: 'blur(0px)' }],
         {
           duration: tokenMs('--motion-reveal', 250),
@@ -6240,7 +6274,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   function updateScrollState() {
     if (!scrollEl || !contentEl) return;
-    var max = scrollEl.scrollHeight - scrollEl.clientHeight;
+    var offset = contentEl.classList.contains('is-revealing') ? REVEAL_OFFSET : 0;
+    var max = scrollEl.scrollHeight - scrollEl.clientHeight - offset;
+    if (max < 0) max = 0;
     contentEl.classList.toggle('can-scroll-up', max > 2 && scrollEl.scrollTop > 2);
     contentEl.classList.toggle('can-scroll-down', max > 2 && scrollEl.scrollTop < max - 2);
   }
