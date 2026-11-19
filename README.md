@@ -218,7 +218,9 @@ blockchain.info, nem chave privada em lugar nenhum.
   real”).
 - Sem senha: a xpub é a credencial. Ela só existe no campo da tela e na
   memória do Durable Object durante a sessão. O navegador **não** guarda a
-  xpub, o tema nem o idioma (nada de `localStorage`).
+  xpub, o tema nem o idioma (nada de `localStorage`). A interface está
+  traduzida em pt, en, es, fr, it, de, nl, ca e gl: o automático segue o
+  navegador no arranque e a escolha da tela de idiomas vale só para a sessão.
 
 ## Electrum (fonte única)
 

@@ -67,14 +67,357 @@
     broadcastSent: false, // a transação já foi publicada
     broadcastSeq: 0,    // descarta resposta de um arquivo que já saiu da tela
     cpfpSeq: 0,         // descarta resposta de uma aceleração que já saiu da tela
-    sendValidationError: '', // erro de campo no #send-status, separado do PSBT
+    sendValidationError: null, // erro de campo no #send-status, separado do PSBT
     screen: 'carteira', // tela em vigor (carteira | historico)
     langOpen: false,    // a tela de idiomas está aberta
-    lang: 'pt',         // idioma em vigor (só há conteúdo em português)
-    langAuto: true,     // idioma automático em vigor (só há conteúdo em português)
+    lang: 'pt',         // idioma em vigor (resolvido no arranque)
+    langAuto: true,     // idioma automático em vigor
     historyState: 'idle', // idle | loading | error | ready
     langScroll: 0       // ponto de leitura devolvido pelo voltar da tela de idiomas
   };
+
+  /* ------------------------------------------------------------- idiomas */
+  /* Traduções completas em nove idiomas (VG-IDI-01..06): pt, en, es, fr,
+     it, de, nl, ca e gl. Cada linha é [chave em português, en, es, fr, it,
+     de, nl, ca, gl]. A chave é o próprio texto português (ou o molde com
+     {campos}); o automático segue o navegador e cai no português quando ele
+     não fala nenhum dos idiomas abaixo. */
+  var LOCALES = ['pt', 'en', 'es', 'fr', 'it', 'de', 'nl', 'ca', 'gl'];
+  var LOCALE_TAGS = { pt: 'pt-BR', en: 'en', es: 'es', fr: 'fr', it: 'it', de: 'de', nl: 'nl', ca: 'ca', gl: 'gl' };
+  var LOCALE_CODES = { pt: 'PT', en: 'EN', es: 'ES', fr: 'FR', it: 'IT', de: 'DE', nl: 'NL', ca: 'CA', gl: 'GL' };
+  var LOCALE_META = { pt: 'pt_BR', en: 'en_US', es: 'es_ES', fr: 'fr_FR', it: 'it_IT', de: 'de_DE', nl: 'nl_NL', ca: 'ca_ES', gl: 'gl_ES' };
+  var I18N_ROWS = [
+    ["Monitor BTC — carteira watch-only","Monitor BTC — watch-only wallet","Monitor BTC — cartera de solo lectura","Monitor BTC — portefeuille en lecture seule","Monitor BTC — portafoglio di sola lettura","Monitor BTC — Nur-Lese-Wallet","Monitor BTC — alleen-lezen portemonnee","Monitor BTC — cartera de només lectura","Monitor BTC — carteira de só lectura"],
+    ["pular para o conteúdo","skip to content","saltar al contenido","aller au contenu","salta al contenuto","zum Inhalt springen","naar de inhoud","salta al contingut","saltar ao contido"],
+    ["Telas","Screens","Pantallas","Écrans","Schermate","Bildschirme","Schermen","Pantalles","Pantallas"],
+    ["carteira","wallet","cartera","portefeuille","portafoglio","wallet","portemonnee","cartera","carteira"],
+    ["histórico","history","historial","historique","cronologia","verlauf","geschiedenis","historial","historial"],
+    ["sobre","about","acerca de","à propos","informazioni","über","over","sobre","sobre"],
+    ["CARTEIRA","WALLET","CARTERA","PORTEFEUILLE","PORTAFOGLIO","WALLET","PORTEMONNEE","CARTERA","CARTEIRA"],
+    ["HISTÓRICO","HISTORY","HISTORIAL","HISTORIQUE","CRONOLOGIA","VERLAUF","GESCHIEDENIS","HISTORIAL","HISTORIAL"],
+    ["chave pública","public key","clave pública","clé publique","chiave pubblica","öffentlicher Schlüssel","openbare sleutel","clau pública","clave pública"],
+    ["continuar busca","continue search","continuar búsqueda","continuer la recherche","continua la ricerca","suche fortsetzen","zoeken voortzetten","continua la cerca","continuar a busca"],
+    ["receber","receive","recibir","recevoir","ricevere","empfangen","ontvangen","rebre","recibir"],
+    ["enviar","send","enviar","envoyer","inviare","senden","verzenden","enviar","enviar"],
+    ["destino","destination","destino","destination","destinazione","Ziel","bestemming","destinació","destino"],
+    ["quantidade","amount","importe","montant","importo","Betrag","bedrag","import","importe"],
+    ["saída","output","salida","sortie","uscita","Ausgabe","uitgang","sortida","saída"],
+    ["troco","change","cambio","monnaie","resto","Wechselgeld","wisselgeld","canvi","troco"],
+    ["endereço","address","dirección","adresse","indirizzo","Adresse","adres","adreça","enderezo"],
+    ["taxa","fee","comisión","frais","commissione","Gebühr","kosten","comissió","comisión"],
+    ["pó","dust","polvo","poussière","polvere","Staub","stof","pols","po"],
+    ["txid","txid","txid","txid","txid","txid","txid","txid","txid"],
+    ["vsize","vsize","vsize","vsize","vsize","vsize","vsize","vsize","vsize"],
+    ["rbf","rbf","rbf","rbf","rbf","rbf","rbf","rbf","rbf"],
+    ["agendado","scheduled","programado","programmé","programmato","geplant","gepland","programat","programado"],
+    ["Exportar PSBT","Export PSBT","Exportar PSBT","Exporter le PSBT","Esporta PSBT","PSBT exportieren","PSBT exporteren","Exportar PSBT","Exportar PSBT"],
+    ["baixar","download","descargar","télécharger","scarica","herunterladen","downloaden","descarregar","descargar"],
+    ["importar psbt","import psbt","importar psbt","importer psbt","importa psbt","psbt importieren","psbt importeren","importar psbt","importar psbt"],
+    ["transmitir","broadcast","transmitir","diffuser","trasmettere","senden","uitzenden","transmetre","transmitir"],
+    ["resumo da transação assinada","signed transaction summary","resumen de la transacción firmada","récapitulatif de la transaction signée","riepilogo della transazione firmata","Übersicht der signierten Transaktion","overzicht van de ondertekende transactie","resum de la transacció signada","resumo da transacción asinada"],
+    ["arquivo","file","archivo","fichier","file","Datei","bestand","fitxer","ficheiro"],
+    ["Transmitir transação","Broadcast transaction","Transmitir transacción","Diffuser la transaction","Trasmetti transazione","Transaktion senden","Transactie uitzenden","Transmetre transacció","Transmitir transacción"],
+    ["cancelar","cancel","cancelar","annuler","annulla","abbrechen","annuleren","cancel·lar","cancelar"],
+    ["confirmar","confirm","confirmar","confirmer","conferma","bestätigen","bevestigen","confirmar","confirmar"],
+    ["[ ... ] carregando transações...","[ ... ] loading transactions...","[ ... ] cargando transacciones...","[ ... ] chargement des transactions...","[ ... ] caricamento transazioni...","[ ... ] Transaktionen werden geladen...","[ ... ] transacties laden...","[ ... ] carregant transaccions...","[ ... ] cargando transaccións..."],
+    ["[ erro ] não foi possível carregar o histórico.","[ error ] the history could not be loaded.","[ error ] no se pudo cargar el historial.","[ erreur ] impossible de charger l'historique.","[ errore ] non è stato possibile caricare la cronologia.","[ Fehler ] der Verlauf konnte nicht geladen werden.","[ fout ] de geschiedenis kon niet worden geladen.","[ error ] no s'ha pogut carregar l'historial.","[ erro ] non foi posible cargar o historial."],
+    ["tentar de novo","try again","intentar de nuevo","réessayer","riprova","erneut versuchen","opnieuw proberen","tornar-ho a provar","tentar de novo"],
+    ["[ vazio ] nenhuma transação ainda.","[ empty ] no transactions yet.","[ vacío ] todavía no hay transacciones.","[ vide ] aucune transaction pour l'instant.","[ vuoto ] nessuna transazione per ora.","[ leer ] noch keine Transaktionen.","[ leeg ] nog geen transacties.","[ buit ] encara no hi ha transaccions.","[ baleiro ] aínda non hai transaccións."],
+    ["SOBRE","ABOUT","ACERCA DE","À PROPOS","INFORMAZIONI","ÜBER","OVER","SOBRE","SOBRE"],
+    ["o que é esta ferramenta","what this tool is","qué es esta herramienta","ce qu'est cet outil","cos'è questo strumento","was dieses Werkzeug ist","wat deze tool is","què és aquesta eina","que é esta ferramenta"],
+    ["O Monitor BTC é uma carteira de acompanhamento. Você cola a chave pública da sua carteira Bitcoin (<code>xpub</code>, <code>zpub</code> ou <code>ypub</code>) e ele mostra o saldo, os endereços para receber e o histórico de transações. Ele não pede senha, não guarda nada e não tem a chave privada: só lê o que já existe na rede.","Monitor BTC is a watch-only wallet. You paste your Bitcoin wallet's public key (<code>xpub</code>, <code>zpub</code> or <code>ypub</code>) and it shows the balance, the receiving addresses and the transaction history. It does not ask for a password, stores nothing and does not hold the private key: it only reads what already exists on the network.","Monitor BTC es una cartera de seguimiento. Pegas la clave pública de tu cartera Bitcoin (<code>xpub</code>, <code>zpub</code> o <code>ypub</code>) y muestra el saldo, las direcciones para recibir y el historial de transacciones. No pide contraseña, no guarda nada y no tiene la clave privada: solo lee lo que ya existe en la red.","Monitor BTC est un portefeuille de suivi. Vous collez la clé publique de votre portefeuille Bitcoin (<code>xpub</code>, <code>zpub</code> ou <code>ypub</code>) et il affiche le solde, les adresses de réception et l'historique des transactions. Il ne demande pas de mot de passe, ne conserve rien et ne détient pas la clé privée : il ne lit que ce qui existe déjà sur le réseau.","Monitor BTC è un portafoglio di sola osservazione. Incolli la chiave pubblica del tuo portafoglio Bitcoin (<code>xpub</code>, <code>zpub</code> o <code>ypub</code>) e mostra il saldo, gli indirizzi per ricevere e la cronologia delle transazioni. Non chiede una password, non salva nulla e non ha la chiave privata: legge solo ciò che esiste già nella rete.","Monitor BTC ist eine Nur-Lese-Wallet. Du fügst den öffentlichen Schlüssel deiner Bitcoin-Wallet ein (<code>xpub</code>, <code>zpub</code> oder <code>ypub</code>) und sie zeigt das Guthaben, die Empfangsadressen und den Transaktionsverlauf. Sie fragt nach keinem Passwort, speichert nichts und hat keinen privaten Schlüssel: Sie liest nur, was bereits im Netzwerk existiert.","Monitor BTC is een alleen-lezen portemonnee. Je plakt de openbare sleutel van je Bitcoin-portemonnee (<code>xpub</code>, <code>zpub</code> of <code>ypub</code>) en hij toont het saldo, de ontvangstadressen en de transactiegeschiedenis. Hij vraagt geen wachtwoord, bewaart niets en heeft de privésleutel niet: hij leest alleen wat al op het netwerk bestaat.","Monitor BTC és una cartera de seguiment. Enganxes la clau pública de la teva cartera Bitcoin (<code>xpub</code>, <code>zpub</code> o <code>ypub</code>) i mostra el saldo, les adreces per rebre i l'historial de transaccions. No demana contrasenya, no desa res i no té la clau privada: només llegeix el que ja existeix a la xarxa.","Monitor BTC é unha carteira de seguimento. Pegas a clave pública da túa carteira Bitcoin (<code>xpub</code>, <code>zpub</code> ou <code>ypub</code>) e mostra o saldo, os enderezos para recibir e o historial de transaccións. Non pide contrasinal, non garda nada e non ten a clave privada: só le o que xa existe na rede."],
+    ["Ele também prepara o envio. Você informa o valor e o destino; a taxa é calculada ao vivo e a ferramenta monta um arquivo de transação (PSBT) para ser assinado em outro programa. Depois de assinado, o arquivo volta para cá e pode ser transmitido. Quem assina é você, no <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"baixar o Cofre BTC (arquivo standalone)\" aria-label=\"baixar o Cofre BTC (arquivo standalone)\">Cofre BTC</a>, offline; a chave privada nunca passa por esta tela.","It also prepares the send. You enter the amount and the destination; the fee is calculated live and the tool builds a transaction file (PSBT) to be signed in another program. Once signed, the file comes back here and can be broadcast. You are the one who signs, in <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"download Cofre BTC (standalone file)\" aria-label=\"download Cofre BTC (standalone file)\">Cofre BTC</a>, offline; the private key never passes through this screen.","También prepara el envío. Indicas el importe y el destino; la comisión se calcula en vivo y la herramienta arma un archivo de transacción (PSBT) para firmar en otro programa. Una vez firmado, el archivo vuelve aquí y se puede transmitir. Quien firma eres tú, en el <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"descargar el Cofre BTC (archivo standalone)\" aria-label=\"descargar el Cofre BTC (archivo standalone)\">Cofre BTC</a>, sin conexión; la clave privada nunca pasa por esta pantalla.","Il prépare aussi l'envoi. Vous indiquez le montant et la destination ; les frais sont calculés en direct et l'outil assemble un fichier de transaction (PSBT) à signer dans un autre programme. Une fois signé, le fichier revient ici et peut être diffusé. C'est vous qui signez, dans le <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"télécharger le Cofre BTC (fichier autonome)\" aria-label=\"télécharger le Cofre BTC (fichier autonome)\">Cofre BTC</a>, hors ligne ; la clé privée ne passe jamais par cet écran.","Prepara anche l'invio. Indichi l'importo e la destinazione; la commissione viene calcolata in tempo reale e lo strumento compone un file di transazione (PSBT) da firmare in un altro programma. Una volta firmato, il file torna qui e può essere trasmesso. A firmare sei tu, nel <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"scarica il Cofre BTC (file standalone)\" aria-label=\"scarica il Cofre BTC (file standalone)\">Cofre BTC</a>, offline; la chiave privata non passa mai da questa schermata.","Sie bereitet auch das Senden vor. Du gibst Betrag und Ziel ein; die Gebühr wird live berechnet und das Werkzeug erstellt eine Transaktionsdatei (PSBT), die in einem anderen Programm signiert wird. Nach der Signatur kommt die Datei hierher zurück und kann gesendet werden. Du signierst im <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"Cofre BTC herunterladen (Standalone-Datei)\" aria-label=\"Cofre BTC herunterladen (Standalone-Datei)\">Cofre BTC</a>, offline; der private Schlüssel läuft nie über diesen Bildschirm.","Hij bereidt ook het verzenden voor. Je voert het bedrag en de bestemming in; de kosten worden live berekend en de tool maakt een transactiebestand (PSBT) om in een ander programma te ondertekenen. Na ondertekening komt het bestand hier terug en kan het worden uitgezonden. Jij ondertekent, in de <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"Cofre BTC downloaden (standalone bestand)\" aria-label=\"Cofre BTC downloaden (standalone bestand)\">Cofre BTC</a>, offline; de privésleutel komt nooit door dit scherm.","També prepara l'enviament. Indiques l'import i la destinació; la comissió es calcula en directe i l'eina munta un fitxer de transacció (PSBT) per signar en un altre programa. Un cop signat, el fitxer torna aquí i es pot transmetre. Qui signa ets tu, al <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"descarregar el Cofre BTC (fitxer autònom)\" aria-label=\"descarregar el Cofre BTC (fitxer autònom)\">Cofre BTC</a>, sense connexió; la clau privada no passa mai per aquesta pantalla.","Tamén prepara o envío. Indicas o importe e o destino; a comisión calcúlase en vivo e a ferramenta monta un ficheiro de transacción (PSBT) para asinar noutro programa. Unha vez asinado, o ficheiro volve aquí e pódese transmitir. Quen asina es ti, no <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"descargar o Cofre BTC (ficheiro autónomo)\" aria-label=\"descargar o Cofre BTC (ficheiro autónomo)\">Cofre BTC</a>, sen conexión; a clave privada nunca pasa por esta pantalla."],
+    ["baixar o Cofre BTC (arquivo standalone)","download Cofre BTC (standalone file)","descargar el Cofre BTC (archivo standalone)","télécharger le Cofre BTC (fichier autonome)","scarica il Cofre BTC (file standalone)","Cofre BTC herunterladen (Standalone-Datei)","Cofre BTC downloaden (standalone bestand)","descarregar el Cofre BTC (fitxer autònom)","descargar o Cofre BTC (ficheiro autónomo)"],
+    ["Nada fica guardado: a chave, o saldo, os endereços e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma.","Nothing is kept: the key, the balance, the addresses and the files live only in the tab's memory and disappear when you close or reload the page; the browser stores neither the theme nor the language.","No se guarda nada: la clave, el saldo, las direcciones y los archivos quedan solo en la memoria de la pestaña y desaparecen al cerrar o recargar la página; el navegador no guarda ni el tema ni el idioma.","Rien n'est conservé : la clé, le solde, les adresses et les fichiers restent uniquement dans la mémoire de l'onglet et disparaissent à la fermeture ou au rechargement de la page ; le navigateur ne conserve ni le thème ni la langue.","Nulla viene salvato: la chiave, il saldo, gli indirizzi e i file restano solo nella memoria della scheda e spariscono alla chiusura o al ricaricamento della pagina; il browser non salva né il tema né la lingua.","Nichts wird gespeichert: Schlüssel, Guthaben, Adressen und Dateien liegen nur im Speicher des Tabs und verschwinden beim Schließen oder Neuladen der Seite; der Browser speichert weder Design noch Sprache.","Niets wordt bewaard: de sleutel, het saldo, de adressen en de bestanden staan alleen in het geheugen van het tabblad en verdwijnen bij het sluiten of herladen van de pagina; de browser bewaart noch het thema noch de taal.","No es desa res: la clau, el saldo, les adreces i els fitxers queden només a la memòria de la pestanya i desapareixen en tancar o recarregar la pàgina; el navegador no desa ni el tema ni l'idioma.","Non se garda nada: a clave, o saldo, os enderezos e os ficheiros quedan só na memoria da lapela e desaparecen ao pechar ou recargar a páxina; o navegador non garda nin o tema nin o idioma."],
+    ["como usar","how to use","cómo usar","comment utiliser","come usare","so verwenden","hoe te gebruiken","com usar","como usar"],
+    ["<b>Acompanhar.</b> Na tela “carteira”, cole a chave pública no campo indicado. O saldo e os endereços aparecem sozinhos. Em “receber”, copie o endereço do tipo que o pagador aceita. Em “histórico”, veja as transações agrupadas pelo txid, com o que entrou, o que saiu e a taxa.","<b>Watch.</b> On the “wallet” screen, paste the public key into the indicated field. The balance and the addresses appear on their own. Under “receive”, copy the address of the type the payer accepts. Under “history”, see the transactions grouped by txid, with what came in, what went out and the fee.","<b>Seguir.</b> En la pantalla “cartera”, pega la clave pública en el campo indicado. El saldo y las direcciones aparecen solos. En “recibir”, copia la dirección del tipo que acepte el pagador. En “historial”, mira las transacciones agrupadas por txid, con lo que entró, lo que salió y la comisión.","<b>Suivre.</b> Sur l'écran « portefeuille », collez la clé publique dans le champ indiqué. Le solde et les adresses apparaissent seuls. Dans « recevoir », copiez l'adresse du type que le payeur accepte. Dans « historique », consultez les transactions groupées par txid, avec ce qui est entré, ce qui est sorti et les frais.","<b>Osservare.</b> Nella schermata “portafoglio”, incolla la chiave pubblica nel campo indicato. Il saldo e gli indirizzi compaiono da soli. In “ricevere”, copia l'indirizzo del tipo che il pagatore accetta. In “cronologia”, guarda le transazioni raggruppate per txid, con ciò che è entrato, ciò che è uscito e la commissione.","<b>Beobachten.</b> Füge auf dem Bildschirm „Wallet“ den öffentlichen Schlüssel in das angegebene Feld ein. Guthaben und Adressen erscheinen von selbst. Unter „Empfangen“ kopierst du die Adresse des Typs, den der Zahler akzeptiert. Unter „Verlauf“ siehst du die Transaktionen nach txid gruppiert, mit dem, was eingegangen und ausgegangen ist, und der Gebühr.","<b>Volgen.</b> Plak op het scherm “portemonnee” de openbare sleutel in het aangegeven veld. Het saldo en de adressen verschijnen vanzelf. Onder “ontvangen” kopieer je het adres van het type dat de betaler accepteert. Onder “geschiedenis” zie je de transacties gegroepeerd per txid, met wat er binnenkwam, wat er uitging en de kosten.","<b>Seguir.</b> A la pantalla “cartera”, enganxa la clau pública al camp indicat. El saldo i les adreces apareixen sols. A “rebre”, copia l'adreça del tipus que accepti el pagador. A “historial”, mira les transaccions agrupades pel txid, amb el que va entrar, el que va sortir i la comissió.","<b>Seguir.</b> Na pantalla “carteira”, pega a clave pública no campo indicado. O saldo e os enderezos aparecen sós. En “recibir”, copia o enderezo do tipo que acepte o pagador. En “historial”, mira as transaccións agrupadas polo txid, co que entrou, o que saíu e a comisión."],
+    ["<b>Enviar.</b> Ainda em “carteira”, desça até “enviar”. Digite o valor e o destino; a taxa aparece sozinha e o arquivo é montado na hora. Clique em “baixar”. Assine esse arquivo no Cofre BTC, offline. Depois volte, abra “transmitir”, escolha o arquivo assinado, confira o resumo e clique em “confirmar”.","<b>Send.</b> Still on “wallet”, scroll down to “send”. Type the amount and the destination; the fee appears on its own and the file is built on the spot. Click “download”. Sign that file in Cofre BTC, offline. Then come back, open “broadcast”, choose the signed file, check the summary and click “confirm”.","<b>Enviar.</b> Aún en “cartera”, baja hasta “enviar”. Escribe el importe y el destino; la comisión aparece sola y el archivo se arma al momento. Haz clic en “descargar”. Firma ese archivo en el Cofre BTC, sin conexión. Después vuelve, abre “transmitir”, elige el archivo firmado, revisa el resumen y haz clic en “confirmar”.","<b>Envoyer.</b> Toujours sur « portefeuille », descendez jusqu'à « envoyer ». Saisissez le montant et la destination ; les frais apparaissent seuls et le fichier est assemblé aussitôt. Cliquez sur « télécharger ». Signez ce fichier dans le Cofre BTC, hors ligne. Revenez ensuite, ouvrez « diffuser », choisissez le fichier signé, vérifiez le récapitulatif et cliquez sur « confirmer ».","<b>Inviare.</b> Sempre in “portafoglio”, scorri fino a “inviare”. Digita l'importo e la destinazione; la commissione appare da sola e il file viene composto subito. Fai clic su “scarica”. Firma quel file nel Cofre BTC, offline. Poi torna, apri “trasmettere”, scegli il file firmato, controlla il riepilogo e fai clic su “conferma”.","<b>Senden.</b> Scrolle weiterhin unter „Wallet“ bis „Senden“. Gib Betrag und Ziel ein; die Gebühr erscheint von selbst und die Datei wird sofort erstellt. Klicke auf „Herunterladen“. Signiere diese Datei im Cofre BTC, offline. Komm dann zurück, öffne „Senden“, wähle die signierte Datei, prüfe die Übersicht und klicke auf „Bestätigen“.","<b>Verzenden.</b> Nog steeds op “portemonnee”, scrol naar “verzenden”. Typ het bedrag en de bestemming; de kosten verschijnen vanzelf en het bestand wordt direct gemaakt. Klik op “downloaden”. Onderteken dat bestand in Cofre BTC, offline. Kom daarna terug, open “uitzenden”, kies het ondertekende bestand, controleer het overzicht en klik op “bevestigen”.","<b>Enviar.</b> Encara a “cartera”, baixa fins a “enviar”. Escriu l'import i la destinació; la comissió apareix sola i el fitxer es munta a l'instant. Fes clic a “descarregar”. Signa aquest fitxer al Cofre BTC, sense connexió. Després torna, obre “transmetre”, tria el fitxer signat, revisa el resum i fes clic a “confirmar”.","<b>Enviar.</b> Aínda en “carteira”, baixa até “enviar”. Escribe o importe e o destino; a comisión aparece soa e o ficheiro móntase na hora. Fai clic en “descargar”. Asina ese ficheiro no Cofre BTC, sen conexión. Despois volve, abre “transmitir”, escolle o ficheiro asinado, revisa o resumo e fai clic en “confirmar”."],
+    ["<b>Cofre BTC.</b> O assinador é o <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"baixar o Cofre BTC (arquivo standalone)\" aria-label=\"baixar o Cofre BTC (arquivo standalone)\">Cofre BTC</a>, um arquivo único que funciona offline, sem servidor e sem internet. Clique no nome para baixar o standalone e abra-o no computador que guarda a chave.","<b>Cofre BTC.</b> The signer is <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"download Cofre BTC (standalone file)\" aria-label=\"download Cofre BTC (standalone file)\">Cofre BTC</a>, a single file that works offline, without a server and without internet. Click the name to download the standalone and open it on the computer that holds the key.","<b>Cofre BTC.</b> El firmador es el <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"descargar el Cofre BTC (archivo standalone)\" aria-label=\"descargar el Cofre BTC (archivo standalone)\">Cofre BTC</a>, un archivo único que funciona sin conexión, sin servidor y sin internet. Haz clic en el nombre para descargar el standalone y ábrelo en el ordenador que guarda la clave.","<b>Cofre BTC.</b> Le signataire est le <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"télécharger le Cofre BTC (fichier autonome)\" aria-label=\"télécharger le Cofre BTC (fichier autonome)\">Cofre BTC</a>, un fichier unique qui fonctionne hors ligne, sans serveur et sans internet. Cliquez sur le nom pour télécharger le standalone et ouvrez-le sur l'ordinateur qui garde la clé.","<b>Cofre BTC.</b> Il firmatario è il <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"scarica il Cofre BTC (file standalone)\" aria-label=\"scarica il Cofre BTC (file standalone)\">Cofre BTC</a>, un file unico che funziona offline, senza server e senza internet. Fai clic sul nome per scaricare lo standalone e aprilo sul computer che custodisce la chiave.","<b>Cofre BTC.</b> Der Signierer ist der <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"Cofre BTC herunterladen (Standalone-Datei)\" aria-label=\"Cofre BTC herunterladen (Standalone-Datei)\">Cofre BTC</a>, eine einzelne Datei, die offline funktioniert, ohne Server und ohne Internet. Klicke auf den Namen, um das Standalone herunterzuladen, und öffne es auf dem Computer, der den Schlüssel verwahrt.","<b>Cofre BTC.</b> De ondertekenaar is de <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"Cofre BTC downloaden (standalone bestand)\" aria-label=\"Cofre BTC downloaden (standalone bestand)\">Cofre BTC</a>, één bestand dat offline werkt, zonder server en zonder internet. Klik op de naam om de standalone te downloaden en open hem op de computer die de sleutel bewaart.","<b>Cofre BTC.</b> El signador és el <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"descarregar el Cofre BTC (fitxer autònom)\" aria-label=\"descarregar el Cofre BTC (fitxer autònom)\">Cofre BTC</a>, un fitxer únic que funciona sense connexió, sense servidor i sense internet. Fes clic al nom per descarregar el standalone i obre'l a l'ordinador que guarda la clau.","<b>Cofre BTC.</b> O asinador é o <a class=\"prose-link\" href=\"/cofre-btc.html\" download=\"cofre-btc.html\" title=\"descargar o Cofre BTC (ficheiro autónomo)\" aria-label=\"descargar o Cofre BTC (ficheiro autónomo)\">Cofre BTC</a>, un ficheiro único que funciona sen conexión, sen servidor e sen internet. Fai clic no nome para descargar o standalone e ábreo no ordenador que garda a clave."],
+    ["<b>Acelerar.</b> Se uma transação sua ficar presa no mempool, o histórico oferece o botão “acelerar”. Ele monta um PSBT filho (CPFP) que gasta o troco da transação presa e devolve o resto para a carteira; o pai não muda. Assine o filho no Cofre BTC e importe o arquivo em “carteira”, no bloco “transmitir”. Se o Cofre mostrar a saída como externa, não assine.","<b>Speed up.</b> If one of your transactions gets stuck in the mempool, the history offers the “speed up” button. It builds a child PSBT (CPFP) that spends the stuck transaction's change and returns the rest to the wallet; the parent does not change. Sign the child in Cofre BTC and import the file under “wallet”, in the “broadcast” block. If Cofre shows the output as external, do not sign.","<b>Acelerar.</b> Si una transacción tuya se queda atascada en el mempool, el historial ofrece el botón “acelerar”. Arma un PSBT hijo (CPFP) que gasta el cambio de la transacción atascada y devuelve el resto a la cartera; el padre no cambia. Firma el hijo en el Cofre BTC e importa el archivo en “cartera”, en el bloque “transmitir”. Si el Cofre muestra la salida como externa, no firmes.","<b>Accélérer.</b> Si une de vos transactions reste bloquée dans le mempool, l'historique propose le bouton « accélérer ». Il assemble un PSBT enfant (CPFP) qui dépense le reste de la transaction bloquée et renvoie le solde au portefeuille ; la transaction parente ne change pas. Signez l'enfant dans le Cofre BTC et importez le fichier dans « portefeuille », dans le bloc « diffuser ». Si le Cofre affiche la sortie comme externe, ne signez pas.","<b>Accelerare.</b> Se una tua transazione resta bloccata nel mempool, la cronologia offre il pulsante “accelera”. Compone un PSBT figlio (CPFP) che spende il resto della transazione bloccata e restituisce il rimanente al portafoglio; la transazione madre non cambia. Firma il figlio nel Cofre BTC e importa il file in “portafoglio”, nel blocco “trasmettere”. Se il Cofre mostra l'uscita come esterna, non firmare.","<b>Beschleunigen.</b> Bleibt eine deiner Transaktionen im Mempool stecken, bietet der Verlauf die Schaltfläche „Beschleunigen“. Sie erstellt eine Kind-PSBT (CPFP), die das Wechselgeld der steckenden Transaktion ausgibt und den Rest an die Wallet zurückgibt; die Eltern-Transaktion ändert sich nicht. Signiere das Kind im Cofre BTC und importiere die Datei unter „Wallet“ im Block „Senden“. Wenn der Cofre die Ausgabe als extern anzeigt, signiere nicht.","<b>Versnellen.</b> Als een van je transacties vastloopt in de mempool, biedt de geschiedenis de knop “versnellen”. Die maakt een kind-PSBT (CPFP) die het wisselgeld van de vastgelopen transactie uitgeeft en de rest terugstuurt naar de portemonnee; de ouder verandert niet. Onderteken het kind in Cofre BTC en importeer het bestand onder “portemonnee”, in het blok “uitzenden”. Als Cofre de uitgang als extern toont, onderteken dan niet.","<b>Accelerar.</b> Si una transacció teva queda encallada al mempool, l'historial ofereix el botó “accelerar”. Munta un PSBT fill (CPFP) que gasta el canvi de la transacció encallada i torna la resta a la cartera; el pare no canvia. Signa el fill al Cofre BTC i importa el fitxer a “cartera”, al bloc “transmetre”. Si el Cofre mostra la sortida com a externa, no signis.","<b>Acelerar.</b> Se unha transacción túa queda atascada no mempool, o historial ofrece o botón “acelerar”. Monta un PSBT fillo (CPFP) que gasta o troco da transacción atascada e devolve o resto á carteira; o pai non cambia. Asina o fillo no Cofre BTC e importa o ficheiro en “carteira”, no bloque “transmitir”. Se o Cofre mostra a saída como externa, non asines."],
+    ["<b>Telas.</b> O menu no alto alterna entre “carteira”, “histórico” e “sobre”.","<b>Screens.</b> The menu at the top switches between “wallet”, “history” and “about”.","<b>Pantallas.</b> El menú de arriba alterna entre “cartera”, “historial” y “acerca de”.","<b>Écrans.</b> Le menu en haut alterne entre « portefeuille », « historique » et « à propos ».","<b>Schermate.</b> Il menu in alto alterna tra “portafoglio”, “cronologia” e “informazioni”.","<b>Bildschirme.</b> Das Menü oben wechselt zwischen „Wallet“, „Verlauf“ und „Über“.","<b>Schermen.</b> Het menu bovenaan wisselt tussen “portemonnee”, “geschiedenis” en “over”.","<b>Pantalles.</b> El menú de dalt alterna entre “cartera”, “historial” i “sobre”.","<b>Pantallas.</b> O menú de arriba alterna entre “carteira”, “historial” e “sobre”."],
+    ["os BIPs usados","the BIPs used","los BIP usados","les BIP utilisés","i BIP usati","die verwendeten BIPs","de gebruikte BIP's","els BIP usats","os BIP usados"],
+    ["Os BIPs são as regras públicas do Bitcoin que a ferramenta segue. Eles cobrem a chave, os endereços e o arquivo de transação.","BIPs are the public Bitcoin rules the tool follows. They cover the key, the addresses and the transaction file.","Los BIP son las reglas públicas de Bitcoin que sigue la herramienta. Cubren la clave, las direcciones y el archivo de transacción.","Les BIP sont les règles publiques de Bitcoin que suit l'outil. Ils couvrent la clé, les adresses et le fichier de transaction.","I BIP sono le regole pubbliche di Bitcoin che lo strumento segue. Coprono la chiave, gli indirizzi e il file di transazione.","BIPs sind die öffentlichen Bitcoin-Regeln, denen das Werkzeug folgt. Sie decken den Schlüssel, die Adressen und die Transaktionsdatei ab.","BIP's zijn de openbare Bitcoin-regels die de tool volgt. Ze dekken de sleutel, de adressen en het transactiebestand.","Els BIP són les regles públiques de Bitcoin que segueix l'eina. Cobreixen la clau, les adreces i el fitxer de transacció.","Os BIP son as regras públicas de Bitcoin que segue a ferramenta. Cobren a clave, os enderezos e o ficheiro de transacción."],
+    ["<b>Chave e contas.</b>","<b>Key and accounts.</b>","<b>Clave y cuentas.</b>","<b>Clé et comptes.</b>","<b>Chiave e conti.</b>","<b>Schlüssel und Konten.</b>","<b>Sleutel en rekeningen.</b>","<b>Clau i comptes.</b>","<b>Clave e contas.</b>"],
+    ["<b>BIP32</b> — chave pública estendida e derivação dos endereços.","<b>BIP32</b> — extended public key and address derivation.","<b>BIP32</b> — clave pública extendida y derivación de las direcciones.","<b>BIP32</b> — clé publique étendue et dérivation des adresses.","<b>BIP32</b> — chiave pubblica estesa e derivazione degli indirizzi.","<b>BIP32</b> — erweiterter öffentlicher Schlüssel und Adressableitung.","<b>BIP32</b> — uitgebreide openbare sleutel en afleiding van adressen.","<b>BIP32</b> — clau pública estesa i derivació de les adreces.","<b>BIP32</b> — clave pública estendida e derivación dos enderezos."],
+    ["<b>BIP43</b> — tipo da conta no caminho da chave.","<b>BIP43</b> — account type in the key path.","<b>BIP43</b> — tipo de cuenta en la ruta de la clave.","<b>BIP43</b> — type de compte dans le chemin de la clé.","<b>BIP43</b> — tipo di conto nel percorso della chiave.","<b>BIP43</b> — Kontotyp im Schlüsselpfad.","<b>BIP43</b> — rekeningtype in het sleutelpad.","<b>BIP43</b> — tipus de compte al camí de la clau.","<b>BIP43</b> — tipo de conta no camiño da clave."],
+    ["<b>BIP44</b> — conta antiga (endereços começando com <code>1</code>).","<b>BIP44</b> — legacy account (addresses starting with <code>1</code>).","<b>BIP44</b> — cuenta antigua (direcciones que empiezan por <code>1</code>).","<b>BIP44</b> — compte ancien (adresses commençant par <code>1</code>).","<b>BIP44</b> — conto legacy (indirizzi che iniziano con <code>1</code>).","<b>BIP44</b> — altes Konto (Adressen, die mit <code>1</code> beginnen).","<b>BIP44</b> — oude rekening (adressen die met <code>1</code> beginnen).","<b>BIP44</b> — compte antic (adreces que comencen per <code>1</code>).","<b>BIP44</b> — conta antiga (enderezos que comezan por <code>1</code>)."],
+    ["<b>BIP49</b> — conta segwit aninhada (endereços começando com <code>3</code>).","<b>BIP49</b> — nested segwit account (addresses starting with <code>3</code>).","<b>BIP49</b> — cuenta segwit anidada (direcciones que empiezan por <code>3</code>).","<b>BIP49</b> — compte segwit imbriqué (adresses commençant par <code>3</code>).","<b>BIP49</b> — conto segwit annidato (indirizzi che iniziano con <code>3</code>).","<b>BIP49</b> — verschachteltes Segwit-Konto (Adressen, die mit <code>3</code> beginnen).","<b>BIP49</b> — geneste segwit-rekening (adressen die met <code>3</code> beginnen).","<b>BIP49</b> — compte segwit imbricat (adreces que comencen per <code>3</code>).","<b>BIP49</b> — conta segwit aniñada (enderezos que comezan por <code>3</code>)."],
+    ["<b>BIP84</b> — conta segwit nativa (endereços começando com <code>bc1q</code>).","<b>BIP84</b> — native segwit account (addresses starting with <code>bc1q</code>).","<b>BIP84</b> — cuenta segwit nativa (direcciones que empiezan por <code>bc1q</code>).","<b>BIP84</b> — compte segwit natif (adresses commençant par <code>bc1q</code>).","<b>BIP84</b> — conto segwit nativo (indirizzi che iniziano con <code>bc1q</code>).","<b>BIP84</b> — natives Segwit-Konto (Adressen, die mit <code>bc1q</code> beginnen).","<b>BIP84</b> — native segwit-rekening (adressen die met <code>bc1q</code> beginnen).","<b>BIP84</b> — compte segwit natiu (adreces que comencen per <code>bc1q</code>).","<b>BIP84</b> — conta segwit nativa (enderezos que comezan por <code>bc1q</code>)."],
+    ["<b>BIP86</b> — conta Taproot (endereços começando com <code>bc1p</code>).","<b>BIP86</b> — Taproot account (addresses starting with <code>bc1p</code>).","<b>BIP86</b> — cuenta Taproot (direcciones que empiezan por <code>bc1p</code>).","<b>BIP86</b> — compte Taproot (adresses commençant par <code>bc1p</code>).","<b>BIP86</b> — conto Taproot (indirizzi che iniziano con <code>bc1p</code>).","<b>BIP86</b> — Taproot-Konto (Adressen, die mit <code>bc1p</code> beginnen).","<b>BIP86</b> — Taproot-rekening (adressen die met <code>bc1p</code> beginnen).","<b>BIP86</b> — compte Taproot (adreces que comencen per <code>bc1p</code>).","<b>BIP86</b> — conta Taproot (enderezos que comezan por <code>bc1p</code>)."],
+    ["<b>Endereços.</b>","<b>Addresses.</b>","<b>Direcciones.</b>","<b>Adresses.</b>","<b>Indirizzi.</b>","<b>Adressen.</b>","<b>Adressen.</b>","<b>Adreces.</b>","<b>Enderezos.</b>"],
+    ["<b>BIP13</b> — formato do endereço que começa com <code>3</code>, usado no BIP49.","<b>BIP13</b> — format of the address starting with <code>3</code>, used in BIP49.","<b>BIP13</b> — formato de la dirección que empieza por <code>3</code>, usado en BIP49.","<b>BIP13</b> — format de l'adresse commençant par <code>3</code>, utilisé dans BIP49.","<b>BIP13</b> — formato dell'indirizzo che inizia con <code>3</code>, usato in BIP49.","<b>BIP13</b> — Format der Adresse, die mit <code>3</code> beginnt, verwendet in BIP49.","<b>BIP13</b> — formaat van het adres dat met <code>3</code> begint, gebruikt in BIP49.","<b>BIP13</b> — format de l'adreça que comença per <code>3</code>, usat a BIP49.","<b>BIP13</b> — formato do enderezo que comeza por <code>3</code>, usado no BIP49."],
+    ["<b>BIP16</b> — regra do endereço que começa com <code>3</code>, usado no BIP49.","<b>BIP16</b> — rule of the address starting with <code>3</code>, used in BIP49.","<b>BIP16</b> — regla de la dirección que empieza por <code>3</code>, usada en BIP49.","<b>BIP16</b> — règle de l'adresse commençant par <code>3</code>, utilisée dans BIP49.","<b>BIP16</b> — regola dell'indirizzo che inizia con <code>3</code>, usato in BIP49.","<b>BIP16</b> — Regel der Adresse, die mit <code>3</code> beginnt, verwendet in BIP49.","<b>BIP16</b> — regel van het adres dat met <code>3</code> begint, gebruikt in BIP49.","<b>BIP16</b> — regla de l'adreça que comença per <code>3</code>, usada a BIP49.","<b>BIP16</b> — regra do enderezo que comeza por <code>3</code>, usado no BIP49."],
+    ["<b>BIP141</b> — regra dos endereços segwit.","<b>BIP141</b> — rule for segwit addresses.","<b>BIP141</b> — regla de las direcciones segwit.","<b>BIP141</b> — règle des adresses segwit.","<b>BIP141</b> — regola degli indirizzi segwit.","<b>BIP141</b> — Regel für Segwit-Adressen.","<b>BIP141</b> — regel voor segwit-adressen.","<b>BIP141</b> — regla de les adreces segwit.","<b>BIP141</b> — regra dos enderezos segwit."],
+    ["<b>BIP173</b> — escrita dos endereços <code>bc1q</code>.","<b>BIP173</b> — spelling of <code>bc1q</code> addresses.","<b>BIP173</b> — escritura de las direcciones <code>bc1q</code>.","<b>BIP173</b> — écriture des adresses <code>bc1q</code>.","<b>BIP173</b> — scrittura degli indirizzi <code>bc1q</code>.","<b>BIP173</b> — Schreibweise der <code>bc1q</code>-Adressen.","<b>BIP173</b> — schrijfwijze van <code>bc1q</code>-adressen.","<b>BIP173</b> — escriptura de les adreces <code>bc1q</code>.","<b>BIP173</b> — escrita dos enderezos <code>bc1q</code>."],
+    ["<b>BIP341</b> — chave pública do endereço <code>bc1p</code> (Taproot).","<b>BIP341</b> — public key of the <code>bc1p</code> address (Taproot).","<b>BIP341</b> — clave pública de la dirección <code>bc1p</code> (Taproot).","<b>BIP341</b> — clé publique de l'adresse <code>bc1p</code> (Taproot).","<b>BIP341</b> — chiave pubblica dell'indirizzo <code>bc1p</code> (Taproot).","<b>BIP341</b> — öffentlicher Schlüssel der <code>bc1p</code>-Adresse (Taproot).","<b>BIP341</b> — openbare sleutel van het <code>bc1p</code>-adres (Taproot).","<b>BIP341</b> — clau pública de l'adreça <code>bc1p</code> (Taproot).","<b>BIP341</b> — clave pública do enderezo <code>bc1p</code> (Taproot)."],
+    ["<b>BIP350</b> — escrita dos endereços <code>bc1p</code>.","<b>BIP350</b> — spelling of <code>bc1p</code> addresses.","<b>BIP350</b> — escritura de las direcciones <code>bc1p</code>.","<b>BIP350</b> — écriture des adresses <code>bc1p</code>.","<b>BIP350</b> — scrittura degli indirizzi <code>bc1p</code>.","<b>BIP350</b> — Schreibweise der <code>bc1p</code>-Adressen.","<b>BIP350</b> — schrijfwijze van <code>bc1p</code>-adressen.","<b>BIP350</b> — escriptura de les adreces <code>bc1p</code>.","<b>BIP350</b> — escrita dos enderezos <code>bc1p</code>."],
+    ["<b>Transação.</b>","<b>Transaction.</b>","<b>Transacción.</b>","<b>Transaction.</b>","<b>Transazione.</b>","<b>Transaktion.</b>","<b>Transactie.</b>","<b>Transacció.</b>","<b>Transacción.</b>"],
+    ["<b>BIP125</b> — sinalização de substituição (RBF). A ferramenta não sinaliza: o resumo mostra <code>rbf</code> como <code>não</code>.","<b>BIP125</b> — replacement signaling (RBF). The tool does not signal: the summary shows <code>rbf</code> as <code>no</code>.","<b>BIP125</b> — señalización de sustitución (RBF). La herramienta no señala: el resumen muestra <code>rbf</code> como <code>no</code>.","<b>BIP125</b> — signalement de remplacement (RBF). L'outil ne signale pas : le récapitulatif affiche <code>rbf</code> comme <code>non</code>.","<b>BIP125</b> — segnalazione di sostituzione (RBF). Lo strumento non segnala: il riepilogo mostra <code>rbf</code> come <code>no</code>.","<b>BIP125</b> — Ersetzungssignalisierung (RBF). Das Werkzeug signalisiert nicht: die Übersicht zeigt <code>rbf</code> als <code>nein</code>.","<b>BIP125</b> — signaal voor vervanging (RBF). De tool signaleert niet: het overzicht toont <code>rbf</code> als <code>nee</code>.","<b>BIP125</b> — senyalització de substitució (RBF). L'eina no senyalitza: el resum mostra <code>rbf</code> com a <code>no</code>.","<b>BIP125</b> — sinalización de substitución (RBF). A ferramenta non sinaliza: o resumo mostra <code>rbf</code> como <code>non</code>."],
+    ["<b>BIP174</b> — formato do arquivo de transação (PSBT).","<b>BIP174</b> — transaction file format (PSBT).","<b>BIP174</b> — formato del archivo de transacción (PSBT).","<b>BIP174</b> — format du fichier de transaction (PSBT).","<b>BIP174</b> — formato del file di transazione (PSBT).","<b>BIP174</b> — Format der Transaktionsdatei (PSBT).","<b>BIP174</b> — formaat van het transactiebestand (PSBT).","<b>BIP174</b> — format del fitxer de transacció (PSBT).","<b>BIP174</b> — formato do ficheiro de transacción (PSBT)."],
+    ["<b>BIP371</b> — dados do Taproot dentro do arquivo de transação.","<b>BIP371</b> — Taproot data inside the transaction file.","<b>BIP371</b> — datos de Taproot dentro del archivo de transacción.","<b>BIP371</b> — données Taproot dans le fichier de transaction.","<b>BIP371</b> — dati Taproot nel file di transazione.","<b>BIP371</b> — Taproot-Daten in der Transaktionsdatei.","<b>BIP371</b> — Taproot-gegevens in het transactiebestand.","<b>BIP371</b> — dades de Taproot dins del fitxer de transacció.","<b>BIP371</b> — datos de Taproot dentro do ficheiro de transacción."],
+    ["A ferramenta trabalha só com a rede principal do Bitcoin.","The tool works only with the Bitcoin mainnet.","La herramienta trabaja solo con la red principal de Bitcoin.","L'outil ne travaille qu'avec le réseau principal de Bitcoin.","Lo strumento lavora solo con la rete principale di Bitcoin.","Das Werkzeug arbeitet nur mit dem Bitcoin-Hauptnetz.","De tool werkt alleen met het Bitcoin-hoofdnet.","L'eina treballa només amb la xarxa principal de Bitcoin.","A ferramenta traballa só coa rede principal de Bitcoin."],
+    ["<b>Última atualização:</b> <time datetime=\"2026-11-17\">17 de novembro de 2026</time>.","<b>Last updated:</b> <time datetime=\"2026-11-17\">November 17, 2026</time>.","<b>Última actualización:</b> <time datetime=\"2026-11-17\">17 de noviembre de 2026</time>.","<b>Dernière mise à jour :</b> <time datetime=\"2026-11-17\">17 novembre 2026</time>.","<b>Ultimo aggiornamento:</b> <time datetime=\"2026-11-17\">17 novembre 2026</time>.","<b>Letzte Aktualisierung:</b> <time datetime=\"2026-11-17\">17. November 2026</time>.","<b>Laatst bijgewerkt:</b> <time datetime=\"2026-11-17\">17 november 2026</time>.","<b>Última actualització:</b> <time datetime=\"2026-11-17\">17 de novembre de 2026</time>.","<b>Última actualización:</b> <time datetime=\"2026-11-17\">17 de novembro de 2026</time>."],
+    ["Página não encontrada. O endereço que você abriu não existe: pode ter mudado de lugar ou o link pode estar quebrado.","Page not found. The address you opened does not exist: it may have moved or the link may be broken.","Página no encontrada. La dirección que abriste no existe: puede haber cambiado de lugar o el enlace puede estar roto.","Page introuvable. L'adresse que vous avez ouverte n'existe pas : elle a peut-être changé de place ou le lien est peut-être cassé.","Pagina non trovata. L'indirizzo che hai aperto non esiste: può essersi spostato o il link può essere rotto.","Seite nicht gefunden. Die Adresse, die du geöffnet hast, existiert nicht: Sie könnte umgezogen sein oder der Link könnte defekt sein.","Pagina niet gevonden. Het adres dat je hebt geopend bestaat niet: het is misschien verplaatst of de link is misschien kapot.","Pàgina no trobada. L'adreça que has obert no existeix: pot haver canviat de lloc o l'enllaç pot estar trencat.","Páxina non atopada. O enderezo que abriches non existe: pode ter cambiado de lugar ou a ligazón pode estar rota."],
+    ["IDIOMAS","LANGUAGES","IDIOMAS","LANGUES","LINGUE","SPRACHEN","TALEN","IDIOMES","IDIOMAS"],
+    ["Idiomas","Languages","Idiomas","Langues","Lingue","Sprachen","Talen","Idiomes","Idiomas"],
+    ["automático","automatic","automático","automatique","automatico","automatisch","automatisch","automàtic","automático"],
+    ["voltar","back","volver","retour","indietro","zurück","terug","torna","volver"],
+    ["Rolar para cima","Scroll up","Desplazar hacia arriba","Faire défiler vers le haut","Scorri verso l'alto","Nach oben scrollen","Naar boven scrollen","Desplaça cap amunt","Desprazar cara arriba"],
+    ["Rolar para baixo","Scroll down","Desplazar hacia abajo","Faire défiler vers le bas","Scorri verso il basso","Nach unten scrollen","Naar beneden scrollen","Desplaça cap avall","Desprazar cara abaixo"],
+    ["Páginas do histórico","History pages","Páginas del historial","Pages de l'historique","Pagine della cronologia","Seiten des Verlaufs","Pagina's van de geschiedenis","Pàgines de l'historial","Páxinas do historial"],
+    ["Página anterior","Previous page","Página anterior","Page précédente","Pagina precedente","Vorherige Seite","Vorige pagina","Pàgina anterior","Páxina anterior"],
+    ["de","of","de","sur","di","von","van","de","de"],
+    ["Próxima página","Next page","Página siguiente","Page suivante","Pagina successiva","Nächste Seite","Volgende pagina","Pàgina següent","Páxina seguinte"],
+    ["Idioma","Language","Idioma","Langue","Lingua","Sprache","Taal","Idioma","Idioma"],
+    ["Ativar tema escuro","Enable dark theme","Activar tema oscuro","Activer le thème sombre","Attiva tema scuro","Dunkles Design aktivieren","Donker thema inschakelen","Activa el tema fosc","Activar o tema escuro"],
+    ["Ativar tema claro","Enable light theme","Activar tema claro","Activer le thème clair","Attiva tema chiaro","Helles Design aktivieren","Licht thema inschakelen","Activa el tema clar","Activar o tema claro"],
+    ["Monitor BTC — xpub como credencial, saldo e endereços derivados na hora, e envio de BTC em PSBT sem assinatura. Nada é guardado: nem a xpub, nem endereços. Sem chave privada.","Monitor BTC — xpub as the credential, balance and addresses derived on the spot, and BTC sent as an unsigned PSBT. Nothing is stored: not the xpub, not the addresses. No private key.","Monitor BTC — la xpub como credencial, saldo y direcciones derivadas al momento, y envío de BTC en un PSBT sin firmar. No se guarda nada: ni la xpub ni las direcciones. Sin clave privada.","Monitor BTC — la xpub comme identifiant, solde et adresses dérivés à la volée, et envoi de BTC en PSBT non signé. Rien n'est conservé : ni la xpub, ni les adresses. Sans clé privée.","Monitor BTC — la xpub come credenziale, saldo e indirizzi derivati al momento, e invio di BTC in un PSBT non firmato. Nulla viene salvato: né la xpub né gli indirizzi. Senza chiave privata.","Monitor BTC — die xpub als Zugang, Guthaben und Adressen sofort abgeleitet, und BTC-Versand als unsignierte PSBT. Nichts wird gespeichert: weder die xpub noch die Adressen. Ohne privaten Schlüssel.","Monitor BTC — de xpub als inloggegevens, saldo en adressen direct afgeleid, en BTC versturen als niet-ondertekende PSBT. Niets wordt bewaard: noch de xpub, noch de adressen. Zonder privésleutel.","Monitor BTC — la xpub com a credencial, saldo i adreces derivades a l'instant, i enviament de BTC en un PSBT sense signar. No es desa res: ni la xpub ni les adreces. Sense clau privada.","Monitor BTC — a xpub como credencial, saldo e enderezos derivados na hora, e envío de BTC nun PSBT sen sinatura. Non se garda nada: nin a xpub nin os enderezos. Sen clave privada."],
+    ["Card escuro do Monitor BTC, com o ícone do Monitor BTC, o título e o idioma português.","Dark Monitor BTC card, with the Monitor BTC icon, the title and the Portuguese language.","Tarjeta oscura de Monitor BTC, con el icono de Monitor BTC, el título y el idioma portugués.","Carte sombre de Monitor BTC, avec l'icône de Monitor BTC, le titre et la langue portugaise.","Scheda scura di Monitor BTC, con l'icona di Monitor BTC, il titolo e la lingua portoghese.","Dunkle Karte von Monitor BTC, mit dem Monitor-BTC-Symbol, dem Titel und der portugiesischen Sprache.","Donkere kaart van Monitor BTC, met het Monitor BTC-pictogram, de titel en de Portugese taal.","Targeta fosca de Monitor BTC, amb la icona de Monitor BTC, el títol i l'idioma portuguès.","Tarxeta escura do Monitor BTC, coa icona do Monitor BTC, o título e o idioma portugués."],
+    ["chave inválida: use a xpub, zpub ou ypub da conta.","invalid key: use the account's xpub, zpub or ypub.","clave no válida: usa la xpub, zpub o ypub de la cuenta.","clé invalide : utilisez la xpub, zpub ou ypub du compte.","chiave non valida: usa la xpub, zpub o ypub del conto.","ungültiger Schlüssel: Verwende die xpub, zpub oder ypub des Kontos.","ongeldige sleutel: gebruik de xpub, zpub of ypub van de rekening.","clau no vàlida: fes servir la xpub, zpub o ypub del compte.","clave non válida: usa a xpub, zpub ou ypub da conta."],
+    ["chave inválida: isso é uma chave privada (xprv/yprv/zprv), nunca cole a privada aqui; use a xpub, zpub ou ypub da conta.","invalid key: this is a private key (xprv/yprv/zprv), never paste the private key here; use the account's xpub, zpub or ypub.","clave no válida: esto es una clave privada (xprv/yprv/zprv), nunca pegues la privada aquí; usa la xpub, zpub o ypub de la cuenta.","clé invalide : c'est une clé privée (xprv/yprv/zprv), ne collez jamais la privée ici ; utilisez la xpub, zpub ou ypub du compte.","chiave non valida: questa è una chiave privata (xprv/yprv/zprv), non incollare mai la privata qui; usa la xpub, zpub o ypub del conto.","ungültiger Schlüssel: Das ist ein privater Schlüssel (xprv/yprv/zprv); füge den privaten niemals hier ein. Verwende die xpub, zpub oder ypub des Kontos.","ongeldige sleutel: dit is een privésleutel (xprv/yprv/zprv); plak de privésleutel nooit hier. Gebruik de xpub, zpub of ypub van de rekening.","clau no vàlida: això és una clau privada (xprv/yprv/zprv); no enganxis mai la privada aquí. Fes servir la xpub, zpub o ypub del compte.","clave non válida: isto é unha clave privada (xprv/yprv/zprv); nunca peges a privada aquí. Usa a xpub, zpub ou ypub da conta."],
+    ["chave inválida: isso é um endereço Bitcoin; use a xpub, zpub ou ypub da conta.","invalid key: this is a Bitcoin address; use the account's xpub, zpub or ypub.","clave no válida: esto es una dirección Bitcoin; usa la xpub, zpub o ypub de la cuenta.","clé invalide : c'est une adresse Bitcoin ; utilisez la xpub, zpub ou ypub du compte.","chiave non valida: questo è un indirizzo Bitcoin; usa la xpub, zpub o ypub del conto.","ungültiger Schlüssel: Das ist eine Bitcoin-Adresse; verwende die xpub, zpub oder ypub des Kontos.","ongeldige sleutel: dit is een Bitcoin-adres; gebruik de xpub, zpub of ypub van de rekening.","clau no vàlida: això és una adreça Bitcoin; fes servir la xpub, zpub o ypub del compte.","clave non válida: isto é un enderezo Bitcoin; usa a xpub, zpub ou ypub da conta."],
+    ["chave inválida: use a xpub, zpub ou ypub da conta; endereço, chave privada e outro texto são recusados.","invalid key: use the account's xpub, zpub or ypub; addresses, private keys and other text are refused.","clave no válida: usa la xpub, zpub o ypub de la cuenta; se rechazan direcciones, claves privadas y otro texto.","clé invalide : utilisez la xpub, zpub ou ypub du compte ; les adresses, les clés privées et tout autre texte sont refusés.","chiave non valida: usa la xpub, zpub o ypub del conto; indirizzi, chiavi private e altro testo vengono rifiutati.","ungültiger Schlüssel: Verwende die xpub, zpub oder ypub des Kontos; Adressen, private Schlüssel und anderer Text werden abgelehnt.","ongeldige sleutel: gebruik de xpub, zpub of ypub van de rekening; adressen, privésleutels en andere tekst worden geweigerd.","clau no vàlida: fes servir la xpub, zpub o ypub del compte; s'hi refusen adreces, claus privades i altre text.","clave non válida: usa a xpub, zpub ou ypub da conta; rexéitanse enderezos, claves privadas e outro texto."],
+    ["sim","yes","sí","oui","sì","ja","ja","sí","si"],
+    ["não","no","no","non","no","nein","nee","no","non"],
+    ["data estimada indisponível","estimated date unavailable","fecha estimada no disponible","date estimée indisponible","data stimata non disponibile","geschätztes Datum nicht verfügbar","geschatte datum niet beschikbaar","data estimada no disponible","data estimada non dispoñible"],
+    ["{value} (aprox.)","{value} (approx.)","{value} (aprox.)","{value} (env.)","{value} (circa)","{value} (ca.)","{value} (ca.)","{value} (aprox.)","{value} (aprox.)"],
+    ["[ ok ]","[ ok ]","[ ok ]","[ ok ]","[ ok ]","[ ok ]","[ ok ]","[ ok ]","[ ok ]"],
+    ["[ erro ]","[ error ]","[ error ]","[ erreur ]","[ errore ]","[ Fehler ]","[ fout ]","[ error ]","[ erro ]"],
+    ["[ atenção ]","[ warning ]","[ atención ]","[ attention ]","[ attenzione ]","[ Achtung ]","[ let op ]","[ atenció ]","[ atención ]"],
+    ["[ ... ]","[ ... ]","[ ... ]","[ ... ]","[ ... ]","[ ... ]","[ ... ]","[ ... ]","[ ... ]"],
+    ["o servidor demorou para responder; tente de novo.","the server took too long to respond; try again.","el servidor tardó demasiado en responder; inténtalo de nuevo.","le serveur a mis trop de temps à répondre ; réessayez.","il server ha impiegato troppo tempo a rispondere; riprova.","der Server hat zu lange gebraucht, um zu antworten; versuche es erneut.","de server deed er te lang over om te antwoorden; probeer het opnieuw.","el servidor ha trigat massa a respondre; torna-ho a provar.","o servidor tardou demasiado en responder; téntao de novo."],
+    ["não foi possível falar com o servidor; tente de novo.","could not reach the server; try again.","no se pudo hablar con el servidor; inténtalo de nuevo.","impossible de joindre le serveur ; réessayez.","non è stato possibile parlare con il server; riprova.","der Server war nicht erreichbar; versuche es erneut.","kon niet met de server praten; probeer het opnieuw.","no s'ha pogut parlar amb el servidor; torna-ho a provar.","non foi posible falar co servidor; téntao de novo."],
+    ["resposta inesperada do servidor (HTTP {status}); tente de novo.","unexpected server response (HTTP {status}); try again.","respuesta inesperada del servidor (HTTP {status}); inténtalo de nuevo.","réponse inattendue du serveur (HTTP {status}) ; réessayez.","risposta inattesa dal server (HTTP {status}); riprova.","unerwartete Antwort vom Server (HTTP {status}); versuche es erneut.","onverwacht antwoord van de server (HTTP {status}); probeer het opnieuw.","resposta inesperada del servidor (HTTP {status}); torna-ho a provar.","resposta inesperada do servidor (HTTP {status}); téntao de novo."],
+    ["resposta inválida do servidor; tente de novo.","invalid server response; try again.","respuesta no válida del servidor; inténtalo de nuevo.","réponse invalide du serveur ; réessayez.","risposta non valida dal server; riprova.","ungültige Antwort vom Server; versuche es erneut.","ongeldig antwoord van de server; probeer het opnieuw.","resposta no vàlida del servidor; torna-ho a provar.","resposta non válida do servidor; téntao de novo."],
+    ["cole a xpub, zpub ou ypub na carteira para ver o histórico.","paste the xpub, zpub or ypub in the wallet to see the history.","pega la xpub, zpub o ypub en la cartera para ver el historial.","collez la xpub, zpub ou ypub dans le portefeuille pour voir l'historique.","incolla la xpub, zpub o ypub nel portafoglio per vedere la cronologia.","füge die xpub, zpub oder ypub in der Wallet ein, um den Verlauf zu sehen.","plak de xpub, zpub of ypub in de portemonnee om de geschiedenis te zien.","enganxa la xpub, zpub o ypub a la cartera per veure l'historial.","pega a xpub, zpub ou ypub na carteira para ver o historial."],
+    ["copiar","copy","copiar","copier","copia","kopieren","kopiëren","copia","copiar"],
+    ["copiado","copied","copiado","copié","copiato","kopiert","gekopieerd","copiat","copiado"],
+    ["copiar endereço {label}","copy address {label}","copiar dirección {label}","copier l'adresse {label}","copia l'indirizzo {label}","Adresse {label} kopieren","adres {label} kopiëren","copia l'adreça {label}","copiar o enderezo {label}"],
+    ["endereço copiado","address copied","dirección copiada","adresse copiée","indirizzo copiato","Adresse kopiert","adres gekopieerd","adreça copiada","enderezo copiado"],
+    ["não foi possível copiar.","could not copy.","no se pudo copiar.","impossible de copier.","non è stato possibile copiare.","kopieren nicht möglich.","kon niet kopiëren.","no s'ha pogut copiar.","non foi posible copiar."],
+    ["valor grande demais: máximo de {n} dígitos.","amount too large: maximum of {n} digits.","importe demasiado grande: máximo de {n} dígitos.","montant trop grand : maximum de {n} chiffres.","importo troppo grande: massimo {n} cifre.","Betrag zu groß: höchstens {n} Ziffern.","bedrag te groot: maximaal {n} cijfers.","import massa gran: màxim de {n} dígits.","importe demasiado grande: máximo de {n} díxitos."],
+    ["destino inválido: use um endereço bc1…, 1… ou 3….","invalid destination: use a bc1…, 1… or 3… address.","destino no válido: usa una dirección bc1…, 1… o 3….","destination invalide : utilisez une adresse bc1…, 1… ou 3….","destinazione non valida: usa un indirizzo bc1…, 1… o 3….","ungültiges Ziel: Verwende eine Adresse bc1…, 1… oder 3….","ongeldige bestemming: gebruik een adres bc1…, 1… of 3….","destinació no vàlida: fes servir una adreça bc1…, 1… o 3….","destino non válido: usa un enderezo bc1…, 1… ou 3…."],
+    ["valor abaixo do mínimo: {value}","amount below the minimum: {value}","importe por debajo del mínimo: {value}","montant inférieur au minimum : {value}","importo sotto il minimo: {value}","Betrag unter dem Minimum: {value}","bedrag onder het minimum: {value}","import per sota del mínim: {value}","importe por baixo do mínimo: {value}"],
+    ["máximo {value}","maximum {value}","máximo {value}","maximum {value}","massimo {value}","Maximum {value}","maximum {value}","màxim {value}","máximo {value}"],
+    ["saldo insuficiente para enviar com essa taxa.","insufficient balance to send with this fee.","saldo insuficiente para enviar con esta comisión.","solde insuffisant pour envoyer avec ces frais.","saldo insufficiente per inviare con questa commissione.","Guthaben reicht nicht aus, um mit dieser Gebühr zu senden.","onvoldoende saldo om met deze kosten te verzenden.","saldo insuficient per enviar amb aquesta comissió.","saldo insuficiente para enviar con esta comisión."],
+    ["valor acima do máximo enviável: {value}","amount above the sendable maximum: {value}","importe por encima del máximo enviable: {value}","montant au-dessus du maximum envoyable : {value}","importo sopra il massimo inviabile: {value}","Betrag über dem sendbaren Maximum: {value}","bedrag boven het maximaal verzendbare: {value}","import per sobre del màxim enviable: {value}","importe por riba do máximo enviable: {value}"],
+    ["máximo indisponível: {text}","maximum unavailable: {text}","máximo no disponible: {text}","maximum indisponible : {text}","massimo non disponibile: {text}","Maximum nicht verfügbar: {text}","maximum niet beschikbaar: {text}","màxim no disponible: {text}","máximo non dispoñible: {text}"],
+    ["calculando a taxa…","calculating the fee…","calculando la comisión…","calcul des frais…","calcolo della commissione…","Gebühr wird berechnet…","kosten worden berekend…","calculant la comissió…","calculando a comisión…"],
+    ["taxa indisponível; tente de novo.","fee unavailable; try again.","comisión no disponible; inténtalo de nuevo.","frais indisponibles ; réessayez.","commissione non disponibile; riprova.","Gebühr nicht verfügbar; versuche es erneut.","kosten niet beschikbaar; probeer het opnieuw.","comissió no disponible; torna-ho a provar.","comisión non dispoñible; téntao de novo."],
+    ["resposta sem limite de envio","response without a send limit","respuesta sin límite de envío","réponse sans limite d'envoi","risposta senza limite di invio","Antwort ohne Sendelimit","antwoord zonder verzendlimiet","resposta sense límit d'enviament","resposta sen límite de envío"],
+    ["resposta sem níveis de taxa","response without fee levels","respuesta sin niveles de comisión","réponse sans niveaux de frais","risposta senza livelli di commissione","Antwort ohne Gebührenstufen","antwoord zonder kostenniveaus","resposta sense nivells de comissió","resposta sen niveis de comisión"],
+    ["destino inválido: {text}.","invalid destination: {text}.","destino no válido: {text}.","destination invalide : {text}.","destinazione non valida: {text}.","ungültiges Ziel: {text}.","ongeldige bestemming: {text}.","destinació no vàlida: {text}.","destino non válido: {text}."],
+    ["taxa de {rate} sat/vB, abaixo do piso de relay padrão ({relay}): a transação pode ser recusada pelos nós.","fee of {rate} sat/vB, below the default relay floor ({relay}): the transaction may be rejected by nodes.","comisión de {rate} sat/vB, por debajo del piso de relay predeterminado ({relay}): la transacción puede ser rechazada por los nodos.","frais de {rate} sat/vB, en dessous du plancher de relay par défaut ({relay}) : la transaction peut être refusée par les nœuds.","commissione di {rate} sat/vB, sotto il minimo di relay predefinito ({relay}): la transazione può essere rifiutata dai nodi.","Gebühr von {rate} sat/vB, unter dem Standard-Relay-Minimum ({relay}): Die Transaktion kann von Knoten abgelehnt werden.","kosten van {rate} sat/vB, onder de standaard relay-drempel ({relay}): de transactie kan door nodes worden geweigerd.","comissió de {rate} sat/vB, per sota del pis de relay predeterminat ({relay}): la transacció pot ser rebutjada pels nodes.","comisión de {rate} sat/vB, por baixo do piso de relay predeterminado ({relay}): a transacción pode ser rexeitada polos nodos."],
+    ["o piso padrão","the default floor","el piso predeterminado","le plancher par défaut","il minimo predefinito","das Standardminimum","de standaarddrempel","el pis predeterminat","o piso predeterminado"],
+    ["taxa {rate} sat/vB","fee {rate} sat/vB","comisión {rate} sat/vB","frais {rate} sat/vB","commissione {rate} sat/vB","Gebühr {rate} sat/vB","kosten {rate} sat/vB","comissió {rate} sat/vB","comisión {rate} sat/vB"],
+    ["o destino no psbt difere do campo de destino","the destination in the psbt differs from the destination field","el destino del psbt difiere del campo de destino","la destination du psbt diffère du champ de destination","la destinazione nel psbt differisce dal campo destinazione","das Ziel in der psbt weicht vom Zielfeld ab","de bestemming in de psbt verschilt van het bestemmingsveld","la destinació del psbt difereix del camp de destinació","o destino no psbt difire do campo de destino"],
+    ["o valor no psbt difere do campo de quantidade","the amount in the psbt differs from the amount field","el importe del psbt difiere del campo de importe","le montant du psbt diffère du champ de montant","l'importo nel psbt differisce dal campo importo","der Betrag in der psbt weicht vom Betragsfeld ab","het bedrag in de psbt verschilt van het bedragveld","l'import del psbt difereix del camp d'import","o importe no psbt difire do campo de importe"],
+    ["o psbt tem {n} saídas externas","the psbt has {n} external outputs","el psbt tiene {n} salidas externas","le psbt a {n} sorties externes","il psbt ha {n} uscite esterne","die psbt hat {n} externe Ausgaben","de psbt heeft {n} externe uitgangen","el psbt té {n} sortides externes","o psbt ten {n} saídas externas"],
+    ["o psbt gasta troco pendente de uma transação sua; ela confirma depois da anterior","the psbt spends pending change from one of your transactions; it confirms after the previous one","el psbt gasta cambio pendiente de una transacción tuya; esta confirma después de la anterior","le psbt dépense un reste en attente d'une de vos transactions ; celle-ci se confirme après la précédente","il psbt spende resto in attesa di una tua transazione; questa si conferma dopo la precedente","die psbt gibt ausstehendes Wechselgeld einer deiner Transaktionen aus; diese bestätigt nach der vorherigen","de psbt geeft wisselgeld uit dat nog in afwachting is van een van je transacties; die wordt na de vorige bevestigd","el psbt gasta canvi pendent d'una transacció teva; aquesta es confirma després de l'anterior","o psbt gasta troco pendente dunha transacción túa; esta confirma despois da anterior"],
+    ["o psbt gasta {n} saídas pendentes de transações suas; elas confirmam depois das anteriores","the psbt spends {n} pending outputs from your transactions; they confirm after the previous ones","el psbt gasta {n} salidas pendientes de transacciones tuyas; estas confirman después de las anteriores","le psbt dépense {n} sorties en attente de vos transactions ; celles-ci se confirment après les précédentes","il psbt spende {n} uscite in attesa di tue transazioni; queste si confermano dopo le precedenti","die psbt gibt {n} ausstehende Ausgaben deiner Transaktionen aus; diese bestätigen nach den vorherigen","de psbt geeft {n} uitgangen uit die nog in afwachting zijn van je transacties; die worden na de vorige bevestigd","el psbt gasta {n} sortides pendents de transaccions teves; aquestes es confirmen després de les anteriors","o psbt gasta {n} saídas pendentes de transaccións túas; estas confirman despois das anteriores"],
+    ["[ externo ]","[ external ]","[ externo ]","[ externe ]","[ esterno ]","[ extern ]","[ extern ]","[ extern ]","[ externo ]"],
+    ["montando o psbt...","building the psbt...","montando el psbt...","assemblage du psbt...","composizione del psbt...","psbt wird erstellt...","psbt wordt gemaakt...","munting del psbt...","montando o psbt..."],
+    ["conferindo o psbt...","checking the psbt...","comprobando el psbt...","vérification du psbt...","verifica del psbt...","psbt wird geprüft...","psbt wordt gecontroleerd...","comprovant el psbt...","comprobando o psbt..."],
+    ["transmitindo...","broadcasting...","transmitiendo...","diffusion...","trasmissione...","wird gesendet...","wordt uitgezonden...","transmetent...","transmitindo..."],
+    ["transmitida","broadcast","transmitida","diffusée","trasmessa","gesendet","uitgezonden","transmesa","transmitida"],
+    ["transação transmitida: {txid}","transaction broadcast: {txid}","transacción transmitida: {txid}","transaction diffusée : {txid}","transazione trasmessa: {txid}","Transaktion gesendet: {txid}","transactie uitgezonden: {txid}","transacció transmesa: {txid}","transacción transmitida: {txid}"],
+    ["arquivo grande demais para conferir","file too large to check","archivo demasiado grande para comprobar","fichier trop volumineux pour être vérifié","file troppo grande da verificare","Datei zu groß zum Prüfen","bestand te groot om te controleren","fitxer massa gran per comprovar","ficheiro demasiado grande para comprobar"],
+    ["o arquivo está vazio","the file is empty","el archivo está vacío","le fichier est vide","il file è vuoto","die Datei ist leer","het bestand is leeg","el fitxer és buit","o ficheiro está baleiro"],
+    ["carregue a carteira antes de escolher o arquivo","load the wallet before choosing the file","carga la cartera antes de elegir el archivo","chargez le portefeuille avant de choisir le fichier","carica il portafoglio prima di scegliere il file","lade die Wallet, bevor du die Datei wählst","laad de portemonnee voordat je het bestand kiest","carrega la cartera abans de triar el fitxer","carga a carteira antes de escoller o ficheiro"],
+    ["a carteira mudou; tente de novo.","the wallet changed; try again.","la cartera cambió; inténtalo de nuevo.","le portefeuille a changé ; réessayez.","il portafoglio è cambiato; riprova.","die Wallet hat sich geändert; versuche es erneut.","de portemonnee is veranderd; probeer het opnieuw.","la cartera ha canviat; torna-ho a provar.","a carteira cambiou; téntao de novo."],
+    ["sessão expirada; recarregue a carteira.","session expired; reload the wallet.","sesión caducada; recarga la cartera.","session expirée ; rechargez le portefeuille.","sessione scaduta; ricarica il portafoglio.","Sitzung abgelaufen; lade die Wallet neu.","sessie verlopen; herlaad de portemonnee.","sessió caducada; recarrega la cartera.","sesión caducada; recarga a carteira."],
+    ["o servidor não devolveu o psbt.","the server did not return the psbt.","el servidor no devolvió el psbt.","le serveur n'a pas renvoyé le psbt.","il server non ha restituito il psbt.","der Server hat die psbt nicht zurückgegeben.","de server heeft de psbt niet teruggegeven.","el servidor no va retornar el psbt.","o servidor non devolveu o psbt."],
+    ["[ pendente ]","[ pending ]","[ pendiente ]","[ en attente ]","[ in attesa ]","[ ausstehend ]","[ in afwachting ]","[ pendent ]","[ pendente ]"],
+    ["pendente","pending","pendiente","en attente","in attesa","ausstehend","in afwachting","pendent","pendente"],
+    ["recebido","received","recibido","reçu","ricevuto","eingegangen","ontvangen","rebut","recibido"],
+    ["enviado","sent","enviado","envoyé","inviato","gesendet","verzonden","enviat","enviado"],
+    ["auto","self","auto","auto","auto","selbst","zelf","auto","auto"],
+    ["entradas","inputs","entradas","entrées","input","Eingänge","invoeren","entrades","entradas"],
+    ["saídas","outputs","salidas","sorties","uscite","Ausgaben","uitgangen","sortides","saídas"],
+    ["acelerar","speed up","acelerar","accélérer","accelera","beschleunigen","versnellen","accelerar","acelerar"],
+    ["recebimento","receiving","recepción","réception","ricezione","Empfang","ontvangst","recepció","recepción"],
+    ["transação","transaction","transacción","transaction","transazione","Transaktion","transactie","transacció","transacción"],
+    ["transações","transactions","transacciones","transactions","transazioni","Transaktionen","transacties","transaccions","transaccións"],
+    ["atualizado {value}","updated {value}","actualizado {value}","mis à jour {value}","aggiornato {value}","aktualisiert {value}","bijgewerkt {value}","actualitzat {value}","actualizado {value}"],
+    ["totais do histórico","history totals","totales del historial","totaux de l'historique","totali della cronologia","Summen des Verlaufs","totalen van de geschiedenis","totals de l'historial","totais do historial"],
+    ["verificando {n} endereço","checking {n} address","comprobando {n} dirección","vérification de {n} adresse","verifica di {n} indirizzo","prüfe {n} Adresse","{n} adres controleren","comprovant {n} adreça","comprobando {n} enderezo"],
+    ["verificando {n} endereços","checking {n} addresses","comprobando {n} direcciones","vérification de {n} adresses","verifica di {n} indirizzi","prüfe {n} Adressen","{n} adressen controleren","comprovant {n} adreces","comprobando {n} enderezos"],
+    ["busca incompleta: ainda podem existir valores não contabilizados.","incomplete search: there may still be uncounted funds.","búsqueda incompleta: aún puede haber fondos sin contabilizar.","recherche incomplète : des fonds non comptabilisés peuvent encore exister.","ricerca incompleta: potrebbero esserci ancora fondi non conteggiati.","Suche unvollständig: Es können noch nicht erfasste Beträge vorhanden sein.","zoektocht onvolledig: er kunnen nog niet-meegerekende bedragen zijn.","cerca incompleta: encara hi pot haver fons no comptabilitzats.","busca incompleta: aínda poden existir fondos non contabilizados."],
+    ["busca interrompida: o saldo pode estar incompleto. {message}","search interrupted: the balance may be incomplete. {message}","búsqueda interrumpida: el saldo puede estar incompleto. {message}","recherche interrompue : le solde peut être incomplet. {message}","ricerca interrotta: il saldo può essere incompleto. {message}","Suche unterbrochen: Das Guthaben kann unvollständig sein. {message}","zoektocht onderbroken: het saldo kan onvolledig zijn. {message}","cerca interrompuda: el saldo pot estar incomplet. {message}","busca interrompida: o saldo pode estar incompleto. {message}"],
+    ["tempo real: {message}","live: {message}","tiempo real: {message}","temps réel : {message}","tempo reale: {message}","Echtzeit: {message}","realtime: {message}","temps real: {message}","tempo real: {message}"],
+    ["bip49 · segwit aninhado (p2sh-p2wpkh)","bip49 · nested segwit (p2sh-p2wpkh)","bip49 · segwit anidado (p2sh-p2wpkh)","bip49 · segwit imbriqué (p2sh-p2wpkh)","bip49 · segwit annidato (p2sh-p2wpkh)","bip49 · verschachteltes Segwit (p2sh-p2wpkh)","bip49 · geneste segwit (p2sh-p2wpkh)","bip49 · segwit imbricat (p2sh-p2wpkh)","bip49 · segwit aniñado (p2sh-p2wpkh)"],
+    ["psbt assinado","signed psbt","psbt firmado","psbt signé","psbt firmato","signierte psbt","ondertekende psbt","psbt signat","psbt asinado"],
+    ["entrada","input","entrada","entrée","input","Eingang","invoer","entrada","entrada"],
+    ["taxas","fees","comisiones","frais","commissioni","Gebühren","kosten","comissions","comisións"]
+  ];
+  var I18N = {};
+  var PT_KEYS = {};
+  LOCALES.forEach(function (code, index) {
+    I18N[code] = {};
+    I18N_ROWS.forEach(function (row) {
+      I18N[code][row[0]] = code === 'pt' ? row[0] : row[index];
+    });
+  });
+  I18N_ROWS.forEach(function (row) { PT_KEYS[row[0]] = true; });
+
+  function t(key, vars) {
+    if (!key) return '';
+    var table = I18N[state.lang] || I18N.pt;
+    var text = table[key];
+    if (text === undefined) text = I18N.pt[key];
+    if (text === undefined) text = key;
+    if (vars) {
+      Object.keys(vars).forEach(function (name) {
+        text = text.split('{' + name + '}').join(String(vars[name]));
+      });
+    }
+    return text;
+  }
+
+  /* Mensagem da tela: a chave e os campos, não o texto já montado; a troca de
+     idioma redesenha o mesmo estado no idioma novo (VG-IDI-02). O `raw` é o
+     texto que vem do servidor como dado e não tem tradução aqui. */
+  function msg(key, vars) { return key ? { key: key, vars: vars || null } : null; }
+  function rawMsg(value) { return value == null || value === '' ? null : { raw: String(value) }; }
+  function specText(spec) {
+    if (!spec) return '';
+    if (spec.raw !== undefined) return String(spec.raw);
+    return spec.key ? t(spec.key, spec.vars) : '';
+  }
+  function fail(key, vars) {
+    var e = new Error(t(key, vars));
+    e.spec = msg(key, vars);
+    return e;
+  }
+  function errSpec(e) {
+    return (e && e.spec) || rawMsg(e && e.message ? e.message : String(e));
+  }
+  /* Erro do servidor chega como dado (texto em português); o que a própria
+     tela gera (HTTP sem JSON) sai traduzido pelo molde do idioma. */
+  function apiFail(r, j) {
+    if (j && j.error) return new Error(j.error);
+    return fail('resposta inesperada do servidor (HTTP {status}); tente de novo.', {
+      status: r && r.status ? r.status : '—'
+    });
+  }
+  function decimalSeparator() { return state.lang === 'en' ? '.' : ','; }
+  function dec(value) { return String(value).replace('.', decimalSeparator()); }
+
+  function normalizeLang(value) {
+    var tag = String(value || '').toLowerCase().replace(/_/g, '-');
+    for (var i = 0; i < LOCALES.length; i++) {
+      if (tag === LOCALES[i] || tag.indexOf(LOCALES[i] + '-') === 0) return LOCALES[i];
+    }
+    return '';
+  }
+  function browserLang() {
+    var list = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language];
+    for (var i = 0; i < list.length; i++) {
+      var lang = normalizeLang(list[i]);
+      if (lang) return lang;
+    }
+    return 'pt';
+  }
+
+  /* Texto e HTML com <b>/<code> e atributos são guardados uma vez, no texto
+     português que serve de chave; a troca de idioma relê essa origem, então
+     voltar para PT não depende de desfazer a tradução anterior. */
+  var I18N_INLINE = { CODE: 1, B: 1, I: 1, EM: 1, STRONG: 1, SPAN: 1, TIME: 1, A: 1, BR: 1 };
+  var I18N_TEXT_TAGS = { P: 1, LI: 1, H1: 1, H2: 1, H3: 1, BUTTON: 1, A: 1, SPAN: 1, TH: 1, TD: 1, LABEL: 1, TIME: 1, B: 1, CODE: 1 };
+  var I18N_ATTRS = ['aria-label', 'placeholder', 'title', 'alt'];
+  function i18nOnlyInline(el) {
+    for (var i = 0; i < el.children.length; i++) {
+      if (!I18N_INLINE[el.children[i].tagName]) return false;
+    }
+    return true;
+  }
+  function i18nHasPrompt(el) {
+    for (var i = 0; i < el.children.length; i++) {
+      if (el.children[i].classList && el.children[i].classList.contains('prompt')) return true;
+    }
+    return false;
+  }
+  function i18nPromptText(el) {
+    var text = '';
+    for (var i = 0; i < el.childNodes.length; i++) {
+      if (el.childNodes[i].nodeType === 3 && el.childNodes[i].nodeValue.trim()) {
+        text += el.childNodes[i].nodeValue;
+      }
+    }
+    return text.trim();
+  }
+  function prepareI18n() {
+    $$('body *').forEach(function (el) {
+      if (el.closest('script, style, svg, .edge, .rule, .watermark')) return;
+      I18N_ATTRS.forEach(function (attr) {
+        var value = el.getAttribute(attr);
+        if (value && PT_KEYS[value]) {
+          el._i18nAttr = el._i18nAttr || {};
+          el._i18nAttr[attr] = value;
+        }
+      });
+      if (el.tagName === 'H3' && i18nHasPrompt(el)) {
+        var promptKey = i18nPromptText(el);
+        if (promptKey && PT_KEYS[promptKey]) {
+          var promptNode = null;
+          for (var n = el.childNodes.length - 1; n >= 0; n--) {
+            if (el.childNodes[n].nodeType === 3 && el.childNodes[n].nodeValue.trim()) {
+              promptNode = el.childNodes[n];
+              break;
+            }
+          }
+          if (promptNode) {
+            var promptRaw = promptNode.nodeValue;
+            var promptAt = promptRaw.indexOf(promptKey);
+            el._i18nKind = 'prompt';
+            el._i18nKey = promptKey;
+            el._i18nPrefix = promptAt >= 0 ? promptRaw.slice(0, promptAt) : (promptRaw.match(/^\s*/) || [''])[0];
+            el._i18nSuffix = promptAt >= 0 ? promptRaw.slice(promptAt + promptKey.length) : '';
+          }
+        }
+        return;
+      }
+      if (!I18N_TEXT_TAGS[el.tagName]) return;
+      if (!el.children.length) {
+        var text = el.textContent.trim();
+        if (text && PT_KEYS[text]) {
+          el._i18nKind = 'text';
+          el._i18nKey = text;
+          el._i18nRaw = el.textContent;
+        }
+      } else if (i18nOnlyInline(el) && !el.querySelector('input, textarea, select')) {
+        var html = el.innerHTML.trim();
+        if (html && PT_KEYS[html]) {
+          el._i18nKind = 'html';
+          el._i18nKey = html;
+        }
+      }
+    });
+  }
+  function applyI18n() {
+    $$('body *').forEach(function (el) {
+      if (el._i18nAttr) {
+        Object.keys(el._i18nAttr).forEach(function (attr) {
+          el.setAttribute(attr, t(el._i18nAttr[attr]));
+        });
+      }
+      if (el._i18nKind === 'text') {
+        el.textContent = (el._i18nRaw || '').replace(el._i18nKey, t(el._i18nKey));
+      } else if (el._i18nKind === 'html') {
+        el.innerHTML = t(el._i18nKey);
+      } else if (el._i18nKind === 'prompt') {
+        for (var i = el.childNodes.length - 1; i >= 0; i--) {
+          var node = el.childNodes[i];
+          if (node.nodeType === 3 && node.nodeValue.trim()) {
+            /* O espaço entre o ## e o texto é do nó original, não da
+               tradução: sem ele, o ## cola no título na segunda troca. */
+            node.nodeValue = el._i18nPrefix + t(el._i18nKey) + el._i18nSuffix;
+            break;
+          }
+        }
+      }
+    });
+  }
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -140,18 +483,18 @@
   function xpubProblem(value) {
     var s = String(value || '').trim();
     if (!s) {
-      return 'chave inválida: use a xpub, zpub ou ypub da conta.';
+      return msg('chave inválida: use a xpub, zpub ou ypub da conta.');
     }
     if (EXT_PRIVATE.test(s)) {
-      return 'chave inválida: isso é uma chave privada (xprv/yprv/zprv), nunca cole a privada aqui; use a xpub, zpub ou ypub da conta.';
+      return msg('chave inválida: isso é uma chave privada (xprv/yprv/zprv), nunca cole a privada aqui; use a xpub, zpub ou ypub da conta.');
     }
     if (/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{20,}$/.test(s)) {
-      return 'chave inválida: isso é um endereço Bitcoin; use a xpub, zpub ou ypub da conta.';
+      return msg('chave inválida: isso é um endereço Bitcoin; use a xpub, zpub ou ypub da conta.');
     }
     if (s.length !== XPUB_TOTAL || !EXT_PUBLIC_RE.test(s)) {
-      return 'chave inválida: use a xpub, zpub ou ypub da conta.';
+      return msg('chave inválida: use a xpub, zpub ou ypub da conta.');
     }
-    return '';
+    return null;
   }
 
   function fmtBtc(sats) {
@@ -166,15 +509,15 @@
      aparece, só a data. */
   function scheduledText(locktime) {
     var value = Number(locktime) >>> 0;
-    if (!value) return 'não';
+    if (!value) return t('não');
     var date = value >= 500000000
       ? new Date(value * 1000)
       : new Date((1231006505 + value * 600) * 1000);
-    if (isNaN(date.getTime())) return 'data estimada indisponível';
-    return date.toISOString().slice(0, 16).replace('T', ' ') + ' UTC' +
-      (value < 500000000 ? ' (aprox.)' : '');
+    if (isNaN(date.getTime())) return t('data estimada indisponível');
+    var stamp = date.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+    return value < 500000000 ? t('{value} (aprox.)', { value: stamp }) : stamp;
   }
-  function rbfText(rbf) { return rbf ? 'sim' : 'não'; }
+  function rbfText(rbf) { return t(rbf ? 'sim' : 'não'); }
   /* Valor digitado em BTC → sats inteiros. Aceita vírgula ou ponto e até 8
      casas; qualquer outra coisa (ou zero) devolve null. */
   function parseBtcSats(text) {
@@ -197,6 +540,7 @@
      fora: ele é substituído pelo recado final. */
   var notices = new WeakMap();
   function noticeClear(el) {
+    el._statusSpec = null;
     el.textContent = '';
     el.classList.remove('ok', 'error');
   }
@@ -244,22 +588,34 @@
       }, 0);
     });
   }
-  function setStatusTo(el, kind, text) {
+  /* O recado guarda a chave e os campos, não o texto já montado: a troca de
+     idioma redesenha o mesmo estado sem perder a mensagem (VG-IDI-02). */
+  function paintStatusTo(el) {
     if (!el) return;
-    el.textContent = text ? (PREFIX[kind] || PREFIX['']) + ' ' + text : '';
+    var spec = el._statusSpec;
+    var body = specText(spec);
+    var prefix = spec && PREFIX[spec.kind] ? t(PREFIX[spec.kind]) : '';
+    el.textContent = body ? (prefix ? prefix + ' ' + body : body) : '';
     el.classList.remove('ok', 'error');
-    if (kind === 'ok' || kind === 'error') {
-      el.classList.add(kind);
-      noticeSchedule(el);
-    } else {
-      noticeStop(el);
-    }
+    if (spec && (spec.kind === 'ok' || spec.kind === 'error')) el.classList.add(spec.kind);
   }
-  function setStatus(kind, text) {
-    setStatusTo($('#status'), kind, text);
+  function paintStatuses() {
+    ['#status', '#send-status', '#broadcast-status', '#cpfp-status'].forEach(function (sel) {
+      paintStatusTo($(sel));
+    });
   }
-  function setSendStatus(kind, text) {
-    setStatusTo($('#send-status'), kind, text);
+  function setStatusTo(el, kind, spec) {
+    if (!el) return;
+    el._statusSpec = spec ? { kind: kind, key: spec.key, vars: spec.vars, raw: spec.raw } : null;
+    paintStatusTo(el);
+    if (kind === 'ok' || kind === 'error') noticeSchedule(el);
+    else noticeStop(el);
+  }
+  function setStatus(kind, spec) {
+    setStatusTo($('#status'), kind, spec);
+  }
+  function setSendStatus(kind, spec) {
+    setStatusTo($('#send-status'), kind, spec);
   }
   /* Toda consulta da tela passa por aqui: sem Content-Type JSON a resposta é
      um erro do proxy/Cloudflare, não um objeto nosso; e sem timeout uma
@@ -278,19 +634,19 @@
       try {
         r = await fetch(url, opts);
       } catch (e) {
-        if (e && e.name === 'AbortError') throw new Error('o servidor demorou para responder; tente de novo.');
-        throw new Error('não foi possível falar com o servidor; tente de novo.');
+        if (e && e.name === 'AbortError') throw fail('o servidor demorou para responder; tente de novo.');
+        throw fail('não foi possível falar com o servidor; tente de novo.');
       }
       var type = String(r.headers.get('Content-Type') || '').toLowerCase();
       if (type.indexOf('application/json') < 0) {
-        throw new Error('resposta inesperada do servidor (HTTP ' + r.status + '); tente de novo.');
+        throw fail('resposta inesperada do servidor (HTTP {status}); tente de novo.', { status: r.status });
       }
       var j;
       try {
         j = await r.json();
       } catch (e) {
-        if (e && e.name === 'AbortError') throw new Error('o servidor demorou para responder; tente de novo.');
-        throw new Error('resposta inválida do servidor; tente de novo.');
+        if (e && e.name === 'AbortError') throw fail('o servidor demorou para responder; tente de novo.');
+        throw fail('resposta inválida do servidor; tente de novo.');
       }
       return { r: r, j: j };
     } finally {
@@ -301,13 +657,13 @@
      #send-status, e o campo só leva o fio/rótulo em --error e aria-invalid.
      O sinal separado evita que a atualização automática do formulário apague
      um erro do PSBT que não é de validação. */
-  function setSendValidation(text) {
-    if (text) {
-      state.sendValidationError = text;
-      setSendStatus('error', text);
+  function setSendValidation(spec) {
+    if (spec) {
+      state.sendValidationError = spec;
+      setSendStatus('error', spec);
     } else if (state.sendValidationError) {
-      state.sendValidationError = '';
-      setSendStatus('', '');
+      state.sendValidationError = null;
+      setSendStatus('', null);
     }
   }
   function setFieldInvalid(input, invalid) {
@@ -324,13 +680,6 @@
     if (field) { field.focus(); return true; }
     return false;
   }
-  var SCREEN_TITLES = {
-    carteira: 'Monitor BTC - carteira',
-    historico: 'Monitor BTC - histórico',
-    sobre: 'Monitor BTC - sobre',
-    language: 'Monitor BTC - idioma',
-    notfound: 'Monitor BTC - 404'
-  };
   var SCREEN_IDS = ['carteira', 'historico', 'sobre', 'notfound', 'language'];
 
   /* URL e histórico (VG-MET-10): a tela e a página da lista vão para o
@@ -466,7 +815,7 @@
 
   function showScreen(name, opts) {
     opts = opts || {};
-    if (!SCREEN_TITLES[name] || name === 'language') name = 'carteira';
+    if (SCREEN_IDS.indexOf(name) < 0 || name === 'language') name = 'carteira';
     state.screen = name;
     state.langOpen = false;
     setScreenVisible(name);
@@ -478,7 +827,8 @@
       syncHistoryState();
       renderHistory();
     }
-    document.title = SCREEN_TITLES[name];
+    document.title = '';
+    syncMeta();
     if (!opts.keepScroll) {
       var sc = $('#content-scroll');
       if (sc) sc.scrollTop = 0;
@@ -522,7 +872,7 @@
     state.langOpen = true;
     setScreenVisible('language');
     markCurrent('language');
-    document.title = SCREEN_TITLES.language;
+    syncMeta();
     // A tela de idiomas começa no alto, qualquer que seja a rolagem da tela
     // de origem (VG-IDI-01); o voltar devolve a origem ao ponto guardado.
     setReadingTop(0);
@@ -559,14 +909,86 @@
     });
   }
   /* A escolha aplica a marca (VG-IDI-02/03) e fecha a tela, devolvendo à
-     origem (VG-IDI-05). */
+     origem (VG-IDI-05). O automático resolve para o idioma do navegador. */
   function selectLanguage(button) {
     if (!button || button.disabled) return;
     var code = button.getAttribute('data-lang');
-    state.langAuto = code === 'auto';
-    if (!state.langAuto) state.lang = code;
-    markLanguage();
+    if (code === 'auto') {
+      state.langAuto = true;
+      state.lang = browserLang();
+    } else {
+      state.langAuto = false;
+      state.lang = code;
+    }
+    applyLanguage();
     closeLanguage();
+  }
+
+  /* Título do documento, descrição, compartilhamento e o botão do rodapé
+     acompanham o idioma e a tela (VG-MET-02, VG-MET-04). */
+  var META_TITLE = 'Monitor BTC — carteira watch-only';
+  var META_DESCRIPTION = 'Monitor BTC — xpub como credencial, saldo e endereços derivados na hora, e envio de BTC em PSBT sem assinatura. Nada é guardado: nem a xpub, nem endereços. Sem chave privada.';
+  var META_IMAGE_ALT = 'Card escuro do Monitor BTC, com o ícone do Monitor BTC, o título e o idioma português.';
+  function setMeta(selector, attr, key) {
+    var el = $(selector);
+    if (el) el.setAttribute(attr, t(key));
+  }
+  function syncMeta() {
+    var head = state.langOpen ? $('#head-language') : $('#screen-' + state.screen + ' h2');
+    var name = head ? head.textContent.trim().toLocaleLowerCase(LOCALE_TAGS[state.lang] || 'pt-BR') : '';
+    document.title = name ? 'Monitor BTC - ' + name : 'Monitor BTC';
+    setMeta('meta[name="description"]', 'content', META_DESCRIPTION);
+    setMeta('meta[property="og:title"]', 'content', META_TITLE);
+    setMeta('meta[property="og:description"]', 'content', META_DESCRIPTION);
+    setMeta('meta[name="twitter:title"]', 'content', META_TITLE);
+    setMeta('meta[name="twitter:description"]', 'content', META_DESCRIPTION);
+    setMeta('meta[property="og:image:alt"]', 'content', META_IMAGE_ALT);
+    setMeta('meta[name="twitter:image:alt"]', 'content', META_IMAGE_ALT);
+    var locale = $('meta[property="og:locale"]');
+    if (locale) locale.setAttribute('content', LOCALE_META[state.lang] || 'pt_BR');
+  }
+  function syncLangButton() {
+    var button = $('#lang-btn');
+    if (!button) return;
+    button.textContent = LOCALE_CODES[state.lang] || 'PT';
+    button.setAttribute('aria-label', t('Idioma'));
+  }
+  function updateThemeButton() {
+    var b = $('#theme-toggle');
+    if (!b) return;
+    var light = document.documentElement.dataset.theme === 'light';
+    b.innerHTML = '<span class="glyph">' +
+      (light ? '●' : '<span class="glyph-ring">○</span>') + '</span>';
+    b.setAttribute('aria-label', t(light ? 'Ativar tema escuro' : 'Ativar tema claro'));
+  }
+  /* Troca de idioma (VG-IDI-02): relê a origem portuguesa de cada texto
+     estático e redesenha o que veio do servidor ou de um recado, sem recarregar
+     a tela nem perder o estado. */
+  function applyLanguage() {
+    document.documentElement.lang = LOCALE_TAGS[state.lang] || 'pt-BR';
+    applyI18n();
+    syncMeta();
+    syncLangButton();
+    updateThemeButton();
+    paintStatuses();
+    /* sem dados, o resumo do histórico é texto de estado (idle, carregando ou
+       erro): volta ao idioma novo em vez de ficar com o texto de origem. */
+    if (!state.data) syncHistoryState();
+    if (state.data && !state.scanning) {
+      /* só o texto do retrato, sem repetir o pedido de máximo nem mexer no
+         PSBT que já está na tela */
+      renderBalance(state.data);
+      renderHistoryTotals(state.data);
+      syncHistoryState();
+      renderHistory();
+    }
+    if (state.psbt) renderSendMeta(state.psbt);
+    if (state.broadcast) renderBroadcast(state.broadcast);
+    renderFees();
+    updateSendAvailability();
+    updateBroadcastActions();
+    markLanguage();
+    updateScroll();
   }
   function fillFrames() {
     $$('.edge').forEach(function (el) {
@@ -630,12 +1052,7 @@
       }, motionMs('--motion-theme', 150) + 50);
     }
     root.dataset.theme = t;
-    var b = $('#theme-toggle');
-    if (b) {
-      b.innerHTML = '<span class="glyph">' +
-        (t === 'light' ? '●' : '<span class="glyph-ring">○</span>') + '</span>';
-      b.setAttribute('aria-label', t === 'light' ? 'Ativar tema escuro' : 'Ativar tema claro');
-    }
+    updateThemeButton();
     var meta = document.querySelector('meta[name="theme-color"]');
     var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
     if (meta && bg) meta.setAttribute('content', bg);
@@ -846,7 +1263,7 @@
       } else if (state.historyState === 'error') {
         summary.textContent = '';
       } else if (state.historyState === 'idle') {
-        summary.textContent = 'cole a xpub, zpub ou ypub na carteira para ver o histórico.';
+        summary.textContent = t('cole a xpub, zpub ou ypub na carteira para ver o histórico.');
       }
     }
     if (list) list.hidden = !(ready && rows.length > 0);
@@ -1086,14 +1503,16 @@
     if (!body) return;
     body.innerHTML = '';
     var types = d.types || [];
-    types.forEach(function (t) {
+    types.forEach(function (item) {
       var tr = document.createElement('tr');
-      var addr = t.address || '';
-      var label = t.type || t.label || '';
+      var addr = item.address || '';
+      var rawLabel = item.type || item.label || '';
+      var label = PT_KEYS[rawLabel] ? t(rawLabel) : rawLabel;
       tr.innerHTML = '<th scope="row">' + esc(label) + '</th>' +
         '<td><span class="receive-line"><code>' + esc(addr || '—') + '</code>' +
         (addr ? '<button type="button" class="key-action" data-copy="' + esc(addr) +
-          '" aria-label="copiar endereço ' + esc(label) + '">copiar</button>' : '') +
+          '" aria-label="' + esc(t('copiar endereço {label}', { label: label })) + '">' +
+          esc(t('copiar')) + '</button>' : '') +
         '</span></td>';
       body.appendChild(tr);
     });
@@ -1153,11 +1572,11 @@
     /* Colagem acima do teto é recusada, não truncada: cortar em silêncio
        mudaria o valor sem o usuário ver. O campo volta ao valor anterior. */
     if (clean.length > AMOUNT_DIGITS_MAX) {
-      state.amountError = 'valor grande demais: máximo de ' + AMOUNT_DIGITS_MAX + ' dígitos.';
+      state.amountError = msg('valor grande demais: máximo de {n} dígitos.', { n: AMOUNT_DIGITS_MAX });
       renderAmountInput();
       return;
     }
-    state.amountError = '';
+    state.amountError = null;
     state.amountDigits = clean;
     renderAmountInput();
     scheduleLimits(true);
@@ -1192,12 +1611,12 @@
     var rate = feeRateNow();
     var hint = $('#send-amount-hint');
     var max = state.limits ? Number(state.limits.max_send_sats) || 0 : 0;
-    var amountProblem = state.amountError || '';
-    var addressProblem = '';
-    var hintText = '';
+    var amountProblem = state.amountError || null;
+    var addressProblem = null;
+    var hintSpec = null;
 
     if (address && !addressLooksValid(address)) {
-      addressProblem = 'destino inválido: use um endereço bc1…, 1… ou 3….';
+      addressProblem = msg('destino inválido: use um endereço bc1…, 1… ou 3….');
     } else if (address && state.addressError && state.addressError.address === address) {
       /* o regex deixa passar endereço com checksum errado: quem recusa é o
          servidor, e a recusa é erro do campo, não nota do máximo */
@@ -1206,20 +1625,20 @@
     if (state.amountError) {
       /* o recado já está em amountProblem */
     } else if (amount > 0 && amount < DUST_SATS) {
-      amountProblem = 'valor abaixo do mínimo: ' + fmtBtc(DUST_SATS);
+      amountProblem = msg('valor abaixo do mínimo: {value}', { value: fmtBtc(DUST_SATS) });
     } else if (state.feesError && !feeRateOk(rate) && (amount > 0 || address)) {
-      hintText = state.feesError;
+      hintSpec = state.feesError;
     } else if (state.limits) {
-      hintText = 'máximo ' + fmtBtc(max);
+      hintSpec = msg('máximo {value}', { value: fmtBtc(max) });
       if (amount > 0 && max < DUST_SATS) {
-        amountProblem = 'saldo insuficiente para enviar com essa taxa.';
+        amountProblem = msg('saldo insuficiente para enviar com essa taxa.');
       } else if (amount > max) {
-        amountProblem = 'valor acima do máximo enviável: ' + fmtBtc(max);
+        amountProblem = msg('valor acima do máximo enviável: {value}', { value: fmtBtc(max) });
       }
     } else if (state.limitsError) {
-      hintText = 'máximo indisponível: ' + state.limitsError;
+      hintSpec = msg('máximo indisponível: {text}', { text: specText(state.limitsError) });
     } else if (amount > 0 && !addressProblem && addressLooksValid(address)) {
-      hintText = 'calculando a taxa…';
+      hintSpec = msg('calculando a taxa…');
     }
 
     /* O erro fica no recado geral (VG-FRM-07), não sob o campo: o hint
@@ -1233,7 +1652,7 @@
     if (amountInput) {
       amountInput.setAttribute('aria-describedby', amountProblem ? 'send-status' : 'send-amount-hint');
     }
-    if (hint) hint.textContent = hintText;
+    if (hint) hint.textContent = specText(hintSpec);
     setSendValidation(addressProblem || amountProblem);
 
     if (!feeRateOk(rate) && state.feesError && state.xpub) {
@@ -1281,7 +1700,7 @@
     state.limitsSeq++;
     if (!keep) {
       state.limits = null;
-      state.limitsError = '';
+      state.limitsError = null;
     }
     updateSendAvailability();
     var address = $('#send-address') ? $('#send-address').value.trim() : '';
@@ -1313,10 +1732,10 @@
       var r = res.r;
       var j = res.j;
       if (seq !== state.limitsSeq || state.xpub !== xpub) return;
-      if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
-      if (!Number.isInteger(j.max_send_sats)) throw new Error('resposta sem limite de envio');
+      if (!r.ok || j.error) throw apiFail(r, j);
+      if (!Number.isInteger(j.max_send_sats)) throw fail('resposta sem limite de envio');
       state.limits = j;
-      state.limitsError = '';
+      state.limitsError = null;
       state.addressError = null; // destino aceito
       /* as cotas dos níveis dependem só do valor e do destino: guardadas à
          parte, as opções não piscam para `—` quando só a taxa muda */
@@ -1337,12 +1756,12 @@
       if (rejected) {
         state.addressError = {
           address: address,
-          text: 'destino inválido: ' + rejected[1].replace(/\.$/, '') + '.'
+          text: msg('destino inválido: {text}.', { text: rejected[1].replace(/\.$/, '') })
         };
-        state.limitsError = '';
+        state.limitsError = null;
       } else {
         state.addressError = null;
-        state.limitsError = message;
+        state.limitsError = errSpec(e);
       }
     }
     updateSendAvailability();
@@ -1371,10 +1790,12 @@
       return;
     }
     var relay = Number(fees.relay_min_kvb);
-    var relayText = relay > 0 ? String(relay / 1000).replace('.', ',') + ' sat/vB' : 'o piso padrão';
-    note.textContent = '[ atenção ] taxa de ' + rate.toFixed(2).replace('.', ',') +
-      ' sat/vB, abaixo do piso de relay padrão (' + relayText +
-      '): a transação pode ser recusada pelos nós.';
+    var relayText = relay > 0 ? dec(relay / 1000) + ' sat/vB' : t('o piso padrão');
+    note.textContent = t('[ atenção ]') + ' ' +
+      t('taxa de {rate} sat/vB, abaixo do piso de relay padrão ({relay}): a transação pode ser recusada pelos nós.', {
+        rate: dec((rate).toFixed(2)),
+        relay: relayText
+      });
   }
 
   /* Custo da taxa única para o valor que está no formulário. Só vale quando
@@ -1396,8 +1817,8 @@
     if (!(rate > 0)) { line.textContent = ''; return; }
     var fee = feeQuotes()[rate];
     var amount = amountSats();
-    line.textContent = 'taxa ' + String(rate).replace('.', ',') + ' sat/vB' +
-      (fee > 0 && amount > 0 ? ' · ' + fmtPercent(fee, amount) + '%' : '');
+    line.textContent = t('taxa {rate} sat/vB', { rate: dec(rate) }) +
+      (fee > 0 && amount > 0 ? ' · ' + dec(fmtPercent(fee, amount)) + '%' : '');
   }
 
   /* Taxa ao vivo: a rota usa a conexão da sessão quando ela existe e o
@@ -1410,19 +1831,19 @@
       var res = await fetchJson(url);
       var r = res.r;
       var j = res.j;
-      if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
-      if (!j.levels) throw new Error('resposta sem níveis de taxa');
+      if (!r.ok || j.error) throw apiFail(r, j);
+      if (!j.levels) throw fail('resposta sem níveis de taxa');
       if (state.xpub !== xpub) return;
       var before = feeRateNow();
       state.fees = j;
-      state.feesError = feeRateOk(feeRateNow()) ? '' : 'taxa indisponível; tente de novo.';
+      state.feesError = feeRateOk(feeRateNow()) ? null : msg('taxa indisponível; tente de novo.');
       renderFees(); // atualiza a linha de custo e o aviso de piso
       /* taxa escolhida mudou: o máximo é recalculado sem manter o antigo.
          Só a taxa mudou: mantém o máximo e refaz a cota. */
       if (!state.limits || feeRateNow() !== before) scheduleLimits();
       else scheduleLimits(true);
     } catch (e) {
-      state.feesError = 'taxa indisponível; tente de novo.';
+      state.feesError = msg('taxa indisponível; tente de novo.');
       renderFees();
       updateSendAvailability();
     }
@@ -1458,7 +1879,7 @@
     if (state.psbtPending) {
       state.psbtPending = false;
       state.psbtPendingKey = '';
-      setSendStatus('', ''); // a frase de "montando" não sobrevive à edição
+      setSendStatus('', null); // a frase de "montando" não sobrevive à edição
     }
     state.psbtKey = '';
     state.psbtFailKey = ''; // edição é o gatilho para tentar de novo
@@ -1506,9 +1927,9 @@
     state.fees = null;
     state.feeQuotes = null;
     state.amountDigits = '';
-    state.amountError = '';
+    state.amountError = null;
     state.limits = null;
-    state.limitsError = '';
+    state.limitsError = null;
     state.addressError = null;
     state.limitsSeq++;
     if (state.limitsTimer) clearTimeout(state.limitsTimer);
@@ -1520,10 +1941,10 @@
     });
     var amount = $('#send-amount');
     if (amount) amount.value = '';
-    state.sendValidationError = '';
+    state.sendValidationError = null;
     setFieldInvalid($('#send-address'), false);
     setFieldInvalid($('#send-amount'), false);
-    setSendStatus('', '');
+    setSendStatus('', null);
     renderFees();
     renderAmountInput();
   }
@@ -1570,7 +1991,7 @@
         outAddress.appendChild(document.createTextNode(' '));
         var externalMark = document.createElement('span');
         externalMark.className = 'review-external';
-        externalMark.textContent = '[ externo ]';
+        externalMark.textContent = t('[ externo ]');
         outAddress.appendChild(externalMark);
       }
     }
@@ -1596,26 +2017,26 @@
     var warn = [];
     var typedAddress = $('#send-address') ? $('#send-address').value.trim() : '';
     if (j.recipient && j.recipient.address !== typedAddress) {
-      warn.push('o destino no psbt difere do campo de destino');
+      warn.push(t('o destino no psbt difere do campo de destino'));
     }
     if (j.recipient && Number(j.recipient.value) !== amountSats()) {
-      warn.push('o valor no psbt difere do campo de quantidade');
+      warn.push(t('o valor no psbt difere do campo de quantidade'));
     }
     var externos = (j.outputs || []).filter(function (out) { return out.own === 'externo'; });
-    if (externos.length > 1) warn.push('o psbt tem ' + externos.length + ' saídas externas');
+    if (externos.length > 1) warn.push(t('o psbt tem {n} saídas externas', { n: externos.length }));
     /* Gasto encadeado: a entrada é o troco de uma transação nossa que ainda
        não confirmou. É permitido e é o que evita o saldo zerado, mas a nova
        transação só confirma depois (e junto) da anterior. */
     var pendentes = (j.inputs || []).filter(function (inp) { return inp.pending; });
     if (pendentes.length) {
       warn.push(pendentes.length === 1
-        ? 'o psbt gasta troco pendente de uma transação sua; ela confirma depois da anterior'
-        : 'o psbt gasta ' + pendentes.length + ' saídas pendentes de transações suas; elas confirmam depois das anteriores');
+        ? t('o psbt gasta troco pendente de uma transação sua; ela confirma depois da anterior')
+        : t('o psbt gasta {n} saídas pendentes de transações suas; elas confirmam depois das anteriores', { n: pendentes.length }));
     }
     var warnEl = $('#send-meta-warn');
     if (warnEl) {
       warnEl.textContent = warn.length
-        ? '[ atenção ] ' + warn.join('; ') + '.'
+        ? t('[ atenção ]') + ' ' + warn.join('; ') + '.'
         : '';
     }
   }
@@ -1681,7 +2102,7 @@
     state.psbtPending = true;
     state.psbtPendingKey = key;
     if (hasOld) $('#send-out').setAttribute('aria-busy', 'true');
-    if (!hasOld) setSendStatus('', 'montando o psbt...');
+    if (!hasOld) setSendStatus('', msg('montando o psbt...'));
     try {
       var xpub = state.xpub;
       var body = { xpub: xpub, address: address, amount_sats: amount, fee_rate: rate };
@@ -1697,8 +2118,8 @@
       // e tenta uma vez com a sessão nova
       if (r.status === 409) {
         await load(true);
-        if (state.xpub !== xpub) throw new Error('a carteira mudou; tente de novo.');
-        if (!state.session) throw new Error('sessão expirada; recarregue a carteira.');
+        if (state.xpub !== xpub) throw fail('a carteira mudou; tente de novo.');
+        if (!state.session) throw fail('sessão expirada; recarregue a carteira.');
         body.session = state.session;
         res = await fetchJson('/api/psbt', {
           method: 'POST',
@@ -1708,7 +2129,7 @@
         r = res.r;
         j = res.j;
       }
-      if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+      if (!r.ok || j.error) throw apiFail(r, j);
       // o formulário mudou enquanto o servidor montava: este retrato venceu
       if (seq !== state.psbtSeq || key !== psbtKey()) return;
       state.psbt = j;
@@ -1722,12 +2143,12 @@
       out.removeAttribute('data-stale');
       // sem recado de sucesso: o download e os detalhes na tela confirmam
       // (a frase de "montando" não pode ficar parada embaixo do resultado)
-      setSendStatus('', '');
+      setSendStatus('', null);
       updateScroll();
     } catch (e) {
       if (seq !== state.psbtSeq) return;
       state.psbtFailKey = key;
-      setSendStatus('error', e && e.message ? e.message : String(e));
+      setSendStatus('error', errSpec(e));
     } finally {
       if (seq === state.psbtSeq) {
         state.psbtPending = false;
@@ -1768,8 +2189,8 @@
      tela, como o PSBT do envio. A tela recusa pelo file.size antes de ler;
      o servidor confere o texto de novo (MAX_PSBT_TEXT, em broadcast.js). */
 
-  function setBroadcastStatus(kind, text) {
-    setStatusTo($('#broadcast-status'), kind, text);
+  function setBroadcastStatus(kind, spec) {
+    setStatusTo($('#broadcast-status'), kind, spec);
   }
 
   function updateBroadcastActions() {
@@ -1788,7 +2209,7 @@
       send.hidden = !loaded;
       if (loaded && !sent && !state.broadcastBusy) send.removeAttribute('aria-disabled');
       else send.setAttribute('aria-disabled', 'true');
-      send.textContent = sent ? 'transmitida' : 'confirmar';
+      send.textContent = sent ? t('transmitida') : t('confirmar');
     }
     var showClear = hasFile && !sent;
     if (clear) clear.hidden = !showClear;
@@ -1816,7 +2237,7 @@
     if (block) block.removeAttribute('aria-busy');
     var file = $('#broadcast-file');
     if (file) file.value = '';
-    setBroadcastStatus('', '');
+    setBroadcastStatus('', null);
     updateBroadcastActions();
   }
 
@@ -1863,16 +2284,16 @@
       );
       (j.outputs || []).forEach(function (out) {
         var change = out.own === 'troco';
-        var value = broadcastMetaRow(change ? 'troco' : 'saída');
+        var value = broadcastMetaRow(t(change ? 'troco' : 'saída'));
         value.td.innerHTML = signedBtcShare(out.value, change ? 'in' : 'out');
         value.tr.setAttribute('data-broadcast-output', '');
         metaBody.insertBefore(value.tr, feeRow);
         /* O destino externo leva o marcador no próprio endereço, no tom do
            "[ atenção ]"; as saídas da carteira seguem como texto puro. */
-        var address = broadcastMetaRow(change ? 'endereço' : 'destino', true);
+        var address = broadcastMetaRow(t(change ? 'endereço' : 'destino'), true);
         if (out.own === 'externo') {
           address.td.innerHTML = esc(out.address || '—') +
-            ' <span class="review-external">[ externo ]</span>';
+            ' <span class="review-external">' + t('[ externo ]') + '</span>';
         } else {
           address.td.textContent = out.address || '—';
         }
@@ -1882,7 +2303,7 @@
     }
     var warn = $('#broadcast-warn');
     var warnings = j.warnings || [];
-    if (warn) warn.textContent = warnings.length ? '[ atenção ] ' + warnings.join('; ') : '';
+    if (warn) warn.textContent = warnings.length ? t('[ atenção ]') + ' ' + warnings.join('; ') : '';
     var out = $('#broadcast-out');
     if (out) {
       out.hidden = false;
@@ -1897,24 +2318,24 @@
     state.broadcast = null;
     state.broadcastText = '';
     state.broadcastSent = false;
-    state.broadcastName = file.name || 'psbt assinado';
+    state.broadcastName = file.name || t('psbt assinado');
     state.broadcastBusy = true;
     var out = $('#broadcast-out');
     if (out) out.hidden = true;
     var block = $('#broadcast-import-block');
     if (block) block.setAttribute('aria-busy', 'true');
     updateBroadcastActions();
-    setBroadcastStatus('', 'conferindo o psbt...');
+    setBroadcastStatus('', msg('conferindo o psbt...'));
     /* O arquivo é lido só depois do teto: escolher um vídeo ou um .psbt
        inflado não pode congelar a aba. O servidor confere o mesmo teto
        (MAX_PSBT_TEXT, em broadcast.js). */
     var MAX_PSBT_FILE_BYTES = 400000;
     try {
-      if (file.size > MAX_PSBT_FILE_BYTES) throw new Error('arquivo grande demais para conferir');
+      if (file.size > MAX_PSBT_FILE_BYTES) throw fail('arquivo grande demais para conferir');
       var text = await file.text();
       if (seq !== state.broadcastSeq) return;
-      if (!text.trim()) throw new Error('o arquivo está vazio');
-      if (!state.xpub) throw new Error('carregue a carteira antes de escolher o arquivo');
+      if (!text.trim()) throw fail('o arquivo está vazio');
+      if (!state.xpub) throw fail('carregue a carteira antes de escolher o arquivo');
       state.broadcastText = text;
       var xpub = state.xpub;
       var body = { xpub: xpub, psbt: text, preview: true };
@@ -1930,8 +2351,8 @@
          (a tela já tem o dado) e tenta uma vez com a sessão nova */
       if (r.status === 409) {
         await load(true);
-        if (state.xpub !== xpub) throw new Error('a carteira mudou; tente de novo.');
-        if (!state.session) throw new Error('sessão expirada; recarregue a carteira.');
+        if (state.xpub !== xpub) throw fail('a carteira mudou; tente de novo.');
+        if (!state.session) throw fail('sessão expirada; recarregue a carteira.');
         body.session = state.session;
         res = await fetchJson('/api/broadcast', {
           method: 'POST',
@@ -1941,13 +2362,13 @@
         r = res.r;
         j = res.j;
       }
-      if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+      if (!r.ok || j.error) throw apiFail(r, j);
       if (seq !== state.broadcastSeq) return;
       state.broadcast = j;
       renderBroadcast(j);
       /* O resumo na tela já diz que o arquivo conferiu: sem legenda de
          sucesso, só a falha ganha recado. */
-      setBroadcastStatus('', '');
+      setBroadcastStatus('', null);
     } catch (e) {
       if (seq !== state.broadcastSeq) return;
       state.broadcast = null;
@@ -1957,7 +2378,7 @@
       state.broadcastName = '';
       var panel = $('#broadcast-out');
       if (panel) panel.hidden = true;
-      setBroadcastStatus('error', e && e.message ? e.message : String(e));
+      setBroadcastStatus('error', errSpec(e));
     } finally {
       if (seq === state.broadcastSeq) {
         state.broadcastBusy = false;
@@ -1974,7 +2395,7 @@
     var seq = ++state.broadcastSeq;
     state.broadcastBusy = true;
     updateBroadcastActions();
-    setBroadcastStatus('', 'transmitindo...');
+    setBroadcastStatus('', msg('transmitindo...'));
     var body = { xpub: state.xpub, psbt: state.broadcastText };
     if (state.session) body.session = state.session;
     try {
@@ -1990,8 +2411,8 @@
          e tenta uma vez (o resumo já revisado continua válido) */
       if (r.status === 409) {
         await load(true);
-        if (state.xpub !== xpub) throw new Error('a carteira mudou; tente de novo.');
-        if (!state.session) throw new Error('sessão expirada; recarregue a carteira.');
+        if (state.xpub !== xpub) throw fail('a carteira mudou; tente de novo.');
+        if (!state.session) throw fail('sessão expirada; recarregue a carteira.');
         body.session = state.session;
         res = await fetchJson('/api/broadcast', {
           method: 'POST',
@@ -2001,7 +2422,7 @@
         r = res.r;
         j = res.j;
       }
-      if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+      if (!r.ok || j.error) throw apiFail(r, j);
       if (seq !== state.broadcastSeq) return;
       state.broadcast = j;
       state.broadcastSent = true;
@@ -2009,10 +2430,10 @@
       renderBroadcast(j);
       // o seletor volta para o próximo PSBT sem derrubar a sessão/varredura
       state.broadcastName = '';
-      setBroadcastStatus('ok', 'transação transmitida: ' + (j.txid || ''));
+      setBroadcastStatus('ok', msg('transação transmitida: {txid}', { txid: j.txid || '' }));
     } catch (e) {
       if (seq !== state.broadcastSeq) return;
-      setBroadcastStatus('error', e && e.message ? e.message : String(e));
+      setBroadcastStatus('error', errSpec(e));
     } finally {
       if (seq === state.broadcastSeq) {
         state.broadcastBusy = false;
@@ -2043,7 +2464,7 @@
       parts.push(signedBtc(pout, 'out'));
     }
     if (!parts.length) return '';
-    return '<span class="value-label">pendente</span> ' +
+    return '<span class="value-label">' + t('pendente') + '</span> ' +
       parts.join('<span class="value-sep">/</span>');
   }
 
@@ -2067,7 +2488,7 @@
       : pct >= 1 ? pct.toFixed(2)
       : pct.toFixed(3);
     if (text === '0.000') text = '<0.001';
-    return ' <span class="value-sep" aria-hidden="true">|</span> <span class="value-pct">' + text + '%</span>';
+    return ' <span class="value-sep" aria-hidden="true">|</span> <span class="value-pct">' + dec(text) + '%</span>';
   }
 
   /* Valor com sinal seguido da fatia sobre o saldo (resumo do PSBT): o
@@ -2171,49 +2592,50 @@
     });
   }
 
-  function historyItemNode(t) {
+  function historyItemNode(tx) {
     var sep = ' <span class="tag-sep" aria-hidden="true">·</span> ';
-    var status = t.pending
-      ? '<span class="tag tag-pending">[ pendente ]</span>'
+    var status = tx.pending
+      ? '<span class="tag tag-pending">' + esc(t('[ pendente ]')) + '</span>'
       : '';
     var values = [];
-    if (t.direction === 'in' && Number(t.received_sats) > 0) {
-      values.push('<span class="value-label">recebido</span> ' + signedBtc(t.received_sats, 'in'));
+    if (tx.direction === 'in' && Number(tx.received_sats) > 0) {
+      values.push('<span class="value-label">' + esc(t('recebido')) + '</span> ' + signedBtc(tx.received_sats, 'in'));
     }
-    if (t.direction === 'out' && Number(t.sent_sats) > 0) {
-      values.push('<span class="value-label">enviado</span> ' + signedBtc(t.sent_sats, 'out'));
+    if (tx.direction === 'out' && Number(tx.sent_sats) > 0) {
+      values.push('<span class="value-label">' + esc(t('enviado')) + '</span> ' + signedBtc(tx.sent_sats, 'out'));
     }
-    if (t.direction === 'self' && Number(t.received_sats) > 0) {
-      values.push('<span class="value-label">auto</span> ' + fmtBtc(t.received_sats));
+    if (tx.direction === 'self' && Number(tx.received_sats) > 0) {
+      values.push('<span class="value-label">' + esc(t('auto')) + '</span> ' + fmtBtc(tx.received_sats));
     }
-    if (Number(t.fee_sats) > 0) {
-      values.push('<span class="value-label">taxa</span> ' + signedBtc(t.fee_sats, 'out'));
+    if (Number(tx.fee_sats) > 0) {
+      values.push('<span class="value-label">' + esc(t('taxa')) + '</span> ' + signedBtc(tx.fee_sats, 'out'));
     }
-    var meta = fmtInt(t.input_count) +
-      (t.input_count === 1 ? ' entrada' : ' entradas') + sep +
-      fmtInt(t.output_count) + (t.output_count === 1 ? ' saída' : ' saídas');
-    var eligible = !!(t.cpfp && t.cpfp.eligible);
+    var meta = fmtInt(tx.input_count) + ' ' +
+      t(tx.input_count === 1 ? 'entrada' : 'entradas') + sep +
+      fmtInt(tx.output_count) + ' ' + t(tx.output_count === 1 ? 'saída' : 'saídas');
+    var eligible = !!(tx.cpfp && tx.cpfp.eligible);
     var valueText = values.join(' <span class="value-sep" aria-hidden="true">|</span> ');
     /* O estado e o acelerar formam uma coluna à direita das duas linhas de
        metadados: o começo das contagens não muda de um item pendente para
        um confirmado, e o botão cai no eixo do [ pendente ]. */
     var html =
-      '<h3><span class="item-title is-static history-txid">' + esc(t.txid) + '</span></h3>' +
+      '<h3><span class="item-title is-static history-txid">' + esc(tx.txid) + '</span></h3>' +
       '<div class="history-body">' +
       '<p class="item-meta history-counts">' + meta + '</p>' +
       (status ? '<p class="item-meta history-status">' + status + '</p>' : '') +
       (valueText ? '<p class="item-meta history-values">' + valueText + '</p>' : '') +
       (eligible
-        ? '<button type="button" class="history-actions" data-cpfp="' + esc(t.txid) +
-          '">acelerar</button>'
+        ? '<button type="button" class="history-actions" data-cpfp="' + esc(tx.txid) +
+          '">' + esc(t('acelerar')) + '</button>'
         : '') +
       '</div>';
-    var addrs = t.addresses || [];
+    var addrs = tx.addresses || [];
     if (addrs.length) {
       var labels = { entrada: 'entrada', troco: 'troco', recebimento: 'recebimento' };
       var shown = addrs.slice(0, 1).map(function (a) {
+        var role = labels[a.role] || a.role;
         return '<span class="history-address">' + esc(a.address) + '</span>' + sep +
-          '<span class="tag">' + esc(labels[a.role] || a.role) + '</span>';
+          '<span class="tag">' + esc(PT_KEYS[role] ? t(role) : role) + '</span>';
       });
       if (addrs.length > 1) shown.push('<span class="tag">+' + (addrs.length - 1) + '</span>');
       html += '<p class="item-meta history-addresses">' + shown.join(sep) + '</p>';
@@ -2285,27 +2707,27 @@
   /* ------------------------------ acelerar (CPFP) */
   /* O clique em "acelerar" monta a filha e baixa o PSBT na hora: não há
      resumo nem segundo clique. Só a falha vira recado na tela. */
-  function setCpfpStatus(kind, text) {
-    setStatusTo($('#cpfp-status'), kind, text);
+  function setCpfpStatus(kind, spec) {
+    setStatusTo($('#cpfp-status'), kind, spec);
     updateScroll();
   }
 
   function resetCpfp() {
     state.cpfpSeq++;
-    setCpfpStatus('', '');
+    setCpfpStatus('', null);
   }
 
   async function startCpfp(txid) {
     if (!state.xpub) return;
     var seq = ++state.cpfpSeq;
-    setCpfpStatus('', '');
+    setCpfpStatus('', null);
     try {
       var rate = feeRateNow();
       if (!feeRateOk(rate)) {
         await loadFees();
         rate = feeRateNow();
       }
-      if (!feeRateOk(rate)) throw new Error('taxa indisponível; tente de novo.');
+      if (!feeRateOk(rate)) throw fail('taxa indisponível; tente de novo.');
       var xpub = state.xpub;
       var body = { xpub: xpub, txid: txid, fee_rate: rate };
       if (state.session) body.session = state.session;
@@ -2319,8 +2741,8 @@
       // sessão do Durable Object caiu: reenvia a xpub e tenta uma vez
       if (r.status === 409) {
         await load(true);
-        if (state.xpub !== xpub) throw new Error('a carteira mudou; tente de novo.');
-        if (!state.session) throw new Error('sessão expirada; recarregue a carteira.');
+        if (state.xpub !== xpub) throw fail('a carteira mudou; tente de novo.');
+        if (!state.session) throw fail('sessão expirada; recarregue a carteira.');
         body.session = state.session;
         res = await fetchJson('/api/cpfp', {
           method: 'POST',
@@ -2330,19 +2752,20 @@
         r = res.r;
         j = res.j;
       }
-      if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+      if (!r.ok || j.error) throw apiFail(r, j);
       if (seq !== state.cpfpSeq || state.xpub !== xpub) return;
-      if (!j.psbt) throw new Error('o servidor não devolveu o psbt.');
+      if (!j.psbt) throw fail('o servidor não devolveu o psbt.');
       downloadPsbtText(j.psbt, 'cpfp-' + String(j.txid || txid).slice(0, 8) + '.psbt');
     } catch (e) {
       if (seq !== state.cpfpSeq) return;
-      setCpfpStatus('error', e && e.message ? e.message : String(e));
+      setCpfpStatus('error', errSpec(e));
     }
   }
 
-  function render(d) {
-    stopScan();
-    state.data = d;
+  /* A parte do retrato que é só leitura do servidor: saldo, endereços,
+     avisos e horário. Separada do resto para a troca de idioma redesenhar o
+     texto sem repetir o pedido de máximo e o redesenho da lista. */
+  function renderBalance(d) {
     var b = d.balance || {};
     var total = $('#v-total');
     total.textContent = fmtBtc(b.total);
@@ -2355,20 +2778,26 @@
     }
     var updated = $('#v-updated');
     updated.textContent = d.updated_at
-      ? 'atualizado ' + new Date(d.updated_at).toLocaleString('pt-BR')
+      ? t('atualizado {value}', {
+        value: new Date(d.updated_at).toLocaleString(LOCALE_TAGS[state.lang] || 'pt-BR')
+      })
       : '';
     updated.hidden = !d.updated_at;
     renderReceive(d);
     $('#v-warnings').innerHTML = (d.warnings || []).map(function (w) { return esc(w); }).join('<br>');
+  }
 
+  /* O resumo do extrato: quatro pares legenda/valor com o plural do rótulo
+     pela contagem e a marcação de valor do sistema. */
+  function renderHistoryTotals(d) {
     var txs = d.transactions || [];
     var sum = { received: 0, sent: 0, fee: 0 };
-    txs.forEach(function (t) {
-      if (t.direction === 'in') sum.received += Number(t.received_sats) || 0;
-      if (t.direction === 'out') sum.sent += Number(t.sent_sats) || 0;
-      sum.fee += Number(t.fee_sats) || 0;
+    txs.forEach(function (tx) {
+      if (tx.direction === 'in') sum.received += Number(tx.received_sats) || 0;
+      if (tx.direction === 'out') sum.sent += Number(tx.sent_sats) || 0;
+      sum.fee += Number(tx.fee_sats) || 0;
     });
-    var countLabel = txs.length === 1 ? 'transação' : 'transações';
+    var countLabel = t(txs.length === 1 ? 'transação' : 'transações');
     /* O resumo é a leitura curta do extrato (VG-ABS-04): quatro pares
        legenda/valor — a legenda em cima e o valor embaixo, na mesma coluna —,
        com o plural do rótulo pela contagem. Os valores repetem a marcação das
@@ -2376,16 +2805,23 @@
        (VG-COR-16), e o zero em --dim. */
     var totals = [
       [countLabel, fmtInt(txs.length)],
-      ['recebido', signedBtc(sum.received, 'in')],
-      ['saídas', signedBtc(sum.sent, 'out')],
-      ['taxas', signedBtc(sum.fee, 'out')]
+      [t('recebido'), signedBtc(sum.received, 'in')],
+      [t('saídas'), signedBtc(sum.sent, 'out')],
+      [t('taxas'), signedBtc(sum.fee, 'out')]
     ];
     $('#history-summary').innerHTML =
-      '<dl class="history-totals" aria-label="totais do histórico">' +
+      '<dl class="history-totals" aria-label="' + esc(t('totais do histórico')) + '">' +
         totals.map(function (c) {
           return '<div><dt>' + esc(c[0]) + '</dt><dd>' + c[1] + '</dd></div>';
         }).join('') +
       '</dl>';
+  }
+
+  function render(d) {
+    stopScan();
+    state.data = d;
+    renderBalance(d);
+    renderHistoryTotals(d);
     state.historyState = 'ready';
     syncHistoryState();
     renderHistory();
@@ -2426,11 +2862,11 @@
     state.historyState = 'idle';
     stopScan();
     var summary = $('#history-summary');
-    if (summary) summary.textContent = 'cole a xpub, zpub ou ypub na carteira para ver o histórico.';
+    if (summary) summary.textContent = t('cole a xpub, zpub ou ypub na carteira para ver o histórico.');
     resetSend();
     resetBroadcast();
     resetCpfp();
-    setStatus('', '');
+    setStatus('', null);
     syncHistoryState();
     updateScroll();
   }
@@ -2446,8 +2882,9 @@
   function scanText(progress) {
     var p = progress || {};
     var scanned = p.scanned || 0;
-    return 'verificando ' + fmtInt(scanned) +
-      (scanned === 1 ? ' endereço' : ' endereços');
+    return msg(scanned === 1 ? 'verificando {n} endereço' : 'verificando {n} endereços', {
+      n: fmtInt(scanned)
+    });
   }
 
   /* `keepView` é a atualização da MESMA xpub que já está na tela (polling,
@@ -2482,13 +2919,13 @@
     if (btn) btn.hidden = true;
   }
 
-  function scanIncomplete(message) {
+  function scanIncomplete(spec) {
     state.scanning = false;
-    setStatus('error', message);
+    setStatus('error', spec);
     var btn = $('#scan-continue');
     if (btn) btn.hidden = false;
     var summary = $('#history-summary');
-    if (summary) summary.textContent = 'busca incompleta: ainda podem existir valores não contabilizados.';
+    if (summary) summary.textContent = t('busca incompleta: ainda podem existir valores não contabilizados.');
     if (!state.data) {
       state.historyState = 'error';
       syncHistoryState();
@@ -2531,7 +2968,7 @@
         });
         var r = res.r;
         var j = res.j;
-        if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+        if (!r.ok || j.error) throw apiFail(r, j);
         // a xpub pode ter mudado enquanto a consulta corria: descarta a resposta
         if ($('#xpub').value.trim() !== xpub) return;
         state.xpub = xpub;
@@ -2544,7 +2981,7 @@
         render(j);
         // a tela já mostra o resultado: o recado de "verificando" sai de cena
         // sem virar uma legenda de sucesso permanente
-        setStatus('', '');
+        setStatus('', null);
         if (j.watch) openWatch();
         else closeWatch();
         loadFees();
@@ -2554,10 +2991,11 @@
       }
     } catch (e) {
       if (state.scanning && state.session) {
-        scanIncomplete('busca interrompida: o saldo pode estar incompleto. ' +
-          (e && e.message ? e.message : String(e)));
+        scanIncomplete(msg('busca interrompida: o saldo pode estar incompleto. {message}', {
+          message: e && e.message ? e.message : String(e)
+        }));
       } else {
-        setStatus('error', e && e.message ? e.message : String(e));
+        setStatus('error', errSpec(e));
         if (!state.data) {
           state.historyState = 'error';
           syncHistoryState();
@@ -2644,12 +3082,12 @@
     state.watch = ws;
     ws.onopen = function () { state.watchRetry = 0; clearWatchTimer(); };
     ws.onmessage = function (ev) {
-      var msg;
-      try { msg = JSON.parse(ev.data); } catch (e) { return; }
-      if (msg.type === 'payload' && msg.payload) {
-        render(msg.payload);
-      } else if (msg.type === 'error') {
-        setStatus('error', 'tempo real: ' + msg.error);
+      var frame;
+      try { frame = JSON.parse(ev.data); } catch (e) { return; }
+      if (frame.type === 'payload' && frame.payload) {
+        render(frame.payload);
+      } else if (frame.type === 'error') {
+        setStatus('error', msg('tempo real: {message}', { message: frame.error }));
       }
     };
     ws.onerror = function () {
@@ -2669,7 +3107,12 @@
 
   function wire() {
     fillFrames();
-    markLanguage();
+    /* O texto português que chega no HTML é a chave da tradução; guardar a
+       origem antes de qualquer troca permite voltar para PT sem recarregar.
+       O automático segue o navegador no arranque (VG-IDI-04). */
+    prepareI18n();
+    state.lang = browserLang();
+    applyLanguage();
     var themeParam = themeFromUrl();
     themeAuto = !themeParam;
     setTheme(themeParam || systemTheme(), { immediate: true });
@@ -2708,6 +3151,14 @@
         ev.preventDefault();
         closeLanguage();
       }
+    });
+
+    /* Com o automático em vigor, a troca de idioma do navegador é seguida
+       sem recarregar a página; a escolha manual não é tocada (VG-IDI-04). */
+    window.addEventListener('languagechange', function () {
+      if (!state.langAuto) return;
+      state.lang = browserLang();
+      applyLanguage();
     });
 
     /* Erro de dados do histórico (VG-ABS-10): a nova tentativa é um link de
@@ -2757,7 +3208,7 @@
       if (out.blocked) {
         setFieldInvalid(xpubInput, true);
         if (ev && ev.type === 'input') {
-          setStatus('error', 'chave inválida: use a xpub, zpub ou ypub da conta; endereço, chave privada e outro texto são recusados.');
+          setStatus('error', msg('chave inválida: use a xpub, zpub ou ypub da conta; endereço, chave privada e outro texto são recusados.'));
         }
       } else if (out.value && !xpubProblem(out.value)) {
         setFieldInvalid(xpubInput, false);
@@ -2791,7 +3242,7 @@
       xpubInput.addEventListener('blur', function () {
         applyXpubFilter(null);
         var value = xpubInput.value.trim();
-        var problem = value ? xpubProblem(value) : '';
+        var problem = value ? xpubProblem(value) : null;
         if (problem) {
           setFieldInvalid(xpubInput, true);
           setStatus('error', problem);
@@ -2833,20 +3284,20 @@
       try {
         await navigator.clipboard.writeText(value);
         if (action) {
-          action.textContent = 'copiado';
+          action.textContent = t('copiado');
           action.setAttribute('aria-disabled', 'true');
           if (!action._copyLabel) action._copyLabel = action.getAttribute('aria-label');
-          action.setAttribute('aria-label', 'endereço copiado');
+          action.setAttribute('aria-label', t('endereço copiado'));
           if (action._copyTimer) clearTimeout(action._copyTimer);
           action._copyTimer = setTimeout(function () {
-            action.textContent = 'copiar';
+            action.textContent = t('copiar');
             action.removeAttribute('aria-disabled');
             if (action._copyLabel) action.setAttribute('aria-label', action._copyLabel);
             action._copyTimer = 0;
           }, 1400);
         }
       } catch (e) {
-        setStatusTo(statusEl, 'error', 'não foi possível copiar.');
+        setStatusTo(statusEl, 'error', msg('não foi possível copiar.'));
       }
     }
     var receiveTable = $('#receive-table');
