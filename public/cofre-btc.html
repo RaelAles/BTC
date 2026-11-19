@@ -24,7 +24,7 @@
    só, o Liberation Mono (Book, Bold e Italic), recortada nos intervalos que o
    site usa. Todos os sinais da interface são texto dela: a espada (♠) da
    marca-d'água, as bolinhas do tema (● e ○), as setas (▲ ▼ ◄ ►) e o código do
-   idioma (PT, EN). O que ficar fora dos intervalos segue para a pilha de
+   idioma (PT, EN, …). O que ficar fora dos intervalos segue para a pilha de
    fallback do sistema (--mono em public/style.css), então nada some.
    Licença e como regerar os subsets: LICENCAS-FONTES.txt e o comentário
    abaixo (pyftsubset, layout-features vazio, renomeando a família dentro do
@@ -506,7 +506,7 @@
      no --fg do hover. É a resposta do clique, distinta da passagem do mouse,
      e não mexe em traço, corpo nem caixa. Quem está fora de alcance continua
      no desenho de repouso: o :not tira disabled e aria-disabled (envio em
-     andamento e idiomas [ em breve ]), e o item de menu em vigor e o assunto
+     andamento), e o item de menu em vigor e o assunto
      já marcado nem recebem o clique (pointer-events: none). Os seletores com
      :hover existem para vencer as regras de hover pela especificidade, já que
      durante a pressão o ponteiro continua sobre o controle. */
@@ -523,7 +523,7 @@
     color: var(--support);
   }
   /* Fora de alcance e carregando (VG-BOT-09): todo botão indisponível — o
-     idioma [ em breve ] (:disabled), a seta sem página e o envio em
+     seta sem página e o envio em
      andamento ([aria-disabled="true"]) — fica no --dim, o tom do que está
      fora de alcance, sem hover e com o ponteiro de repouso. É a regra geral
      que os estados específicos antes repetiam. O carregamento não ganha um
@@ -1487,11 +1487,11 @@
     font-size: var(--text-xs);
   }
   /* Sem tooltip e sem rótulo visível (VG-BOT-11): o nome acessível fica só
-     no aria-label e o estado visível no próprio código do idioma (PT, EN) e
+     no aria-label e o estado visível no próprio código do idioma (PT, EN, …) e
      no glifo do tema (●, ○).
 
      Os botões de idioma e tema têm um rótulo curto e não têm a mesma largura
-     natural: o código do idioma (PT, EN) são duas letras (1,2em) e ● é um
+     natural: o código do idioma (PT, EN, …) são duas letras (1,2em) e ● é um
      glifo só, às vezes com 0,6em. Fixar a caixa dos botões em 7,5ch deixa os
      dois do mesmo tamanho, com o conteúdo centralizado, sem depender da
      fonte. */
@@ -1678,8 +1678,8 @@
       text-decoration: underline;
       text-underline-offset: 2px;
     }
-    /* O que está fora de alcance (idiomas [ em breve ], envio ou apoio em
-       andamento e seta sem página) usa o GrayText do sistema, que sobrevive
+    /* O que está fora de alcance (envio ou apoio em andamento e seta sem
+       página) usa o GrayText do sistema, que sobrevive
        ao modo e mantém o sinal de indisponível. O :hover entra para a regra
        de repouso dos controles não ser vencida por uma cor da paleta. */
     button:disabled,
@@ -2155,27 +2155,15 @@
           <div class="lang-panel">
             <div class="lang-list" role="group" aria-label="Idiomas">
               <button type="button" class="lang-item lang-item-auto" data-lang="auto" aria-pressed="true" tabindex="-1">automático</button>
-              <button type="button" class="lang-item" data-lang="af" disabled aria-disabled="true">afrikaans<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="id" disabled aria-disabled="true">bahasa indonesia<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="ms" disabled aria-disabled="true">bahasa melayu<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="ca" disabled aria-disabled="true">català<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="da" disabled aria-disabled="true">dansk<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="de" disabled aria-disabled="true">deutsch<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="en" disabled aria-disabled="true">english<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="es" disabled aria-disabled="true">español<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="fil" disabled aria-disabled="true">filipino<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="fr" disabled aria-disabled="true">français<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="gl" disabled aria-disabled="true">galego<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="is" disabled aria-disabled="true">íslenska<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="it" disabled aria-disabled="true">italiano<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="sw" disabled aria-disabled="true">kiswahili<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="lb" disabled aria-disabled="true">lëtzebuergesch<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="nl" disabled aria-disabled="true">nederlands<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="no" disabled aria-disabled="true">norsk<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="ca">català</button>
+              <button type="button" class="lang-item" data-lang="de">deutsch</button>
+              <button type="button" class="lang-item" data-lang="en">english</button>
+              <button type="button" class="lang-item" data-lang="es">español</button>
+              <button type="button" class="lang-item" data-lang="fr">français</button>
+              <button type="button" class="lang-item" data-lang="gl">galego</button>
+              <button type="button" class="lang-item" data-lang="it">italiano</button>
+              <button type="button" class="lang-item" data-lang="nl">nederlands</button>
               <button type="button" class="lang-item" data-lang="pt" aria-pressed="true" tabindex="-1">português</button>
-              <button type="button" class="lang-item" data-lang="sq" disabled aria-disabled="true">shqip<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="fi" disabled aria-disabled="true">suomi<span class="lang-soon">[ em breve ]</span></button>
-              <button type="button" class="lang-item" data-lang="sv" disabled aria-disabled="true">svenska<span class="lang-soon">[ em breve ]</span></button>
               <button type="button" class="lang-item lang-item-back" id="lang-back">voltar</button>
             </div>
           </div>
@@ -4099,9 +4087,434 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   var state = { hd: null, values: null, screen: 'chave', analysis: null,
     langOpen: false,   // a tela de idiomas está aberta
-    lang: 'pt',        // idioma em vigor (só há conteúdo em português)
+    lang: 'pt',        // idioma em vigor (resolvido no arranque)
     langAuto: true,    // idioma automático em vigor
-    langScroll: 0 };   // ponto de leitura devolvido pelo voltar da tela de idiomas
+    langScroll: 0,     // ponto de leitura devolvido pelo voltar da tela de idiomas
+    lastReview: null };// última revisão desenhada, para redesenhar no idioma novo
+  /* ---------------------------------------------------------------- idiomas */
+  /* Traduções completas. Cada linha é [chave em português, en, es, fr, it,
+     de, nl, ca, gl]. A chave é o próprio texto português (ou o molde com
+     {campos}); o automático segue o navegador e cai no português quando ele
+     não fala nenhum dos idiomas abaixo. */
+  var LOCALES = ['pt', 'en', 'es', 'fr', 'it', 'de', 'nl', 'ca', 'gl'];
+  var LOCALE_TAGS = { pt: 'pt-BR', en: 'en', es: 'es', fr: 'fr', it: 'it', de: 'de', nl: 'nl', ca: 'ca', gl: 'gl' };
+  var LOCALE_CODES = { pt: 'PT', en: 'EN', es: 'ES', fr: 'FR', it: 'IT', de: 'DE', nl: 'NL', ca: 'CA', gl: 'GL' };
+  var LOCALE_META = { pt: 'pt_BR', en: 'en_US', es: 'es_ES', fr: 'fr_FR', it: 'it_IT', de: 'de_DE', nl: 'nl_NL', ca: 'ca_ES', gl: 'gl_ES' };
+  var I18N_ROWS = [
+    ["Chave BTC — contas HD a partir de 256 bits","BTC key — HD accounts from 256 bits","Clave BTC — cuentas HD a partir de 256 bits","Clé BTC — comptes HD à partir de 256 bits","Chiave BTC — conti HD da 256 bit","BTC-Schlüssel — HD-Konten aus 256 Bit","BTC-sleutel — HD-rekeningen uit 256 bits","Clau BTC — comptes HD a partir de 256 bits","Clave BTC — contas HD a partir de 256 bits"],
+    ["pular para o conteúdo","skip to content","saltar al contenido","aller au contenu","salta al contenuto","zum Inhalt springen","naar de inhoud","salta al contingut","saltar ao contido"],
+    ["Telas","Screens","Pantallas","Écrans","Schermate","Bildschirme","Schermen","Pantalles","Pantallas"],
+    ["chave","key","clave","clé","chiave","schlüssel","sleutel","clau","clave"],
+    ["sobre","about","acerca de","à propos","informazioni","über","over","sobre","sobre"],
+    ["CHAVE","key","clave","clé","chiave","schlüssel","sleutel","clau","clave"],
+    ["coordenadas","coordinates","coordenadas","coordonnées","coordinate","koordinaten","coördinaten","coordenades","coordenadas"],
+    ["Insira as coordenadas da sua chave...","Enter your key coordinates...","Introduce las coordenadas de tu clave...","Saisissez les coordonnées de votre clé…","Inserisci le coordinate della tua chiave…","Koordinaten des Schlüssels eingeben …","Voer de coördinaten van je sleutel in…","Introduïu les coordenades de la clau…","Introduce as coordenadas da túa clave…"],
+    ["rodada","round","ronda","tour","giro","runde","ronde","ronda","rolda"],
+    ["Registrar a face da moeda","Record the coin face","Registrar la cara de la moneda","Enregistrer la face de la pièce","Registra la faccia della moneta","Münzseite erfassen","Muntzijde vastleggen","Registrar la cara de la moneda","Rexistrar a cara da moeda"],
+    ["1, cara: registrar a jogada e passar para a próxima","1, heads: record the toss and move to the next","1, cara: registrar el lanzamiento y pasar al siguiente","1, face : enregistrer le lancer et passer au suivant","1, testa: registra il lancio e passa al successivo","1, Kopf: Wurf erfassen und zum nächsten wechseln","1, kop: worp vastleggen en naar de volgende gaan","1, cara: registrar el llançament i passar al següent","1, cara: rexistrar o lanzamento e pasar ao seguinte"],
+    ["0, coroa: registrar a jogada e passar para a próxima","0, tails: record the toss and move to the next","0, cruz: registrar el lanzamiento y pasar al siguiente","0, pile : enregistrer le lancer et passer au suivant","0, croce: registra il lancio e passa al successivo","0, Zahl: Wurf erfassen und zum nächsten wechseln","0, munt: worp vastleggen en naar de volgende gaan","0, creu: registrar el llançament i passar al següent","0, cruz: rexistrar o lanzamento e pasar ao seguinte"],
+    ["Entrada de bits","Bit input","Entrada de bits","Saisie de bits","Immissione di bit","Bit-Eingabe","Bit-invoer","Entrada de bits","Entrada de bits"],
+    ["gerar","generate","generar","générer","genera","erzeugen","genereren","genera","xerar"],
+    ["Mostrar a entrada por jogadas de moeda","Show input by coin tosses","Mostrar la entrada por lanzamientos de moneda","Afficher la saisie par lancers de pièce","Mostra l'inserimento tramite lanci di moneta","Eingabe über Münzwürfe anzeigen","Invoer via muntworpen tonen","Mostrar l'entrada per llançaments de moneda","Mostrar a entrada por lanzamentos de moeda"],
+    ["Mostrar a entrada por coordenadas","Show input by coordinates","Mostrar la entrada por coordenadas","Afficher la saisie par coordonnées","Mostra l'inserimento tramite coordinate","Eingabe über Koordinaten anzeigen","Invoer via coördinaten tonen","Mostrar l'entrada per coordenades","Mostrar a entrada por coordenadas"],
+    ["mnemonic","mnemonic","mnemónica","mnémonique","mnemonica","mnemonik","mnemoniek","mnemònica","mnemónica"],
+    ["frase mnemônica de 24 palavras","24-word mnemonic phrase","frase mnemónica de 24 palabras","phrase mnémotechnique de 24 mots","frase mnemonica di 24 parole","Merkhilfe aus 24 Wörtern","mnemonische zin van 24 woorden","frase mnemònica de 24 paraules","frase mnemónica de 24 palabras"],
+    ["privadas","private","privadas","privées","private","private","privé","privades","privadas"],
+    ["chaves privadas","private keys","claves privadas","clés privées","chiavi private","private Schlüssel","privésleutels","claus privades","claves privadas"],
+    ["públicas","public","públicas","publiques","pubbliche","öffentliche","openbare","públiques","públicas"],
+    ["chaves públicas estendidas","extended public keys","claves públicas extendidas","clés publiques étendues","chiavi pubbliche estese","erweiterte öffentliche Schlüssel","uitgebreide openbare sleutels","claus públiques esteses","claves públicas estendidas"],
+    ["revisão","review","revisión","vérification","revisione","Prüfung","controle","revisió","revisión"],
+    ["resumo do psbt","PSBT summary","resumen del PSBT","récapitulatif du PSBT","riepilogo del PSBT","PSBT-Übersicht","PSBT-overzicht","resum del PSBT","resumo do PSBT"],
+    ["taxa","fee","comisión","frais","commissione","Gebühr","kosten","comissió","comisión"],
+    ["txid","txid","txid","txid","txid","txid","txid","txid","txid"],
+    ["vsize","vsize","vsize","vsize","vsize","vsize","vsize","vsize","vsize"],
+    ["rbf","rbf","rbf","rbf","rbf","rbf","rbf","rbf","rbf"],
+    ["agendado","scheduled","programado","programmé","programmato","geplant","gepland","programat","programado"],
+    ["arquivo","file","archivo","fichier","file","Datei","bestand","fitxer","ficheiro"],
+    ["avisos","warnings","avisos","avertissements","avvisi","Warnungen","waarschuwingen","avisos","avisos"],
+    ["Ações do PSBT","PSBT actions","Acciones del PSBT","Actions du PSBT","Azioni del PSBT","PSBT-Aktionen","PSBT-acties","Accions del PSBT","Accións do PSBT"],
+    ["importar psbt","import psbt","importar psbt","importer psbt","importa psbt","psbt importieren","psbt importeren","importar psbt","importar psbt"],
+    ["cancelar","cancel","cancelar","annuler","annulla","abbrechen","annuleren","cancel·lar","cancelar"],
+    ["cancelar o psbt importado","cancel the imported PSBT","cancelar el PSBT importado","annuler le PSBT importé","annulla il PSBT importato","importierten PSBT verwerfen","geïmporteerde PSBT annuleren","cancel·lar el PSBT importat","cancelar o PSBT importado"],
+    ["fechar","close","cerrar","fermer","chiudi","schließen","sluiten","tancar","pechar"],
+    ["fechar a revisão do psbt assinado","close the signed PSBT review","cerrar la revisión del PSBT firmado","fermer la vérification du PSBT signé","chiudi la revisione del PSBT firmato","Prüfung des signierten PSBT schließen","controle van de ondertekende PSBT sluiten","tancar la revisió del PSBT signat","pechar a revisión do PSBT asinado"],
+    ["baixar","download","descargar","télécharger","scarica","herunterladen","downloaden","descarregar","descargar"],
+    ["baixar o psbt assinado","download the signed PSBT","descargar el PSBT firmado","télécharger le PSBT signé","scarica il PSBT firmato","signierten PSBT herunterladen","ondertekende PSBT downloaden","descarregar el PSBT signat","descargar o PSBT asinado"],
+    ["assinar","sign","firmar","signer","firma","signieren","ondertekenen","signar","asinar"],
+    ["SOBRE","about","acerca de","à propos","informazioni","über","over","sobre","sobre"],
+    ["IDIOMAS","languages","idiomas","langues","lingue","sprachen","talen","idiomes","idiomas"],
+    ["Idiomas","Languages","Idiomas","Langues","Lingue","Sprachen","Talen","Idiomes","Idiomas"],
+    ["automático","automatic","automático","automatique","automatico","automatisch","automatisch","automàtic","automático"],
+    ["voltar","back","volver","retour","indietro","zurück","terug","torna","volver"],
+    ["Rolar para cima","Scroll up","Desplazar hacia arriba","Faire défiler vers le haut","Scorri verso l'alto","Nach oben scrollen","Naar boven scrollen","Desplaça cap amunt","Desprazar cara arriba"],
+    ["Rolar para baixo","Scroll down","Desplazar hacia abajo","Faire défiler vers le bas","Scorri verso il basso","Nach unten scrollen","Naar beneden scrollen","Desplaça cap avall","Desprazar cara abaixo"],
+    ["Idioma","Language","Idioma","Langue","Lingua","Sprache","Taal","Idioma","Idioma"],
+    ["Ativar tema claro","Enable light theme","Activar tema claro","Activer le thème clair","Attiva tema chiaro","Helles Design aktivieren","Licht thema inschakelen","Activa el tema clar","Activar o tema claro"],
+    ["Ativar tema escuro","Enable dark theme","Activar tema oscuro","Activer le thème sombre","Attiva tema scuro","Dunkles Design aktivieren","Donker thema inschakelen","Activa el tema fosc","Activar o tema escuro"],
+    ["troco","change","cambio","monnaie","resto","Wechselgeld","wisselgeld","canvi","troco"],
+    ["saída","output","salida","sortie","uscita","Ausgabe","uitgang","sortida","saída"],
+    ["endereço","address","dirección","adresse","indirizzo","Adresse","adres","adreça","enderezo"],
+    ["destino","destination","destino","destination","destinazione","Ziel","bestemming","destinació","destino"],
+    ["[ externo ]","[ external ]","[ externo ]","[ externe ]","[ esterno ]","[ extern ]","[ extern ]","[ extern ]","[ externo ]"],
+    ["sim","yes","sí","oui","sì","ja","ja","sí","si"],
+    ["não","no","no","non","no","nein","nee","no","non"],
+    ["data Unix {value}","Unix date {value}","fecha Unix {value}","date Unix {value}","data Unix {value}","Unix-Datum {value}","Unix-datum {value}","data Unix {value}","data Unix {value}"],
+    ["data estimada indisponível","estimated date unavailable","fecha estimada no disponible","date estimée indisponible","data stimata non disponibile","geschätztes Datum nicht verfügbar","geschatte datum niet beschikbaar","data estimada no disponible","data estimada non dispoñible"],
+    ["{value} (aprox.)","{value} (approx.)","{value} (aprox.)","{value} (env.)","{value} (circa)","{value} (ca.)","{value} (ca.)","{value} (aprox.)","{value} (aprox.)"],
+    ["copiar","copy","copiar","copier","copia","kopieren","kopiëren","copia","copiar"],
+    ["copiado","copied","copiado","copié","copiato","kopiert","gekopieerd","copiat","copiado"],
+    ["copiar {id}","copy {id}","copiar {id}","copier {id}","copia {id}","{id} kopieren","{id} kopiëren","copia {id}","copiar {id}"],
+    ["copiado {id}","copied {id}","copiado {id}","copié {id}","copiato {id}","{id} kopiert","{id} gekopieerd","copiat {id}","copiado {id}"],
+    ["256 jogadas registradas; os 256 bits estão completos.","256 tosses recorded; all 256 bits are complete.","256 lanzamientos registrados; los 256 bits están completos.","256 lancers enregistrés ; les 256 bits sont complets.","256 lanci registrati; i 256 bit sono completi.","256 Würfe erfasst; die 256 Bit sind vollständig.","256 worpen vastgelegd; de 256 bits zijn compleet.","256 llançaments registrats; els 256 bits estan complets.","256 lanzamentos rexistrados; os 256 bits están completos."],
+    ["jogada {n} de 256: {face}, coordenada {coord}.","toss {n} of 256: {face}, coordinate {coord}.","lanzamiento {n} de 256: {face}, coordenada {coord}.","lancer {n} sur 256 : {face}, coordonnée {coord}.","lancio {n} di 256: {face}, coordinata {coord}.","Wurf {n} von 256: {face}, Koordinate {coord}.","worp {n} van 256: {face}, coördinaat {coord}.","llançament {n} de 256: {face}, coordenada {coord}.","lanzamento {n} de 256: {face}, coordenada {coord}."],
+    ["cara, bit 1","heads, bit 1","cara, bit 1","face, bit 1","testa, bit 1","Kopf, Bit 1","kop, bit 1","cara, bit 1","cara, bit 1"],
+    ["coroa, bit 0","tails, bit 0","cruz, bit 0","pile, bit 0","croce, bit 0","Zahl, Bit 0","munt, bit 0","creu, bit 0","cruz, bit 0"],
+    ["jogadas zeradas.","tosses reset.","lanzamientos puestos a cero.","lancers remis à zéro.","lanci azzerati.","Würfe zurückgesetzt.","worpen gewist.","llançaments posats a zero.","lanzamentos postos a cero."],
+    ["coordenadas digitadas: {n} de 256.","typed coordinates: {n} of 256.","coordenadas introducidas: {n} de 256.","coordonnées saisies : {n} sur 256.","coordinate digitate: {n} di 256.","eingegebene Koordinaten: {n} von 256.","ingevoerde coördinaten: {n} van 256.","coordenades introduïdes: {n} de 256.","coordenadas introducidas: {n} de 256."],
+    ["cada coordenada é uma letra e até dez dígitos (a0, a1, …); em duas letras seguidas vale a última digitada.","each coordinate is one letter and up to ten digits (a0, a1, …); when two letters come in a row, the last one typed counts.","cada coordenada es una letra y hasta diez dígitos (a0, a1, …); si hay dos letras seguidas, vale la última escrita.","chaque coordonnée est une lettre et jusqu'à dix chiffres (a0, a1, …) ; si deux lettres se suivent, la dernière saisie compte.","ogni coordinata è una lettera e fino a dieci cifre (a0, a1, …); con due lettere di seguito vale l'ultima digitata.","jede Koordinate ist ein Buchstabe und bis zu zehn Ziffern (a0, a1, …); bei zwei aufeinanderfolgenden Buchstaben zählt der zuletzt eingegebene.","elke coördinaat is één letter en maximaal tien cijfers (a0, a1, …); bij twee letters achter elkaar telt de laatst getypte.","cada coordenada és una lletra i fins a deu dígits (a0, a1, …); si hi ha dues lletres seguides, val l'última escrita.","cada coordenada é unha letra e ata dez díxitos (a0, a1, …); se hai dúas letras seguidas, vale a última escrita."],
+    ["este navegador não oferece Web Crypto; use um navegador atualizado.","this browser does not offer Web Crypto; use an up-to-date browser.","este navegador no ofrece Web Crypto; usa un navegador actualizado.","ce navigateur ne propose pas Web Crypto ; utilisez un navigateur à jour.","questo browser non offre Web Crypto; usa un browser aggiornato.","dieser Browser bietet kein Web Crypto; verwende einen aktuellen Browser.","deze browser biedt geen Web Crypto; gebruik een bijgewerkte browser.","aquest navegador no ofereix Web Crypto; feu servir un navegador actualitzat.","este navegador non ofrece Web Crypto; usa un navegador actualizado."],
+    ["a entropia tem {n} bits; são necessários exatamente 256.","the entropy has {n} bits; exactly 256 are required.","la entropía tiene {n} bits; se necesitan exactamente 256.","l'entropie contient {n} bits ; il en faut exactement 256.","l'entropia ha {n} bit; ne servono esattamente 256.","die Entropie hat {n} Bit; es sind genau 256 erforderlich.","de entropie heeft {n} bits; er zijn precies 256 nodig.","l'entropia té {n} bits; calen exactament 256.","a entropía ten {n} bits; son necesarios exactamente 256."],
+    ["não foi possível derivar a chave; recarregue a página e tente de novo.","could not derive the key; reload the page and try again.","no se pudo derivar la clave; recarga la página e inténtalo de nuevo.","impossible de dériver la clé ; rechargez la page et réessayez.","impossibile derivare la chiave; ricarica la pagina e riprova.","der Schlüssel konnte nicht abgeleitet werden; lade die Seite neu und versuche es erneut.","de sleutel kon niet worden afgeleid; herlaad de pagina en probeer het opnieuw.","no s'ha pogut derivar la clau; recarrega la pàgina i torna-ho a provar.","non foi posible derivar a clave; recarga a páxina e téntao de novo."],
+    ["complete as 256 jogadas antes de importar ou analisar um PSBT.","complete all 256 tosses before importing or analyzing a PSBT.","completa los 256 lanzamientos antes de importar o analizar un PSBT.","complétez les 256 lancers avant d'importer ou d'analyser un PSBT.","completa i 256 lanci prima di importare o analizzare un PSBT.","schließe alle 256 Würfe ab, bevor du eine PSBT importierst oder analysierst.","rond alle 256 worpen af voordat je een PSBT importeert of analyseert.","completa els 256 llançaments abans d'importar o analitzar un PSBT.","completa os 256 lanzamentos antes de importar ou analizar un PSBT."],
+    ["este PSBT já tem assinatura; ele só pode ser exibido.","this PSBT already has a signature; it can only be displayed.","este PSBT ya tiene firma; solo se puede mostrar.","ce PSBT a déjà une signature ; il peut seulement être affiché.","questo PSBT ha già una firma; può solo essere visualizzato.","diese PSBT hat bereits eine Signatur; sie kann nur angezeigt werden.","deze PSBT heeft al een handtekening; hij kan alleen worden weergegeven.","aquest PSBT ja té signatura; només es pot mostrar.","este PSBT xa ten sinatura; só se pode mostrar."],
+    ["PSBT analisado; revise os avisos antes de assinar.","PSBT analyzed; review the warnings before signing.","PSBT analizado; revisa los avisos antes de firmar.","PSBT analysé ; vérifiez les avertissements avant de signer.","PSBT analizzato; controlla gli avvisi prima di firmare.","PSBT analysiert; prüfe die Warnungen vor dem Signieren.","PSBT geanalyseerd; controleer de waarschuwingen voordat je ondertekent.","PSBT analitzat; revisa els avisos abans de signar.","PSBT analizado; revisa os avisos antes de asinar."],
+    ["não foi possível analisar o PSBT; recarregue a página e tente de novo.","could not analyze the PSBT; reload the page and try again.","no se pudo analizar el PSBT; recarga la página e inténtalo de nuevo.","impossible d'analyser le PSBT ; rechargez la page et réessayez.","impossibile analizzare il PSBT; ricarica la pagina e riprova.","die PSBT konnte nicht analysiert werden; lade die Seite neu und versuche es erneut.","de PSBT kon niet worden geanalyseerd; herlaad de pagina en probeer het opnieuw.","no s'ha pogut analitzar el PSBT; recarrega la pàgina i torna-ho a provar.","non foi posible analizar o PSBT; recarga a páxina e téntao de novo."],
+    ["analisando...","analyzing...","analizando...","analyse…","analisi in corso…","wird analysiert …","analyseren…","analitzant…","analizando..."],
+    ["não foi possível ler o arquivo; escolha um .psbt válido.","could not read the file; choose a valid .psbt.","no se pudo leer el archivo; elige un .psbt válido.","impossible de lire le fichier ; choisissez un .psbt valide.","impossibile leggere il file; scegli un .psbt valido.","die Datei konnte nicht gelesen werden; wähle eine gültige .psbt.","het bestand kon niet worden gelezen; kies een geldige .psbt.","no s'ha pogut llegir el fitxer; tria un .psbt vàlid.","non foi posible ler o ficheiro; escolle un .psbt válido."],
+    ["assinando...","signing...","firmando...","signature…","firma in corso…","wird signiert …","ondertekenen…","signant…","asinando..."],
+    ["não foi possível assinar; nenhum arquivo foi gerado. Recarregue a página e tente de novo.","could not sign; no file was generated. Reload the page and try again.","no se pudo firmar; no se generó ningún archivo. Recarga la página e inténtalo de nuevo.","impossible de signer ; aucun fichier n'a été généré. Rechargez la page et réessayez.","impossibile firmare; nessun file è stato generato. Ricarica la pagina e riprova.","das Signieren war nicht möglich; es wurde keine Datei erzeugt. Lade die Seite neu und versuche es erneut.","ondertekenen is niet gelukt; er is geen bestand gemaakt. Herlaad de pagina en probeer het opnieuw.","no s'ha pogut signar; no s'ha generat cap fitxer. Recarrega la pàgina i torna-ho a provar.","non foi posible asinar; non se xerou ningún ficheiro. Recarga a páxina e téntao de novo."],
+    ["assinado-","signed-","firmado-","signé-","firmato-","signiert-","ondertekend-","signat-","asinado-"],
+    ["[ atenção ] desconecte a internet","[ warning ] disconnect the internet","[ atención ] desconecta internet","[ attention ] déconnectez internet","[ attenzione ] disconnetti internet","[ Achtung ] Internet trennen","[ let op ] verbreek de internetverbinding","[ atenció ] desconnecta internet","[ atención ] desconecta internet"],
+    ["[ ok ]","[ ok ]","[ ok ]","[ ok ]","[ ok ]","[ ok ]","[ ok ]","[ ok ]","[ ok ]"],
+    ["[ erro ]","[ error ]","[ error ]","[ erreur ]","[ errore ]","[ Fehler ]","[ fout ]","[ error ]","[ erro ]"],
+    ["[ atenção ]","[ warning ]","[ atención ]","[ attention ]","[ attenzione ]","[ Achtung ]","[ let op ]","[ atenció ]","[ atención ]"],
+    ["[ ... ]","[ ... ]","[ ... ]","[ ... ]","[ ... ]","[ ... ]","[ ... ]","[ ... ]","[ ... ]"],
+    ["Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 jogadas de moeda (cara = 1, coroa = 0) ou de coordenadas a0–z5, mostra xprv/xpub e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.","Derives Bitcoin HD accounts (BIP44/49/84/86) from 256 coin tosses (heads = 1, tails = 0) or from a0–z5 coordinates, shows xprv/xpub and signs PSBTs from transactions created in another app. Runs offline, in a single file.","Deriva cuentas HD de Bitcoin (BIP44/49/84/86) a partir de 256 lanzamientos de moneda (cara = 1, cruz = 0) o de coordenadas a0–z5, muestra xprv/xpub y firma PSBT de transacciones creadas en otra app. Funciona sin conexión, en un solo archivo.","Dérive des comptes HD Bitcoin (BIP44/49/84/86) à partir de 256 lancers de pièce (face = 1, pile = 0) ou de coordonnées a0–z5, affiche xprv/xpub et signe les PSBT de transactions créées dans une autre app. Fonctionne hors ligne, dans un seul fichier.","Deriva conti HD Bitcoin (BIP44/49/84/86) da 256 lanci di moneta (testa = 1, croce = 0) o da coordinate a0–z5, mostra xprv/xpub e firma PSBT di transazioni create in un'altra app. Funziona offline, in un solo file.","Leitet Bitcoin-HD-Konten (BIP44/49/84/86) aus 256 Münzwürfen (Kopf = 1, Zahl = 0) oder aus a0–z5-Koordinaten ab, zeigt xprv/xpub und signiert PSBTs von Transaktionen, die in einer anderen App erstellt wurden. Läuft offline in einer einzigen Datei.","Leidt Bitcoin HD-rekeningen (BIP44/49/84/86) af uit 256 muntworpen (kop = 1, munt = 0) of uit a0–z5-coördinaten, toont xprv/xpub en ondertekent PSBT's van transacties die in een andere app zijn gemaakt. Werkt offline, in één bestand.","Deriva comptes HD de Bitcoin (BIP44/49/84/86) a partir de 256 llançaments de moneda (cara = 1, creu = 0) o de coordenades a0–z5, mostra xprv/xpub i signa PSBT de transaccions creades en una altra app. Funciona sense connexió, en un sol fitxer.","Deriva contas HD de Bitcoin (BIP44/49/84/86) a partir de 256 lanzamentos de moeda (cara = 1, cruz = 0) ou de coordenadas a0–z5, mostra xprv/xpub e asina PSBT de transaccións creadas noutra app. Funciona sen conexión, nun só ficheiro."],
+    ["cofre btc - contas hd a partir de 256 bits","cofre btc - hd accounts from 256 bits","cofre btc - cuentas hd a partir de 256 bits","cofre btc - comptes hd à partir de 256 bits","cofre btc - conti hd da 256 bit","cofre btc - hd-konten aus 256 bit","cofre btc - hd-rekeningen uit 256 bits","cofre btc - comptes hd a partir de 256 bits","cofre btc - contas hd a partir de 256 bits"],
+    ["256 jogadas de moeda (cara = 1, coroa = 0) entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.","256 coin tosses (heads = 1, tails = 0) go in as BIP39 entropy; HD accounts, xprv/xpub and a signature come out. One file, no network.","256 lanzamientos de moneda (cara = 1, cruz = 0) entran como entropía BIP39; salen cuentas HD, xprv/xpub y firma. Un archivo, sin red.","256 lancers de pièce (face = 1, pile = 0) entrent comme entropie BIP39 ; des comptes HD, xprv/xpub et une signature sortent. Un fichier, sans réseau.","256 lanci di moneta (testa = 1, croce = 0) entrano come entropia BIP39; escono conti HD, xprv/xpub e una firma. Un file, senza rete.","256 Münzwürfe (Kopf = 1, Zahl = 0) gehen als BIP39-Entropie hinein; HD-Konten, xprv/xpub und eine Signatur kommen heraus. Eine Datei, ohne Netzwerk.","256 muntworpen (kop = 1, munt = 0) gaan erin als BIP39-entropie; HD-rekeningen, xprv/xpub en een handtekening komen eruit. Eén bestand, zonder netwerk.","256 llançaments de moneda (cara = 1, creu = 0) entren com a entropia BIP39; surten comptes HD, xprv/xpub i signatura. Un fitxer, sense xarxa.","256 lanzamentos de moeda (cara = 1, cruz = 0) entran como entropía BIP39; saen contas HD, xprv/xpub e sinatura. Un ficheiro, sen rede."],
+    ["o que é esta ferramenta","what this tool is","qué es esta herramienta","ce qu'est cet outil","cos'è questo strumento","was dieses Werkzeug ist","wat deze tool is","què és aquesta eina","que é esta ferramenta"],
+    ["como usar","how to use","cómo usar","comment utiliser","come usare","so verwenden","hoe te gebruiken","com usar","como usar"],
+    ["como refazer os 256 binários e a frase em outra ferramenta","how to rebuild the 256 bits and the phrase in another tool","cómo rehacer los 256 binarios y la frase en otra herramienta","comment refaire les 256 binaires et la phrase dans un autre outil","come rifare i 256 binari e la frase in un altro strumento","wie man die 256 Binärwerte und die Merkhilfe in einem anderen Werkzeug nachbaut","hoe je de 256 bits en de zin in een andere tool opnieuw opbouwt","com refer els 256 binaris i la frase en una altra eina","como refacer os 256 binarios e a frase noutra ferramenta"],
+    ["os BIPs usados","the BIPs used","los BIP usados","les BIP utilisés","i BIP usati","die verwendeten BIPs","de gebruikte BIP's","els BIP usats","os BIP usados"],
+    ["O Cofre BTC transforma 256 jogadas de moeda em uma chave Bitcoin. Cada jogada vale <code>1</code> (cara) ou <code>0</code> (coroa) e é feita na própria tela; a mesma lista também pode ser digitada como coordenadas. As 256 marcas viram a frase de 24 palavras, as quatro contas e as chaves que a tela mostra.","Cofre BTC turns 256 coin tosses into a Bitcoin key. Each toss is worth <code>1</code> (heads) or <code>0</code> (tails) and is made on the screen itself; the same list can also be typed as coordinates. The 256 marks become the 24-word phrase, the four accounts and the keys the screen shows.","Cofre BTC convierte 256 lanzamientos de moneda en una clave Bitcoin. Cada lanzamiento vale <code>1</code> (cara) o <code>0</code> (cruz) y se hace en la propia pantalla; la misma lista también se puede escribir como coordenadas. Las 256 marcas se convierten en la frase de 24 palabras, las cuatro cuentas y las claves que muestra la pantalla.","Cofre BTC transforme 256 lancers de pièce en une clé Bitcoin. Chaque lancer vaut <code>1</code> (face) ou <code>0</code> (pile) et se fait sur l'écran lui-même ; la même liste peut aussi être saisie sous forme de coordonnées. Les 256 marques deviennent la phrase de 24 mots, les quatre comptes et les clés affichées par l'écran.","Cofre BTC trasforma 256 lanci di moneta in una chiave Bitcoin. Ogni lancio vale <code>1</code> (testa) o <code>0</code> (croce) e si fa nella schermata stessa; lo stesso elenco può anche essere digitato come coordinate. I 256 segni diventano la frase di 24 parole, i quattro conti e le chiavi che la schermata mostra.","Cofre BTC verwandelt 256 Münzwürfe in einen Bitcoin-Schlüssel. Jeder Wurf zählt <code>1</code> (Kopf) oder <code>0</code> (Zahl) und wird direkt auf dem Bildschirm ausgeführt; dieselbe Liste kann auch als Koordinaten eingegeben werden. Die 256 Markierungen werden zur Merkhilfe aus 24 Wörtern, zu den vier Konten und zu den Schlüsseln, die der Bildschirm zeigt.","Cofre BTC verandert 256 muntworpen in een Bitcoin-sleutel. Elke worp is <code>1</code> (kop) of <code>0</code> (munt) waard en wordt op het scherm zelf gedaan; dezelfde lijst kan ook als coördinaten worden getypt. De 256 markeringen worden de zin van 24 woorden, de vier rekeningen en de sleutels die het scherm toont.","Cofre BTC converteix 256 llançaments de moneda en una clau Bitcoin. Cada llançament val <code>1</code> (cara) o <code>0</code> (creu) i es fa a la mateixa pantalla; la mateixa llista també es pot escriure com a coordenades. Les 256 marques es converteixen en la frase de 24 paraules, els quatre comptes i les claus que mostra la pantalla.","Cofre BTC converte 256 lanzamentos de moeda nunha clave Bitcoin. Cada lanzamento vale <code>1</code> (cara) ou <code>0</code> (cruz) e faise na propia pantalla; a mesma lista tamén se pode escribir como coordenadas. As 256 marcas convértense na frase de 24 palabras, as catro contas e as claves que mostra a pantalla."],
+    ["Ele também assina. Você abre o arquivo de transação (PSBT) montado no Monitor BTC, confere o que ele faz e assina com a chave. Quem monta e transmite é o Monitor BTC; aqui a chave privada nunca sai da página, que é um arquivo só, sem servidor e sem internet.","It also signs. You open the transaction file (PSBT) built in Monitor BTC, check what it does and sign it with the key. Monitor BTC builds and broadcasts it; here the private key never leaves the page, which is a single file, with no server and no internet.","También firma. Abres el archivo de transacción (PSBT) montado en Monitor BTC, compruebas lo que hace y lo firmas con la clave. Quien monta y transmite es Monitor BTC; aquí la clave privada nunca sale de la página, que es un solo archivo, sin servidor y sin internet.","Il signe aussi. Vous ouvrez le fichier de transaction (PSBT) construit dans Monitor BTC, vérifiez ce qu'il fait et le signez avec la clé. C'est Monitor BTC qui le construit et le diffuse ; ici, la clé privée ne quitte jamais la page, qui est un seul fichier, sans serveur et sans internet.","Firma anche. Apri il file di transazione (PSBT) creato in Monitor BTC, controlli cosa fa e lo firmi con la chiave. Chi lo crea e lo trasmette è Monitor BTC; qui la chiave privata non lascia mai la pagina, che è un solo file, senza server e senza internet.","Es signiert auch. Du öffnest die in Monitor BTC erstellte Transaktionsdatei (PSBT), prüfst, was sie tut, und signierst sie mit dem Schlüssel. Monitor BTC erstellt und überträgt sie; hier verlässt der private Schlüssel nie die Seite, die eine einzige Datei ist, ohne Server und ohne Internet.","Het ondertekent ook. Je opent het transactiebestand (PSBT) dat in Monitor BTC is gemaakt, controleert wat het doet en ondertekent het met de sleutel. Monitor BTC maakt en verstuurt het; hier verlaat de privésleutel nooit de pagina, die één bestand is, zonder server en zonder internet.","També signa. Obres el fitxer de transacció (PSBT) muntat a Monitor BTC, comproves què fa i el signes amb la clau. Qui el munta i el transmet és Monitor BTC; aquí la clau privada no surt mai de la pàgina, que és un sol fitxer, sense servidor i sense internet.","Tamén asina. Abres o ficheiro de transacción (PSBT) montado en Monitor BTC, comprobas o que fai e asínas con a clave. Quen o monta e transmite é Monitor BTC; aquí a clave privada nunca sae da páxina, que é un só ficheiro, sen servidor e sen internet."],
+    ["Nada da chave fica guardado: as jogadas, a frase, as chaves e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador guarda apenas o tema escolhido. Quem tiver as 24 palavras — ou as coordenadas — tem a chave: guarde essa lista em local seguro e confira o sha256 publicado no repositório antes de abrir.","Nothing about the key is stored: the tosses, the phrase, the keys and the files live only in the tab's memory and disappear when you close or reload the page; the browser stores only the chosen theme. Whoever has the 24 words — or the coordinates — has the key: keep that list somewhere safe and check the sha256 published in the repository before opening.","Nada de la clave se guarda: los lanzamientos, la frase, las claves y los archivos solo están en la memoria de la pestaña y desaparecen al cerrar o recargar la página; el navegador guarda únicamente el tema elegido. Quien tenga las 24 palabras —o las coordenadas— tiene la clave: guarda esa lista en un lugar seguro y comprueba el sha256 publicado en el repositorio antes de abrir.","Rien de la clé n'est conservé : les lancers, la phrase, les clés et les fichiers restent uniquement dans la mémoire de l'onglet et disparaissent à la fermeture ou au rechargement de la page ; le navigateur ne garde que le thème choisi. Qui possède les 24 mots — ou les coordonnées — possède la clé : conservez cette liste en lieu sûr et vérifiez le sha256 publié dans le dépôt avant d'ouvrir.","Niente della chiave viene salvato: i lanci, la frase, le chiavi e i file restano solo nella memoria della scheda e spariscono chiudendo o ricaricando la pagina; il browser conserva solo il tema scelto. Chi ha le 24 parole — o le coordinate — ha la chiave: conserva quell'elenco in un luogo sicuro e controlla lo sha256 pubblicato nel repository prima di aprire.","Nichts vom Schlüssel wird gespeichert: die Würfe, die Merkhilfe, die Schlüssel und die Dateien liegen nur im Speicher des Tabs und verschwinden beim Schließen oder Neuladen der Seite; der Browser speichert nur das gewählte Design. Wer die 24 Wörter — oder die Koordinaten — hat, hat den Schlüssel: bewahre diese Liste an einem sicheren Ort auf und prüfe vor dem Öffnen den im Repository veröffentlichten sha256.","Niets van de sleutel wordt bewaard: de worpen, de zin, de sleutels en de bestanden staan alleen in het geheugen van het tabblad en verdwijnen bij het sluiten of herladen van de pagina; de browser bewaart alleen het gekozen thema. Wie de 24 woorden — of de coördinaten — heeft, heeft de sleutel: bewaar die lijst op een veilige plek en controleer de sha256 die in de repository is gepubliceerd voordat je opent.","Res de la clau no es guarda: els llançaments, la frase, les claus i els fitxers només són a la memòria de la pestanya i desapareixen en tancar o recarregar la pàgina; el navegador només guarda el tema triat. Qui tingui les 24 paraules —o les coordenades— té la clau: guarda aquesta llista en un lloc segur i comprova el sha256 publicat al repositori abans d'obrir.","Nada da clave queda gardado: os lanzamentos, a frase, as claves e os ficheiros están só na memoria da lapela e desaparecen ao pechar ou recargar a páxina; o navegador garda só o tema escollido. Quen teña as 24 palabras —ou as coordenadas— ten a clave: garda esa lista nun lugar seguro e comproba o sha256 publicado no repositorio antes de abrir."],
+    ["<b>Gerar.</b> Na tela “chave”, clique em “gerar” e registre 256 jogadas: cara vale <code>1</code> e coroa vale <code>0</code>. A frase de 24 palavras e as chaves aparecem quando a última jogada entra. Anote a frase no papel antes de seguir.","<b>Generate.</b> On the “key” screen, click “generate” and record 256 tosses: heads is <code>1</code> and tails is <code>0</code>. The 24-word phrase and the keys appear when the last toss goes in. Write the phrase on paper before continuing.","<b>Generar.</b> En la pantalla “clave”, haz clic en “generar” y registra 256 lanzamientos: cara vale <code>1</code> y cruz vale <code>0</code>. La frase de 24 palabras y las claves aparecen cuando entra el último lanzamiento. Anota la frase en papel antes de seguir.","<b>Générer.</b> Sur l'écran « clé », cliquez sur « générer » et enregistrez 256 lancers : face vaut <code>1</code> et pile vaut <code>0</code>. La phrase de 24 mots et les clés apparaissent quand le dernier lancer entre. Notez la phrase sur papier avant de continuer.","<b>Genera.</b> Nella schermata “chiave”, fai clic su “genera” e registra 256 lanci: testa vale <code>1</code> e croce vale <code>0</code>. La frase di 24 parole e le chiavi compaiono quando entra l'ultimo lancio. Annota la frase su carta prima di proseguire.","<b>Erzeugen.</b> Klicke auf dem Bildschirm „Schlüssel“ auf „erzeugen“ und erfasse 256 Würfe: Kopf zählt <code>1</code> und Zahl zählt <code>0</code>. Die Merkhilfe aus 24 Wörtern und die Schlüssel erscheinen, wenn der letzte Wurf eingeht. Notiere die Merkhilfe auf Papier, bevor du fortfährst.","<b>Genereren.</b> Klik op het scherm “sleutel” op “genereren” en leg 256 worpen vast: kop is <code>1</code> en munt is <code>0</code>. De zin van 24 woorden en de sleutels verschijnen wanneer de laatste worp binnenkomt. Schrijf de zin op papier voordat je verdergaat.","<b>Genera.</b> A la pantalla “clau”, fes clic a “genera” i registra 256 llançaments: cara val <code>1</code> i creu val <code>0</code>. La frase de 24 paraules i les claus apareixen quan entra l'últim llançament. Anota la frase en paper abans de continuar.","<b>Xerar.</b> Na pantalla “clave”, fai clic en “xerar” e rexistra 256 lanzamentos: cara vale <code>1</code> e cruz vale <code>0</code>. A frase de 24 palabras e as claves aparecen cando entra o último lanzamento. Anota a frase en papel antes de seguir."],
+    ["<b>Coordenadas.</b> Se você já tem a lista, clique em “coordenadas” e digite no campo do alto: são só os nomes das jogadas que deram <code>1</code>, como <code>a0</code>, <code>b7</code> e <code>z5</code>. As outras valem <code>0</code>, e a ordem não importa. Clicar em “gerar” recomeça a entrada do zero.","<b>Coordinates.</b> If you already have the list, click “coordinates” and type in the field at the top: these are only the names of the tosses that came up <code>1</code>, such as <code>a0</code>, <code>b7</code> and <code>z5</code>. The others are <code>0</code>, and the order does not matter. Clicking “generate” starts the input over from scratch.","<b>Coordenadas.</b> Si ya tienes la lista, haz clic en “coordenadas” y escribe en el campo de arriba: son solo los nombres de los lanzamientos que dieron <code>1</code>, como <code>a0</code>, <code>b7</code> y <code>z5</code>. Los demás valen <code>0</code>, y el orden no importa. Hacer clic en “generar” reinicia la entrada desde cero.","<b>Coordonnées.</b> Si vous avez déjà la liste, cliquez sur « coordonnées » et saisissez dans le champ du haut : ce sont seulement les noms des lancers qui ont donné <code>1</code>, comme <code>a0</code>, <code>b7</code> et <code>z5</code>. Les autres valent <code>0</code>, et l'ordre n'a pas d'importance. Cliquer sur « générer » recommence la saisie à zéro.","<b>Coordinate.</b> Se hai già l'elenco, fai clic su “coordinate” e digita nel campo in alto: sono solo i nomi dei lanci che hanno dato <code>1</code>, come <code>a0</code>, <code>b7</code> e <code>z5</code>. Gli altri valgono <code>0</code> e l'ordine non conta. Facendo clic su “genera” la digitazione ricomincia da zero.","<b>Koordinaten.</b> Wenn du die Liste bereits hast, klicke auf „koordinaten“ und tippe in das Feld oben: Es sind nur die Namen der Würfe, die <code>1</code> ergeben haben, etwa <code>a0</code>, <code>b7</code> und <code>z5</code>. Die anderen zählen <code>0</code>, und die Reihenfolge spielt keine Rolle. Ein Klick auf „erzeugen“ beginnt die Eingabe von vorn.","<b>Coördinaten.</b> Heb je de lijst al, klik dan op “coördinaten” en typ in het veld bovenaan: het zijn alleen de namen van de worpen die <code>1</code> gaven, zoals <code>a0</code>, <code>b7</code> en <code>z5</code>. De andere zijn <code>0</code>, en de volgorde maakt niet uit. Als je op “genereren” klikt, begint de invoer opnieuw.","<b>Coordenades.</b> Si ja tens la llista, fes clic a “coordenades” i escriu al camp de dalt: són només els noms dels llançaments que han donat <code>1</code>, com <code>a0</code>, <code>b7</code> i <code>z5</code>. Els altres valen <code>0</code>, i l'ordre no importa. Fer clic a “genera” torna a començar l'entrada des de zero.","<b>Coordenadas.</b> Se xa tes a lista, fai clic en “coordenadas” e escribe no campo de arriba: son só os nomes dos lanzamentos que deron <code>1</code>, como <code>a0</code>, <code>b7</code> e <code>z5</code>. Os demais valen <code>0</code>, e a orde non importa. Facer clic en “xerar” comeza a entrada desde cero."],
+    ["<b>Assinar.</b> Clique em “importar psbt” e escolha o arquivo que veio do Monitor BTC. Confira a revisão: valor, destino, troco, taxa e avisos. Se estiver tudo certo, clique em “assinar” e baixe o arquivo assinado. Transmitir é no Monitor BTC.","<b>Sign.</b> Click “import psbt” and choose the file that came from Monitor BTC. Check the review: amount, destination, change, fee and warnings. If everything is right, click “sign” and download the signed file. Broadcasting is done in Monitor BTC.","<b>Firmar.</b> Haz clic en “importar psbt” y elige el archivo que vino de Monitor BTC. Revisa la revisión: valor, destino, cambio, comisión y avisos. Si todo está bien, haz clic en “firmar” y descarga el archivo firmado. La transmisión se hace en Monitor BTC.","<b>Signer.</b> Cliquez sur « importer psbt » et choisissez le fichier venu de Monitor BTC. Vérifiez la revue : montant, destination, monnaie, frais et avertissements. Si tout est correct, cliquez sur « signer » et téléchargez le fichier signé. La diffusion se fait dans Monitor BTC.","<b>Firma.</b> Fai clic su “importa psbt” e scegli il file che arriva da Monitor BTC. Controlla la revisione: importo, destinazione, resto, commissione e avvisi. Se è tutto corretto, fai clic su “firma” e scarica il file firmato. La trasmissione avviene in Monitor BTC.","<b>Signieren.</b> Klicke auf „psbt importieren“ und wähle die Datei, die aus Monitor BTC kommt. Prüfe die Übersicht: Betrag, Ziel, Wechselgeld, Gebühr und Warnungen. Wenn alles stimmt, klicke auf „signieren“ und lade die signierte Datei herunter. Das Übertragen erfolgt in Monitor BTC.","<b>Ondertekenen.</b> Klik op “psbt importeren” en kies het bestand dat uit Monitor BTC komt. Controleer het overzicht: bedrag, bestemming, wisselgeld, kosten en waarschuwingen. Als alles klopt, klik je op “ondertekenen” en download je het ondertekende bestand. Verzenden gebeurt in Monitor BTC.","<b>Signar.</b> Fes clic a “importar psbt” i tria el fitxer que ve de Monitor BTC. Revisa la revisió: import, destinació, canvi, comissió i avisos. Si tot és correcte, fes clic a “signar” i descarrega el fitxer signat. La transmissió es fa a Monitor BTC.","<b>Asinar.</b> Fai clic en “importar psbt” e escolle o ficheiro que vén de Monitor BTC. Revisa a revisión: importe, destino, troco, comisión e avisos. Se todo está correcto, fai clic en “asinar” e descarga o ficheiro asinado. A transmisión faise en Monitor BTC."],
+    ["<b>Telas.</b> O menu no alto alterna entre “chave” e “sobre”.","<b>Screens.</b> The menu at the top switches between “key” and “about”.","<b>Pantallas.</b> El menú de arriba alterna entre “clave” y “acerca de”.","<b>Écrans.</b> Le menu du haut alterne entre « clé » et « à propos ».","<b>Schermate.</b> Il menu in alto alterna tra “chiave” e “informazioni”.","<b>Bildschirme.</b> Das Menü oben wechselt zwischen „schlüssel“ und „über“.","<b>Schermen.</b> Het menu bovenaan wisselt tussen “sleutel” en “over”.","<b>Pantalles.</b> El menú de dalt alterna entre “clau” i “sobre”.","<b>Pantallas.</b> O menú de arriba alterna entre “clave” e “sobre”."],
+    ["As coordenadas são apenas nomes para cada uma das 256 posições. A primeira se chama <code>a0</code>, a segunda <code>a1</code>, e assim por diante: <code>a0</code> a <code>a9</code>, depois <code>b0</code> a <code>b9</code>, até <code>z5</code>, que é a última posição. A letra <code>z</code> para no 5: <code>z6</code> a <code>z9</code> não existem, porque 26 letras × 10 dígitos dariam 260 nomes e só há 256 posições.","The coordinates are just names for each of the 256 positions. The first is <code>a0</code>, the second <code>a1</code>, and so on: <code>a0</code> to <code>a9</code>, then <code>b0</code> to <code>b9</code>, up to <code>z5</code>, which is the last position. The letter <code>z</code> stops at 5: <code>z6</code> to <code>z9</code> do not exist, because 26 letters × 10 digits would give 260 names and there are only 256 positions.","Las coordenadas son solo nombres para cada una de las 256 posiciones. La primera se llama <code>a0</code>, la segunda <code>a1</code>, y así sucesivamente: <code>a0</code> a <code>a9</code>, luego <code>b0</code> a <code>b9</code>, hasta <code>z5</code>, que es la última posición. La letra <code>z</code> se detiene en el 5: <code>z6</code> a <code>z9</code> no existen, porque 26 letras × 10 dígitos darían 260 nombres y solo hay 256 posiciones.","Les coordonnées sont seulement des noms pour chacune des 256 positions. La première s'appelle <code>a0</code>, la deuxième <code>a1</code>, et ainsi de suite : <code>a0</code> à <code>a9</code>, puis <code>b0</code> à <code>b9</code>, jusqu'à <code>z5</code>, qui est la dernière position. La lettre <code>z</code> s'arrête à 5 : <code>z6</code> à <code>z9</code> n'existent pas, car 26 lettres × 10 chiffres donneraient 260 noms et il n'y a que 256 positions.","Le coordinate sono solo nomi per ciascuna delle 256 posizioni. La prima si chiama <code>a0</code>, la seconda <code>a1</code>, e così via: da <code>a0</code> a <code>a9</code>, poi da <code>b0</code> a <code>b9</code>, fino a <code>z5</code>, che è l'ultima posizione. La lettera <code>z</code> si ferma a 5: da <code>z6</code> a <code>z9</code> non esistono, perché 26 lettere × 10 cifre darebbero 260 nomi e ci sono solo 256 posizioni.","Die Koordinaten sind nur Namen für jede der 256 Positionen. Die erste heißt <code>a0</code>, die zweite <code>a1</code>, und so weiter: <code>a0</code> bis <code>a9</code>, dann <code>b0</code> bis <code>b9</code>, bis <code>z5</code>, der letzten Position. Der Buchstabe <code>z</code> endet bei 5: <code>z6</code> bis <code>z9</code> gibt es nicht, weil 26 Buchstaben × 10 Ziffern 260 Namen ergeben würden und es nur 256 Positionen gibt.","De coördinaten zijn alleen namen voor elk van de 256 posities. De eerste heet <code>a0</code>, de tweede <code>a1</code>, enzovoort: <code>a0</code> tot <code>a9</code>, dan <code>b0</code> tot <code>b9</code>, tot <code>z5</code>, de laatste positie. De letter <code>z</code> stopt bij 5: <code>z6</code> tot <code>z9</code> bestaan niet, want 26 letters × 10 cijfers zouden 260 namen geven en er zijn maar 256 posities.","Les coordenades són només noms per a cadascuna de les 256 posicions. La primera es diu <code>a0</code>, la segona <code>a1</code>, i així successivament: <code>a0</code> a <code>a9</code>, després <code>b0</code> a <code>b9</code>, fins a <code>z5</code>, que és l'última posició. La lletra <code>z</code> s'atura al 5: <code>z6</code> a <code>z9</code> no existeixen, perquè 26 lletres × 10 dígits donarien 260 noms i només hi ha 256 posicions.","As coordenadas son só nomes para cada unha das 256 posicións. A primeira chámase <code>a0</code>, a segunda <code>a1</code>, e así sucesivamente: <code>a0</code> a <code>a9</code>, despois <code>b0</code> a <code>b9</code>, ata <code>z5</code>, que é a última posición. A letra <code>z</code> para no 5: <code>z6</code> a <code>z9</code> non existen, porque 26 letras × 10 díxitos darían 260 nomes e só hai 256 posicións."],
+    ["Na tela elas aparecem agrupadas: a letra abre o grupo e os dígitos que vêm depois são dela até a próxima letra. Assim <code>a012</code> quer dizer <code>a0</code>, <code>a1</code> e <code>a2</code>. O agrupamento é só a forma de escrever a lista; a ordem não muda o resultado.","On the screen they appear grouped: the letter opens the group and the digits that follow belong to it until the next letter. So <code>a012</code> means <code>a0</code>, <code>a1</code> and <code>a2</code>. The grouping is only how the list is written; the order does not change the result.","En la pantalla aparecen agrupadas: la letra abre el grupo y los dígitos que vienen después son suyos hasta la siguiente letra. Así, <code>a012</code> significa <code>a0</code>, <code>a1</code> y <code>a2</code>. La agrupación es solo la forma de escribir la lista; el orden no cambia el resultado.","À l'écran, elles apparaissent groupées : la lettre ouvre le groupe et les chiffres qui suivent lui appartiennent jusqu'à la lettre suivante. Ainsi <code>a012</code> signifie <code>a0</code>, <code>a1</code> et <code>a2</code>. Le regroupement n'est qu'une façon d'écrire la liste ; l'ordre ne change pas le résultat.","Sullo schermo compaiono raggruppate: la lettera apre il gruppo e le cifre che seguono sono sue fino alla lettera successiva. Così <code>a012</code> significa <code>a0</code>, <code>a1</code> e <code>a2</code>. Il raggruppamento è solo il modo di scrivere l'elenco; l'ordine non cambia il risultato.","Auf dem Bildschirm erscheinen sie gruppiert: Der Buchstabe öffnet die Gruppe, und die folgenden Ziffern gehören bis zum nächsten Buchstaben dazu. <code>a012</code> bedeutet also <code>a0</code>, <code>a1</code> und <code>a2</code>. Die Gruppierung ist nur die Schreibweise der Liste; die Reihenfolge ändert das Ergebnis nicht.","Op het scherm verschijnen ze gegroepeerd: de letter opent de groep en de cijfers die volgen horen erbij tot de volgende letter. <code>a012</code> betekent dus <code>a0</code>, <code>a1</code> en <code>a2</code>. De groepering is alleen de manier waarop de lijst wordt geschreven; de volgorde verandert het resultaat niet.","A la pantalla apareixen agrupades: la lletra obre el grup i els dígits que vénen després són seus fins a la lletra següent. Així, <code>a012</code> vol dir <code>a0</code>, <code>a1</code> i <code>a2</code>. L'agrupació és només la manera d'escriure la llista; l'ordre no canvia el resultat.","Na pantalla aparecen agrupadas: a letra abre o grupo e os díxitos que veñen despois son dela ata a seguinte letra. Así, <code>a012</code> quere dicir <code>a0</code>, <code>a1</code> e <code>a2</code>. A agrupación é só a forma de escribir a lista; a orde non cambia o resultado."],
+    ["A posição de uma coordenada é <code>letra × 10 + dígito</code>, contando <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Assim <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 e <code>z5</code> = 255.","A coordinate's position is <code>letter × 10 + digit</code>, counting <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. So <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 and <code>z5</code> = 255.","La posición de una coordenada es <code>letra × 10 + dígito</code>, contando <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Así, <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 y <code>z5</code> = 255.","La position d'une coordonnée est <code>lettre × 10 + chiffre</code>, en comptant <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Ainsi <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 et <code>z5</code> = 255.","La posizione di una coordinata è <code>lettera × 10 + cifra</code>, contando <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Quindi <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 e <code>z5</code> = 255.","Die Position einer Koordinate ist <code>Buchstabe × 10 + Ziffer</code>, wobei <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25 gilt. Also <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 und <code>z5</code> = 255.","De positie van een coördinaat is <code>letter × 10 + cijfer</code>, met <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Dus <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 en <code>z5</code> = 255.","La posició d'una coordenada és <code>lletra × 10 + dígit</code>, comptant <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Així, <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 i <code>z5</code> = 255.","A posición dunha coordenada é <code>letra × 10 + díxito</code>, contando <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Así, <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 e <code>z5</code> = 255."],
+    ["A tela mostra só as coordenadas que ficaram em <code>1</code>. Todas as outras posições valem <code>0</code>. Com a lista em mãos, refaça os 256 dígitos assim:","The screen shows only the coordinates that came up <code>1</code>. Every other position is <code>0</code>. With the list in hand, rebuild the 256 digits like this:","La pantalla muestra solo las coordenadas que quedaron en <code>1</code>. Todas las demás posiciones valen <code>0</code>. Con la lista en la mano, rehaz los 256 dígitos así:","L'écran n'affiche que les coordonnées qui ont donné <code>1</code>. Toutes les autres positions valent <code>0</code>. Avec la liste en main, refaites les 256 chiffres ainsi :","Lo schermo mostra solo le coordinate che sono uscite <code>1</code>. Tutte le altre posizioni valgono <code>0</code>. Con l'elenco in mano, ricostruisci i 256 bit così:","Der Bildschirm zeigt nur die Koordinaten, die <code>1</code> ergeben haben. Alle anderen Positionen zählen <code>0</code>. Mit der Liste zur Hand baust du die 256 Binärwerte so nach:","Het scherm toont alleen de coördinaten die <code>1</code> zijn geworden. Alle andere posities zijn <code>0</code>. Met de lijst bij de hand bouw je de 256 bits zo opnieuw op:","La pantalla mostra només les coordenades que han quedat en <code>1</code>. Totes les altres posicions valen <code>0</code>. Amb la llista a mà, refés els 256 dígits així:","A pantalla mostra só as coordenadas que quedaron en <code>1</code>. Todas as demais posicións valen <code>0</code>. Coa lista na man, refai os 256 díxitos así:"],
+    ["<b>1.</b> Escreva 256 zeros seguidos.","<b>1.</b> Write 256 zeros in a row.","<b>1.</b> Escribe 256 ceros seguidos.","<b>1.</b> Écrivez 256 zéros à la suite.","<b>1.</b> Scrivi 256 zeri di seguito.","<b>1.</b> Schreibe 256 Nullen hintereinander.","<b>1.</b> Schrijf 256 nullen achter elkaar.","<b>1.</b> Escriu 256 zeros seguits.","<b>1.</b> Escribe 256 ceros seguidos."],
+    ["<b>2.</b> Numere as posições de 0 a 255, começando no primeiro zero.","<b>2.</b> Number the positions from 0 to 255, starting at the first zero.","<b>2.</b> Numera las posiciones de 0 a 255, empezando por el primer cero.","<b>2.</b> Numérotez les positions de 0 à 255, en partant du premier zéro.","<b>2.</b> Numera le posizioni da 0 a 255, partendo dal primo zero.","<b>2.</b> Nummeriere die Positionen von 0 bis 255, beginnend beim ersten Nullwert.","<b>2.</b> Nummer de posities van 0 tot 255, beginnend bij de eerste nul.","<b>2.</b> Numera les posicions de 0 a 255, començant pel primer zero.","<b>2.</b> Numera as posicións de 0 a 255, comezando polo primeiro cero."],
+    ["<b>3.</b> Troque por <code>1</code> cada posição que aparece na lista, com o número saindo de <code>letra × 10 + dígito</code>.","<b>3.</b> Change every position that appears in the list to <code>1</code>, with the number coming from <code>letter × 10 + digit</code>.","<b>3.</b> Cambia por <code>1</code> cada posición que aparece en la lista, con el número saliendo de <code>letra × 10 + dígito</code>.","<b>3.</b> Remplacez par <code>1</code> chaque position qui figure dans la liste, le numéro venant de <code>lettre × 10 + chiffre</code>.","<b>3.</b> Sostituisci con <code>1</code> ogni posizione che compare nell'elenco, con il numero che viene da <code>lettera × 10 + cifra</code>.","<b>3.</b> Setze jede Position aus der Liste auf <code>1</code>, wobei die Nummer aus <code>Buchstabe × 10 + Ziffer</code> kommt.","<b>3.</b> Zet elke positie die in de lijst voorkomt op <code>1</code>, waarbij het nummer uit <code>letter × 10 + cijfer</code> komt.","<b>3.</b> Canvia per <code>1</code> cada posició que apareix a la llista, amb el número sortint de <code>lletra × 10 + dígit</code>.","<b>3.</b> Troca por <code>1</code> cada posición que aparece na lista, co número saíndo de <code>letra × 10 + díxito</code>."],
+    ["No papel dá para usar uma grade de 26 linhas (as letras <code>a</code> a <code>z</code>) por 10 colunas (os dígitos <code>0</code> a <code>9</code>): marque <code>1</code> nas coordenadas da lista e leia da esquerda para a direita, de cima para baixo, parando em <code>z5</code>. O resultado tem sempre 256 dígitos, sem espaço nem vírgula.","On paper you can use a grid of 26 rows (the letters <code>a</code> to <code>z</code>) by 10 columns (the digits <code>0</code> to <code>9</code>): mark <code>1</code> at the coordinates in the list and read from left to right, top to bottom, stopping at <code>z5</code>. The result always has 256 digits, with no space or comma.","En papel se puede usar una cuadrícula de 26 filas (las letras <code>a</code> a <code>z</code>) por 10 columnas (los dígitos <code>0</code> a <code>9</code>): marca <code>1</code> en las coordenadas de la lista y lee de izquierda a derecha, de arriba abajo, parando en <code>z5</code>. El resultado tiene siempre 256 dígitos, sin espacio ni coma.","Sur papier, on peut utiliser une grille de 26 lignes (les lettres <code>a</code> à <code>z</code>) sur 10 colonnes (les chiffres <code>0</code> à <code>9</code>) : marquez <code>1</code> aux coordonnées de la liste et lisez de gauche à droite, de haut en bas, en vous arrêtant à <code>z5</code>. Le résultat comporte toujours 256 chiffres, sans espace ni virgule.","Sulla carta si può usare una griglia di 26 righe (le lettere da <code>a</code> a <code>z</code>) per 10 colonne (le cifre da <code>0</code> a <code>9</code>): segna <code>1</code> nelle coordinate dell'elenco e leggi da sinistra a destra, dall'alto in basso, fermandoti a <code>z5</code>. Il risultato ha sempre 256 cifre, senza spazi né virgole.","Auf Papier kannst du ein Raster aus 26 Zeilen (den Buchstaben <code>a</code> bis <code>z</code>) und 10 Spalten (den Ziffern <code>0</code> bis <code>9</code>) verwenden: Markiere <code>1</code> an den Koordinaten der Liste und lies von links nach rechts, von oben nach unten, bis <code>z5</code>. Das Ergebnis hat immer 256 Ziffern, ohne Leerzeichen oder Komma.","Op papier kun je een raster van 26 rijen (de letters <code>a</code> tot <code>z</code>) bij 10 kolommen (de cijfers <code>0</code> tot <code>9</code>) gebruiken: markeer <code>1</code> bij de coördinaten uit de lijst en lees van links naar rechts, van boven naar beneden, tot <code>z5</code>. Het resultaat heeft altijd 256 bits, zonder spatie of komma.","En paper es pot fer servir una graella de 26 files (les lletres <code>a</code> a <code>z</code>) per 10 columnes (els dígits <code>0</code> a <code>9</code>): marca <code>1</code> a les coordenades de la llista i llegeix d'esquerra a dreta, de dalt a baix, parant a <code>z5</code>. El resultat té sempre 256 dígits, sense espai ni coma.","No papel pódese usar unha grella de 26 filas (as letras <code>a</code> a <code>z</code>) por 10 columnas (os díxitos <code>0</code> a <code>9</code>): marca <code>1</code> nas coordenadas da lista e le de esquerda a dereita, de arriba abaixo, parando en <code>z5</code>. O resultado ten sempre 256 díxitos, sen espazo nin coma."],
+    ["Em outra ferramenta, informe esses 256 dígitos como a entrada da chave (o campo que às vezes aparece como “binário” ou “bits”). Ela devolve a mesma frase de 24 palavras, desde que use o BIP39 com a lista em inglês. Confira contra a frase que esta tela mostrou: se as 24 palavras forem iguais, a cópia está certa.","In another tool, enter those 256 digits as the key input (the field that sometimes appears as “binary” or “bits”). It returns the same 24-word phrase, as long as it uses BIP39 with the English list. Check it against the phrase this screen showed: if the 24 words match, the copy is correct.","En otra herramienta, introduce esos 256 dígitos como la entrada de la clave (el campo que a veces aparece como “binario” o “bits”). Devuelve la misma frase de 24 palabras, siempre que use BIP39 con la lista en inglés. Compruébala contra la frase que mostró esta pantalla: si las 24 palabras son iguales, la copia es correcta.","Dans un autre outil, saisissez ces 256 chiffres comme entrée de la clé (le champ qui apparaît parfois comme « binaire » ou « bits »). Il renvoie la même phrase de 24 mots, à condition d'utiliser BIP39 avec la liste anglaise. Vérifiez-la par rapport à la phrase affichée par cet écran : si les 24 mots sont identiques, la copie est correcte.","In un altro strumento, inserisci quei 256 bit come input della chiave (il campo che a volte compare come “binario” o “bit”). Restituisce la stessa frase di 24 parole, purché usi BIP39 con l'elenco inglese. Confrontala con la frase mostrata da questa schermata: se le 24 parole coincidono, la copia è corretta.","Gib diese 256 Binärwerte in einem anderen Werkzeug als Schlüsseleingabe ein (das Feld, das manchmal als „binär“ oder „bits“ erscheint). Es liefert dieselbe Merkhilfe aus 24 Wörtern, sofern es BIP39 mit der englischen Liste verwendet. Vergleiche sie mit der Merkhilfe, die dieser Bildschirm gezeigt hat: Wenn die 24 Wörter übereinstimmen, ist die Kopie richtig.","Voer die 256 bits in een andere tool in als sleutelinvoer (het veld dat soms als “binair” of “bits” verschijnt). Het geeft dezelfde zin van 24 woorden terug, zolang het BIP39 met de Engelse lijst gebruikt. Controleer hem tegen de zin die dit scherm toonde: als de 24 woorden overeenkomen, is de kopie correct.","En una altra eina, introdueix aquests 256 dígits com a entrada de la clau (el camp que de vegades apareix com a “binari” o “bits”). Retorna la mateixa frase de 24 paraules, sempre que faci servir BIP39 amb la llista en anglès. Comprova-la contra la frase que ha mostrat aquesta pantalla: si les 24 paraules coincideixen, la còpia és correcta.","Noutra ferramenta, introduce eses 256 díxitos como a entrada da clave (o campo que ás veces aparece como “binario” ou “bits”). Devolve a mesma frase de 24 palabras, sempre que use BIP39 coa lista en inglés. Compárea coa frase que mostrou esta pantalla: se as 24 palabras coinciden, a copia é correcta."],
+    ["Os BIPs são as regras públicas do Bitcoin que a ferramenta segue. Eles cobrem a chave, os endereços, as assinaturas e o arquivo de transação.","The BIPs are the public Bitcoin rules the tool follows. They cover the key, the addresses, the signatures and the transaction file.","Los BIP son las reglas públicas de Bitcoin que sigue la herramienta. Cubren la clave, las direcciones, las firmas y el archivo de transacción.","Les BIP sont les règles publiques de Bitcoin que suit l'outil. Elles couvrent la clé, les adresses, les signatures et le fichier de transaction.","I BIP sono le regole pubbliche di Bitcoin che lo strumento segue. Coprono la chiave, gli indirizzi, le firme e il file di transazione.","Die BIPs sind die öffentlichen Bitcoin-Regeln, denen das Werkzeug folgt. Sie decken den Schlüssel, die Adressen, die Signaturen und die Transaktionsdatei ab.","De BIP's zijn de openbare Bitcoin-regels die de tool volgt. Ze dekken de sleutel, de adressen, de handtekeningen en het transactiebestand.","Els BIP són les regles públiques de Bitcoin que segueix l'eina. Cobreixen la clau, les adreces, les signatures i el fitxer de transacció.","Os BIP son as regras públicas de Bitcoin que segue a ferramenta. Cobren a clave, os enderezos, as sinaturas e o ficheiro de transacción."],
+    ["<b>Chave e contas.</b>","<b>Key and accounts.</b>","<b>Clave y cuentas.</b>","<b>Clé et comptes.</b>","<b>Chiave e conti.</b>","<b>Schlüssel und Konten.</b>","<b>Sleutel en rekeningen.</b>","<b>Clau i comptes.</b>","<b>Clave e contas.</b>"],
+    ["<b>BIP39</b> — as 256 marcas e a frase de 24 palavras que sai delas.","<b>BIP39</b> — the 256 marks and the 24-word phrase that comes from them.","<b>BIP39</b> — las 256 marcas y la frase de 24 palabras que sale de ellas.","<b>BIP39</b> — les 256 marques et la phrase de 24 mots qui en découle.","<b>BIP39</b> — i 256 segni e la frase di 24 parole che ne deriva.","<b>BIP39</b> — die 256 Markierungen und die daraus entstehende Merkhilfe aus 24 Wörtern.","<b>BIP39</b> — de 256 markeringen en de zin van 24 woorden die eruit komt.","<b>BIP39</b> — les 256 marques i la frase de 24 paraules que en surt.","<b>BIP39</b> — as 256 marcas e a frase de 24 palabras que sae delas."],
+    ["<b>BIP32</b> — a chave e os endereços que saem dela.","<b>BIP32</b> — the key and the addresses that come from it.","<b>BIP32</b> — la clave y las direcciones que salen de ella.","<b>BIP32</b> — la clé et les adresses qui en découlent.","<b>BIP32</b> — la chiave e gli indirizzi che ne derivano.","<b>BIP32</b> — der Schlüssel und die daraus abgeleiteten Adressen.","<b>BIP32</b> — de sleutel en de adressen die eruit volgen.","<b>BIP32</b> — la clau i les adreces que en surten.","<b>BIP32</b> — a clave e os enderezos que saen dela."],
+    ["<b>BIP43</b> — tipo da conta no caminho da chave.","<b>BIP43</b> — account type in the key path.","<b>BIP43</b> — tipo de cuenta en la ruta de la clave.","<b>BIP43</b> — type de compte dans le chemin de la clé.","<b>BIP43</b> — tipo di conto nel percorso della chiave.","<b>BIP43</b> — Kontotyp im Schlüsselpfad.","<b>BIP43</b> — rekeningtype in het sleutelpad.","<b>BIP43</b> — tipus de compte al camí de la clau.","<b>BIP43</b> — tipo de conta no camiño da clave."],
+    ["<b>BIP44</b> — conta antiga (endereços começando com <code>1</code>).","<b>BIP44</b> — legacy account (addresses starting with <code>1</code>).","<b>BIP44</b> — cuenta antigua (direcciones que empiezan por <code>1</code>).","<b>BIP44</b> — compte ancien (adresses commençant par <code>1</code>).","<b>BIP44</b> — conto legacy (indirizzi che iniziano con <code>1</code>).","<b>BIP44</b> — altes Konto (Adressen, die mit <code>1</code> beginnen).","<b>BIP44</b> — oude rekening (adressen die met <code>1</code> beginnen).","<b>BIP44</b> — compte antic (adreces que comencen per <code>1</code>).","<b>BIP44</b> — conta antiga (enderezos que comezan por <code>1</code>)."],
+    ["<b>BIP49</b> — conta segwit aninhada (endereços começando com <code>3</code>).","<b>BIP49</b> — nested segwit account (addresses starting with <code>3</code>).","<b>BIP49</b> — cuenta segwit anidada (direcciones que empiezan por <code>3</code>).","<b>BIP49</b> — compte segwit imbriqué (adresses commençant par <code>3</code>).","<b>BIP49</b> — conto segwit annidato (indirizzi che iniziano con <code>3</code>).","<b>BIP49</b> — verschachteltes Segwit-Konto (Adressen, die mit <code>3</code> beginnen).","<b>BIP49</b> — geneste segwit-rekening (adressen die met <code>3</code> beginnen).","<b>BIP49</b> — compte segwit imbricat (adreces que comencen per <code>3</code>).","<b>BIP49</b> — conta segwit aniñada (enderezos que comezan por <code>3</code>)."],
+    ["<b>BIP84</b> — conta segwit nativa (endereços começando com <code>bc1q</code>).","<b>BIP84</b> — native segwit account (addresses starting with <code>bc1q</code>).","<b>BIP84</b> — cuenta segwit nativa (direcciones que empiezan por <code>bc1q</code>).","<b>BIP84</b> — compte segwit natif (adresses commençant par <code>bc1q</code>).","<b>BIP84</b> — conto segwit nativo (indirizzi che iniziano con <code>bc1q</code>).","<b>BIP84</b> — natives Segwit-Konto (Adressen, die mit <code>bc1q</code> beginnen).","<b>BIP84</b> — native segwit-rekening (adressen die met <code>bc1q</code> beginnen).","<b>BIP84</b> — compte segwit natiu (adreces que comencen per <code>bc1q</code>).","<b>BIP84</b> — conta segwit nativa (enderezos que comezan por <code>bc1q</code>)."],
+    ["<b>BIP86</b> — conta Taproot (endereços começando com <code>bc1p</code>).","<b>BIP86</b> — Taproot account (addresses starting with <code>bc1p</code>).","<b>BIP86</b> — cuenta Taproot (direcciones que empiezan por <code>bc1p</code>).","<b>BIP86</b> — compte Taproot (adresses commençant par <code>bc1p</code>).","<b>BIP86</b> — conto Taproot (indirizzi che iniziano con <code>bc1p</code>).","<b>BIP86</b> — Taproot-Konto (Adressen, die mit <code>bc1p</code> beginnen).","<b>BIP86</b> — Taproot-rekening (adressen die met <code>bc1p</code> beginnen).","<b>BIP86</b> — compte Taproot (adreces que comencen per <code>bc1p</code>).","<b>BIP86</b> — conta Taproot (enderezos que comezan por <code>bc1p</code>)."],
+    ["<b>Endereços e assinaturas.</b>","<b>Addresses and signatures.</b>","<b>Direcciones y firmas.</b>","<b>Adresses et signatures.</b>","<b>Indirizzi e firme.</b>","<b>Adressen und Signaturen.</b>","<b>Adressen en handtekeningen.</b>","<b>Adreces i signatures.</b>","<b>Enderezos e sinaturas.</b>"],
+    ["<b>BIP13</b> — formato do endereço que começa com <code>3</code>, usado no BIP49.","<b>BIP13</b> — format of the address starting with <code>3</code>, used in BIP49.","<b>BIP13</b> — formato de la dirección que empieza por <code>3</code>, usado en BIP49.","<b>BIP13</b> — format de l'adresse commençant par <code>3</code>, utilisé dans BIP49.","<b>BIP13</b> — formato dell'indirizzo che inizia con <code>3</code>, usato in BIP49.","<b>BIP13</b> — Format der Adresse, die mit <code>3</code> beginnt, verwendet in BIP49.","<b>BIP13</b> — formaat van het adres dat met <code>3</code> begint, gebruikt in BIP49.","<b>BIP13</b> — format de l'adreça que comença per <code>3</code>, usat a BIP49.","<b>BIP13</b> — formato do enderezo que comeza por <code>3</code>, usado no BIP49."],
+    ["<b>BIP16</b> — regra do endereço que começa com <code>3</code>, usado no BIP49.","<b>BIP16</b> — rule of the address starting with <code>3</code>, used in BIP49.","<b>BIP16</b> — regla de la dirección que empieza por <code>3</code>, usada en BIP49.","<b>BIP16</b> — règle de l'adresse commençant par <code>3</code>, utilisée dans BIP49.","<b>BIP16</b> — regola dell'indirizzo che inizia con <code>3</code>, usato in BIP49.","<b>BIP16</b> — Regel der Adresse, die mit <code>3</code> beginnt, verwendet in BIP49.","<b>BIP16</b> — regel van het adres dat met <code>3</code> begint, gebruikt in BIP49.","<b>BIP16</b> — regla de l'adreça que comença per <code>3</code>, usada a BIP49.","<b>BIP16</b> — regra do enderezo que comeza por <code>3</code>, usado no BIP49."],
+    ["<b>BIP141</b> — regra dos endereços segwit.","<b>BIP141</b> — rule for segwit addresses.","<b>BIP141</b> — regla de las direcciones segwit.","<b>BIP141</b> — règle des adresses segwit.","<b>BIP141</b> — regola degli indirizzi segwit.","<b>BIP141</b> — Regel für Segwit-Adressen.","<b>BIP141</b> — regel voor segwit-adressen.","<b>BIP141</b> — regla de les adreces segwit.","<b>BIP141</b> — regra dos enderezos segwit."],
+    ["<b>BIP143</b> — regra da assinatura dos endereços segwit v0 (<code>3</code> e <code>bc1q</code>).","<b>BIP143</b> — signature rule for segwit v0 addresses (<code>3</code> and <code>bc1q</code>).","<b>BIP143</b> — regla de firma de las direcciones segwit v0 (<code>3</code> y <code>bc1q</code>).","<b>BIP143</b> — règle de signature des adresses segwit v0 (<code>3</code> et <code>bc1q</code>).","<b>BIP143</b> — regola di firma degli indirizzi segwit v0 (<code>3</code> e <code>bc1q</code>).","<b>BIP143</b> — Signaturregel für Segwit-v0-Adressen (<code>3</code> und <code>bc1q</code>).","<b>BIP143</b> — handtekeningregel voor segwit v0-adressen (<code>3</code> en <code>bc1q</code>).","<b>BIP143</b> — regla de signatura de les adreces segwit v0 (<code>3</code> i <code>bc1q</code>).","<b>BIP143</b> — regra da sinatura dos enderezos segwit v0 (<code>3</code> e <code>bc1q</code>)."],
+    ["<b>BIP173</b> — escrita dos endereços <code>bc1q</code>.","<b>BIP173</b> — spelling of <code>bc1q</code> addresses.","<b>BIP173</b> — escritura de las direcciones <code>bc1q</code>.","<b>BIP173</b> — écriture des adresses <code>bc1q</code>.","<b>BIP173</b> — scrittura degli indirizzi <code>bc1q</code>.","<b>BIP173</b> — Schreibweise der <code>bc1q</code>-Adressen.","<b>BIP173</b> — schrijfwijze van <code>bc1q</code>-adressen.","<b>BIP173</b> — escriptura de les adreces <code>bc1q</code>.","<b>BIP173</b> — escrita dos enderezos <code>bc1q</code>."],
+    ["<b>BIP340</b> — assinatura usada no Taproot.","<b>BIP340</b> — signature used in Taproot.","<b>BIP340</b> — firma usada en Taproot.","<b>BIP340</b> — signature utilisée dans Taproot.","<b>BIP340</b> — firma usata in Taproot.","<b>BIP340</b> — in Taproot verwendete Signatur.","<b>BIP340</b> — handtekening die in Taproot wordt gebruikt.","<b>BIP340</b> — signatura usada a Taproot.","<b>BIP340</b> — sinatura usada no Taproot."],
+    ["<b>BIP341</b> — chave pública do endereço <code>bc1p</code> (Taproot).","<b>BIP341</b> — public key of the <code>bc1p</code> address (Taproot).","<b>BIP341</b> — clave pública de la dirección <code>bc1p</code> (Taproot).","<b>BIP341</b> — clé publique de l'adresse <code>bc1p</code> (Taproot).","<b>BIP341</b> — chiave pubblica dell'indirizzo <code>bc1p</code> (Taproot).","<b>BIP341</b> — öffentlicher Schlüssel der <code>bc1p</code>-Adresse (Taproot).","<b>BIP341</b> — openbare sleutel van het <code>bc1p</code>-adres (Taproot).","<b>BIP341</b> — clau pública de l'adreça <code>bc1p</code> (Taproot).","<b>BIP341</b> — clave pública do enderezo <code>bc1p</code> (Taproot)."],
+    ["<b>BIP350</b> — escrita dos endereços <code>bc1p</code>.","<b>BIP350</b> — spelling of <code>bc1p</code> addresses.","<b>BIP350</b> — escritura de las direcciones <code>bc1p</code>.","<b>BIP350</b> — écriture des adresses <code>bc1p</code>.","<b>BIP350</b> — scrittura degli indirizzi <code>bc1p</code>.","<b>BIP350</b> — Schreibweise der <code>bc1p</code>-Adressen.","<b>BIP350</b> — schrijfwijze van <code>bc1p</code>-adressen.","<b>BIP350</b> — escriptura de les adreces <code>bc1p</code>.","<b>BIP350</b> — escrita dos enderezos <code>bc1p</code>."],
+    ["<b>Transação.</b>","<b>Transaction.</b>","<b>Transacción.</b>","<b>Transaction.</b>","<b>Transazione.</b>","<b>Transaktion.</b>","<b>Transactie.</b>","<b>Transacció.</b>","<b>Transacción.</b>"],
+    ["<b>BIP125</b> — aviso de que a transação pode ser substituída (RBF), mostrado no resumo.","<b>BIP125</b> — notice that the transaction can be replaced (RBF), shown in the summary.","<b>BIP125</b> — aviso de que la transacción puede ser sustituida (RBF), mostrado en el resumen.","<b>BIP125</b> — indication que la transaction peut être remplacée (RBF), affichée dans le récapitulatif.","<b>BIP125</b> — avviso che la transazione può essere sostituita (RBF), mostrato nel riepilogo.","<b>BIP125</b> — Hinweis, dass die Transaktion ersetzt werden kann (RBF), in der Übersicht angezeigt.","<b>BIP125</b> — melding dat de transactie kan worden vervangen (RBF), getoond in het overzicht.","<b>BIP125</b> — avís que la transacció es pot substituir (RBF), mostrat al resum.","<b>BIP125</b> — aviso de que a transacción pode ser substituída (RBF), mostrado no resumo."],
+    ["<b>BIP174</b> — formato do arquivo de transação (PSBT).","<b>BIP174</b> — transaction file format (PSBT).","<b>BIP174</b> — formato del archivo de transacción (PSBT).","<b>BIP174</b> — format du fichier de transaction (PSBT).","<b>BIP174</b> — formato del file di transazione (PSBT).","<b>BIP174</b> — Format der Transaktionsdatei (PSBT).","<b>BIP174</b> — formaat van het transactiebestand (PSBT).","<b>BIP174</b> — format del fitxer de transacció (PSBT).","<b>BIP174</b> — formato do ficheiro de transacción (PSBT)."],
+    ["<b>BIP371</b> — dados do Taproot dentro do arquivo de transação.","<b>BIP371</b> — Taproot data inside the transaction file.","<b>BIP371</b> — datos de Taproot dentro del archivo de transacción.","<b>BIP371</b> — données Taproot dans le fichier de transaction.","<b>BIP371</b> — dati Taproot nel file di transazione.","<b>BIP371</b> — Taproot-Daten in der Transaktionsdatei.","<b>BIP371</b> — Taproot-gegevens in het transactiebestand.","<b>BIP371</b> — dades de Taproot dins del fitxer de transacció.","<b>BIP371</b> — datos de Taproot dentro do ficheiro de transacción."],
+    ["A assinatura dos endereços <code>1</code>, <code>3</code> e <code>bc1q</code> segue a RFC 6979: o número temporário sai de uma conta, não de um sorteio, então assinar a mesma transação de novo dá exatamente a mesma assinatura. No Taproot (<code>bc1p</code>) entra um sorteio à parte, e a mesma transação pode sair com assinaturas diferentes, todas válidas. A ferramenta trabalha só com a rede principal do Bitcoin.","Signing for <code>1</code>, <code>3</code> and <code>bc1q</code> addresses follows RFC 6979: the temporary number comes from a calculation, not a draw, so signing the same transaction again gives exactly the same signature. Taproot (<code>bc1p</code>) adds a separate draw, and the same transaction can come out with different signatures, all valid. The tool works only with the Bitcoin mainnet.","La firma de las direcciones <code>1</code>, <code>3</code> y <code>bc1q</code> sigue la RFC 6979: el número temporal sale de un cálculo, no de un sorteo, así que firmar la misma transacción de nuevo da exactamente la misma firma. En Taproot (<code>bc1p</code>) entra un sorteo aparte, y la misma transacción puede salir con firmas diferentes, todas válidas. La herramienta trabaja solo con la red principal de Bitcoin.","La signature des adresses <code>1</code>, <code>3</code> et <code>bc1q</code> suit la RFC 6979 : le nombre temporaire vient d'un calcul, pas d'un tirage, donc signer à nouveau la même transaction donne exactement la même signature. Dans Taproot (<code>bc1p</code>), un tirage distinct intervient, et la même transaction peut produire des signatures différentes, toutes valides. L'outil ne travaille qu'avec le réseau principal de Bitcoin.","La firma degli indirizzi <code>1</code>, <code>3</code> e <code>bc1q</code> segue la RFC 6979: il numero temporaneo viene da un calcolo, non da un sorteggio, quindi firmare di nuovo la stessa transazione dà esattamente la stessa firma. In Taproot (<code>bc1p</code>) entra un sorteggio separato, e la stessa transazione può uscire con firme diverse, tutte valide. Lo strumento lavora solo con la rete principale di Bitcoin.","Die Signatur der Adressen <code>1</code>, <code>3</code> und <code>bc1q</code> folgt RFC 6979: Die temporäre Zahl stammt aus einer Berechnung, nicht aus einer Ziehung, daher ergibt das erneute Signieren derselben Transaktion exakt dieselbe Signatur. Bei Taproot (<code>bc1p</code>) kommt eine separate Ziehung hinzu, und dieselbe Transaktion kann mit unterschiedlichen, aber gültigen Signaturen erzeugt werden. Das Werkzeug arbeitet nur mit dem Bitcoin-Hauptnetz.","De handtekening van de adressen <code>1</code>, <code>3</code> en <code>bc1q</code> volgt RFC 6979: het tijdelijke getal komt uit een berekening, niet uit een loting, dus dezelfde transactie opnieuw ondertekenen geeft precies dezelfde handtekening. Bij Taproot (<code>bc1p</code>) komt een aparte loting, en dezelfde transactie kan met verschillende handtekeningen uitkomen, allemaal geldig. De tool werkt alleen met het Bitcoin-hoofdnet.","La signatura de les adreces <code>1</code>, <code>3</code> i <code>bc1q</code> segueix la RFC 6979: el número temporal surt d'un càlcul, no d'un sorteig, així que signar la mateixa transacció de nou dona exactament la mateixa signatura. A Taproot (<code>bc1p</code>) hi entra un sorteig a part, i la mateixa transacció pot sortir amb signatures diferents, totes vàlides. L'eina treballa només amb la xarxa principal de Bitcoin.","A sinatura dos enderezos <code>1</code>, <code>3</code> e <code>bc1q</code> segue a RFC 6979: o número temporal sae dun cálculo, non dun sorteo, así que asinar a mesma transacción de novo dá exactamente a mesma sinatura. No Taproot (<code>bc1p</code>) entra un sorteo á parte, e a mesma transacción pode saír con sinaturas diferentes, todas válidas. A ferramenta traballa só coa rede principal de Bitcoin."],
+    ["<b>Última atualização:</b> <time datetime=\"2026-11-16\">16 de novembro de 2026</time>.","<b>Last updated:</b> <time datetime=\"2026-11-16\">November 16, 2026</time>.","<b>Última actualización:</b> <time datetime=\"2026-11-16\">16 de noviembre de 2026</time>.","<b>Dernière mise à jour :</b> <time datetime=\"2026-11-16\">16 novembre 2026</time>.","<b>Ultimo aggiornamento:</b> <time datetime=\"2026-11-16\">16 novembre 2026</time>.","<b>Letzte Aktualisierung:</b> <time datetime=\"2026-11-16\">16. November 2026</time>.","<b>Laatst bijgewerkt:</b> <time datetime=\"2026-11-16\">16 november 2026</time>.","<b>Última actualització:</b> <time datetime=\"2026-11-16\">16 de novembre de 2026</time>.","<b>Última actualización:</b> <time datetime=\"2026-11-16\">16 de novembro de 2026</time>."],
+    ["PSBT inválido: varint inválido ou truncado.","Invalid PSBT: invalid or truncated varint.","PSBT no válido: varint no válido o truncado.","PSBT invalide : varint invalide ou tronqué.","PSBT non valido: varint non valido o troncato.","Ungültige PSBT: ungültiger oder abgeschnittener Varint.","Ongeldige PSBT: ongeldige of afgekapte varint.","PSBT no vàlid: varint no vàlid o truncat.","PSBT non válido: varint non válido ou truncado."],
+    ["a transação interna do PSBT está truncada ou inconsistente.","the PSBT's inner transaction is truncated or inconsistent.","la transacción interna del PSBT está truncada o es inconsistente.","la transaction interne du PSBT est tronquée ou incohérente.","la transazione interna del PSBT è troncata o incoerente.","die innere Transaktion der PSBT ist abgeschnitten oder inkonsistent.","de interne transactie van de PSBT is afgekapt of inconsistent.","la transacció interna del PSBT està truncada o és inconsistent.","a transacción interna do PSBT está truncada ou inconsistente."],
+    ["PSBT inválido: caminho de derivação inválido.","Invalid PSBT: invalid derivation path.","PSBT no válido: ruta de derivación no válida.","PSBT invalide : chemin de dérivation invalide.","PSBT non valido: percorso di derivazione non valido.","Ungültige PSBT: ungültiger Ableitungspfad.","Ongeldige PSBT: ongeldig afleidingspad.","PSBT no vàlid: camí de derivació no vàlid.","PSBT non válido: camiño de derivación non válido."],
+    ["o conteúdo não é base64 válido.","the content is not valid base64.","el contenido no es base64 válido.","le contenu n'est pas du base64 valide.","il contenuto non è base64 valido.","der Inhalt ist kein gültiges Base64.","de inhoud is geen geldige base64.","el contingut no és base64 vàlid.","o contido non é base64 válido."],
+    ["o PSBT está truncado ou incompleto.","the PSBT is truncated or incomplete.","el PSBT está truncado o incompleto.","le PSBT est tronqué ou incomplet.","il PSBT è troncato o incompleto.","die PSBT ist abgeschnitten oder unvollständig.","de PSBT is afgekapt of onvolledig.","el PSBT està truncat o incomplet.","o PSBT está truncado ou incompleto."],
+    ["PSBT inválido: chave vazia em um mapa.","Invalid PSBT: empty key in a map.","PSBT no válido: clave vacía en un mapa.","PSBT invalide : clé vide dans une table.","PSBT non valido: chiave vuota in una mappa.","Ungültige PSBT: leerer Schlüssel in einer Map.","Ongeldige PSBT: lege sleutel in een map.","PSBT no vàlid: clau buida en un mapa.","PSBT non válido: clave baleira nun mapa."],
+    ["PSBT inválido: chave repetida em um mapa.","Invalid PSBT: repeated key in a map.","PSBT no válido: clave repetida en un mapa.","PSBT invalide : clé répétée dans une table.","PSBT non valido: chiave ripetuta in una mappa.","Ungültige PSBT: doppelter Schlüssel in einer Map.","Ongeldige PSBT: dubbele sleutel in een map.","PSBT no vàlid: clau repetida en un mapa.","PSBT non válido: clave repetida nun mapa."],
+    ["PSBT inválido: tap_leaf_script com control block ou leaf version inválido.","Invalid PSBT: tap_leaf_script with an invalid control block or leaf version.","PSBT no válido: tap_leaf_script con control block o leaf version no válido.","PSBT invalide : tap_leaf_script avec control block ou leaf version invalide.","PSBT non valido: tap_leaf_script con control block o leaf version non valido.","Ungültige PSBT: tap_leaf_script mit ungültigem Control Block oder ungültiger Leaf Version.","Ongeldige PSBT: tap_leaf_script met ongeldig control block of leaf version.","PSBT no vàlid: tap_leaf_script amb control block o leaf version no vàlid.","PSBT non válido: tap_leaf_script con control block ou leaf version non válido."],
+    ["PSBT inválido: tap_tree vazia ou truncada.","Invalid PSBT: empty or truncated tap_tree.","PSBT no válido: tap_tree vacía o truncada.","PSBT invalide : tap_tree vide ou tronqué.","PSBT non valido: tap_tree vuota o troncata.","Ungültige PSBT: leere oder abgeschnittene tap_tree.","Ongeldige PSBT: lege of afgekapte tap_tree.","PSBT no vàlid: tap_tree buida o truncada.","PSBT non válido: tap_tree baleira ou truncada."],
+    ["PSBT inválido: campo exclusivo de PSBT v2 dentro de um PSBT v0.","Invalid PSBT: PSBT v2-only field inside a PSBT v0.","PSBT no válido: campo exclusivo de PSBT v2 dentro de un PSBT v0.","PSBT invalide : champ réservé à PSBT v2 dans un PSBT v0.","PSBT non valido: campo esclusivo di PSBT v2 dentro un PSBT v0.","Ungültige PSBT: nur für PSBT v2 gültiges Feld in einer PSBT v0.","Ongeldige PSBT: veld dat alleen bij PSBT v2 hoort in een PSBT v0.","PSBT no vàlid: camp exclusiu de PSBT v2 dins d'un PSBT v0.","PSBT non válido: campo exclusivo de PSBT v2 dentro dun PSBT v0."],
+    ["PSBT inválido: xpub com tamanho incorreto.","Invalid PSBT: xpub with the wrong size.","PSBT no válido: xpub con tamaño incorrecto.","PSBT invalide : xpub de taille incorrecte.","PSBT non valido: xpub con dimensione errata.","Ungültige PSBT: xpub mit falscher Größe.","Ongeldige PSBT: xpub met verkeerde grootte.","PSBT no vàlid: xpub amb mida incorrecta.","PSBT non válido: xpub con tamaño incorrecto."],
+    ["PSBT inválido: xpub com caminho de derivação malformado.","Invalid PSBT: xpub with a malformed derivation path.","PSBT no válido: xpub con ruta de derivación malformada.","PSBT invalide : xpub avec chemin de dérivation malformé.","PSBT non valido: xpub con percorso di derivazione malformato.","Ungültige PSBT: xpub mit fehlerhaftem Ableitungspfad.","Ongeldige PSBT: xpub met onjuist afleidingspad.","PSBT no vàlid: xpub amb camí de derivació malformat.","PSBT non válido: xpub con camiño de derivación malformado."],
+    ["PSBT inválido: witness_utxo com bytes extras.","Invalid PSBT: witness_utxo with extra bytes.","PSBT no válido: witness_utxo con bytes extra.","PSBT invalide : witness_utxo avec octets en trop.","PSBT non valido: witness_utxo con byte extra.","Ungültige PSBT: witness_utxo mit zusätzlichen Bytes.","Ongeldige PSBT: witness_utxo met extra bytes.","PSBT no vàlid: witness_utxo amb bytes extra.","PSBT non válido: witness_utxo con bytes extra."],
+    ["PSBT inválido: partial_sig com pubkey inválida.","Invalid PSBT: partial_sig with an invalid pubkey.","PSBT no válido: partial_sig con pubkey no válida.","PSBT invalide : partial_sig avec pubkey invalide.","PSBT non valido: partial_sig con pubkey non valida.","Ungültige PSBT: partial_sig mit ungültigem Pubkey.","Ongeldige PSBT: partial_sig met ongeldige pubkey.","PSBT no vàlid: partial_sig amb pubkey no vàlida.","PSBT non válido: partial_sig con pubkey non válida."],
+    ["PSBT inválido: partial_sig vazia.","Invalid PSBT: empty partial_sig.","PSBT no válido: partial_sig vacía.","PSBT invalide : partial_sig vide.","PSBT non valido: partial_sig vuota.","Ungültige PSBT: leere partial_sig.","Ongeldige PSBT: lege partial_sig.","PSBT no vàlid: partial_sig buida.","PSBT non válido: partial_sig baleira."],
+    ["PSBT inválido: bip32_derivation com pubkey inválida.","Invalid PSBT: bip32_derivation with an invalid pubkey.","PSBT no válido: bip32_derivation con pubkey no válida.","PSBT invalide : bip32_derivation avec pubkey invalide.","PSBT non valido: bip32_derivation con pubkey non valida.","Ungültige PSBT: bip32_derivation mit ungültigem Pubkey.","Ongeldige PSBT: bip32_derivation met ongeldige pubkey.","PSBT no vàlid: bip32_derivation amb pubkey no vàlida.","PSBT non válido: bip32_derivation con pubkey non válida."],
+    ["PSBT inválido: tap_key_sig com tamanho diferente de 64/65 bytes.","Invalid PSBT: tap_key_sig with a size other than 64/65 bytes.","PSBT no válido: tap_key_sig con tamaño distinto de 64/65 bytes.","PSBT invalide : tap_key_sig de taille différente de 64/65 octets.","PSBT non valido: tap_key_sig con dimensione diversa da 64/65 byte.","Ungültige PSBT: tap_key_sig mit einer Größe ungleich 64/65 Bytes.","Ongeldige PSBT: tap_key_sig met een grootte anders dan 64/65 bytes.","PSBT no vàlid: tap_key_sig amb mida diferent de 64/65 bytes.","PSBT non válido: tap_key_sig con tamaño diferente de 64/65 bytes."],
+    ["PSBT inválido: tap_script_sig com chave ou tamanho inválido.","Invalid PSBT: tap_script_sig with an invalid key or size.","PSBT no válido: tap_script_sig con clave o tamaño no válido.","PSBT invalide : tap_script_sig avec clé ou taille invalide.","PSBT non valido: tap_script_sig con chiave o dimensione non valida.","Ungültige PSBT: tap_script_sig mit ungültigem Schlüssel oder ungültiger Größe.","Ongeldige PSBT: tap_script_sig met ongeldige sleutel of grootte.","PSBT no vàlid: tap_script_sig amb clau o mida no vàlida.","PSBT non válido: tap_script_sig con clave ou tamaño non válido."],
+    ["o arquivo não começa com a marca PSBT; não é um PSBT.","the file does not start with the PSBT marker; it is not a PSBT.","el archivo no empieza por la marca PSBT; no es un PSBT.","le fichier ne commence pas par la marque PSBT ; ce n'est pas un PSBT.","il file non inizia con il marcatore PSBT; non è un PSBT.","die Datei beginnt nicht mit der PSBT-Marke; sie ist keine PSBT.","het bestand begint niet met de PSBT-markering; het is geen PSBT.","el fitxer no comença per la marca PSBT; no és un PSBT.","o ficheiro non comeza coa marca PSBT; non é un PSBT."],
+    ["PSBT sem a transação não assinada (unsigned tx); arquivo incompleto.","PSBT without the unsigned transaction; incomplete file.","PSBT sin la transacción no firmada (unsigned tx); archivo incompleto.","PSBT sans la transaction non signée ; fichier incomplet.","PSBT senza la transazione non firmata; file incompleto.","PSBT ohne die unsignierte Transaktion; unvollständige Datei.","PSBT zonder de niet-ondertekende transactie; onvolledig bestand.","PSBT sense la transacció no signada; fitxer incomplet.","PSBT sen a transacción non asinada; ficheiro incompleto."],
+    ["a transação não assinada veio no formato witness; PSBT v0 exige o formato antigo.","the unsigned transaction came in witness format; PSBT v0 requires the legacy format.","la transacción no firmada vino en formato witness; PSBT v0 exige el formato antiguo.","la transaction non signée est au format witness ; PSBT v0 exige l'ancien format.","la transazione non firmata è arrivata in formato witness; PSBT v0 richiede il formato legacy.","die unsignierte Transaktion kam im Witness-Format; PSBT v0 verlangt das alte Format.","de niet-ondertekende transactie kwam in witness-formaat; PSBT v0 vereist het oude formaat.","la transacció no signada ha arribat en format witness; PSBT v0 exigeix el format antic.","a transacción non asinada veu en formato witness; PSBT v0 esixe o formato antigo."],
+    ["a transação não assinada veio com scriptSig; PSBT v0 exige scriptSig vazio.","the unsigned transaction came with a scriptSig; PSBT v0 requires an empty scriptSig.","la transacción no firmada vino con scriptSig; PSBT v0 exige scriptSig vacío.","la transaction non signée comporte un scriptSig ; PSBT v0 exige un scriptSig vide.","la transazione non firmata è arrivata con scriptSig; PSBT v0 richiede scriptSig vuoto.","die unsignierte Transaktion kam mit scriptSig; PSBT v0 verlangt ein leeres scriptSig.","de niet-ondertekende transactie kwam met een scriptSig; PSBT v0 vereist een lege scriptSig.","la transacció no signada ha arribat amb scriptSig; PSBT v0 exigeix scriptSig buit.","a transacción non asinada veu con scriptSig; PSBT v0 esixe scriptSig baleiro."],
+    ["o arquivo PSBT está vazio.","the PSBT file is empty.","el archivo PSBT está vacío.","le fichier PSBT est vide.","il file PSBT è vuoto.","die PSBT-Datei ist leer.","het PSBT-bestand is leeg.","el fitxer PSBT és buit.","o ficheiro PSBT está baleiro."],
+    ["não foi possível decodificar o arquivo como PSBT (base64/hex inválido).","could not decode the file as a PSBT (invalid base64/hex).","no se pudo decodificar el archivo como PSBT (base64/hex no válido).","impossible de décoder le fichier comme PSBT (base64/hex invalide).","impossibile decodificare il file come PSBT (base64/hex non valido).","die Datei konnte nicht als PSBT dekodiert werden (ungültiges Base64/Hex).","het bestand kon niet als PSBT worden gedecodeerd (ongeldige base64/hex).","no s'ha pogut descodificar el fitxer com a PSBT (base64/hex no vàlid).","non foi posible descodificar o ficheiro como PSBT (base64/hex non válido)."],
+    ["uma entrada: P2WSH não suportado; o cofre assina p2pkh, p2sh-p2wpkh, p2wpkh e p2tr key path.","an input: P2WSH not supported; the vault signs p2pkh, p2sh-p2wpkh, p2wpkh and p2tr key path.","una entrada: P2WSH no compatible; el cofre firma p2pkh, p2sh-p2wpkh, p2wpkh y p2tr key path.","une entrée : P2WSH non pris en charge ; le coffre signe p2pkh, p2sh-p2wpkh, p2wpkh et p2tr key path.","un input: P2WSH non supportato; il cofre firma p2pkh, p2sh-p2wpkh, p2wpkh e p2tr key path.","ein Eingang: P2WSH wird nicht unterstützt; der Cofre signiert p2pkh, p2sh-p2wpkh, p2wpkh und p2tr key path.","een invoer: P2WSH wordt niet ondersteund; de kluis ondertekent p2pkh, p2sh-p2wpkh, p2wpkh en p2tr key path.","una entrada: P2WSH no suportat; el cofre signa p2pkh, p2sh-p2wpkh, p2wpkh i p2tr key path.","unha entrada: P2WSH non soportado; o cofre asina p2pkh, p2sh-p2wpkh, p2wpkh e p2tr key path."],
+    ["uma entrada: script não suportado; use p2pkh, p2sh-p2wpkh, p2wpkh ou p2tr key path.","an input: unsupported script; use p2pkh, p2sh-p2wpkh, p2wpkh or p2tr key path.","una entrada: script no compatible; usa p2pkh, p2sh-p2wpkh, p2wpkh o p2tr key path.","une entrée : script non pris en charge ; utilisez p2pkh, p2sh-p2wpkh, p2wpkh ou p2tr key path.","un input: script non supportato; usa p2pkh, p2sh-p2wpkh, p2wpkh o p2tr key path.","ein Eingang: nicht unterstütztes Script; verwende p2pkh, p2sh-p2wpkh, p2wpkh oder p2tr key path.","een invoer: niet-ondersteund script; gebruik p2pkh, p2sh-p2wpkh, p2wpkh of p2tr key path.","una entrada: script no suportat; fes servir p2pkh, p2sh-p2wpkh, p2wpkh o p2tr key path.","unha entrada: script non soportado; usa p2pkh, p2sh-p2wpkh, p2wpkh ou p2tr key path."],
+    ["uma entrada: witness_script (P2WSH/multisig) não suportado.","an input: witness_script (P2WSH/multisig) not supported.","una entrada: witness_script (P2WSH/multisig) no compatible.","une entrée : witness_script (P2WSH/multisig) non pris en charge.","un input: witness_script (P2WSH/multisig) non supportato.","ein Eingang: witness_script (P2WSH/Multisig) wird nicht unterstützt.","een invoer: witness_script (P2WSH/multisig) wordt niet ondersteund.","una entrada: witness_script (P2WSH/multisig) no suportat.","unha entrada: witness_script (P2WSH/multisig) non soportado."],
+    ["uma entrada: Taproot com script path não suportado; o cofre só assina key path.","an input: Taproot with script path not supported; the vault only signs key path.","una entrada: Taproot con script path no compatible; el cofre solo firma key path.","une entrée : Taproot avec script path non pris en charge ; le coffre ne signe que key path.","un input: Taproot con script path non supportato; il cofre firma solo key path.","ein Eingang: Taproot mit Script Path wird nicht unterstützt; der Cofre signiert nur Key Path.","een invoer: Taproot met script path wordt niet ondersteund; de kluis ondertekent alleen key path.","una entrada: Taproot amb script path no suportat; el cofre només signa key path.","unha entrada: Taproot con script path non soportado; o cofre só asina key path."],
+    ["uma entrada: time lock exigido pelo PSBT não suportado; o cofre não confere travas de tempo.","an input: time lock required by the PSBT is not supported; the vault does not check time locks.","una entrada: time lock exigido por el PSBT no compatible; el cofre no comprueba bloqueos de tiempo.","une entrée : time lock exigé par le PSBT non pris en charge ; le coffre ne vérifie pas les verrous temporels.","un input: time lock richiesto dal PSBT non supportato; il cofre non verifica blocchi temporali.","ein Eingang: vom PSBT verlangter Time Lock wird nicht unterstützt; der Cofre prüft keine Zeitsperren.","een invoer: door de PSBT vereiste time lock wordt niet ondersteund; de kluis controleert geen tijdsloten.","una entrada: time lock exigit pel PSBT no suportat; el cofre no comprova blocs de temps.","unha entrada: time lock esixido polo PSBT non soportado; o cofre non comproba bloqueos de tempo."],
+    ["uma entrada: sem origem BIP32 de uma chave do cofre; inclua o caminho de derivação no PSBT.","an input: no BIP32 origin for a vault key; include the derivation path in the PSBT.","una entrada: sin origen BIP32 de una clave del cofre; incluye la ruta de derivación en el PSBT.","une entrée : pas d'origine BIP32 d'une clé du coffre ; incluez le chemin de dérivation dans le PSBT.","un input: nessuna origine BIP32 di una chiave del cofre; includi il percorso di derivazione nel PSBT.","ein Eingang: keine BIP32-Herkunft eines Cofre-Schlüssels; füge den Ableitungspfad in die PSBT ein.","een invoer: geen BIP32-oorsprong van een kluissleutel; neem het afleidingspad op in de PSBT.","una entrada: sense origen BIP32 d'una clau del cofre; inclou el camí de derivació al PSBT.","unha entrada: sen orixe BIP32 dunha clave do cofre; inclúe o camiño de derivación no PSBT."],
+    ["uma entrada: a origem BIP32 deriva uma chave que não corresponde ao script; PSBT inconsistente.","an input: the BIP32 origin derives a key that does not match the script; inconsistent PSBT.","una entrada: el origen BIP32 deriva una clave que no corresponde al script; PSBT inconsistente.","une entrée : l'origine BIP32 dérive une clé qui ne correspond pas au script ; PSBT incohérent.","un input: l'origine BIP32 deriva una chiave che non corrisponde allo script; PSBT incoerente.","ein Eingang: die BIP32-Herkunft leitet einen Schlüssel ab, der nicht zum Script passt; inkonsistente PSBT.","een invoer: de BIP32-oorsprong leidt een sleutel af die niet bij het script hoort; inconsistente PSBT.","una entrada: l'origen BIP32 deriva una clau que no correspon al script; PSBT inconsistent.","unha entrada: a orixe BIP32 deriva unha clave que non corresponde ao script; PSBT inconsistente."],
+    ["uma entrada: a transação não assinada já tem scriptSig; PSBT v0 exige scriptSig vazio.","an input: the unsigned transaction already has a scriptSig; PSBT v0 requires an empty scriptSig.","una entrada: la transacción no firmada ya tiene scriptSig; PSBT v0 exige scriptSig vacío.","une entrée : la transaction non signée a déjà un scriptSig ; PSBT v0 exige un scriptSig vide.","un input: la transazione non firmata ha già uno scriptSig; PSBT v0 richiede scriptSig vuoto.","ein Eingang: die unsignierte Transaktion hat bereits ein scriptSig; PSBT v0 verlangt ein leeres scriptSig.","een invoer: de niet-ondertekende transactie heeft al een scriptSig; PSBT v0 vereist een lege scriptSig.","una entrada: la transacció no signada ja té scriptSig; PSBT v0 exigeix scriptSig buit.","unha entrada: a transacción non asinada xa ten scriptSig; PSBT v0 esixe scriptSig baleiro."],
+    ["saídas somam mais que as entradas; a taxa seria negativa. PSBT inconsistente.","outputs add up to more than the inputs; the fee would be negative. Inconsistent PSBT.","las salidas suman más que las entradas; la comisión sería negativa. PSBT inconsistente.","les sorties dépassent les entrées ; les frais seraient négatifs. PSBT incohérent.","le uscite superano gli input; la commissione sarebbe negativa. PSBT incoerente.","die Ausgaben übersteigen die Eingänge; die Gebühr wäre negativ. Inkonsistente PSBT.","de uitgangen zijn groter dan de ingangen; de kosten zouden negatief zijn. Inconsistente PSBT.","les sortides sumen més que les entrades; la comissió seria negativa. PSBT inconsistent.","as saídas suman máis que as entradas; a comisión sería negativa. PSBT inconsistente."],
+    ["uma entrada: p2pkh exige non_witness_utxo; sem ele o valor não pode ser conferido.","an input: p2pkh requires non_witness_utxo; without it the amount cannot be checked.","una entrada: p2pkh exige non_witness_utxo; sin él no se puede comprobar el valor.","une entrée : p2pkh exige non_witness_utxo ; sans lui, le montant ne peut pas être vérifié.","un input: p2pkh richiede non_witness_utxo; senza di esso l'importo non può essere verificato.","ein Eingang: p2pkh verlangt non_witness_utxo; ohne ihn kann der Betrag nicht geprüft werden.","een invoer: p2pkh vereist non_witness_utxo; zonder dat kan het bedrag niet worden gecontroleerd.","una entrada: p2pkh exigeix non_witness_utxo; sense ell no es pot comprovar l'import.","unha entrada: p2pkh esixe non_witness_utxo; sen el o importe non se pode comprobar."],
+    ["PSBT sem entradas; não há o que assinar.","PSBT without inputs; there is nothing to sign.","PSBT sin entradas; no hay nada que firmar.","PSBT sans entrées ; il n'y a rien à signer.","PSBT senza input; non c'è nulla da firmare.","PSBT ohne Eingänge; es gibt nichts zu signieren.","PSBT zonder ingangen; er is niets om te ondertekenen.","PSBT sense entrades; no hi ha res a signar.","PSBT sen entradas; non hai nada que asinar."],
+    ["PSBT sem saídas; não há para onde enviar.","PSBT without outputs; there is nowhere to send.","PSBT sin salidas; no hay adónde enviar.","PSBT sans sorties ; il n'y a nulle part où envoyer.","PSBT senza uscite; non c'è dove inviare.","PSBT ohne Ausgaben; es gibt keinen Empfänger.","PSBT zonder uitgangen; er is geen bestemming om naartoe te sturen.","PSBT sense sortides; no hi ha on enviar.","PSBT sen saídas; non hai a onde enviar."],
+    ["este PSBT já tem assinatura (parcial ou final); o cofre só assina PSBT sem assinatura.","this PSBT already has a signature (partial or final); the vault only signs PSBTs without a signature.","este PSBT ya tiene firma (parcial o final); el cofre solo firma PSBT sin firma.","ce PSBT a déjà une signature (partielle ou finale) ; le coffre ne signe que les PSBT sans signature.","questo PSBT ha già una firma (parziale o finale); il cofre firma solo PSBT senza firma.","diese PSBT hat bereits eine Signatur (teilweise oder final); der Cofre signiert nur PSBTs ohne Signatur.","deze PSBT heeft al een handtekening (gedeeltelijk of definitief); de kluis ondertekent alleen PSBT's zonder handtekening.","aquest PSBT ja té signatura (parcial o final); el cofre només signa PSBT sense signatura.","este PSBT xa ten sinatura (parcial ou final); o cofre só asina PSBT sen sinatura."],
+    ["uma entrada: a chave derivada não corresponde à saída Taproot; PSBT inconsistente.","an input: the derived key does not match the Taproot output; inconsistent PSBT.","una entrada: la clave derivada no corresponde a la salida Taproot; PSBT inconsistente.","une entrée : la clé dérivée ne correspond pas à la sortie Taproot ; PSBT incohérent.","un input: la chiave derivata non corrisponde all'uscita Taproot; PSBT incoerente.","ein Eingang: der abgeleitete Schlüssel passt nicht zum Taproot-Ausgang; inkonsistente PSBT.","een invoer: de afgeleide sleutel hoort niet bij de Taproot-uitgang; inconsistente PSBT.","una entrada: la clau derivada no correspon a la sortida Taproot; PSBT inconsistent.","unha entrada: a clave derivada non corresponde á saída Taproot; PSBT inconsistente."],
+    ["uma entrada: falha interna ao verificar a assinatura; nenhum arquivo foi gerado.","an input: internal failure while verifying the signature; no file was generated.","una entrada: fallo interno al verificar la firma; no se generó ningún archivo.","une entrée : échec interne lors de la vérification de la signature ; aucun fichier n'a été généré.","un input: errore interno durante la verifica della firma; nessun file è stato generato.","ein Eingang: interner Fehler beim Prüfen der Signatur; es wurde keine Datei erzeugt.","een invoer: interne fout bij het controleren van de handtekening; er is geen bestand gemaakt.","una entrada: error intern en verificar la signatura; no s'ha generat cap fitxer.","unha entrada: fallo interno ao verificar a sinatura; non se xerou ningún ficheiro."],
+    ["PSBT sem a transação não assinada; arquivo incompleto.","PSBT without the unsigned transaction; incomplete file.","PSBT sin la transacción no firmada; archivo incompleto.","PSBT sans la transaction non signée ; fichier incomplet.","PSBT senza la transazione non firmata; file incompleto.","PSBT ohne die unsignierte Transaktion; unvollständige Datei.","PSBT zonder de niet-ondertekende transactie; onvolledig bestand.","PSBT sense la transacció no signada; fitxer incomplet.","PSBT sen a transacción non asinada; ficheiro incompleto."],
+    ["uma entrada: não está finalizada; o PSBT precisa dos campos finais para gerar a transação.","an input: it is not finalized; the PSBT needs the final fields to generate the transaction.","una entrada: no está finalizada; el PSBT necesita los campos finales para generar la transacción.","une entrée : elle n'est pas finalisée ; le PSBT a besoin des champs finaux pour générer la transaction.","un input: non è finalizzato; il PSBT ha bisogno dei campi finali per generare la transazione.","ein Eingang: er ist nicht finalisiert; die PSBT braucht die finalen Felder, um die Transaktion zu erzeugen.","een invoer: is niet gefinaliseerd; de PSBT heeft de definitieve velden nodig om de transactie te maken.","una entrada: no està finalitzada; el PSBT necessita els camps finals per generar la transacció.","unha entrada: non está finalizada; o PSBT precisa os campos finais para xerar a transacción."],
+    ["uma entrada: p2pkh não está finalizada como esperado.","an input: p2pkh is not finalized as expected.","una entrada: p2pkh no está finalizada como se esperaba.","une entrée : p2pkh n'est pas finalisée comme prévu.","un input: p2pkh non è finalizzato come previsto.","ein Eingang: p2pkh ist nicht wie erwartet finalisiert.","een invoer: p2pkh is niet gefinaliseerd zoals verwacht.","una entrada: p2pkh no està finalitzada com s'esperava.","unha entrada: p2pkh non está finalizada como se esperaba."],
+    ["uma entrada: p2sh-p2wpkh não está finalizada como esperado.","an input: p2sh-p2wpkh is not finalized as expected.","una entrada: p2sh-p2wpkh no está finalizada como se esperaba.","une entrée : p2sh-p2wpkh n'est pas finalisée comme prévu.","un input: p2sh-p2wpkh non è finalizzato come previsto.","ein Eingang: p2sh-p2wpkh ist nicht wie erwartet finalisiert.","een invoer: p2sh-p2wpkh is niet gefinaliseerd zoals verwacht.","una entrada: p2sh-p2wpkh no està finalitzada com s'esperava.","unha entrada: p2sh-p2wpkh non está finalizada como se esperaba."],
+    ["uma entrada: final_scriptWitness truncado ou malformado.","an input: final_scriptWitness is truncated or malformed.","una entrada: final_scriptWitness truncado o malformado.","une entrée : final_scriptWitness tronqué ou malformé.","un input: final_scriptWitness troncato o malformato.","ein Eingang: final_scriptWitness ist abgeschnitten oder fehlerhaft.","een invoer: final_scriptWitness is afgekapt of onjuist.","una entrada: final_scriptWitness truncat o malformat.","unha entrada: final_scriptWitness truncado ou malformado."],
+    ["uma entrada: witness_utxo com bytes extras.","an input: witness_utxo with extra bytes.","una entrada: witness_utxo con bytes extra.","une entrée : witness_utxo avec octets en trop.","un input: witness_utxo con byte extra.","ein Eingang: witness_utxo mit zusätzlichen Bytes.","een invoer: witness_utxo met extra bytes.","una entrada: witness_utxo amb bytes extra.","unha entrada: witness_utxo con bytes extra."],
+    ["uma entrada: non_witness_utxo não corresponde ao txid; PSBT inconsistente.","an input: non_witness_utxo does not match the txid; inconsistent PSBT.","una entrada: non_witness_utxo no corresponde al txid; PSBT inconsistente.","une entrée : non_witness_utxo ne correspond pas au txid ; PSBT incohérent.","un input: non_witness_utxo non corrisponde al txid; PSBT incoerente.","ein Eingang: non_witness_utxo passt nicht zur txid; inkonsistente PSBT.","een invoer: non_witness_utxo hoort niet bij de txid; inconsistente PSBT.","una entrada: non_witness_utxo no correspon al txid; PSBT inconsistent.","unha entrada: non_witness_utxo non corresponde ao txid; PSBT inconsistente."],
+    ["uma entrada: vout não existe no non_witness_utxo.","an input: vout does not exist in non_witness_utxo.","una entrada: vout no existe en non_witness_utxo.","une entrée : vout n'existe pas dans non_witness_utxo.","un input: vout non esiste in non_witness_utxo.","ein Eingang: vout existiert nicht im non_witness_utxo.","een invoer: vout bestaat niet in non_witness_utxo.","una entrada: vout no existeix a non_witness_utxo.","unha entrada: vout non existe en non_witness_utxo."],
+    ["uma entrada: witness_utxo e non_witness_utxo descrevem UTXOs diferentes.","an input: witness_utxo and non_witness_utxo describe different UTXOs.","una entrada: witness_utxo y non_witness_utxo describen UTXO diferentes.","une entrée : witness_utxo et non_witness_utxo décrivent des UTXO différents.","un input: witness_utxo e non_witness_utxo descrivono UTXO diversi.","ein Eingang: witness_utxo und non_witness_utxo beschreiben unterschiedliche UTXOs.","een invoer: witness_utxo en non_witness_utxo beschrijven verschillende UTXO's.","una entrada: witness_utxo i non_witness_utxo descriuen UTXO diferents.","unha entrada: witness_utxo e non_witness_utxo describen UTXOs diferentes."],
+    ["uma entrada: sem UTXO (witness_utxo/non_witness_utxo); não dá para revisar valor, taxa e script.","an input: no UTXO (witness_utxo/non_witness_utxo); the amount, fee and script cannot be reviewed.","una entrada: sin UTXO (witness_utxo/non_witness_utxo); no se puede revisar valor, comisión y script.","une entrée : pas d'UTXO (witness_utxo/non_witness_utxo) ; impossible de vérifier le montant, les frais et le script.","un input: nessun UTXO (witness_utxo/non_witness_utxo); non è possibile verificare importo, commissione e script.","ein Eingang: kein UTXO (witness_utxo/non_witness_utxo); Betrag, Gebühr und Script können nicht geprüft werden.","een invoer: geen UTXO (witness_utxo/non_witness_utxo); bedrag, kosten en script kunnen niet worden gecontroleerd.","una entrada: sense UTXO (witness_utxo/non_witness_utxo); no es pot revisar import, comissió i script.","unha entrada: sen UTXO (witness_utxo/non_witness_utxo); non se pode revisar importe, comisión e script."],
+    ["a <b>taxa</b> está acima de <code>500 sat/vB</code>: confira o valor da taxa.","the <b>fee</b> is above <code>500 sat/vB</code>: check the fee amount.","la <b>comisión</b> está por encima de <code>500 sat/vB</code>: revisa el importe de la comisión.","les <b>frais</b> dépassent <code>500 sat/vB</code> : vérifiez le montant des frais.","la <b>commissione</b> è sopra <code>500 sat/vB</code>: controlla l'importo della commissione.","die <b>Gebühr</b> liegt über <code>500 sat/vB</code>: prüfe den Gebührenbetrag.","de <b>kosten</b> liggen boven <code>500 sat/vB</code>: controleer het bedrag van de kosten.","la <b>comissió</b> està per sobre de <code>500 sat/vB</code>: revisa l'import de la comissió.","a <b>comisión</b> está por riba de <code>500 sat/vB</code>: revisa o importe da comisión."],
+    ["a <b>taxa</b> é zero: a rede pode recusar a transação.","the <b>fee</b> is zero: the network may reject the transaction.","la <b>comisión</b> es cero: la red puede rechazar la transacción.","les <b>frais</b> sont nuls : le réseau peut refuser la transaction.","la <b>commissione</b> è zero: la rete può rifiutare la transazione.","die <b>Gebühr</b> ist null: das Netzwerk kann die Transaktion ablehnen.","de <b>kosten</b> zijn nul: het netwerk kan de transactie weigeren.","la <b>comissió</b> és zero: la xarxa pot rebutjar la transacció.","a <b>comisión</b> é cero: a rede pode rexeitar a transacción."],
+    ["uma <b>entrada</b>: segwit sem <code>non_witness_utxo</code>; o valor mostrado vem do <code>witness_utxo</code> e não pode ser conferido.","an <b>input</b>: segwit without <code>non_witness_utxo</code>; the amount shown comes from <code>witness_utxo</code> and cannot be checked.","una <b>entrada</b>: segwit sin <code>non_witness_utxo</code>; el valor mostrado viene de <code>witness_utxo</code> y no se puede comprobar.","une <b>entrée</b> : segwit sans <code>non_witness_utxo</code> ; le montant affiché vient de <code>witness_utxo</code> et ne peut pas être vérifié.","un <b>input</b>: segwit senza <code>non_witness_utxo</code>; l'importo mostrato viene da <code>witness_utxo</code> e non può essere verificato.","ein <b>Eingang</b>: Segwit ohne <code>non_witness_utxo</code>; der angezeigte Betrag stammt aus <code>witness_utxo</code> und kann nicht geprüft werden.","een <b>invoer</b>: segwit zonder <code>non_witness_utxo</code>; het getoonde bedrag komt uit <code>witness_utxo</code> en kan niet worden gecontroleerd.","una <b>entrada</b>: segwit sense <code>non_witness_utxo</code>; l'import mostrat ve de <code>witness_utxo</code> i no es pot comprovar.","unha <b>entrada</b>: segwit sen <code>non_witness_utxo</code>; o importe mostrado vén de <code>witness_utxo</code> e non se pode comprobar."],
+    ["uma <b>saída</b>: script não padronizado; confira o destino no coordenador.","an <b>output</b>: non-standard script; check the destination in the coordinator.","una <b>salida</b>: script no estandarizado; revisa el destino en el coordinador.","une <b>sortie</b> : script non standard ; vérifiez la destination dans le coordinateur.","un'<b>uscita</b>: script non standard; controlla la destinazione nel coordinatore.","eine <b>Ausgabe</b>: nicht standardisiertes Script; prüfe das Ziel im Koordinator.","een <b>uitgang</b>: niet-standaard script; controleer de bestemming in de coördinator.","una <b>sortida</b>: script no estandarditzat; revisa la destinació al coordinador.","unha <b>saída</b>: script non estandarizado; revisa o destino no coordinador."],
+    ["PSBT inválido: {name} com bytes extras na chave.","Invalid PSBT: {name} has extra bytes in the key.","PSBT no válido: {name} tiene bytes extra en la clave.","PSBT invalide : {name} comporte des octets en trop dans la clé.","PSBT non valido: {name} ha byte extra nella chiave.","Ungültige PSBT: {name} hat zusätzliche Bytes im Schlüssel.","Ongeldige PSBT: {name} heeft extra bytes in de sleutel.","PSBT no vàlid: {name} té bytes extra a la clau.","PSBT non válido: {name} ten bytes extra na clave."],
+    ["PSBT inválido: {name} com tamanho incorreto.","Invalid PSBT: {name} has the wrong size.","PSBT no válido: {name} tiene un tamaño incorrecto.","PSBT invalide : {name} a une taille incorrecte.","PSBT non valido: {name} ha una dimensione errata.","Ungültige PSBT: {name} hat die falsche Größe.","Ongeldige PSBT: {name} heeft de verkeerde grootte.","PSBT no vàlid: {name} té una mida incorrecta.","PSBT non válido: {name} ten un tamaño incorrecto."],
+    ["PSBT inválido: {name} com caminho de derivação malformado.","Invalid PSBT: {name} has a malformed derivation path.","PSBT no válido: {name} tiene una ruta de derivación malformada.","PSBT invalide : {name} a un chemin de dérivation malformé.","PSBT non valido: {name} ha un percorso di derivazione malformato.","Ungültige PSBT: {name} hat einen fehlerhaften Ableitungspfad.","Ongeldige PSBT: {name} heeft een onjuist afleidingspad.","PSBT no vàlid: {name} té un camí de derivació malformat.","PSBT non válido: {name} ten un camiño de derivación malformado."],
+    ["PSBT inválido: {name} vazio.","Invalid PSBT: empty {name}.","PSBT no válido: {name} vacío.","PSBT invalide : {name} vide.","PSBT non valido: {name} vuoto.","Ungültige PSBT: {name} ist leer.","Ongeldige PSBT: {name} is leeg.","PSBT no vàlid: {name} buit.","PSBT non válido: {name} baleiro."],
+    ["este PSBT é v{version}; o cofre só lê e assina PSBT v0. Exporte em v0.","this PSBT is v{version}; the vault only reads and signs PSBT v0. Export it as v0.","este PSBT es v{version}; el cofre solo lee y firma PSBT v0. Expórtalo en v0.","ce PSBT est en v{version} ; le coffre ne lit et ne signe que les PSBT v0. Exportez-le en v0.","questo PSBT è v{version}; il cofre legge e firma solo PSBT v0. Esportalo in v0.","diese PSBT ist v{version}; der Cofre liest und signiert nur PSBT v0. Exportiere sie als v0.","deze PSBT is v{version}; de kluis leest en ondertekent alleen PSBT v0. Exporteer hem als v0.","aquest PSBT és v{version}; el cofre només llegeix i signa PSBT v0. Exporta'l en v0.","este PSBT é v{version}; o cofre só le e asina PSBT v0. Exporta en v0."],
+    ["conta {id} indisponível","account {id} unavailable","cuenta {id} no disponible","compte {id} indisponible","conto {id} non disponibile","Konto {id} nicht verfügbar","rekening {id} niet beschikbaar","compte {id} no disponible","conta {id} non dispoñible"],
+    ["script do tipo {kind} não suportado; use p2pkh, p2sh-p2wpkh, p2wpkh ou p2tr key path.","script of type {kind} not supported; use p2pkh, p2sh-p2wpkh, p2wpkh or p2tr key path.","script de tipo {kind} no compatible; usa p2pkh, p2sh-p2wpkh, p2wpkh o p2tr key path.","script de type {kind} non pris en charge ; utilisez p2pkh, p2sh-p2wpkh, p2wpkh ou p2tr key path.","script di tipo {kind} non supportato; usa p2pkh, p2sh-p2wpkh, p2wpkh o p2tr key path.","Script vom Typ {kind} wird nicht unterstützt; verwende p2pkh, p2sh-p2wpkh, p2wpkh oder p2tr key path.","script van type {kind} wordt niet ondersteund; gebruik p2pkh, p2sh-p2wpkh, p2wpkh of p2tr key path.","script de tipus {kind} no suportat; fes servir p2pkh, p2sh-p2wpkh, p2wpkh o p2tr key path.","script de tipo {kind} non soportado; usa p2pkh, p2sh-p2wpkh, p2wpkh ou p2tr key path."],
+    ["SIGHASH {hash}: o cofre só assina SIGHASH_ALL (0x01).","SIGHASH {hash}: the vault only signs SIGHASH_ALL (0x01).","SIGHASH {hash}: el cofre solo firma SIGHASH_ALL (0x01).","SIGHASH {hash} : le coffre ne signe que SIGHASH_ALL (0x01).","SIGHASH {hash}: il cofre firma solo SIGHASH_ALL (0x01).","SIGHASH {hash}: der Cofre signiert nur SIGHASH_ALL (0x01).","SIGHASH {hash}: de kluis ondertekent alleen SIGHASH_ALL (0x01).","SIGHASH {hash}: el cofre només signa SIGHASH_ALL (0x01).","SIGHASH {hash}: o cofre só asina SIGHASH_ALL (0x01)."],
+    ["SIGHASH {hash}: no Taproot, o cofre só assina SIGHASH_DEFAULT (0x00).","SIGHASH {hash}: in Taproot, the vault only signs SIGHASH_DEFAULT (0x00).","SIGHASH {hash}: en Taproot, el cofre solo firma SIGHASH_DEFAULT (0x00).","SIGHASH {hash} : dans Taproot, le coffre ne signe que SIGHASH_DEFAULT (0x00).","SIGHASH {hash}: in Taproot, il cofre firma solo SIGHASH_DEFAULT (0x00).","SIGHASH {hash}: bei Taproot signiert der Cofre nur SIGHASH_DEFAULT (0x00).","SIGHASH {hash}: bij Taproot ondertekent de kluis alleen SIGHASH_DEFAULT (0x00).","SIGHASH {hash}: a Taproot, el cofre només signa SIGHASH_DEFAULT (0x00).","SIGHASH {hash}: no Taproot, o cofre só asina SIGHASH_DEFAULT (0x00)."],
+    ["uma entrada: SIGHASH {hash} no Taproot; o cofre só assina SIGHASH_DEFAULT (0x00).","an input: SIGHASH {hash} in Taproot; the vault only signs SIGHASH_DEFAULT (0x00).","una entrada: SIGHASH {hash} en Taproot; el cofre solo firma SIGHASH_DEFAULT (0x00).","une entrée : SIGHASH {hash} dans Taproot ; le coffre ne signe que SIGHASH_DEFAULT (0x00).","un input: SIGHASH {hash} in Taproot; il cofre firma solo SIGHASH_DEFAULT (0x00).","ein Eingang: SIGHASH {hash} bei Taproot; der Cofre signiert nur SIGHASH_DEFAULT (0x00).","een invoer: SIGHASH {hash} bij Taproot; de kluis ondertekent alleen SIGHASH_DEFAULT (0x00).","una entrada: SIGHASH {hash} a Taproot; el cofre només signa SIGHASH_DEFAULT (0x00).","unha entrada: SIGHASH {hash} no Taproot; o cofre só asina SIGHASH_DEFAULT (0x00)."],
+    ["uma entrada: SIGHASH {hash}; o cofre só assina SIGHASH_ALL (0x01) fora do Taproot.","an input: SIGHASH {hash}; the vault only signs SIGHASH_ALL (0x01) outside Taproot.","una entrada: SIGHASH {hash}; el cofre solo firma SIGHASH_ALL (0x01) fuera de Taproot.","une entrée : SIGHASH {hash} ; le coffre ne signe que SIGHASH_ALL (0x01) hors Taproot.","un input: SIGHASH {hash}; il cofre firma solo SIGHASH_ALL (0x01) fuori da Taproot.","ein Eingang: SIGHASH {hash}; der Cofre signiert außerhalb von Taproot nur SIGHASH_ALL (0x01).","een invoer: SIGHASH {hash}; de kluis ondertekent buiten Taproot alleen SIGHASH_ALL (0x01).","una entrada: SIGHASH {hash}; el cofre només signa SIGHASH_ALL (0x01) fora de Taproot.","unha entrada: SIGHASH {hash}; o cofre só asina SIGHASH_ALL (0x01) fóra do Taproot."],
+    ["uma entrada: {kind} não está finalizada como esperado.","an input: {kind} is not finalized as expected.","una entrada: {kind} no está finalizada como se esperaba.","une entrée : {kind} n'est pas finalisée comme prévu.","un input: {kind} non è finalizzato come previsto.","ein Eingang: {kind} ist nicht wie erwartet finalisiert.","een invoer: {kind} is niet gefinaliseerd zoals verwacht.","una entrada: {kind} no està finalitzada com s'esperava.","unha entrada: {kind} non está finalizada como se esperaba."],
+    ["PSBT inválido ou não suportado.","invalid or unsupported PSBT.","PSBT no válido o no compatible.","PSBT invalide ou non pris en charge.","PSBT non valido o non supportato.","ungültige oder nicht unterstützte PSBT.","ongeldige of niet-ondersteunde PSBT.","PSBT no vàlid o no suportat.","PSBT non válido ou non soportado."],
+    ["não foi possível conferir uma entrada.","one input could not be checked.","no se pudo comprobar una entrada.","une entrée n'a pas pu être vérifiée.","non è stato possibile controllare un input.","ein Eingang konnte nicht geprüft werden.","een invoer kon niet worden gecontroleerd.","no s'ha pogut comprovar una entrada.","non se puido comprobar unha entrada."],
+    ["não foi possível conferir uma saída.","one output could not be checked.","no se pudo comprobar una salida.","une sortie n'a pas pu être vérifiée.","non è stato possibile controllare un'uscita.","eine Ausgabe konnte nicht geprüft werden.","een uitgang kon niet worden gecontroleerd.","no s'ha pogut comprovar una sortida.","non se puido comprobar unha saída."],
+    ["não foi possível concluir a operação.","the operation could not be completed.","no se pudo completar la operación.","l'opération n'a pas pu être terminée.","non è stato possibile completare l'operazione.","der Vorgang konnte nicht abgeschlossen werden.","de bewerking kon niet worden voltooid.","no s'ha pogut completar l'operació.","non se puido completar a operación."]
+  ];
+  var I18N = {};
+  var PT_KEYS = {};
+  LOCALES.forEach(function (code, index) {
+    I18N[code] = {};
+    I18N_ROWS.forEach(function (row) {
+      I18N[code][row[0]] = code === 'pt' ? row[0] : row[index];
+    });
+  });
+  I18N_ROWS.forEach(function (row) { PT_KEYS[row[0]] = true; });
+
+  function t(key, vars) {
+    if (!key) return '';
+    var table = I18N[state.lang] || I18N.pt;
+    var text = table[key];
+    if (text === undefined) text = I18N.pt[key];
+    if (text === undefined) text = key;
+    if (vars) {
+      Object.keys(vars).forEach(function (name) {
+        text = text.split('{' + name + '}').join(String(vars[name]));
+      });
+    }
+    return text;
+  }
+
+  /* Mensagens do núcleo chegam em português e são traduzidas aqui, sem mexer
+     nos erros internos que os testes de paridade comparam. O que não tiver
+     tradução exata cai no molde do campo ou no recado genérico do idioma. */
+  function coreText(msg) {
+    if (PT_KEYS[msg]) return t(msg);
+    var m;
+    m = /^PSBT inválido: (.+) com bytes extras na chave\.$/.exec(msg);
+    if (m) return t('PSBT inválido: {name} com bytes extras na chave.', { name: m[1] });
+    m = /^PSBT inválido: (.+) com tamanho incorreto\.$/.exec(msg);
+    if (m) return t('PSBT inválido: {name} com tamanho incorreto.', { name: m[1] });
+    m = /^PSBT inválido: (.+) com caminho de derivação malformado\.$/.exec(msg);
+    if (m) return t('PSBT inválido: {name} com caminho de derivação malformado.', { name: m[1] });
+    m = /^PSBT inválido: (.+) vazio\.$/.exec(msg);
+    if (m) return t('PSBT inválido: {name} vazio.', { name: m[1] });
+    m = /^este PSBT é v([^;]+);/.exec(msg);
+    if (m) return t('este PSBT é v{version}; o cofre só lê e assina PSBT v0. Exporte em v0.', { version: m[1] });
+    m = /^conta (.+) indisponível$/.exec(msg);
+    if (m) return t('conta {id} indisponível', { id: m[1] });
+    m = /^script do tipo (.+) não suportado;/.exec(msg);
+    if (m) return t('script do tipo {kind} não suportado; use p2pkh, p2sh-p2wpkh, p2wpkh ou p2tr key path.', { kind: m[1] });
+    m = /^uma entrada: SIGHASH ([^ ]+) no Taproot;/.exec(msg);
+    if (m) return t('uma entrada: SIGHASH {hash} no Taproot; o cofre só assina SIGHASH_DEFAULT (0x00).', { hash: m[1] });
+    m = /^uma entrada: SIGHASH ([^;]+);/.exec(msg);
+    if (m) return t('uma entrada: SIGHASH {hash}; o cofre só assina SIGHASH_ALL (0x01) fora do Taproot.', { hash: m[1] });
+    m = /^SIGHASH ([^:]+): no Taproot,/.exec(msg);
+    if (m) return t('SIGHASH {hash}: no Taproot, o cofre só assina SIGHASH_DEFAULT (0x00).', { hash: m[1] });
+    m = /^SIGHASH ([^:]+):/.exec(msg);
+    if (m) return t('SIGHASH {hash}: o cofre só assina SIGHASH_ALL (0x01).', { hash: m[1] });
+    m = /^uma entrada: (p2pkh|p2sh-p2wpkh) não está finalizada como esperado\.$/.exec(msg);
+    if (m) return t('uma entrada: {kind} não está finalizada como esperado.', { kind: m[1] });
+    if (/^PSBT|^este PSBT|^o arquivo PSBT|^o conteúdo|^não foi possível decodificar/.test(msg)) return t('PSBT inválido ou não suportado.');
+    if (/^uma entrada/.test(msg)) return t('não foi possível conferir uma entrada.');
+    if (/^uma saída|^saídas/.test(msg)) return t('não foi possível conferir uma saída.');
+    if (/^SIGHASH/.test(msg)) return t('PSBT inválido ou não suportado.');
+    return t('não foi possível concluir a operação.');
+  }
+
+  function normalizeLang(value) {
+    var tag = String(value || '').toLowerCase().replace(/_/g, '-');
+    for (var i = 0; i < LOCALES.length; i++) {
+      if (tag === LOCALES[i] || tag.indexOf(LOCALES[i] + '-') === 0) return LOCALES[i];
+    }
+    return '';
+  }
+  function browserLang() {
+    var list = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language];
+    for (var i = 0; i < list.length; i++) {
+      var lang = normalizeLang(list[i]);
+      if (lang) return lang;
+    }
+    return 'pt';
+  }
+
+  /* Texto, HTML com <b>/<code> e atributos são guardados uma vez, no texto
+     português que serve de chave; a troca de idioma relê essa origem, então
+     voltar para PT não depende de desfazer a tradução anterior. */
+  var I18N_INLINE = { CODE: 1, B: 1, I: 1, EM: 1, STRONG: 1, SPAN: 1, TIME: 1, A: 1, BR: 1 };
+  var I18N_TEXT_TAGS = { P: 1, LI: 1, H1: 1, H2: 1, H3: 1, BUTTON: 1, A: 1, SPAN: 1, TH: 1, TD: 1, LABEL: 1, TIME: 1, B: 1, CODE: 1 };
+  var I18N_ATTRS = ['aria-label', 'placeholder', 'title', 'alt'];
+  function i18nOnlyInline(el) {
+    for (var i = 0; i < el.children.length; i++) {
+      if (!I18N_INLINE[el.children[i].tagName]) return false;
+    }
+    return true;
+  }
+  function i18nHasPrompt(el) {
+    for (var i = 0; i < el.children.length; i++) {
+      if (el.children[i].classList && el.children[i].classList.contains('prompt')) return true;
+    }
+    return false;
+  }
+  function i18nPromptText(el) {
+    var text = '';
+    for (var i = 0; i < el.childNodes.length; i++) {
+      if (el.childNodes[i].nodeType === 3 && el.childNodes[i].nodeValue.trim()) {
+        text += el.childNodes[i].nodeValue;
+      }
+    }
+    return text.trim();
+  }
+  function prepareI18n() {
+    $$('body *').forEach(function (el) {
+      if (el.closest('script, style, svg, pre#licenca-fonte')) return;
+      I18N_ATTRS.forEach(function (attr) {
+        var value = el.getAttribute(attr);
+        if (value && PT_KEYS[value]) {
+          el._i18nAttr = el._i18nAttr || {};
+          el._i18nAttr[attr] = value;
+        }
+      });
+      if (el.tagName === 'H3' && i18nHasPrompt(el)) {
+        var promptKey = i18nPromptText(el);
+        if (promptKey && PT_KEYS[promptKey]) {
+          el._i18nKind = 'prompt';
+          el._i18nKey = promptKey;
+        }
+        return;
+      }
+      if (!I18N_TEXT_TAGS[el.tagName]) return;
+      if (!el.children.length) {
+        var text = el.textContent.trim();
+        if (text && PT_KEYS[text]) {
+          el._i18nKind = 'text';
+          el._i18nKey = text;
+          el._i18nRaw = el.textContent;
+        }
+      } else if (i18nOnlyInline(el) && !el.querySelector('input, textarea, select')) {
+        var html = el.innerHTML.trim();
+        if (html && PT_KEYS[html]) {
+          el._i18nKind = 'html';
+          el._i18nKey = html;
+        }
+      }
+    });
+  }
+  function applyI18n() {
+    $$('body *').forEach(function (el) {
+      if (el._i18nAttr) {
+        Object.keys(el._i18nAttr).forEach(function (attr) {
+          el.setAttribute(attr, t(el._i18nAttr[attr]));
+        });
+      }
+      if (el._i18nKind === 'text') {
+        el.textContent = (el._i18nRaw || '').replace(el._i18nKey, t(el._i18nKey));
+      } else if (el._i18nKind === 'html') {
+        el.innerHTML = t(el._i18nKey);
+      } else if (el._i18nKind === 'prompt') {
+        for (var i = el.childNodes.length - 1; i >= 0; i--) {
+          var node = el.childNodes[i];
+          if (node.nodeType === 3 && node.nodeValue.trim()) {
+            var at = node.nodeValue.indexOf(el._i18nKey);
+            node.nodeValue = at >= 0
+              ? node.nodeValue.slice(0, at) + t(el._i18nKey) + node.nodeValue.slice(at + el._i18nKey.length)
+              : t(el._i18nKey);
+            break;
+          }
+        }
+      }
+    });
+  }
+
+  var META_DESCRIPTION = 'Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 jogadas de moeda (cara = 1, coroa = 0) ou de coordenadas a0–z5, mostra xprv/xpub e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.';
+  var META_TITLE = 'cofre btc - contas hd a partir de 256 bits';
+  var META_SHARE = '256 jogadas de moeda (cara = 1, coroa = 0) entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.';
+  function setMeta(selector, attr, key) {
+    var el = $(selector);
+    if (el) el.setAttribute(attr, t(key));
+  }
+  function syncMeta() {
+    var head = state.langOpen ? $('#head-language') : $('#screen-' + state.screen + ' h2');
+    var name = head ? head.textContent.trim().toLocaleLowerCase(LOCALE_TAGS[state.lang] || 'pt-BR') : '';
+    document.title = name ? 'Cofre BTC - ' + name : 'Cofre BTC';
+    setMeta('meta[name="description"]', 'content', META_DESCRIPTION);
+    setMeta('meta[property="og:title"]', 'content', META_TITLE);
+    setMeta('meta[property="og:description"]', 'content', META_SHARE);
+    setMeta('meta[name="twitter:title"]', 'content', META_TITLE);
+    setMeta('meta[name="twitter:description"]', 'content', META_SHARE);
+    var locale = $('meta[property="og:locale"]');
+    if (locale) locale.setAttribute('content', LOCALE_META[state.lang] || 'pt_BR');
+  }
+  function syncLangButton() {
+    var button = $('#lang-btn');
+    if (!button) return;
+    button.textContent = LOCALE_CODES[state.lang] || 'PT';
+    button.setAttribute('aria-label', t('Idioma'));
+  }
+
+  function applyLanguage() {
+    root.lang = LOCALE_TAGS[state.lang] || 'pt-BR';
+    applyI18n();
+    syncMeta();
+    syncLangButton();
+    updateThemeButton();
+    paintFootState();
+    paintModeButton();
+    setClearLabel(!!signedPsbtText);
+    paintCopyLabels();
+    if (coinStatus && coinStatus._i18nStatus) paintStatus(coinStatus);
+    if (signStatus && signStatus._i18nStatus) paintStatus(signStatus);
+    if (state.lastReview) {
+      renderReview(state.lastReview.review, state.lastReview.file, state.lastReview.signed);
+    }
+    markLanguage();
+    requestAnimationFrame(updateScrollState);
+  }
   var deriveSeq = 0;
   var deriveTimer = 0;
   var analyzeSeq = 0;
@@ -4155,14 +4568,39 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   });
 
   /* -------------------------------------------------------- mensagens */
-  var PREFIX = { ok: '[ ok ]', erro: '[ erro ]', aviso: '[ atenção ]', neutro: '[ ... ]' };
-  function setStatus(el, kind, text) {
+  var STATUS_PREFIX = { ok: '[ ok ]', erro: '[ erro ]', aviso: '[ atenção ]', neutro: '[ ... ]' };
+  /* O recado guarda a chave e os campos, não o texto já montado: assim a
+     troca de idioma redesenha o mesmo estado sem perder a mensagem. */
+  function paintStatus(el) {
+    var s = el && el._i18nStatus;
+    if (!s) return;
+    var vars = s.vars;
+    /* Um campo pode ser ele mesmo uma chave (a face da moeda); traduzir os
+       campos na hora mantém o recado inteiro no idioma novo. */
+    if (vars) {
+      vars = {};
+      Object.keys(s.vars).forEach(function (name) {
+        var value = s.vars[name];
+        vars[name] = typeof value === 'string' && PT_KEYS[value] ? t(value) : value;
+      });
+    }
+    var body;
+    if (s.error !== undefined) {
+      body = USER_ERROR.test(s.error) ? coreText(s.error) : t(s.fallback);
+    } else {
+      body = s.key ? t(s.key, vars) : '';
+    }
+    var prefix = s.kind ? t(STATUS_PREFIX[s.kind]) : '';
+    el.textContent = body ? (prefix ? prefix + ' ' + body : body) : '';
+  }
+  function setStatus(el, kind, key, vars) {
     if (!el) return;
     el.classList.remove('ok', 'error', 'warning');
     if (kind === 'ok') el.classList.add('ok');
     if (kind === 'erro') el.classList.add('error');
     if (kind === 'aviso') el.classList.add('warning');
-    el.textContent = text ? PREFIX[kind] + ' ' + text : '';
+    el._i18nStatus = { kind: kind, key: key, vars: vars };
+    paintStatus(el);
   }
 
   /* As mensagens de erro nunca levam bits, seed, xprv, coordenadas, PSBT
@@ -4170,11 +4608,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      de campo. Só as mensagens conhecidas abaixo chegam à tela; o resto vira
      uma mensagem genérica. */
   var USER_ERROR = /^(uma entrada|uma saída|o troco|PSBT |SIGHASH |este PSBT|a transação|o PSBT|o arquivo|o conteúdo|saídas |script do tipo |não foi possível decodificar|conta )/;
-  function userError(e, fallback) {
+  /* Guarda a mensagem original do núcleo: na troca de idioma, o mesmo erro
+     é traduzido de novo, em vez de ficar no idioma em que apareceu. */
+  function setErrorStatus(el, e, fallback) {
+    if (!el) return;
     var msg = e && e.message ? e.message : '';
-    if (USER_ERROR.test(msg)) return msg;
-    console.error('cofre: erro interno (' + (e && e.name ? e.name : 'Error') + ')');
-    return fallback;
+    if (!USER_ERROR.test(msg)) {
+      console.error('cofre: erro interno (' + (e && e.name ? e.name : 'Error') + ')');
+    }
+    el.classList.remove('ok', 'error', 'warning');
+    el.classList.add('error');
+    el._i18nStatus = { kind: 'erro', error: msg, fallback: fallback };
+    paintStatus(el);
   }
 
   /* ---------------------------------------------- entrada por jogadas */
@@ -4367,7 +4812,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   /* O contador é o número de jogadas registradas, que também é o número de
      coordenadas já preenchidas. No fim as duas faces ficam bloqueadas. */
-  function paintTosses(message) {
+  function paintTosses(message, vars) {
     var count = tosses.length;
     var full = count >= BIT_COUNT;
     if (coinCounter) {
@@ -4382,7 +4827,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         ? clockOf(last.at)
         : '--:--:--';
     }
-    if (coinStatus && message !== undefined) coinStatus.textContent = message;
+    if (coinStatus && message !== undefined) setStatus(coinStatus, '', message, vars);
   }
 
   /* Com a sequência incompleta a chave anterior não vale mais, mas a
@@ -4413,8 +4858,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       return;
     }
     clearCoordsInput();
-    paintTosses('jogada ' + padDigits(tosses.length, 3) + ' de ' + BIT_COUNT + ': ' +
-      (bit ? 'cara, bit 1' : 'coroa, bit 0') + ', coordenada ' + coordName(index) + '.');
+    paintTosses('jogada {n} de 256: {face}, coordenada {coord}.', {
+      n: padDigits(tosses.length, 3),
+      face: bit ? 'cara, bit 1' : 'coroa, bit 0',
+      coord: coordName(index)
+    });
     discardKey();
   }
 
@@ -4436,7 +4884,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       return { index: index, bit: 1 };
     });
     fillFreeCoords();
-    paintTosses('coordenadas digitadas: ' + tosses.length + ' de ' + BIT_COUNT + '.');
+    paintTosses('coordenadas digitadas: {n} de 256.', { n: tosses.length });
   }
 
   if (coinCara) coinCara.addEventListener('click', function () { registerToss(1); });
@@ -4460,8 +4908,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     /* O recado das duas letras vem depois do adoptCoords: paintTosses()
        escreve no mesmo #coin-status e apagaria o aviso. */
     if (coinStatus) {
-      if (parsed.twoLetters) coinStatus.textContent = COORD_TWO_LETTERS;
-      else if (coinStatus.textContent === COORD_TWO_LETTERS) coinStatus.textContent = '';
+      if (parsed.twoLetters) setStatus(coinStatus, '', COORD_TWO_LETTERS);
+      else if (coinStatus._i18nStatus && coinStatus._i18nStatus.key === COORD_TWO_LETTERS) {
+        setStatus(coinStatus, '', '');
+      }
     }
     if (coordsInput.value !== parsed.text) {
       coordsInput.value = parsed.text;
@@ -4493,19 +4943,23 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      voltar, o foco vai para a primeira face da moeda que ainda responde. A
      volta para as jogadas sempre zera o campo de coordenadas e a sequência,
      sem herdar bits digitados nem jogadas anteriores. */
+  function paintModeButton() {
+    if (!modeBtn) return;
+    modeBtn.textContent = t(coinOn ? 'coordenadas' : 'gerar');
+    modeBtn.setAttribute('aria-label', t(coinOn
+      ? 'Mostrar a entrada por coordenadas'
+      : 'Mostrar a entrada por jogadas de moeda'));
+  }
   function setCoinOn(on) {
     coinOn = on;
     coordsPanel.classList.toggle('is-off', on);
     coinPanel.classList.toggle('is-off', !on);
     if (on) resetTossRun();
+    paintModeButton();
     if (on) {
-      modeBtn.textContent = 'coordenadas';
-      modeBtn.setAttribute('aria-label', 'Mostrar a entrada por coordenadas');
       if (coinCara && !coinCara.disabled) coinCara.focus();
       else if (coinCoroa) coinCoroa.focus();
     } else {
-      modeBtn.textContent = 'gerar';
-      modeBtn.setAttribute('aria-label', 'Mostrar a entrada por jogadas de moeda');
       if (coordsInput) {
         coordsInput.focus();
         var end = coordsInput.value.length;
@@ -4563,9 +5017,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       var action = document.createElement('button');
       action.type = 'button';
       action.className = 'key-action';
-      action.textContent = 'copiar';
+      action.textContent = t('copiar');
       action.dataset.key = id;
-      action.setAttribute('aria-label', 'copiar ' + id);
+      action.setAttribute('aria-label', t('copiar {id}', { id: id }));
       action.hidden = true;
       cell.appendChild(action);
     });
@@ -4579,8 +5033,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       action._copyTimer = 0;
     }
     if (action) {
-      action.textContent = 'copiar';
-      action.setAttribute('aria-label', 'copiar ' + action.dataset.key);
+      action.textContent = t('copiar');
+      action.setAttribute('aria-label', t('copiar {id}', { id: action.dataset.key }));
       action.removeAttribute('aria-disabled');
     }
     if (!value) {
@@ -4592,6 +5046,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     cell.classList.remove('is-empty');
     out.textContent = value;
     if (action) action.hidden = false;
+  }
+  /* "copiar" e "copiado" são criados no idioma em vigor; na troca de
+     idioma, o estado de cada botão é relido sem perder o "copiado". */
+  function paintCopyLabels() {
+    $$('.key-action').forEach(function (action) {
+      var copied = action.getAttribute('aria-disabled') === 'true';
+      action.textContent = t(copied ? 'copiado' : 'copiar');
+      action.setAttribute('aria-label', t(copied ? 'copiado {id}' : 'copiar {id}', {
+        id: action.dataset.key
+      }));
+    });
   }
   function paintValues() {
     KEY_CELLS.forEach(function (id) {
@@ -4641,13 +5106,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (!value) return;
     copyText(value, action).then(function (ok) {
       if (!ok) return;
-      action.textContent = 'copiado';
-      action.setAttribute('aria-label', 'copiado ' + action.dataset.key);
+      action.textContent = t('copiado');
+      action.setAttribute('aria-label', t('copiado {id}', { id: action.dataset.key }));
       action.setAttribute('aria-disabled', 'true');
       if (action._copyTimer) window.clearTimeout(action._copyTimer);
       action._copyTimer = window.setTimeout(function () {
-        action.textContent = 'copiar';
-        action.setAttribute('aria-label', 'copiar ' + action.dataset.key);
+        action.textContent = t('copiar');
+        action.setAttribute('aria-label', t('copiar {id}', { id: action.dataset.key }));
         action.removeAttribute('aria-disabled');
         action._copyTimer = 0;
       }, 1400);
@@ -4700,6 +5165,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (psbtSepDownload) psbtSepDownload.hidden = true;
     signedPsbtText = '';
     signedTxid = '';
+    state.lastReview = null;
   }
   function invalidateSignature() {
     analyzeSeq++;
@@ -4720,10 +5186,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (downloadBtn) downloadBtn.hidden = !signed;
     if (psbtSepDownload) psbtSepDownload.hidden = !signed;
     if (!psbtClear) return;
-    psbtClear.textContent = signed ? 'fechar' : 'cancelar';
-    psbtClear.setAttribute('aria-label', signed
+    psbtClear.textContent = t(signed ? 'fechar' : 'cancelar');
+    psbtClear.setAttribute('aria-label', t(signed
       ? 'fechar a revisão do psbt assinado'
-      : 'cancelar o psbt importado');
+      : 'cancelar o psbt importado'));
   }
   /* O PSBT só faz sentido contra uma chave derivada: sem chave, o anexo fica
      inativo (input desabilitado e rótulo no tom de fora de alcance) até a
@@ -4770,8 +5236,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
           setStatus(coinStatus, 'erro', 'este navegador não oferece Web Crypto; use um navegador atualizado.');
           setStatus(signStatus, 'erro', 'este navegador não oferece Web Crypto; use um navegador atualizado.');
         } else if (/^são necessários exatamente 256 bits/.test(msg)) {
-          setStatus(coinStatus, 'erro', 'a entropia tem ' + bits.length + ' bits; são necessários exatamente 256.');
-          setStatus(signStatus, 'erro', 'a entropia tem ' + bits.length + ' bits; são necessários exatamente 256.');
+          var entropyKey = 'a entropia tem {n} bits; são necessários exatamente 256.';
+          setStatus(coinStatus, 'erro', entropyKey, { n: bits.length });
+          setStatus(signStatus, 'erro', entropyKey, { n: bits.length });
         } else {
           console.error('cofre: erro interno na derivação (' + (e && e.name ? e.name : 'Error') + ')');
           setStatus(coinStatus, 'erro', 'não foi possível derivar a chave; recarregue a página e tente de novo.');
@@ -4861,7 +5328,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (groupEnd) tr.className = 'group-end';
     var th = document.createElement('th');
     th.setAttribute('scope', 'row');
-    th.textContent = label;
+    th.textContent = t(label);
     var td = document.createElement('td');
     if (valueHtml) td.innerHTML = valueHtml;
     else td.textContent = value || '—';
@@ -4891,7 +5358,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       var external = out.own === 'externo';
       var address = reviewMetaRow(
         change ? 'endereço' : 'destino', out.address, true,
-        external ? escapeHtml(out.address) + ' <span class="review-external">[ externo ]</span>' : ''
+        external ? escapeHtml(out.address) + ' <span class="review-external">' + t('[ externo ]') + '</span>' : ''
       );
       address.setAttribute('data-review-output', '');
       tbody.insertBefore(address, reviewFeeRow);
@@ -4906,16 +5373,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function scheduledText(tx) {
     if (!tx) return '—';
     var value = tx.locktime >>> 0;
-    if (value === 0) return 'não';
+    if (value === 0) return t('não');
     if (value >= 500000000) {
       var date = new Date(value * 1000);
-      if (isNaN(date.getTime())) return 'data Unix ' + value;
+      if (isNaN(date.getTime())) return t('data Unix {value}', { value: value });
       return utcText(date);
     }
     /* Locktime em bloco: a data é aproximada, 10 min por bloco desde o
        genesis; não há consulta de altura nesta página offline. */
     var estimated = new Date((1231006505 + value * 600) * 1000);
-    return isNaN(estimated.getTime()) ? 'data estimada indisponível' : utcText(estimated) + ' (aprox.)';
+    return isNaN(estimated.getTime())
+      ? t('data estimada indisponível')
+      : t('{value} (aprox.)', { value: utcText(estimated) });
   }
   function rbfText(tx) {
     if (!tx || !tx.inputs || !tx.inputs.length) return '—';
@@ -4924,7 +5393,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     var rbf = (tx.version >>> 0) >= 2 && tx.inputs.some(function (inp) {
       return (inp.sequence >>> 0) < 0xfffffffe;
     });
-    return rbf ? 'sim' : 'não';
+    return t(rbf ? 'sim' : 'não');
   }
   /* Só <b> e <code> são marcação: o resto é texto. Mantém o desenho do aviso
      sem abrir a revisão para HTML vindo do arquivo. */
@@ -4948,7 +5417,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       a.warnings.forEach(function (w) {
         var li = document.createElement('li');
         /* O aviso já vem com o negrito e o código da prosa (ver analyzePsbt). */
-        li.innerHTML = warningHtml(w);
+        li.innerHTML = warningHtml(t(w));
         reviewWarningsList.appendChild(li);
       });
     }
@@ -4993,6 +5462,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
           console.error('cofre: PSBT assinado sem finalização completa (' + (e && e.name ? e.name : 'Error') + ')');
         }
       }
+      state.lastReview = { review: review, file: psbtFileName, signed: finalSigned };
       renderReview(review, psbtFileName, finalSigned);
       /* Revisão do arquivo importado, ainda sem assinatura: o botão cancela. */
       setClearLabel(false);
@@ -5022,7 +5492,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
          descartado, o motivo permanece no aviso e o "importar psbt" volta ao
          lugar do "cancelar". */
       discardPsbt();
-      setStatus(signStatus, 'erro', userError(e, 'não foi possível analisar o PSBT; recarregue a página e tente de novo.'));
+      setErrorStatus(signStatus, e, 'não foi possível analisar o PSBT; recarregue a página e tente de novo.');
     }
   }
   var analyzeTimer = 0;
@@ -5111,7 +5581,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       } catch (e) {
         signBtn.disabled = false;
         clearSignature();
-        setStatus(signStatus, 'erro', userError(e, 'não foi possível assinar; nenhum arquivo foi gerado. Recarregue a página e tente de novo.'));
+        setErrorStatus(signStatus, e, 'não foi possível assinar; nenhum arquivo foi gerado. Recarregue a página e tente de novo.');
         return;
       }
       /* A partir daqui o arquivo existe: nada pode apagá-lo nem esconder o
@@ -5130,6 +5600,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       }
       try {
         var signed = await summarizeSignedPsbt(signedPsbtText, hd);
+        state.lastReview = { review: signed, file: signedFileName(signedTxid), signed: true };
         renderReview(signed, signedFileName(signedTxid), true);
         setStatus(signStatus, 'neutro', '');
         requestAnimationFrame(updateScrollState);
@@ -5142,8 +5613,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      "assinado-" na frente; é o mesmo nome mostrado na linha "arquivo" da
      revisão. Sem nome (não deveria acontecer), cai no txid. */
   function signedFileName(txid) {
-    if (psbtFileName) return 'assinado-' + psbtFileName;
-    return 'assinado-' + String(txid || 'psbt').slice(0, 8) + '.psbt';
+    var prefix = t('assinado-');
+    if (psbtFileName) return prefix + psbtFileName;
+    return prefix + String(txid || 'psbt').slice(0, 8) + '.psbt';
   }
   /* O .psbt assinado sai assim que a assinatura termina, sem segundo clique:
      o Blob vira um link temporário e o nome curto vem do txid. */
@@ -5205,7 +5677,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     state.langOpen = false;
     setScreenVisible(name);
     markCurrent(name);
-    document.title = 'Cofre BTC - ' + name;
+    syncMeta();
     try { history.replaceState(null, '', '#' + name); } catch (e) {}
     if (scrollEl) scrollEl.scrollTop = 0;
     if (pageEl && pageEl.classList.contains('is-page-scroll')) window.scrollTo(0, 0);
@@ -5236,7 +5708,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     state.langOpen = true;
     setScreenVisible('language');
     markCurrent('language');
-    document.title = 'Cofre BTC - idiomas';
+    syncMeta();
     setReadingTop(0);
     reveal($('#screen-language'));
     requestAnimationFrame(updateScrollState);
@@ -5251,7 +5723,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   /* Idioma em vigor: o automático fica marcado quando está em vigor e, como
      ele resolve para o idioma atual, esse idioma também aparece marcado. Os
-     marcados saem do clique e da ordem do Tab. Só há conteúdo em português. */
+     marcados saem do clique e da ordem do Tab. */
   function markLanguage() {
     $$('.lang-list .lang-item[data-lang]').forEach(function (item) {
       if (item.disabled) return;
@@ -5265,9 +5737,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function selectLanguage(button) {
     if (!button || button.disabled) return;
     var code = button.getAttribute('data-lang');
-    state.langAuto = code === 'auto';
-    if (!state.langAuto) state.lang = code;
-    markLanguage();
+    if (code === 'auto') {
+      state.langAuto = true;
+      state.lang = browserLang();
+    } else {
+      state.langAuto = false;
+      state.lang = code;
+    }
+    applyLanguage();
     closeLanguage();
   }
   menuButtons.forEach(function (button) {
@@ -5291,6 +5768,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   window.addEventListener('hashchange', function () {
     var name = location.hash.replace(/^#/, '');
     if (SCREENS.indexOf(name) >= 0) showScreen(name);
+  });
+  /* Com o automático em vigor, a troca de idioma do navegador é seguida
+     sem recarregar a página; a escolha manual não é tocada. */
+  window.addEventListener('languagechange', function () {
+    if (!state.langAuto) return;
+    state.lang = browserLang();
+    applyLanguage();
   });
   var skip = $('#skip-link');
   if (skip) {
@@ -5380,7 +5864,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     var light = root.dataset.theme === 'light';
     button.innerHTML = '<span class="glyph">' +
       (light ? '●' : '<span class="glyph-ring">○</span>') + '</span>';
-    button.setAttribute('aria-label', light ? 'Ativar tema escuro' : 'Ativar tema claro');
+    button.setAttribute('aria-label', t(light ? 'Ativar tema escuro' : 'Ativar tema claro'));
   }
 
   // Troca de tema (VG-EFE-07): fundo, card, moldura, menu, rodapé, texto e
@@ -5437,9 +5921,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (!footState) return;
     var online = !!navigator.onLine;
     footState.classList.toggle('is-warning', online);
-    footState.textContent = online ?
-      '[ atenção ] desconecte a internet' :
-      '';
+    footState.textContent = online ? t('[ atenção ] desconecte a internet') : '';
   }
   window.addEventListener('online', paintFootState);
   window.addEventListener('offline', paintFootState);
@@ -5806,6 +6288,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* ---------------------------------------------------------------- início */
+  /* O idioma entra antes de qualquer texto dinâmico: as chaves de tradução
+     são lidas do texto português original, guardadas uma vez, e o resto da
+     inicialização já desenha rótulos e recados no idioma resolvido. */
+  prepareI18n();
+  state.lang = browserLang();
+  applyLanguage();
   updateThemeButton();
   syncThemeColor();
   fillFreeCoords();
