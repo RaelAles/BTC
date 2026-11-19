@@ -1,7 +1,7 @@
 /* Cabeçalhos de segurança: as duas cópias (Worker e public/_headers) têm
-   que sair iguais, o hash do script inline do tema e o SRI (integrity) de
-   app.js/folhas de estilo têm que estar em dia e nenhuma resposta pode
-   escapar sem os nove cabeçalhos.
+   que sair iguais, o hash do script inline do tema, o SRI (integrity) de
+   app.js/folhas de estilo e o sha256 do Cofre publicado no README têm que
+   estar em dia e nenhuma resposta pode escapar sem os nove cabeçalhos.
 
    node test/security-headers.test.mjs */
 import assert from 'node:assert/strict';
@@ -193,6 +193,22 @@ for (const [nome, valor] of Object.entries(SECURITY_HEADERS)) ESPERADO[nome.toLo
   assert.deepEqual(vistos, ['/cofre-btc', '/cofre-btc.html', '/'],
     'o caminho chega ao asset layer sem reescrita');
   console.log('ok   /cofre-btc e /cofre-btc.html servidos sem reescrita e com os cabeçalhos');
+}
+
+/* ---------------- 7. sha256 do Cofre publicado no README ---------------- */
+{
+  /* A tela “sobre” do Cofre manda conferir o sha256 do arquivo antes de
+     abrir, então o valor precisa estar publicado e em dia. O bloco `>` do
+     README é removido para a busca não depender da quebra de linha. */
+  const texto = read('README.md').replace(/^>\s?/gm, '');
+  const m = texto.match(/sha256 do arquivo publicado é\s*`([0-9a-f]{64})`/);
+  assert.ok(m, 'README.md publica o sha256 do Cofre');
+  const hash = createHash('sha256')
+    .update(fs.readFileSync(path.join(root, 'public/cofre-btc.html')))
+    .digest('hex');
+  assert.equal(m[1], hash,
+    'sha256 do Cofre no README está em dia (mexeu em public/cofre-btc.html?): ' + hash);
+  console.log('ok   sha256 do Cofre no README confere com o arquivo');
 }
 
 console.log('\ntestes dos cabeçalhos de segurança passaram');

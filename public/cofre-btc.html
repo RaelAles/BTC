@@ -2094,7 +2094,7 @@
             <h3><span class="prompt" aria-hidden="true">##</span> o que é esta ferramenta</h3>
             <p>O Cofre BTC transforma 256 jogadas de moeda em uma chave Bitcoin. Cada jogada vale <code>1</code> (cara) ou <code>0</code> (coroa) e é feita na própria tela; a mesma lista também pode ser digitada como coordenadas. As 256 marcas viram a frase de 24 palavras, as quatro contas e as chaves que a tela mostra.</p>
             <p>Ele também assina. Você abre o arquivo de transação (PSBT) montado no Monitor BTC, confere o que ele faz e assina com a chave. Quem monta e transmite é o Monitor BTC; aqui a chave privada nunca sai da página, que é um arquivo só, sem servidor e sem internet.</p>
-            <p>Nada fica guardado: as jogadas, a frase, as chaves e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página. Quem tiver as 24 palavras — ou as coordenadas — tem a chave: guarde essa lista em local seguro e confira o hash do arquivo antes de abrir.</p>
+            <p>Nada da chave fica guardado: as jogadas, a frase, as chaves e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador guarda apenas o tema escolhido. Quem tiver as 24 palavras — ou as coordenadas — tem a chave: guarde essa lista em local seguro e confira o sha256 publicado no repositório antes de abrir.</p>
 
             <h3><span class="prompt" aria-hidden="true">##</span> como usar</h3>
             <p><b>Gerar.</b> Na tela “chave”, clique em “gerar” e registre 256 jogadas: cara vale <code>1</code> e coroa vale <code>0</code>. A frase de 24 palavras e as chaves aparecem quando a última jogada entra. Anote a frase no papel antes de seguir.</p>
@@ -2132,7 +2132,7 @@
               <li><b>BIP13</b> — formato do endereço que começa com <code>3</code>, usado no BIP49.</li>
               <li><b>BIP16</b> — regra do endereço que começa com <code>3</code>, usado no BIP49.</li>
               <li><b>BIP141</b> — regra dos endereços segwit.</li>
-              <li><b>BIP143</b> — regra da assinatura dos endereços <code>bc1q</code>.</li>
+              <li><b>BIP143</b> — regra da assinatura dos endereços segwit v0 (<code>3</code> e <code>bc1q</code>).</li>
               <li><b>BIP173</b> — escrita dos endereços <code>bc1q</code>.</li>
               <li><b>BIP340</b> — assinatura usada no Taproot.</li>
               <li><b>BIP341</b> — chave pública do endereço <code>bc1p</code> (Taproot).</li>
@@ -4898,7 +4898,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     });
   }
   /* As duas linhas são só informativas: "agendado" é o locktime (0 = não)
-     e "rbf" é a sequence (0xffffffff em todas as entradas = não). */
+     e "rbf" é a sequence (0xfffffffe ou 0xffffffff em todas as entradas =
+     não, e transação versão 1 nunca sinaliza). */
   function utcText(date) {
     return date.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
   }
@@ -4918,10 +4919,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   function rbfText(tx) {
     if (!tx || !tx.inputs || !tx.inputs.length) return '—';
-    /* RBF (BIP125) é sinalizado por qualquer sequence abaixo de 0xffffffff
-       numa transação versão 2 ou maior. */
+    /* RBF (BIP125) é sinalizado por sequence abaixo de 0xfffffffe numa
+       transação versão 2 ou maior; 0xfffffffe só liga o locktime. */
     var rbf = (tx.version >>> 0) >= 2 && tx.inputs.some(function (inp) {
-      return (inp.sequence >>> 0) < 0xffffffff;
+      return (inp.sequence >>> 0) < 0xfffffffe;
     });
     return rbf ? 'sim' : 'não';
   }

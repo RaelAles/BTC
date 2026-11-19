@@ -450,7 +450,7 @@ export async function preparePsbt({
   const feeAtRate = feeSats(rateKvb, pick.vsize);
   const tx = built.tx;
   const locktime = tx.locktime >>> 0;
-  const rbf = (tx.version >>> 0) >= 2 && tx.inputs.some(inp => (inp.sequence >>> 0) < 0xffffffff);
+  const rbf = (tx.version >>> 0) >= 2 && tx.inputs.some(inp => (inp.sequence >>> 0) < 0xfffffffe);
   return {
     psbt: built.base64,
     txid: built.txid,
@@ -531,7 +531,7 @@ export async function prepareCpfpPsbt({
     txid: built.txid,
     vsize: built.vsize,
     locktime: tx.locktime >>> 0,
-    rbf: (tx.version >>> 0) >= 2 && tx.inputs.some(inp => (inp.sequence >>> 0) < 0xffffffff),
+    rbf: (tx.version >>> 0) >= 2 && tx.inputs.some(inp => (inp.sequence >>> 0) < 0xfffffffe),
     fee_sats: fee,
     fee_rate: built.vsize ? fee / built.vsize : 0,
     total_in: Number(spend.value),
