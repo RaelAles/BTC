@@ -1475,9 +1475,8 @@
   }
   /* O rodapé lê só o navigator.onLine, sem requisição: com rede ativa ele
      avisa para desconectar e usa o --warning do "[ atenção ]"; sem rede, o
-     marcador "[ seguro ]" veste o --success do "[ ok ]". */
+     marcador fica vazio. */
   #foot-state.is-warning { color: var(--warning); }
-  #foot-state.is-safe { color: var(--success); }
   /* O aviso de rede fica no centro do rodapé, entre o idioma e o tema: ocupa
      a sobra e centraliza o texto, e o corpo menor (--text-xs) deixa o recado
      curto ocupar menos altura no card estreito, sem empurrar os botões. */
@@ -2192,7 +2191,7 @@
 
     <footer class="status">
       <button type="button" id="lang-btn" aria-label="Idioma">PT</button>
-      <span id="foot-state" role="status">[ seguro ]</span>
+      <span id="foot-state" role="status"></span>
       <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Ativar tema claro"><span class="glyph"><span class="glyph-ring">○</span></span></button>
     </footer>
 
@@ -5437,10 +5436,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (!footState) return;
     var online = !!navigator.onLine;
     footState.classList.toggle('is-warning', online);
-    footState.classList.toggle('is-safe', !online);
     footState.textContent = online ?
       '[ atenção ] desconecte a internet' :
-      '[ seguro ]';
+      '';
   }
   window.addEventListener('online', paintFootState);
   window.addEventListener('offline', paintFootState);
