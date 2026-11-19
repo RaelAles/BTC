@@ -2233,6 +2233,9 @@ var BTC = (function () {
     for (var i = 0; i < b.length; i++) s += (b[i] < 16 ? '0' : '') + b[i].toString(16);
     return s;
   }
+  /* Leniente de propósito: 0x, espaços e comprimento ímpar são absorvidos
+     (usado só com dados internos já validados). Caminho de entrada externa
+     é psbtParseInput, que valida com regex antes de chamar esta função. */
   function hexToBytes(h) {
     h = String(h).replace(/[^0-9a-fA-F]/g, '');
     if (h.length % 2) h = '0' + h;
@@ -3140,7 +3143,7 @@ var BTC = (function () {
     return out;
   }
   function b64decode(text) {
-    var clean = String(text).replace(/[\s=]+/g, '');
+    var clean = String(text).replace(/\s+/g, '').replace(/=+$/, '');
     if (!/^[A-Za-z0-9+/]*$/.test(clean)) throw new Error('o conteúdo não é base64 válido.');
     /* Comprimento ≡ 1 (mod 4) não completa um byte: recusar evita que um
        arquivo corrompido vire bytes plausíveis. */
@@ -3528,7 +3531,7 @@ var BTC = (function () {
   }
 
   function sighashTaproot(tx, index, prevouts, hashType) {
-    if (hashType !== 0x00 && hashType !== 0x01) throw new Error('SIGHASH ' + hashType + ': no Taproot, o cofre só assina SIGHASH_DEFAULT (0x00).');
+    if (hashType !== 0x00) throw new Error('SIGHASH ' + hashType + ': no Taproot, o cofre só assina SIGHASH_DEFAULT (0x00).');
     var prev = [], amounts = [], scripts = [], seqs = [], outs = [];
     tx.inputs.forEach(function (inp) {
       prev.push(outpointBytes(inp));
@@ -3619,6 +3622,10 @@ var BTC = (function () {
     while (frac.length < 8) frac = '0' + frac;
     return (neg ? '-' : '') + whole.toString() + '.' + frac;
   }
+  /* Peso de uma entrada por tipo, em unidades de peso (4 × vB): p2pkh 148 vB,
+     p2sh-p2wpkh 91 vB, p2wpkh 68 vB, p2tr key path 57,75 vB (arredondado para
+     cima na soma do vsize). */
+  var INPUT_WEIGHT = { 'p2pkh': 592, 'p2sh-p2wpkh': 364, 'p2wpkh': 272, 'p2tr': 231 };
   function estimateVsize(inputKinds, scripts) {
     var varIntSize = function (n) {
       return n < 0xfd ? 1 : n <= 0xffff ? 3 : n <= 0xffffffff ? 5 : 9;
@@ -3628,7 +3635,7 @@ var BTC = (function () {
     var segwit = false;
     inputKinds.forEach(function (kind) {
       if (kind !== 'p2pkh') segwit = true;
-      weight += kind === 'p2pkh' ? 592 : kind === 'p2sh-p2wpkh' ? 364 : kind === 'p2wpkh' ? 272 : 231;
+      weight += INPUT_WEIGHT[kind] || INPUT_WEIGHT.p2tr;
     });
     if (segwit) weight += 2; /* marker + flag, contados como witness */
     scripts.forEach(function (script) {
@@ -3710,11 +3717,9 @@ var BTC = (function () {
     var session = createSession(hd);
     var inputs = [], warnings = [];
     var totalIn = 0n;
-    var signedInputs = 0;
     var anySigned = psbt.inputs.some(hasAnySignature);
     for (var i = 0; i < tx.inputs.length; i++) {
       var map = psbt.inputs[i];
-      if (inputSigned(map)) signedInputs++;
       var prev = prevoutOf(map, tx.inputs[i]);
       var kind = normalizeKind(scriptKind(prev.script));
       if (kind === 'p2wsh') throw new Error('uma entrada: P2WSH não suportado; o cofre assina p2pkh, p2sh-p2wpkh, p2wpkh e p2tr key path.');
@@ -3803,7 +3808,7 @@ var BTC = (function () {
       psbt: psbt, tx: tx, session: session,
       inputs: inputs, outputs: outputs,
       totalIn: totalIn, totalOut: totalOut, fee: fee,
-      signedInputs: signedInputs, alreadySigned: anySigned,
+      alreadySigned: anySigned,
       txid: txidOf(tx), vsize: vsize, feerate: feerate, warnings: warnings,
       /* Em p2pkh e p2sh-p2wpkh o scriptSig só existe depois da assinatura e
          muda o txid; nas demais entradas o txid já é o final. */
@@ -3823,7 +3828,7 @@ var BTC = (function () {
       var sigType = mapFind(map, 0x03);
       var hashType = sigType ? readLE32(sigType.value, 0) : (inp.kind === 'p2tr' ? 0x00 : 0x01);
       if (inp.kind === 'p2tr') {
-        if (hashType !== 0x00 && hashType !== 0x01) throw new Error('uma entrada: SIGHASH ' + hashType + ' no Taproot; use SIGHASH_DEFAULT (0x00).');
+        if (hashType !== 0x00) throw new Error('uma entrada: SIGHASH ' + hashType + ' no Taproot; use SIGHASH_DEFAULT (0x00).');
         var prevouts = a.inputs.map(function (x) { return { value: x.value, script: x.script }; });
         var digest = sighashTaproot(tx, inp.index, prevouts, hashType);
         var tweaked = tweakPrivate(inp.key.d, null);
@@ -3865,6 +3870,9 @@ var BTC = (function () {
             writeVarInt(sigWithType.length), sigWithType, writeVarInt(inp.key.pub.length), inp.key.pub));
         }
       }
+      /* Os campos parciais acima (0x02/0x06/0x13/0x16/0x17) existem só para a
+         ordem de escrita ficar igual à de um finalizador BIP174 e caem logo
+         abaixo: o PSBT finalizado leva apenas UTXO + campos finais. */
       clearFinalizedFields(map);
     });
 
@@ -3981,7 +3989,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function reduced() { return !!(REDUCED && REDUCED.matches); }
   function forcedColors() { return !!(FORCED && FORCED.matches); }
 
-  var state = { hd: null, key: null, values: null, screen: 'chave', analysis: null };
+  var state = { hd: null, values: null, screen: 'chave', analysis: null };
   var deriveSeq = 0;
   var deriveTimer = 0;
   var analyzeSeq = 0;
@@ -4001,6 +4009,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var bitsValue = '';
   var psbtText = '';
   var psbtImport = $('#psbt-import');
+  var psbtFile = $('#psbt-file');
   var psbtClear = $('#psbt-clear');
   var signBtn = $('#sign-btn');
   var downloadBtn = $('#download-signed');
@@ -4331,15 +4340,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function onCoordsInput() {
     coordsDirty = true;
     var parsed = parseCoords(coordsInput.value);
-    if (coinStatus) {
-      if (parsed.twoLetters) coinStatus.textContent = COORD_TWO_LETTERS;
-      else if (coinStatus.textContent === COORD_TWO_LETTERS) coinStatus.textContent = '';
-    }
     var before = bitsValue;
     var changed = !samePath(parsed.path, markedPath);
     markedPath = parsed.path;
     bitsValue = bitsFromPath();
     if (changed) adoptCoords();
+    /* O recado das duas letras vem depois do adoptCoords: paintTosses()
+       escreve no mesmo #coin-status e apagaria o aviso. */
+    if (coinStatus) {
+      if (parsed.twoLetters) coinStatus.textContent = COORD_TWO_LETTERS;
+      else if (coinStatus.textContent === COORD_TWO_LETTERS) coinStatus.textContent = '';
+    }
     if (coordsInput.value !== parsed.text) {
       coordsInput.value = parsed.text;
       try {
@@ -4395,7 +4406,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     updateScrollState();
   }
 
-  modeBtn.addEventListener('click', function () { setCoinOn(!coinOn); });
+  if (modeBtn) modeBtn.addEventListener('click', function () { setCoinOn(!coinOn); });
 
   /* ------------------------------------------------------------- chaves */
   var KEY_CELLS = [
@@ -4405,14 +4416,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   /* As privadas aparecem inteiras, sem botão de copiar; só as públicas
      levam o botão. */
   var PRIVATE_CELLS = ['xprv', 'bip84-prv', 'bip49-prv', 'bip44-prv'];
-  function copyText(value) {
+  function copyText(value, focusBack) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(value).catch(function () { legacyCopy(value); });
-    } else {
-      legacyCopy(value);
+      return navigator.clipboard.writeText(value).then(function () { return true; },
+        function () { return legacyCopy(value, focusBack); });
     }
+    return Promise.resolve(legacyCopy(value, focusBack));
   }
-  function legacyCopy(value) {
+  function legacyCopy(value, focusBack) {
     var area = document.createElement('textarea');
     area.value = value;
     area.setAttribute('readonly', '');
@@ -4421,8 +4432,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     area.style.opacity = '0';
     document.body.appendChild(area);
     area.select();
-    try { document.execCommand('copy'); } catch (err) {}
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
     document.body.removeChild(area);
+    if (focusBack && typeof focusBack.focus === 'function') focusBack.focus();
+    return ok;
   }
   function buildKeyCells() {
     KEY_CELLS.forEach(function (id) {
@@ -4438,6 +4452,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       action.type = 'button';
       action.className = 'key-action';
       action.textContent = 'copiar';
+      action.dataset.key = id;
+      action.setAttribute('aria-label', 'copiar ' + id);
       action.hidden = true;
       cell.appendChild(action);
     });
@@ -4452,6 +4468,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }
     if (action) {
       action.textContent = 'copiar';
+      action.setAttribute('aria-label', 'copiar ' + action.dataset.key);
       action.removeAttribute('aria-disabled');
     }
     if (!value) {
@@ -4510,15 +4527,19 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (!cell) return;
     var value = state.values ? state.values[cell.id.replace(/^v-/, '')] : '';
     if (!value) return;
-    copyText(value);
-    action.textContent = 'copiado';
-    action.setAttribute('aria-disabled', 'true');
-    if (action._copyTimer) window.clearTimeout(action._copyTimer);
-    action._copyTimer = window.setTimeout(function () {
-      action.textContent = 'copiar';
-      action.removeAttribute('aria-disabled');
-      action._copyTimer = 0;
-    }, 1400);
+    copyText(value, action).then(function (ok) {
+      if (!ok) return;
+      action.textContent = 'copiado';
+      action.setAttribute('aria-label', 'copiado ' + action.dataset.key);
+      action.setAttribute('aria-disabled', 'true');
+      if (action._copyTimer) window.clearTimeout(action._copyTimer);
+      action._copyTimer = window.setTimeout(function () {
+        action.textContent = 'copiar';
+        action.setAttribute('aria-label', 'copiar ' + action.dataset.key);
+        action.removeAttribute('aria-disabled');
+        action._copyTimer = 0;
+      }, 1400);
+    });
   });
   function clearKey() {
     deriveSeq++;
@@ -4635,11 +4656,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         var msg = e && e.message ? e.message : '';
         if (msg === 'Web Crypto indisponível') {
           setStatus(coinStatus, 'erro', 'este navegador não oferece Web Crypto; use um navegador atualizado.');
+          setStatus(signStatus, 'erro', 'este navegador não oferece Web Crypto; use um navegador atualizado.');
         } else if (/^são necessários exatamente 256 bits/.test(msg)) {
           setStatus(coinStatus, 'erro', 'a entropia tem ' + bits.length + ' bits; são necessários exatamente 256.');
+          setStatus(signStatus, 'erro', 'a entropia tem ' + bits.length + ' bits; são necessários exatamente 256.');
         } else {
           console.error('cofre: erro interno na derivação (' + (e && e.name ? e.name : 'Error') + ')');
           setStatus(coinStatus, 'erro', 'não foi possível derivar a chave; recarregue a página e tente de novo.');
+          setStatus(signStatus, 'erro', 'não foi possível derivar a chave; recarregue a página e tente de novo.');
         }
       }
     }
@@ -4789,6 +4813,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     });
     return rbf ? 'sim' : 'não';
   }
+  /* Só <b> e <code> são marcação: o resto é texto. Mantém o desenho do aviso
+     sem abrir a revisão para HTML vindo do arquivo. */
+  function warningHtml(html) {
+    return String(html)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/&lt;(\/?)(b|code)&gt;/g, '<$1$2>');
+  }
   /* `signed` troca o vsize estimado pelo real da transação final, que é o
      que o PSBT assinado carrega. */
   function renderReview(a, file, signed) {
@@ -4804,19 +4835,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       a.warnings.forEach(function (w) {
         var li = document.createElement('li');
         /* O aviso já vem com o negrito e o código da prosa (ver analyzePsbt). */
-        li.innerHTML = w;
+        li.innerHTML = warningHtml(w);
         reviewWarningsList.appendChild(li);
       });
     }
     if (reviewWarnings) reviewWarnings.hidden = !a.warnings.length;
   }
   function auxRandom() {
-    try {
-      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-        return crypto.getRandomValues(new Uint8Array(32));
-      }
-    } catch (e) {}
-    return new Uint8Array(32);
+    if (typeof crypto === 'undefined' || !crypto.getRandomValues) {
+      throw new Error('Web Crypto indisponível');
+    }
+    return crypto.getRandomValues(new Uint8Array(32));
   }
   async function analyzeNow() {
     var seq = ++analyzeSeq;
@@ -4847,7 +4876,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
           var fin = BTC.psbtFinalTx(a.psbt);
           review = Object.assign({}, a, { vsize: fin.vsize, txid: fin.txid });
           finalSigned = true;
-        } catch (e) {}
+        } catch (e) {
+          console.error('cofre: PSBT assinado sem finalização completa (' + (e && e.name ? e.name : 'Error') + ')');
+        }
       }
       renderReview(review, psbtFileName, finalSigned);
       /* Revisão do arquivo importado, ainda sem assinatura: o botão cancela. */
@@ -4906,7 +4937,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   /* Importar o PSBT de um arquivo dispara a revisão em seguida, contra a
      chave já derivada. */
-  var psbtFile = $('#psbt-file');
   function resetPsbtFile() {
     if (psbtFile) psbtFile.value = '';
   }
@@ -4914,9 +4944,19 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     psbtFile.addEventListener('change', function () {
       var file = psbtFile.files && psbtFile.files[0];
       if (!file) { resetPsbtFile(); return; }
+      if (file.size > 4 * 1024 * 1024) {
+        resetPsbtFile();
+        setStatus(signStatus, 'erro', 'não foi possível ler o arquivo; escolha um .psbt válido.');
+        return;
+      }
       var reader = new FileReader();
       reader.onload = function () {
-        paintPsbt(String(reader.result || '').trim());
+        var bytes = new Uint8Array(reader.result);
+        /* PSBT binário (marca psbt\xff) entra como hex, que psbtParseInput já
+           aceita; texto em base64/hex segue o caminho de sempre. */
+        var binary = bytes.length >= 5 && bytes[0] === 0x70 && bytes[1] === 0x73 &&
+          bytes[2] === 0x62 && bytes[3] === 0x74 && bytes[4] === 0xff;
+        paintPsbt((binary ? BTC.bytesToHex(bytes) : new TextDecoder().decode(bytes)).trim());
         psbtFileName = file.name || '';
         /* Zera o input para o mesmo arquivo poder ser escolhido de novo. */
         psbtFile.value = '';
@@ -4924,16 +4964,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         scheduleAnalyze();
       };
       reader.onerror = function () {
+        resetPsbtFile();
         setStatus(signStatus, 'erro', 'não foi possível ler o arquivo; escolha um .psbt válido.');
       };
-      reader.readAsText(file);
+      reader.readAsArrayBuffer(file);
     });
   }
   /* A revisão do PSBT assinado vem do próprio arquivo recém-gerado: os
      bytes que o download leva são relidos, analisados e finalizados, em vez
      de aproveitar os números que a assinatura devolveu. */
-  async function summarizeSignedPsbt(base64) {
-    var a = await BTC.analyzePsbt(BTC.psbtParseInput(base64), state.hd);
+  async function summarizeSignedPsbt(base64, hd) {
+    var a = await BTC.analyzePsbt(BTC.psbtParseInput(base64), hd);
     var fin = BTC.psbtFinalTx(a.psbt);
     return {
       fee: a.fee, outputs: a.outputs, warnings: a.warnings,
@@ -4942,30 +4983,45 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   if (signBtn) {
     signBtn.addEventListener('click', async function () {
-      if (!state.analysis || !state.hd) return;
+      var hd = state.hd;
+      var bytes = state.analysis && state.analysis.bytes;
+      if (!bytes || !hd) {
+        setStatus(signStatus, 'erro', 'complete as 256 jogadas antes de importar ou analisar um PSBT.');
+        return;
+      }
+      var seq = analyzeSeq;
       signBtn.disabled = true;
       setStatus(signStatus, 'neutro', 'assinando...');
+      var res;
       try {
-        var res = await BTC.signPsbt(state.analysis.bytes, state.hd, auxRandom());
-        signedPsbtText = res.psbtBase64;
-        signedTxid = res.txid;
-        downloadSignedPsbtFile();
-        /* A revisão passa a mostrar o PSBT assinado, extraído do arquivo que
-           acabou de sair. O botão deixa de cancelar a importação e passa a
-           fechar a revisão. */
-        var signed = await summarizeSignedPsbt(signedPsbtText);
-        renderReview(signed, signedFileName(signed.txid), true);
-        setClearLabel(true);
-        /* A assinatura já foi feita: o botão sai até o próximo PSBT. */
-        signBtn.hidden = true;
-        psbtSepSign.hidden = true;
+        res = await BTC.signPsbt(bytes, hd, auxRandom());
+      } catch (e) {
+        signBtn.disabled = false;
+        clearSignature();
+        setStatus(signStatus, 'erro', userError(e, 'não foi possível assinar; nenhum arquivo foi gerado. Recarregue a página e tente de novo.'));
+        return;
+      }
+      /* A partir daqui o arquivo existe: nada pode apagá-lo nem esconder o
+         "baixar" (o download automático pode ter sido bloqueado). */
+      signedPsbtText = res.psbtBase64;
+      signedTxid = res.txid;
+      downloadSignedPsbtFile();
+      signBtn.disabled = false;
+      signBtn.hidden = true;
+      psbtSepSign.hidden = true;
+      setClearLabel(true);
+      if (seq !== analyzeSeq) {
+        /* A chave mudou durante a assinatura: o resumo antigo não vale mais. */
+        setStatus(signStatus, 'neutro', '');
+        return;
+      }
+      try {
+        var signed = await summarizeSignedPsbt(signedPsbtText, hd);
+        renderReview(signed, signedFileName(signedTxid), true);
         setStatus(signStatus, 'neutro', '');
         requestAnimationFrame(updateScrollState);
       } catch (e) {
-        clearSignature();
-        setStatus(signStatus, 'erro', userError(e, 'não foi possível assinar; nenhum arquivo foi gerado. Recarregue a página e tente de novo.'));
-      } finally {
-        signBtn.disabled = false;
+        console.error('cofre: falha ao resumir o PSBT assinado (' + (e && e.name ? e.name : 'Error') + ')');
       }
     });
   }
@@ -4988,7 +5044,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 0);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
   }
   /* Se o navegador bloquear o download automático, o botão "baixar", ao
      lado de "fechar", baixa o mesmo .psbt de novo. */
@@ -5196,6 +5252,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var grain = {
     canvas: $('#grain'), ctx: null, cols: 0, rows: 0, grid: null, cell: 14,
     timer: 0, ink: '', darkFilter: 1, tintable: false, dpr: 0,
+    occupied: [], empty: [],
     coverage: 1, coverageKey: ''
   };
   var GLYPHS = ['.', ':', '-', '=', '+', '*'];
@@ -5368,6 +5425,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }
     for (i = 0; i < total; i++) grain.grid.push(' ');
     for (i = 0; i < filled; i++) grain.grid[order[i]] = randomGlyph();
+    /* Índices das células ocupadas e vazias ficam no estado: o tick troca
+       glifos entre eles sem varrer o grid inteiro a cada passo. */
+    grain.occupied = [];
+    grain.empty = [];
+    for (i = 0; i < total; i++) {
+      (grain.grid[i] === ' ' ? grain.empty : grain.occupied).push(i);
+    }
     refreshGrainInks();
     drawGrain();
     applyGrainFilter(root.dataset.theme || 'dark', false);
@@ -5390,17 +5454,28 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (!grain.ctx) return;
     paintGrain(grain.ctx, grain.ink);
   }
+  /* Repinta uma célula só: o glifo não passa da célula (14 px de passo para
+     13 px de fonte), então limpar e redesenhar duas células dá o mesmo quadro
+     do redesenho completo. */
+  function paintCell(ctx, index) {
+    if (!ctx) return;
+    var x = index % grain.cols, y = (index / grain.cols) | 0;
+    ctx.clearRect(x * grain.cell, y * grain.cell, grain.cell, grain.cell);
+    var ch = grain.grid[index];
+    if (ch === ' ') return;
+    ctx.font = grainFont || '13px monospace';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgb(' + grain.ink + ')';
+    ctx.fillText(ch, x * grain.cell, y * grain.cell);
+  }
   // Cada passo tira glifos de células ocupadas e os repõe em células vazias:
   // o total de caracteres não muda, então não há momentos com muitos ou poucos.
   function tickGrain() {
     if (!grain.grid) return;
     var total = grain.grid.length;
     var moves = Math.max(4, Math.round(total * 0.0035));
-    var occupied = [];
-    var empty = [];
-    for (var i = 0; i < total; i++) {
-      (grain.grid[i] === ' ' ? empty : occupied).push(i);
-    }
+    var occupied = grain.occupied;
+    var empty = grain.empty;
     for (var k = 0; k < moves && occupied.length && empty.length; k++) {
       var oi = (Math.random() * occupied.length) | 0;
       var ei = (Math.random() * empty.length) | 0;
@@ -5414,8 +5489,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       grain.grid[to] = randomGlyph();
       empty.push(from);
       occupied.push(to);
+      paintCell(grain.ctx, from);
+      paintCell(grain.ctx, to);
     }
-    drawGrain();
   }
   function startGrain() {
     if (grain.timer || !grain.grid) return;
@@ -5453,6 +5529,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       refreshGrainInks();
       drawGrain();
       applyGrainFilter(root.dataset.theme || 'dark', false);
+      syncViewportHeight();
+      syncPageMode();
     }).catch(function () {});
   }
 
@@ -5539,12 +5617,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   syncViewportHeight();
   syncPageMode();
   buildGrain();
-  if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(function () {
-      syncViewportHeight();
-      syncPageMode();
-    }).catch(function () {});
-  }
 })();
 
 </script>
