@@ -646,7 +646,8 @@
      clique (pointer-events: none também cancela o hover do botão). Como não
      clica, o item em vigor também sai da ordem do Tab: quem põe e tira o
      tabindex="-1" é o markCurrent(), no JavaScript da página (VG-ACR-10). */
-  .menu button[aria-current="page"] {
+  .menu button[aria-current="page"],
+  #lang-btn[aria-current="page"] {
     background: none;
     color: var(--support);
     cursor: default;
@@ -1477,6 +1478,15 @@
      marcador "[ seguro ]" veste o --success do "[ ok ]". */
   #foot-state.is-warning { color: var(--warning); }
   #foot-state.is-safe { color: var(--success); }
+  /* O aviso de rede fica no centro do rodapé, entre o idioma e o tema: ocupa
+     a sobra e centraliza o texto, e o corpo menor (--text-xs) deixa o recado
+     curto ocupar menos altura no card estreito, sem empurrar os botões. */
+  #foot-state {
+    flex: 1 1 0;
+    min-width: 0;
+    text-align: center;
+    font-size: var(--text-xs);
+  }
   /* Sem tooltip e sem rótulo visível (VG-BOT-11): o nome acessível fica só
      no aria-label e o estado visível no próprio código do idioma (PT, EN) e
      no glifo do tema (●, ○).
@@ -1488,6 +1498,7 @@
      fonte. */
   .status button {
     display: inline-block;
+    flex: 0 0 auto;
     width: 7.5ch;
     height: 1.8em;
     padding: 0;
@@ -1514,6 +1525,70 @@
     font-size: .9em;
     -webkit-text-stroke: .5px currentColor;
     transition: none;
+  }
+  /* A tela de idiomas é uma página como as outras: o título e a régua abrem,
+     e a lista ocupa o resto da altura, centrada. */
+  #screen-language:not([hidden]) { display: flex; flex-direction: column; }
+  .lang-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    justify-content: safe center;
+    padding: var(--space-4) 0 var(--space-7);
+  }
+  /* A lista longa de idiomas vira uma grade que se adapta à largura sem
+     breakpoint: as colunas nascem de `auto-fit` com 12rem de mínimo, então
+     cabem três no card largo, duas no intermediário e uma no celular. O
+     limite de 38rem mantém no máximo três colunas. automático e voltar
+     atravessam a grade inteira. */
+  .lang-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    align-items: center;
+    justify-items: center;
+    gap: var(--space-1) var(--space-6);
+    width: 100%;
+    max-width: 38rem;
+    margin: 0;
+  }
+  .lang-item {
+    display: inline-flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: baseline;
+    column-gap: var(--space-4);
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--text-base);
+    line-height: 1.4;
+    text-align: center;
+    white-space: nowrap;
+  }
+  /* Quando o nome e a etiqueta não cabem lado a lado na coluna, o flex-wrap
+     desce a etiqueta para a segunda linha do item, centralizada. */
+  .lang-soon {
+    font-size: .8em;
+    line-height: 1.25;
+    letter-spacing: .04em;
+    /* A etiqueta é estado, não rótulo de controle: fica em caixa baixa mesmo
+       dentro do botão, que sobe para caixa alta pela regra de button. */
+    text-transform: none;
+  }
+  .lang-item-auto { grid-column: 1 / -1; margin-bottom: var(--space-3); }
+  .lang-item-back { grid-column: 1 / -1; margin-top: var(--space-6); color: var(--accent); }
+  /* A partir de 521 px, todas as etiquetas descem: assim os itens
+     desabilitados têm o mesmo desenho e a grade não fica com buracos. */
+  @media (min-width: 521px) {
+    .lang-item { display: block; }
+    .lang-soon { display: block; }
+  }
+  .lang-item-back:hover { color: var(--fg); }
+  /* Idioma em vigor: em --support e sem ponteiro, como o item de menu atual;
+     o clique e o Tab ficam com o JavaScript. */
+  .lang-list button[aria-pressed="true"] {
+    cursor: default;
+    pointer-events: none;
   }
   .sr-only {
     position: absolute;
@@ -1599,6 +1674,7 @@
        e o anexo não entram: o glifo [x]/(*) e o nome do arquivo já não
        dependem de cor. */
     .menu button[aria-current="page"],
+    #lang-btn[aria-current="page"],
     button[aria-pressed="true"] {
       text-decoration: underline;
       text-underline-offset: 2px;
@@ -2074,6 +2150,38 @@
           </div>
         </section>
 
+        <section class="screen" id="screen-language" hidden aria-labelledby="head-language">
+          <h2 id="head-language" tabindex="-1">IDIOMAS</h2>
+          <pre class="rule" aria-hidden="true"></pre>
+          <div class="lang-panel">
+            <div class="lang-list" role="group" aria-label="Idiomas">
+              <button type="button" class="lang-item lang-item-auto" data-lang="auto" aria-pressed="true" tabindex="-1">automático</button>
+              <button type="button" class="lang-item" data-lang="af" disabled aria-disabled="true">afrikaans<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="id" disabled aria-disabled="true">bahasa indonesia<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="ms" disabled aria-disabled="true">bahasa melayu<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="ca" disabled aria-disabled="true">català<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="da" disabled aria-disabled="true">dansk<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="de" disabled aria-disabled="true">deutsch<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="en" disabled aria-disabled="true">english<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="es" disabled aria-disabled="true">español<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="fil" disabled aria-disabled="true">filipino<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="fr" disabled aria-disabled="true">français<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="gl" disabled aria-disabled="true">galego<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="is" disabled aria-disabled="true">íslenska<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="it" disabled aria-disabled="true">italiano<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="sw" disabled aria-disabled="true">kiswahili<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="lb" disabled aria-disabled="true">lëtzebuergesch<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="nl" disabled aria-disabled="true">nederlands<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="no" disabled aria-disabled="true">norsk<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="pt" aria-pressed="true" tabindex="-1">português</button>
+              <button type="button" class="lang-item" data-lang="sq" disabled aria-disabled="true">shqip<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="fi" disabled aria-disabled="true">suomi<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item" data-lang="sv" disabled aria-disabled="true">svenska<span class="lang-soon">[ em breve ]</span></button>
+              <button type="button" class="lang-item lang-item-back" id="lang-back">voltar</button>
+            </div>
+          </div>
+        </section>
+
       </div>
 
       <button type="button" class="scroll-arrow scroll-arrow-up" aria-label="Rolar para cima">▲</button>
@@ -2083,6 +2191,7 @@
     <div class="edge" aria-hidden="true"></div>
 
     <footer class="status">
+      <button type="button" id="lang-btn" aria-label="Idioma">PT</button>
       <span id="foot-state" role="status">[ seguro ]</span>
       <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Ativar tema claro"><span class="glyph"><span class="glyph-ring">○</span></span></button>
     </footer>
@@ -3989,7 +4098,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function reduced() { return !!(REDUCED && REDUCED.matches); }
   function forcedColors() { return !!(FORCED && FORCED.matches); }
 
-  var state = { hd: null, values: null, screen: 'chave', analysis: null };
+  var state = { hd: null, values: null, screen: 'chave', analysis: null,
+    langOpen: false,   // a tela de idiomas está aberta
+    lang: 'pt',        // idioma em vigor (só há conteúdo em português)
+    langAuto: true,    // idioma automático em vigor
+    langScroll: 0 };   // ponto de leitura devolvido pelo voltar da tela de idiomas
   var deriveSeq = 0;
   var deriveTimer = 0;
   var analyzeSeq = 0;
@@ -5055,15 +5168,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   /* --------------------------------------------------------------- telas */
   var menuButtons = $$('.menu button');
+  var langButton = $('#lang-btn');
   function screenName(value) {
     return SCREENS.indexOf(value) >= 0 ? value : 'chave';
   }
-  function showScreen(name) {
-    name = screenName(name);
-    state.screen = name;
+  function setScreenVisible(name) {
     $$('.screen').forEach(function (section) {
       section.hidden = section.id !== 'screen-' + name;
     });
+  }
+  /* O item em vigor perde o clique e a ordem do Tab; o botão de idioma entra
+     na mesma regra enquanto a tela de idiomas está aberta. */
+  function markCurrent(name) {
     menuButtons.forEach(function (button) {
       var current = button.getAttribute('data-screen') === name;
       if (current) {
@@ -5074,6 +5190,21 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         button.removeAttribute('tabindex');
       }
     });
+    if (!langButton) return;
+    if (name === 'language') {
+      langButton.setAttribute('aria-current', 'page');
+      langButton.setAttribute('tabindex', '-1');
+    } else {
+      langButton.removeAttribute('aria-current');
+      langButton.removeAttribute('tabindex');
+    }
+  }
+  function showScreen(name) {
+    name = screenName(name);
+    state.screen = name;
+    state.langOpen = false;
+    setScreenVisible(name);
+    markCurrent(name);
     document.title = 'Cofre BTC - ' + name;
     try { history.replaceState(null, '', '#' + name); } catch (e) {}
     if (scrollEl) scrollEl.scrollTop = 0;
@@ -5081,10 +5212,81 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     reveal($('#screen-' + name));
     requestAnimationFrame(updateScrollState);
   }
+  /* Ponto de leitura: guardar e devolver pelo mesmo lugar (a janela ou o
+     .content-scroll) mantém o voltar da tela de idiomas no ponto de origem. */
+  function readingTop() {
+    if (pageEl && pageEl.classList.contains('is-page-scroll')) {
+      return window.pageYOffset || document.documentElement.scrollTop || 0;
+    }
+    return scrollEl ? scrollEl.scrollTop : 0;
+  }
+  function setReadingTop(top) {
+    if (pageEl && pageEl.classList.contains('is-page-scroll')) {
+      window.scrollTo(window.pageXOffset || 0, top);
+      return;
+    }
+    if (scrollEl) scrollEl.scrollTop = top;
+  }
+  /* A tela de idiomas é uma tela, não um modal: o menu perde a marca, o botão
+     PT fica em vigor e o voltar/Esc devolve a tela de origem no mesmo ponto
+     de leitura. Ela não entra no endereço (#chave/#sobre). */
+  function showLanguage() {
+    if (state.langOpen) return;
+    state.langScroll = readingTop();
+    state.langOpen = true;
+    setScreenVisible('language');
+    markCurrent('language');
+    document.title = 'Cofre BTC - idiomas';
+    setReadingTop(0);
+    reveal($('#screen-language'));
+    requestAnimationFrame(updateScrollState);
+  }
+  function closeLanguage() {
+    state.langOpen = false;
+    showScreen(state.screen);
+    setReadingTop(state.langScroll);
+    requestAnimationFrame(updateScrollState);
+    // preventScroll mantém o ponto de leitura: o foco não arrasta a página.
+    if (langButton) langButton.focus({ preventScroll: true });
+  }
+  /* Idioma em vigor: o automático fica marcado quando está em vigor e, como
+     ele resolve para o idioma atual, esse idioma também aparece marcado. Os
+     marcados saem do clique e da ordem do Tab. Só há conteúdo em português. */
+  function markLanguage() {
+    $$('.lang-list .lang-item[data-lang]').forEach(function (item) {
+      if (item.disabled) return;
+      var code = item.getAttribute('data-lang');
+      var current = code === 'auto' ? state.langAuto : code === state.lang;
+      item.setAttribute('aria-pressed', current ? 'true' : 'false');
+      if (current) item.setAttribute('tabindex', '-1');
+      else item.removeAttribute('tabindex');
+    });
+  }
+  function selectLanguage(button) {
+    if (!button || button.disabled) return;
+    var code = button.getAttribute('data-lang');
+    state.langAuto = code === 'auto';
+    if (!state.langAuto) state.lang = code;
+    markLanguage();
+    closeLanguage();
+  }
   menuButtons.forEach(function (button) {
     button.addEventListener('click', function () {
       showScreen(button.getAttribute('data-screen'));
     });
+  });
+  if (langButton) langButton.addEventListener('click', showLanguage);
+  var langList = $('.lang-list');
+  if (langList) {
+    langList.addEventListener('click', function (ev) {
+      var item = ev.target.closest ? ev.target.closest('.lang-item[data-lang]') : null;
+      if (item) selectLanguage(item);
+    });
+  }
+  var langBack = $('#lang-back');
+  if (langBack) langBack.addEventListener('click', closeLanguage);
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && state.langOpen) closeLanguage();
   });
   window.addEventListener('hashchange', function () {
     var name = location.hash.replace(/^#/, '');
@@ -5094,7 +5296,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   if (skip) {
     skip.addEventListener('click', function (event) {
       event.preventDefault();
-      var head = $('#screen-' + state.screen + ' h2');
+      var head = $(state.langOpen ? '#head-language' : '#screen-' + state.screen + ' h2');
       if (head) head.focus();
       if (scrollEl) scrollEl.scrollTop = 0;
       if (pageEl && pageEl.classList.contains('is-page-scroll')) window.scrollTo(0, 0);
@@ -5237,7 +5439,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     footState.classList.toggle('is-warning', online);
     footState.classList.toggle('is-safe', !online);
     footState.textContent = online ?
-      '[ atenção ] rede ativa: desconecte a máquina da internet' :
+      '[ atenção ] rede ativa: desconecte a internet' :
       '[ seguro ]';
   }
   window.addEventListener('online', paintFootState);
