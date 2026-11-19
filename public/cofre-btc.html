@@ -5439,7 +5439,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     footState.classList.toggle('is-warning', online);
     footState.classList.toggle('is-safe', !online);
     footState.textContent = online ?
-      '[ atenção ] rede ativa: desconecte a internet' :
+      '[ atenção ] desconecte a internet' :
       '[ seguro ]';
   }
   window.addEventListener('online', paintFootState);
