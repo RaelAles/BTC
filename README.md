@@ -405,11 +405,13 @@ public/
   fontes.css             embedded font
   index.html             published page
   manifest.webmanifest   installable PWA metadata
+  icon.svg               icon source (round seal the PNGs are rendered from)
   icon-*.png             app icons
   og-image.png           link preview image
   style.css              interface styles
   _headers               security headers for static assets
 scripts/
+  build-icons.mjs        renders the PWA icons from icon.svg
   sync-cofre-core.mjs    extracts the Cofre core for parity tests
 src/
   btc-core.js            BTC core (keys, addresses, tx, PSBT, signing helpers)

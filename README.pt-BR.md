@@ -410,11 +410,13 @@ public/
   fontes.css             fonte embutida
   index.html             página publicada
   manifest.webmanifest   metadados da PWA instalável
+  icon.svg               fonte do ícone (selo redondo de onde saem os PNGs)
   icon-*.png             ícones do app
   og-image.png           imagem de prévia do link
   style.css              estilos da interface
   _headers               cabeçalhos de segurança dos estáticos
 scripts/
+  build-icons.mjs        gera os ícones da PWA a partir do icon.svg
   sync-cofre-core.mjs    extrai o núcleo do Cofre para os testes de paridade
 src/
   btc-core.js            núcleo BTC (chaves, endereços, tx, PSBT, assinatura)
