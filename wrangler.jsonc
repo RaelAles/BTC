@@ -15,7 +15,8 @@
     // de comportamento num bump do Wrangler.
     "html_handling": "auto-trailing-slash",
     // Caminho desconhecido serve a página (que desenha a tela 404), em vez
-    // do 404 cru do asset layer.
+    // do 404 cru do asset layer. O Worker troca o status para 404 antes de
+    // entregar a resposta, para o caminho não parecer um arquivo existente.
     "not_found_handling": "single-page-application"
     // Os estáticos continuam sendo servidos pelo asset layer, que aplica
     // os cabeçalhos de public/_headers sem acordar o Worker. As respostas

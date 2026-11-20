@@ -370,6 +370,19 @@ async function handleFees(env, url) {
 
 export { WalletWatcher };
 
+/* Páginas HTML publicadas de verdade. A SPA fallback do asset layer
+   (wrangler.jsonc) responde 200 com index.html em qualquer caminho
+   desconhecido; fora estes caminhos, essa resposta vira 404 para o caminho
+   não parecer um arquivo existente para scanners e clientes. A tela 404 do
+   app continua sendo desenhada, porque o corpo é o mesmo index.html. */
+const HTML_ROUTES = new Set(['/', '/index.html', '/cofre-btc', '/cofre-btc.html']);
+
+function isSpaFallback(pathname, response) {
+  if (HTML_ROUTES.has(pathname) || response.status !== 200) return false;
+  const type = (response.headers.get('Content-Type') || '').toLowerCase();
+  return type.startsWith('text/html');
+}
+
 /* Aplica os cabeçalhos de segurança em toda resposta, inclusive nos
    estáticos do ASSETS. O 101 do WebSocket não é recriado: o handshake
    original é o único que vale. */
@@ -491,7 +504,22 @@ async function route(request, env) {
       return await withRateLimit(request, () => handleEvents(request, env, url));
     }
     if (url.pathname.startsWith('/api/')) return fail('rota não encontrada', 404);
-    if (env.ASSETS) return await env.ASSETS.fetch(request);
+    /* O site é só leitura: nenhum método além de GET/HEAD tem o que fazer
+       no asset layer. Responde 405 mesmo se a borda deixar passar. */
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD' } });
+    }
+    if (env.ASSETS) {
+      const res = await env.ASSETS.fetch(request);
+      if (isSpaFallback(url.pathname, res)) {
+        return new Response(res.body, {
+          status: 404,
+          statusText: 'Not Found',
+          headers: res.headers
+        });
+      }
+      return res;
+    }
     return new Response('not found', { status: 404 });
   } catch (e) {
     return fail(e && e.message ? e.message : String(e), 500);
