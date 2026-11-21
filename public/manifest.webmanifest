@@ -1,7 +1,7 @@
 {
   "name": "Monitor BTC",
   "short_name": "Monitor BTC",
-  "description": "Carteira watch-only: xpub como credencial, saldo e endereços derivados na hora, e envio de BTC em PSBT sem assinatura.",
+  "description": "Carteira watch-only: a chave pública da sua carteira como credencial, saldo e endereços derivados na hora, e envio de BTC em PSBT sem assinatura.",
   "lang": "pt-BR",
   "start_url": "/",
   "display": "standalone",
