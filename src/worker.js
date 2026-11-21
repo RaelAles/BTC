@@ -377,6 +377,16 @@ export { WalletWatcher };
    app continua sendo desenhada, porque o corpo é o mesmo index.html. */
 const HTML_ROUTES = new Set(['/', '/index.html', '/cofre-btc', '/cofre-btc.html']);
 
+/* Cabeçalhos de reescrita de caminho pertencem a um proxy interno. Aceitos
+   do cliente, deixam um scanner achar que `/` e `/.git` são o mesmo recurso
+   (alerta "Bypassing 403" do ZAP). O Worker usa só o caminho da URL e não
+   repassa nenhum deles ao asset layer. */
+const REWRITE_HEADERS = ['x-original-url', 'x-rewrite-url', 'x-forwarded-prefix'];
+
+function hasRewriteHeader(request) {
+  return REWRITE_HEADERS.some(name => request.headers.has(name));
+}
+
 function isSpaFallback(pathname, response) {
   if (HTML_ROUTES.has(pathname) || response.status !== 200) return false;
   const type = (response.headers.get('Content-Type') || '').toLowerCase();
@@ -466,6 +476,7 @@ async function withScanSlot(request, run) {
 async function route(request, env) {
   const url = new URL(request.url);
   try {
+    if (hasRewriteHeader(request)) return fail('cabeçalho de reescrita de caminho não é aceito', 400);
     if (url.pathname === '/api/health') {
       const cfg = electrumConfig(env);
       return json({

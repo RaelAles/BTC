@@ -1,6 +1,7 @@
 /* Superfície HTTP: caminho desconhecido não pode voltar 200 só porque a SPA
-   fallback entrega o index.html, e o site de leitura só aceita GET/HEAD no
-   asset layer. Tudo sem rede.
+   fallback entrega o index.html, o site de leitura só aceita GET/HEAD no
+   asset layer e cabeçalho de reescrita de caminho não é aceito do cliente.
+   Tudo sem rede.
 
    node test/http-surface.test.mjs */
 import assert from 'node:assert/strict';
@@ -71,6 +72,20 @@ function envComAssets(chamadas) {
   assert.equal(wallet.status, 405, 'GET em /api/wallet continua 405');
   assert.match((await wallet.json()).error, /use POST/);
   console.log('ok   API preserva 404/405 existentes');
+}
+
+/* ---------------- 5. cabeçalho de reescrita de caminho ---------------- */
+{
+  for (const name of ['x-original-url', 'x-rewrite-url', 'x-forwarded-prefix']) {
+    const chamadas = [];
+    const r = await worker.fetch(new Request('https://x/', {
+      headers: { [name]: '/.git' }
+    }), envComAssets(chamadas));
+    assert.equal(r.status, 400, name + ' é recusado');
+    assert.match((await r.json()).error, /reescrita/);
+    assert.deepEqual(chamadas, [], name + ' não chega ao asset layer');
+  }
+  console.log('ok   cabeçalho de reescrita de caminho responde 400 sem tocar no ASSETS');
 }
 
 console.log('\ntestes da superfície HTTP passaram');
