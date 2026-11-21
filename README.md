@@ -401,6 +401,7 @@ public/
   fontes.css             embedded font
   index.html             published page
   manifest.webmanifest   installable PWA metadata
+  sw.js                  minimal service worker (no cache), for installation
   icon.svg               icon source (round seal the PNGs are rendered from)
   icon-*.png             app icons
   og-image.png           link preview image

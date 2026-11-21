@@ -406,6 +406,7 @@ public/
   fontes.css             fonte embutida
   index.html             página publicada
   manifest.webmanifest   metadados da PWA instalável
+  sw.js                  service worker mínimo (sem cache), para a instalação
   icon.svg               fonte do ícone (selo redondo de onde saem os PNGs)
   icon-*.png             ícones do app
   og-image.png           imagem de prévia do link

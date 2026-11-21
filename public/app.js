@@ -3792,5 +3792,48 @@
     // servidor), então não há nada para restaurar.
   }
 
+  /* ------------------------------------------------------------- instalar */
+  /* O service worker mínimo não guarda nada: ele só deixa o navegador
+     oferecer o app como instalável. O diálogo de instalação é o do sistema e
+     só pode ser aberto a partir de um gesto do usuário; por isso o evento
+     guardado é disparado no primeiro toque ou tecla depois que o app fica
+     instalável, sem botão ou faixa na tela. */
+  var installPrompt = null;
+  var installArmed = false;
+
+  function fireInstallPrompt() {
+    if (!installPrompt) return;
+    var event = installPrompt;
+    installPrompt = null;
+    event.prompt().catch(function () {});
+  }
+
+  function armInstallPrompt() {
+    if (installArmed || !installPrompt) return;
+    installArmed = true;
+    var fire = function () {
+      document.removeEventListener('pointerdown', fire, true);
+      document.removeEventListener('keydown', fire, true);
+      installArmed = false;
+      fireInstallPrompt();
+    };
+    document.addEventListener('pointerdown', fire, true);
+    document.addEventListener('keydown', fire, true);
+  }
+
+  window.addEventListener('beforeinstallprompt', function (event) {
+    /* preventDefault segura o evento para o diálogo abrir no próximo gesto;
+       sem ele, o navegador mostraria a própria promoção. */
+    event.preventDefault();
+    installPrompt = event;
+    armInstallPrompt();
+  });
+  window.addEventListener('appinstalled', function () {
+    installPrompt = null;
+  });
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  }
+
   document.addEventListener('DOMContentLoaded', wire);
 })();
