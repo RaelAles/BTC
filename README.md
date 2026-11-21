@@ -78,9 +78,6 @@ wallet, and it does not keep a background watch with the page closed.
 - The scan runs in steps: each request derives at most **200 new addresses**
   and returns progress; the screen asks for the next step. Only the last step
   returns the final payload.
-- `WALLET_MAX_ADDRESSES` (default **5000**) caps each branch as a CPU and
-  memory guard. When the cap is hit, the payload carries a warning that the
-  balance may be incomplete.
 
 ### Balance
 
@@ -234,7 +231,6 @@ invocation logs in Cloudflare.
 | --- | --- | --- |
 | `ELECTRUM_SERVERS` | `electrum.blockstream.info:50002:tls, blockstream.info:700:tls, electrum.diynodes.com:50022:tls` | `host:port[:tls\|:tcp]` list. `off` disables Electrum and the API answers 503. |
 | `ELECTRUM_TIMEOUT_MS` | `8000` | Per-request timeout in milliseconds. A non-positive or invalid value answers 503. |
-| `WALLET_MAX_ADDRESSES` | `5000` | Cap per branch. When reached, the payload warns that the balance may be incomplete. |
 
 The binding `WATCH` points to `WalletWatcher`; migration `v1` declares it as a
 SQLite-backed Durable Object class, which is the only backend available on the
@@ -444,8 +440,6 @@ package.json
   scan. The Durable Object only stays awake while a screen is open.
 - **Gap limit.** Addresses after 50 consecutive unused ones are invisible; an
   interrupted scan shows "incomplete search" instead of a final balance.
-- **Cap per branch.** `WALLET_MAX_ADDRESSES` stops a branch at 5000 addresses
-  and warns that the balance may be incomplete.
 - **Subscriptions cover used addresses and the gap tail**, not the whole
   wallet. A payment beyond the tail only appears in a new scan.
 - **No 24/7 watch.** Closing the page ends the session; there is no monitoring

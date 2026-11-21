@@ -81,9 +81,6 @@ wallet e não mantém vigilância em segundo plano com a tela fechada.
 - A varredura acontece em passos: cada requisição deriva no máximo **200
   endereços novos** e devolve o progresso; a tela pede o próximo passo. Só o
   último passo devolve o payload final.
-- `WALLET_MAX_ADDRESSES` (padrão **5000**) limita cada ramo como trava de CPU
-  e memória. Ao atingir o teto, o payload traz um aviso de que o saldo pode
-  estar incompleto.
 
 ### Saldo
 
@@ -236,7 +233,6 @@ de invocação na Cloudflare.
 | --- | --- | --- |
 | `ELECTRUM_SERVERS` | `electrum.blockstream.info:50002:tls, blockstream.info:700:tls, electrum.diynodes.com:50022:tls` | Lista `host:porta[:tls\|:tcp]`. `off` desliga o Electrum e a API responde 503. |
 | `ELECTRUM_TIMEOUT_MS` | `8000` | Timeout por pedido, em milissegundos. Valor inválido ou não positivo responde 503. |
-| `WALLET_MAX_ADDRESSES` | `5000` | Teto por ramo. Ao atingir, o payload avisa que o saldo pode estar incompleto. |
 
 O binding `WATCH` aponta para `WalletWatcher`; a migration `v1` declara a
 classe como Durable Object com backend SQLite, o único disponível no plano
@@ -451,8 +447,6 @@ package.json
 - **Limite da margem.** Endereços depois de 50 vazios seguidos ficam
   invisíveis; uma varredura interrompida mostra “busca incompleta” em vez de
   apresentar o saldo como final.
-- **Teto por ramo.** `WALLET_MAX_ADDRESSES` para um ramo em 5000 endereços e
-  avisa que o saldo pode estar incompleto.
 - **As assinaturas cobrem os endereços usados e a cauda da margem**, não a
   carteira inteira. Um pagamento além da cauda só aparece numa nova varredura.
 - **Sem vigilância 24/7.** Fechar a página encerra a sessão; não há

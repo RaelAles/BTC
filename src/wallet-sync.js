@@ -17,14 +17,10 @@ const TYPES = ['bip86', 'bip84', 'bip49', 'bip44'];
 
 /* A varredura não tem teto de endereços: o fim de cada ramo é a margem de
    `gap` endereços vazios. O lote limita só quanto trabalho uma requisição
-   faz por vez, para a tela mostrar progresso e continuar depois. O teto por
-   ramo existe como trava de CPU/memória do Durable Object (128 MB): passou
-   dele, a varredura para e o payload avisa que o saldo pode estar
-   incompleto. Configurável por WALLET_MAX_ADDRESSES. */
+   faz por vez, para a tela mostrar progresso e continuar depois. */
 const SCAN_BATCH = 200;
 const HIST_CONCURRENCY = 100;
 const TX_CONCURRENCY = 20;
-const DEFAULT_MAX_ADDRESSES = 5000;
 
 function now() { return new Date().toISOString(); }
 function hex(bytes) { return BTC.bytesToHex(bytes); }
@@ -56,8 +52,6 @@ export class WalletScanner {
     this.account = account;
     this.client = client;
     this.gap = Math.max(1, Number(gap) || DEFAULT_GAP);
-    this.maxAddresses = Math.max(1, Number(env && env.WALLET_MAX_ADDRESSES) || DEFAULT_MAX_ADDRESSES);
-    this.capHit = false;
     this.rows = new Map();
     this.txCache = new Map();   // txid -> hex cru, só nesta sessão
     this.infoCache = new Map(); // txid -> resumo da transação, invalidado por aviso
@@ -490,8 +484,7 @@ export class WalletScanner {
           if (maxIdx - lastUsed >= this.gap) continue;
           const from = maxIdx + 1;
           const target = lastUsed + this.gap;
-          if (target > this.maxAddresses - 1) this.capHit = true;
-          const to = Math.min(target, from + budget - 1, this.maxAddresses - 1);
+          const to = Math.min(target, from + budget - 1);
           if (from > to) continue;
           const fresh = [];
           for (let i = from; i <= to; i++) {
@@ -519,7 +512,7 @@ export class WalletScanner {
       for (const chain of [0, 1]) {
         const rows = this.rows.get(rowKey(type, chain));
         const { lastUsed, maxIdx } = this.lastUsedOf(rows);
-        if (maxIdx - lastUsed < this.gap && maxIdx < this.maxAddresses - 1) return true;
+        if (maxIdx - lastUsed < this.gap) return true;
       }
     }
     return false;
@@ -724,11 +717,6 @@ export class WalletScanner {
     }
     const stale = [...this.byScript.values()].filter(r => r.stale).length;
     if (stale) warnings.push(stale + ' endereço(s) com valor antigo por falta de transação.');
-    if (this.capHit) {
-      warnings.push('varredura limitada a ' + this.maxAddresses +
-        ' endereços por ramo; pode haver saldo não contabilizado.');
-    }
-
     return {
       detected_type: type,
       balance: {

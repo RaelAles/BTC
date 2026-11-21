@@ -273,8 +273,8 @@ setConnectOverride(nodeConnect);
   assert.equal(scanner.scriptsForWatch().length, 41, 'não assina 0 e 1, vazios fora da cauda');
   await client.close();
 
-  /* teto por ramo: parou no teto e o payload avisa que a varredura foi
-     limitada (trava de CPU/memória do Durable Object) */
+  /* sem teto: a variável antiga WALLET_MAX_ADDRESSES é ignorada e cada ramo
+     segue até fechar a margem (bip84/0 usado no 8 → 0..18; os outros 0..9) */
   const a8 = await addr('bip84', 0, 8);
   const tx8 = makeTx([{ txid: '07'.repeat(32), vout: 0 }], [{ value: 700, script: a8.script }]);
   const fakeCap = await startFakeElectrum({
@@ -288,9 +288,9 @@ setConnectOverride(nodeConnect);
     env: { WALLET_MAX_ADDRESSES: '12' }, xpub: USER, account: ua, client: capClient, gap: 10
   }).init();
   const cappedPayload = await capped.fullSync();
-  assert.equal(capped.capHit, true, 'o ramo usado parou no teto');
-  assert.equal(capped.byScript.size, 82, 'bip84/0 até o teto (12) + 7 ramos × 10');
-  assert.ok(cappedPayload.warnings.some(w => /varredura limitada a 12 endereços/.test(w)),
+  assert.equal(capped.capHit, undefined, 'não existe mais teto por ramo');
+  assert.equal(capped.byScript.size, 89, 'bip84/0 até 18 (8 + margem 10) + 7 ramos × 10');
+  assert.ok(!cappedPayload.warnings.some(w => /varredura limitada/.test(w)),
     JSON.stringify(cappedPayload.warnings));
   await capClient.close();
   await fakeCap.close();
