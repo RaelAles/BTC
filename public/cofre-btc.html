@@ -5579,35 +5579,40 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         return;
       }
       var seq = analyzeSeq;
+      var fileName = psbtFileName;
       signBtn.disabled = true;
       setStatus(signStatus, 'neutro', 'assinando...');
       var res;
       try {
         res = await BTC.signPsbt(bytes, hd, auxRandom());
       } catch (e) {
+        /* A chave ou o PSBT mudou durante a assinatura: o erro é da operação
+           antiga e não pode mexer no estado novo. */
+        if (seq !== analyzeSeq) return;
         signBtn.disabled = false;
         clearSignature();
         setErrorStatus(signStatus, e, 'não foi possível assinar; nenhum arquivo foi gerado. Recarregue a página e tente de novo.');
         return;
       }
+      /* A chave ou o PSBT pode ter mudado enquanto a assinatura rodava. Nesse
+         caso o resultado antigo não é baixado nem sobrescreve a revisão nova:
+         o arquivo levaria o nome e o resumo do PSBT errado. */
+      if (seq !== analyzeSeq) return;
       /* A partir daqui o arquivo existe: nada pode apagá-lo nem esconder o
          "baixar" (o download automático pode ter sido bloqueado). */
       signedPsbtText = res.psbtBase64;
       signedTxid = res.txid;
-      downloadSignedPsbtFile();
+      downloadSignedPsbtFile(fileName);
       signBtn.disabled = false;
       signBtn.hidden = true;
       psbtSepSign.hidden = true;
       setClearLabel(true);
-      if (seq !== analyzeSeq) {
-        /* A chave mudou durante a assinatura: o resumo antigo não vale mais. */
-        setStatus(signStatus, 'neutro', '');
-        return;
-      }
       try {
         var signed = await summarizeSignedPsbt(signedPsbtText, hd);
-        state.lastReview = { review: signed, file: signedFileName(signedTxid), signed: true };
-        renderReview(signed, signedFileName(signedTxid), true);
+        if (seq !== analyzeSeq) return;
+        var signedName = signedFileName(res.txid, fileName);
+        state.lastReview = { review: signed, file: signedName, signed: true };
+        renderReview(signed, signedName, true);
         setStatus(signStatus, 'neutro', '');
         requestAnimationFrame(updateScrollState);
       } catch (e) {
@@ -5618,20 +5623,23 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   /* O nome do .psbt assinado repete o nome do arquivo importado, com
      "assinado-" na frente; é o mesmo nome mostrado na linha "arquivo" da
      revisão. Sem nome (não deveria acontecer), cai no txid. */
-  function signedFileName(txid) {
+  /* `fileName` prende o nome ao PSBT que estava carregado quando o "assinar"
+     começou; sem ele, o botão "baixar" usa o nome em vigor. */
+  function signedFileName(txid, fileName) {
     var prefix = t('assinado-');
-    if (psbtFileName) return prefix + psbtFileName;
+    var name = fileName === undefined ? psbtFileName : fileName;
+    if (name) return prefix + name;
     return prefix + String(txid || 'psbt').slice(0, 8) + '.psbt';
   }
   /* O .psbt assinado sai assim que a assinatura termina, sem segundo clique:
      o Blob vira um link temporário e o nome curto vem do txid. */
-  function downloadSignedPsbtFile() {
+  function downloadSignedPsbtFile(fileName) {
     if (!signedPsbtText) return;
     var blob = new Blob([signedPsbtText], { type: 'text/plain' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = signedFileName(signedTxid);
+    a.download = signedFileName(signedTxid, fileName);
     document.body.appendChild(a);
     a.click();
     a.remove();
