@@ -635,7 +635,11 @@ var BTC = (function () {
   ).trim().split(/\s+/);
 
   /* A lista só codifica os 256 bits na frase BIP39 usada para gerar a seed;
-     a entrada da tela é por coordenadas. */
+     o sentido inverso (palavra → 11 bits) e a checagem da frase ficam com
+     quem lê a entrada, a partir desta cópia da lista. */
+  function bip39Words() {
+    return BIP39_WORDS.slice();
+  }
   function bip39Mnemonic(bits) {
     var entropy = new Uint8Array(32);
     var i;
@@ -1919,7 +1923,7 @@ var BTC = (function () {
     taprootOutputKey: taprootOutputKey, taggedHash: taggedHash,
     signDigest: signDigest, verifyDigest: verifyDigest, encodeDer: encodeDer,
     derive: derive, deriveHD: deriveHD, bip39Seed: bip39Seed,
-    bip39Mnemonic: bip39Mnemonic,
+    bip39Mnemonic: bip39Mnemonic, bip39Words: bip39Words,
     masterFromSeed: masterFromSeed, derivePath: derivePath, ckdPriv: ckdPriv,
     extendedKey: extendedKey, addressFor: addressFor, HD_ACCOUNTS: HD_ACCOUNTS,
     readTx: readTx, writeTx: writeTx, txidOf: txidOf, readTxOut: readTxOut, vsizeOf: vsizeOf,

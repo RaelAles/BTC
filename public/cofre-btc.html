@@ -1654,6 +1654,14 @@
     }
     .field-box::before { border-inline-start: 1px solid; }
     .field-box::after { border-inline-end: 1px solid; }
+    /* A palavra em digitação e o foco do campo se distinguiam só pela cor:
+       a opção escolhida ganha a borda tracejada e o fio do campo em uso
+       passa a tracejado, como o foco do resto da tela. */
+    .mnemonic-word:focus-within { border-bottom-style: dashed; }
+    .mnemonic-option[aria-selected="true"] {
+      outline: 1px dashed;
+      outline-offset: -2px;
+    }
     /* O estado em vigor (menu e assunto) só se
        distinguia pela cor; no modo, o sublinhado mantém o sinal. A marcação
        e o anexo não entram: o glifo [x]/(*) e o nome do arquivo já não
@@ -1874,11 +1882,16 @@
     font-size: var(--text-xs);
     text-align: center;
   }
-  /* O mnemonic é saída das jogadas, não entrada: a frase de 24 palavras fica
-     sempre visível, em 3 colunas de 8 linhas, na mesma largura do painel. A
-     palavra longa quebra dentro da coluna e o estado vazio usa o --dim, como
-     o travessão das chaves. */
+  /* O mnemonic é entrada e saída: a frase de 24 palavras fica sempre
+     visível, em 3 colunas de 8 linhas, na mesma largura do painel, e cada
+     palavra é um campo. O travessão do estado vazio continua como
+     placeholder, no --dim, e a lista oficial abre sobre o conteúdo, na
+     coluna do próprio campo. */
   .entropy-block { margin-top: var(--space-9); }
+  /* A lista de sugestões sai do fluxo e sobe para a camada dos controles
+     flutuantes: o bloco das palavras é um dos .reveal-block, que pinta em
+     ordem, e sem o z-index a lista ficaria atrás dos blocos seguintes. */
+  .entropy-block.has-options { position: relative; z-index: var(--layer-float); }
   .mnemonic-words {
     display: grid;
     width: min(100%, 28rem);
@@ -1890,6 +1903,7 @@
     font-size: var(--text-sm);
   }
   .mnemonic-word {
+    position: relative;
     display: flex;
     align-items: flex-end;
     gap: .8ch;
@@ -1901,12 +1915,77 @@
     flex: 0 0 auto;
     color: var(--dim);
     font-size: var(--text-xs);
+    cursor: pointer;
   }
-  .mnemonic-word-text {
+  .mnemonic-word-input {
+    flex: 1 1 0;
     min-width: 0;
-    overflow-wrap: anywhere;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--fg);
+    font: inherit;
   }
-  .mnemonic-word.is-empty { color: var(--dim); }
+  .mnemonic-word-input:focus { outline: none; }
+  .mnemonic-word-input::placeholder { color: var(--dim); opacity: 1; }
+  /* O foco é do item, não do campo: o fio inferior acende inteiro e o
+     índice sobe ao --accent, como a moldura da .field-box. */
+  .mnemonic-word:focus-within { border-bottom-color: var(--accent); }
+  .mnemonic-word:focus-within .mnemonic-word-index { color: var(--accent); }
+  /* Palavra fora da lista oficial, depois de o campo perder o foco: o fio e
+     o índice assumem o --error dos demais estados de erro. */
+  .mnemonic-word.is-invalid,
+  .mnemonic-word.is-invalid:focus-within { border-bottom-color: var(--error); }
+  .mnemonic-word.is-invalid .mnemonic-word-index { color: var(--error); }
+  /* A lista oficial aberta: fundo opaco do --bg, como as opções do <select>,
+     uma palavra por linha na largura do campo. A opção em digitação troca o
+     fundo pelo --accent e o texto pelo --on-strong. */
+  .mnemonic-options {
+    position: absolute;
+    top: calc(100% - 1px);
+    left: 0;
+    z-index: var(--layer-float);
+    min-width: 100%;
+    margin: 0;
+    padding: var(--space-1) 0;
+    list-style: none;
+    background: var(--bg);
+    border: 1px solid var(--field-line);
+    font-size: var(--text-sm);
+    white-space: nowrap;
+  }
+  .mnemonic-options[hidden] { display: none; }
+  /* Nas últimas linhas não há espaço abaixo do campo: a lista abre para
+     cima, ancorada no topo do item, em vez de sair pelo rodapé do conteúdo. */
+  .mnemonic-options.is-above {
+    top: auto;
+    bottom: calc(100% - 1px);
+  }
+  .mnemonic-option {
+    padding: var(--space-1) 1ch;
+    color: var(--fg);
+    cursor: pointer;
+  }
+  .mnemonic-option:hover { color: var(--accent); }
+  .mnemonic-option[aria-selected="true"],
+  .mnemonic-option[aria-selected="true"]:hover {
+    background: var(--accent);
+    color: var(--on-strong);
+  }
+  /* O recado da frase, abaixo das 24 posições: quantas faltam, a palavra
+     fora da lista, a checagem que não fechou ou as 24 válidas. A linha fica
+     reservada, como nos demais recados, para a frase não empurrar o que vem
+     abaixo a cada palavra digitada. */
+  .mnemonic-note {
+    width: min(100%, 28rem);
+    min-height: 1.65em;
+    margin: var(--space-4) auto 0;
+    color: var(--dim);
+    font-size: var(--text-xs);
+    text-align: center;
+  }
+  .mnemonic-note.ok { color: var(--success); }
+  .mnemonic-note.error { color: var(--error); }
 </style>
 <script>
   /* Tema antes da pintura: segue o sistema; a escolha manual do botão vale
@@ -2001,6 +2080,7 @@
                   <h3><span class="prompt" aria-hidden="true">##</span> mnemonic</h3>
                 </div>
                 <ol class="mnemonic-words" id="mnemonic-words" aria-label="frase mnemônica de 24 palavras"></ol>
+                <p class="mnemonic-note" id="mnemonic-note" role="status" aria-live="polite"></p>
               </div>
             </div>
           </div>
@@ -2887,7 +2967,11 @@ var BTC = (function () {
   ).trim().split(/\s+/);
 
   /* A lista só codifica os 256 bits na frase BIP39 usada para gerar a seed;
-     a entrada da tela é por coordenadas. */
+     o sentido inverso (palavra → 11 bits) e a checagem da frase ficam com
+     quem lê a entrada, a partir desta cópia da lista. */
+  function bip39Words() {
+    return BIP39_WORDS.slice();
+  }
   function bip39Mnemonic(bits) {
     var entropy = new Uint8Array(32);
     var i;
@@ -4049,7 +4133,7 @@ var BTC = (function () {
     taprootOutputKey: taprootOutputKey, taggedHash: taggedHash,
     signDigest: signDigest, verifyDigest: verifyDigest, encodeDer: encodeDer,
     deriveHD: deriveHD, bip39Seed: bip39Seed,
-    bip39Mnemonic: bip39Mnemonic,
+    bip39Mnemonic: bip39Mnemonic, bip39Words: bip39Words,
     masterFromSeed: masterFromSeed, derivePath: derivePath, ckdPriv: ckdPriv,
     extendedKey: extendedKey, addressFor: addressFor, HD_ACCOUNTS: HD_ACCOUNTS,
     readTx: readTx, writeTx: writeTx, txidOf: txidOf, readTxOut: readTxOut,
@@ -4113,6 +4197,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["Mostrar a entrada por coordenadas","Show input by coordinates","Mostrar la entrada por coordenadas","Afficher la saisie par coordonnées","Mostra l'inserimento tramite coordinate","Eingabe über Koordinaten anzeigen","Invoer via coördinaten tonen","Mostrar l'entrada per coordenades","Mostrar a entrada por coordenadas"],
     ["mnemonic","mnemonic","mnemónica","mnémonique","mnemonica","mnemonik","mnemoniek","mnemònica","mnemónica"],
     ["frase mnemônica de 24 palavras","24-word mnemonic phrase","frase mnemónica de 24 palabras","phrase mnémotechnique de 24 mots","frase mnemonica di 24 parole","Merkhilfe aus 24 Wörtern","mnemonische zin van 24 woorden","frase mnemònica de 24 paraules","frase mnemónica de 24 palabras"],
+    ["palavra {n} da frase mnemônica","word {n} of the mnemonic phrase","palabra {n} de la frase mnemónica","mot {n} de la phrase mnémotechnique","parola {n} della frase mnemonica","Wort {n} der Merkhilfe","woord {n} van de mnemonische zin","paraula {n} de la frase mnemònica","palabra {n} da frase mnemónica"],
+    ["lista oficial de 2.048 palavras","official list of 2,048 words","lista oficial de 2.048 palabras","liste officielle de 2 048 mots","elenco ufficiale di 2.048 parole","offizielle Liste mit 2.048 Wörtern","officiële lijst van 2.048 woorden","llista oficial de 2.048 paraules","lista oficial de 2.048 palabras"],
+    ["faltam {n} de 24 palavras.","{n} of 24 words missing.","faltan {n} de 24 palabras.","il manque {n} mots sur 24.","mancano {n} parole su 24.","es fehlen {n} von 24 Wörtern.","er ontbreken {n} van 24 woorden.","falten {n} de 24 paraules.","faltan {n} de 24 palabras."],
+    ["palavra fora da lista oficial de 2.048.","word not in the official 2,048-word list.","palabra fuera de la lista oficial de 2.048.","mot absent de la liste officielle de 2 048 mots.","parola fuori dall'elenco ufficiale di 2.048.","Wort nicht in der offiziellen Liste mit 2.048 Wörtern.","woord niet in de officiële lijst van 2.048 woorden.","paraula fora de la llista oficial de 2.048.","palabra fóra da lista oficial de 2.048."],
+    ["as 24 palavras não fecham a checagem do BIP39.","the 24 words do not pass the BIP39 checksum.","las 24 palabras no pasan la comprobación del BIP39.","les 24 mots ne passent pas la somme de contrôle BIP39.","le 24 parole non superano il controllo del BIP39.","die 24 Wörter bestehen die BIP39-Prüfsumme nicht.","de 24 woorden halen de BIP39-controle niet.","les 24 paraules no passen la comprovació del BIP39.","as 24 palabras non pasan a comprobación do BIP39."],
+    ["24 palavras válidas; os 256 bits estão completos.","24 valid words; all 256 bits are complete.","24 palabras válidas; los 256 bits están completos.","24 mots valides ; les 256 bits sont complets.","24 parole valide; i 256 bit sono completi.","24 gültige Wörter; die 256 Bit sind vollständig.","24 geldige woorden; de 256 bits zijn compleet.","24 paraules vàlides; els 256 bits estan complets.","24 palabras válidas; os 256 bits están completos."],
     ["privadas","private","privadas","privées","private","private","privé","privades","privadas"],
     ["chaves privadas","private keys","claves privadas","clés privées","chiavi private","private Schlüssel","privésleutels","claus privades","claves privadas"],
     ["públicas","public","públicas","publiques","pubbliche","öffentliche","openbare","públiques","públicas"],
@@ -4513,6 +4603,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     paintModeButton();
     setClearLabel(!!signedPsbtText);
     paintCopyLabels();
+    paintMnemonicLabels();
+    paintMnemonicNote(mnemonicNote && mnemonicNote._i18nNote);
     if (coinStatus && coinStatus._i18nStatus) paintStatus(coinStatus);
     if (signStatus && signStatus._i18nStatus) paintStatus(signStatus);
     if (state.lastReview) {
@@ -4880,6 +4972,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     clearCoordsInput();
     paintTosses('jogadas zeradas.');
     discardKey();
+    /* Recomeçar pelas jogadas também esvazia a frase digitada: a entrada
+       anterior, com ou sem chave, não sobrevive ao recomeço. */
+    paintEntropy(null);
   }
 
   /* As coordenadas digitadas viram o ponto de partida de uma nova sequência:
@@ -5071,35 +5166,334 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       paintKey(cell, state.values ? state.values[id] : '');
     });
   }
-  /* O mnemonic é saída das jogadas, não entrada: a frase de 24 palavras fica
-     visível. Sem os 256 bits, as 24 posições ficam no travessão, no tom do
-     estado vazio. */
+  /* --------------------------------------------------- palavras da frase */
+  /* O mnemonic é entrada e saída: as 24 posições são campos, e a frase que
+     sai das jogadas ou das coordenadas é escrita neles. Cada palavra da
+     lista oficial vale 11 bits, então o prefixo já digitado desenha as
+     coordenadas; a chave só nasce quando as 24 palavras fecham a checagem
+     do BIP39, porque só a frase inteira define os 256 bits. */
   var mnemonicList = $('#mnemonic-words');
+  var mnemonicNote = $('#mnemonic-note');
+  var mnemonicBlock = $('#entropy-block');
+  var MNEMONIC_LEN = 24;
+  /* Teto de opções abertas: o prefixo costuma resolver antes disso, e a
+     lista não cobre o resto da tela enquanto se digita. */
+  var MNEMONIC_OPTION_LIMIT = 6;
+  var bip39List = BTC.bip39Words();
+  var mnemonicInputs = [];
+  var mnemonicOptions = null;
+  var mnemonicOpen = null;     // campo dono da lista aberta
+  var mnemonicMatches = [];    // palavras que casam com o prefixo digitado
+  var mnemonicActive = -1;     // opção em digitação (-1 = nenhuma)
+  var mnemonicEditing = false;  // a frase é do usuário: nada a sobrescreve
+
   (function buildMnemonic() {
     if (!mnemonicList) return;
-    for (var i = 0; i < 24; i++) {
+    for (var i = 0; i < MNEMONIC_LEN; i++) {
       var item = document.createElement('li');
-      item.className = 'mnemonic-word is-empty';
-      var index = document.createElement('span');
+      item.className = 'mnemonic-word';
+      var index = document.createElement('label');
       index.className = 'mnemonic-word-index';
+      index.htmlFor = 'mnemonic-word-' + (i + 1);
       index.textContent = padDigits(i + 1, 2);
-      var word = document.createElement('span');
-      word.className = 'mnemonic-word-text';
-      word.textContent = '—';
+      var input = document.createElement('input');
+      input.className = 'mnemonic-word-input';
+      input.id = 'mnemonic-word-' + (i + 1);
+      input.type = 'text';
+      input.autocomplete = 'off';
+      input.spellcheck = false;
+      input.placeholder = '—';
+      input.setAttribute('autocapitalize', 'none');
+      input.setAttribute('autocorrect', 'off');
+      /* Combobox com lista: o foco fica no campo enquanto a lista abre, e a
+         opção em digitação é apontada pelo aria-activedescendant. */
+      input.setAttribute('role', 'combobox');
+      input.setAttribute('aria-autocomplete', 'list');
+      input.setAttribute('aria-expanded', 'false');
+      input.setAttribute('aria-controls', 'mnemonic-options');
       item.appendChild(index);
-      item.appendChild(word);
+      item.appendChild(input);
       mnemonicList.appendChild(item);
+      mnemonicInputs.push(input);
     }
+    mnemonicOptions = document.createElement('ul');
+    mnemonicOptions.className = 'mnemonic-options';
+    mnemonicOptions.id = 'mnemonic-options';
+    mnemonicOptions.setAttribute('role', 'listbox');
+    mnemonicOptions.hidden = true;
+    if (mnemonicBlock) mnemonicBlock.appendChild(mnemonicOptions);
+    paintMnemonicLabels();
   })();
-  function paintEntropy(hd) {
-    var words = hd ? hd.mnemonic.split(' ') : [];
-    if (mnemonicList) {
-      $$('.mnemonic-word', mnemonicList).forEach(function (item, i) {
-        var word = words[i] || '';
-        item.classList.toggle('is-empty', !word);
-        item.querySelector('.mnemonic-word-text').textContent = word || '—';
-      });
+
+  function paintMnemonicLabels() {
+    mnemonicInputs.forEach(function (input, i) {
+      input.setAttribute('aria-label', t('palavra {n} da frase mnemônica', { n: i + 1 }));
+    });
+    if (mnemonicOptions) {
+      mnemonicOptions.setAttribute('aria-label', t('lista oficial de 2.048 palavras'));
     }
+  }
+
+  /* O recado guarda a chave e os campos, não o texto já montado: a troca de
+     idioma redesenha o mesmo estado, como os demais recados da tela. */
+  function paintMnemonicNote(note) {
+    if (!mnemonicNote) return;
+    mnemonicNote._i18nNote = note || null;
+    var text = note ? t(note.key, note.vars) : '';
+    if (mnemonicNote.textContent !== text) mnemonicNote.textContent = text;
+    mnemonicNote.classList.toggle('ok', !!note && note.kind === 'ok');
+    mnemonicNote.classList.toggle('error', !!note && note.kind === 'erro');
+  }
+
+  /* As opções são as palavras da lista oficial que começam com o que já foi
+     digitado; a lista para no teto e o resto sai digitando mais uma letra. */
+  function mnemonicMatchList(query) {
+    var out = [];
+    if (!query) return out;
+    for (var i = 0; i < bip39List.length && out.length < MNEMONIC_OPTION_LIMIT; i++) {
+      if (bip39List[i].indexOf(query) === 0) out.push(bip39List[i]);
+    }
+    return out;
+  }
+
+  function closeMnemonicOptions() {
+    if (mnemonicOpen) {
+      mnemonicOpen.setAttribute('aria-expanded', 'false');
+      mnemonicOpen.removeAttribute('aria-activedescendant');
+      mnemonicOpen = null;
+    }
+    mnemonicActive = -1;
+    mnemonicMatches = [];
+    if (mnemonicOptions) {
+      mnemonicOptions.hidden = true;
+      mnemonicOptions.textContent = '';
+    }
+    if (mnemonicBlock) mnemonicBlock.classList.remove('has-options');
+  }
+
+  function setMnemonicActive(index) {
+    if (!mnemonicOpen || !mnemonicMatches.length) return;
+    var count = mnemonicMatches.length;
+    mnemonicActive = ((index % count) + count) % count;
+    $$('.mnemonic-option', mnemonicOptions).forEach(function (option, i) {
+      option.setAttribute('aria-selected', i === mnemonicActive ? 'true' : 'false');
+    });
+    mnemonicOpen.setAttribute('aria-activedescendant', 'mnemonic-option-' + mnemonicActive);
+  }
+
+  function openMnemonicOptions(input) {
+    if (!mnemonicOptions) return;
+    var query = input.value.trim().toLowerCase();
+    var matches = mnemonicMatchList(query);
+    /* Palavra completa e sozinha no prefixo: não há o que escolher e o campo
+       pode seguir para a próxima posição. */
+    if (!matches.length || (matches.length === 1 && matches[0] === query)) {
+      closeMnemonicOptions();
+      return;
+    }
+    var item = input.parentNode;
+    /* A lista mora no item do campo em uso: assim ela cai na coluna do grid e
+       acompanha o campo ao rolar, sem posicionamento a cada tecla. */
+    if (mnemonicOptions.parentNode !== item) item.appendChild(mnemonicOptions);
+    mnemonicOptions.textContent = '';
+    matches.forEach(function (word, i) {
+      var option = document.createElement('li');
+      option.className = 'mnemonic-option';
+      option.id = 'mnemonic-option-' + i;
+      option.setAttribute('role', 'option');
+      option.setAttribute('aria-selected', 'false');
+      option.textContent = word;
+      mnemonicOptions.appendChild(option);
+    });
+    mnemonicMatches = matches;
+    mnemonicActive = -1;
+    mnemonicOpen = input;
+    mnemonicOptions.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+    input.removeAttribute('aria-activedescendant');
+    /* Sem espaço abaixo, a lista abre para cima, em vez de sair pelo rodapé
+       do que rola. */
+    mnemonicOptions.classList.remove('is-above');
+    var listBox = mnemonicOptions.getBoundingClientRect();
+    var scrollBox = scrollEl ? scrollEl.getBoundingClientRect() : null;
+    if (scrollBox && listBox.bottom > scrollBox.bottom - 8) {
+      var above = item.getBoundingClientRect().top - listBox.height;
+      mnemonicOptions.classList.toggle('is-above', above >= scrollBox.top + 8);
+    }
+    if (mnemonicBlock) mnemonicBlock.classList.add('has-options');
+  }
+
+  function chooseMnemonicOption(index) {
+    if (!mnemonicOpen || index < 0 || index >= mnemonicMatches.length) return;
+    var input = mnemonicOpen;
+    var word = mnemonicMatches[index];
+    closeMnemonicOptions();
+    input.value = word;
+    syncMnemonic();
+  }
+
+  /* Posições em 1 viram coordenadas; os bits que a frase ainda não alcançou
+     ficam de fora, então o que aparece é só o que já está definido. */
+  function pathFromBits(bits) {
+    var path = [];
+    for (var i = 0; i < bits.length; i++) {
+      if (bits.charAt(i) === '1') path.push(i);
+    }
+    return path;
+  }
+
+  function mnemonicNoteFor(unknown, bits, complete, valid) {
+    if (unknown) return { kind: 'erro', key: 'palavra fora da lista oficial de 2.048.' };
+    if (valid) return { kind: 'ok', key: '24 palavras válidas; os 256 bits estão completos.' };
+    if (complete) return { kind: 'erro', key: 'as 24 palavras não fecham a checagem do BIP39.' };
+    if (!bits) return null;
+    return {
+      kind: '',
+      key: 'faltam {n} de 24 palavras.',
+      vars: { n: MNEMONIC_LEN - Math.floor(bits.length / 11) }
+    };
+  }
+
+  /* Lê as 24 posições: cada palavra da lista vale 11 bits e a frase inteira,
+     264 — os 256 primeiros são a entropia e os 8 últimos, a checagem. O
+     prefixo válido até a primeira posição vazia ou fora da lista vira o
+     conjunto de coordenadas; a chave só sai da frase inteira e válida. */
+  function syncMnemonic() {
+    var focused = document.activeElement;
+    var words = mnemonicInputs.map(function (input) {
+      return input.value.trim().toLowerCase();
+    });
+    mnemonicInputs.forEach(function (input) {
+      input.parentNode.classList.remove('is-invalid');
+      input.setAttribute('aria-invalid', 'false');
+    });
+    var bits = '';
+    var unknown = false;
+    var complete = true;
+    for (var i = 0; i < words.length; i++) {
+      var index = words[i] ? bip39List.indexOf(words[i]) : -1;
+      /* A palavra só é dada como errada depois que o campo perde o foco: no
+         meio da digitação ela ainda é um prefixo de outra, e a posição
+         vazia não é erro. */
+      var bad = index < 0 && !!words[i] && mnemonicInputs[i] !== focused;
+      if (bad) {
+        mnemonicInputs[i].parentNode.classList.add('is-invalid');
+        mnemonicInputs[i].setAttribute('aria-invalid', 'true');
+        unknown = true;
+      }
+      if (index < 0) {
+        complete = false;
+        break;
+      }
+      bits += padDigits(index.toString(2), 11);
+    }
+    var entropy = bits.slice(0, BIT_COUNT);
+    var valid = complete && entropy.length === BIT_COUNT &&
+      BTC.bip39Mnemonic(entropy) === words.join(' ');
+    mnemonicEditing = true;
+    try {
+      /* O conjunto de bits em vigor é o da frase válida; o prefixo, sozinho,
+         não define os 256 bits. */
+      bitsValue = valid ? entropy : '';
+      markedPath = pathFromBits(entropy);
+      coordsDirty = false;
+      syncCoords();
+      tosses = markedPath.map(function (position) {
+        return { index: position, bit: 1 };
+      });
+      fillFreeCoords();
+      paintTosses();
+      paintMnemonicNote(mnemonicNoteFor(unknown, bits, complete, valid));
+      /* Sem a frase completa e válida não há 256 bits: a chave anterior cai
+         na hora e nada é derivado do prefixo. */
+      scheduleBits(valid ? entropy : '');
+    } finally {
+      mnemonicEditing = false;
+    }
+  }
+
+  if (mnemonicList) {
+    mnemonicList.addEventListener('input', function (ev) {
+      var input = ev.target;
+      if (!input || !input.classList || !input.classList.contains('mnemonic-word-input')) return;
+      syncMnemonic();
+      openMnemonicOptions(input);
+    });
+    mnemonicList.addEventListener('focusout', function (ev) {
+      var input = ev.target;
+      if (!input || !input.classList || !input.classList.contains('mnemonic-word-input')) return;
+      closeMnemonicOptions();
+      var word = input.value.trim().toLowerCase();
+      if (word !== input.value) input.value = word;
+      syncMnemonic();
+    });
+    /* Setas percorrem a lista sem tirar o foco do campo; Enter escolhe a
+       opção em digitação e Escape fecha a lista. */
+    mnemonicList.addEventListener('keydown', function (ev) {
+      var input = ev.target;
+      if (!input || !input.classList || !input.classList.contains('mnemonic-word-input')) return;
+      if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+        if (!mnemonicOpen || mnemonicOpen !== input) {
+          /* Abrir pela seta já deixa a primeira (para baixo) ou a última (para
+             cima) opção em digitação. */
+          openMnemonicOptions(input);
+          if (mnemonicOpen) {
+            setMnemonicActive(ev.key === 'ArrowDown' ? 0 : mnemonicMatches.length - 1);
+            ev.preventDefault();
+          }
+          return;
+        }
+        ev.preventDefault();
+        if (mnemonicActive < 0) {
+          setMnemonicActive(ev.key === 'ArrowDown' ? 0 : mnemonicMatches.length - 1);
+        } else {
+          setMnemonicActive(mnemonicActive + (ev.key === 'ArrowDown' ? 1 : -1));
+        }
+      } else if (ev.key === 'Enter') {
+        if (mnemonicOpen && mnemonicActive >= 0) {
+          ev.preventDefault();
+          chooseMnemonicOption(mnemonicActive);
+        }
+      } else if (ev.key === 'Escape') {
+        if (mnemonicOpen) {
+          ev.preventDefault();
+          closeMnemonicOptions();
+        }
+      } else if (ev.key === 'Tab') {
+        closeMnemonicOptions();
+      }
+    });
+  }
+  if (mnemonicOptions) {
+    /* mousedown antes do blur que fecha a lista: a escolha não tira o foco
+       do campo, então o Tab seguinte continua onde estava. O click cobre o
+       toque, que nem sempre dispara mousedown. */
+    ['mousedown', 'click'].forEach(function (type) {
+      mnemonicOptions.addEventListener(type, function (ev) {
+        var option = ev.target && ev.target.closest ? ev.target.closest('.mnemonic-option') : null;
+        if (!option || !mnemonicOpen) return;
+        var index = Array.prototype.indexOf.call(mnemonicOptions.children, option);
+        if (index < 0) return;
+        ev.preventDefault();
+        chooseMnemonicOption(index);
+      });
+    });
+  }
+
+  /* A frase que vem das jogadas ou das coordenadas é escrita nos campos;
+     enquanto o usuário digita a própria frase, nenhum desenho passa por
+     cima do que ele escreveu. */
+  function paintEntropy(hd) {
+    if (!mnemonicList || mnemonicEditing) return;
+    var words = hd ? hd.mnemonic.split(' ') : [];
+    mnemonicInputs.forEach(function (input, i) {
+      input.value = words[i] || '';
+      input.parentNode.classList.remove('is-invalid');
+      input.setAttribute('aria-invalid', 'false');
+    });
+    paintMnemonicNote(hd
+      ? { kind: 'ok', key: '24 palavras válidas; os 256 bits estão completos.' }
+      : null);
   }
   document.addEventListener('click', function (ev) {
     var action = ev.target && ev.target.closest ? ev.target.closest('.key-action') : null;
