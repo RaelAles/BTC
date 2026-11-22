@@ -190,6 +190,15 @@ for (const [nome, valor] of Object.entries(SECURITY_HEADERS)) ESPERADO[nome.toLo
      /cofre-btc → cofre-btc.html; o valor explícito prende esse comportamento. */
   assert.match(read('wrangler.jsonc'), /"html_handling":\s*"auto-trailing-slash"/,
     'wrangler.jsonc mantém html_handling auto-trailing-slash');
+  /* As páginas HTML precisam passar pelo Worker mesmo existindo no asset
+     layer: sem isso `/` responde 200 antes da recusa de x-original-url e um
+     scanner lê o par como "Bypassing 403". */
+  const rwf = read('wrangler.jsonc').match(/"run_worker_first":\s*\[([^\]]*)\]/);
+  assert.ok(rwf, 'wrangler.jsonc declara run_worker_first para as páginas HTML');
+  for (const rota of ['/', '/index.html', '/cofre-btc', '/cofre-btc.html']) {
+    assert.ok(rwf[1].includes('"' + rota + '"'),
+      'run_worker_first cobre ' + rota);
+  }
   /* O Worker não reescreve caminho de estático: o asset layer vê a rota crua,
      e é ele quem aplica o Content-Disposition de public/_headers. */
   const vistos = [];

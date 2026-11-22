@@ -11,6 +11,12 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
+    // As páginas HTML passam pelo Worker mesmo existindo no asset layer.
+    // Sem isso o asset layer responde `/` antes do Worker e a recusa de
+    // cabeçalho de reescrita de caminho (x-original-url e afins) nunca
+    // valia ali: era o que o ZAP lia como "Bypassing 403". Os demais
+    // estáticos seguem direto do asset layer.
+    "run_worker_first": ["/", "/index.html", "/cofre-btc", "/cofre-btc.html"],
     // Explicito para /cofre-btc (declarado em public/_headers) não mudar
     // de comportamento num bump do Wrangler.
     "html_handling": "auto-trailing-slash",
@@ -18,9 +24,9 @@
     // do 404 cru do asset layer. O Worker troca o status para 404 antes de
     // entregar a resposta, para o caminho não parecer um arquivo existente.
     "not_found_handling": "single-page-application"
-    // Os estáticos continuam sendo servidos pelo asset layer, que aplica
-    // os cabeçalhos de public/_headers sem acordar o Worker. As respostas
-    // dinâmicas recebem os mesmos cabeçalhos em src/config.js.
+    // Os demais estáticos continuam sendo servidos pelo asset layer, que
+    // aplica os cabeçalhos de public/_headers sem acordar o Worker. As
+    // respostas dinâmicas recebem os mesmos cabeçalhos em src/config.js.
   },
   // O domínio personalizado também fica declarado aqui, para um deploy a
   // partir do repositório reatar a rota sem depender do painel.
