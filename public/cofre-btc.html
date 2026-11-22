@@ -4592,6 +4592,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   var deriveSeq = 0;
   var deriveTimer = 0;
+  /* Os bits cuja derivação foi pedida e ainda não voltou. `deriveTimer`
+     cobre só a espera antes do disparo do timer; este valor cobre também a
+     espera do BTC.deriveHD, para saber que a chave daqueles bits está a
+     caminho. */
+  var pendingBits = '';
   var analyzeSeq = 0;
 
   var screenChave = $('#screen-chave');
@@ -4798,12 +4803,33 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (coinStatus && message !== undefined) setStatus(coinStatus, '', message, vars);
   }
 
+  /* Cancela a derivação pedida e ainda não aplicada: nem o timer nem a
+     derivação em voo podem aplicar uma chave que já não corresponde aos
+     bits em vigor. */
+  function cancelPendingDerivation() {
+    deriveSeq++;
+    pendingBits = '';
+    if (deriveTimer) {
+      window.clearTimeout(deriveTimer);
+      deriveTimer = 0;
+    }
+  }
+
+  /* Há chave, valores na tela ou análise na memória. Um predicado só, usado
+     ao descartar a chave e ao poupar a derivação, para os dois não
+     divergirem. */
+  function hasKeyState() {
+    return !!(state.hd || state.values || state.analysis);
+  }
+
   /* Com a sequência incompleta a chave anterior não vale mais, mas a
      derivação espera a última jogada: 256 chamadas de BIP39 no meio dos
-     cliques segurariam a página sem necessidade. */
+     cliques segurariam a página sem necessidade. O timer e a derivação em
+     voo caem junto: uma chave pedida para a entrada anterior não pode
+     chegar depois da primeira jogada da rodada nova. */
   function discardKey() {
-    deriveSeq++;
-    if (state.hd || state.values || state.analysis) clearKey();
+    cancelPendingDerivation();
+    if (hasKeyState()) clearKey();
   }
 
   /* Registra a face da moeda na próxima posição da entropia. O clique em
@@ -5301,10 +5327,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       BTC.bip39Mnemonic(entropy) === words.join(' ');
     var next = valid ? entropy : '';
     /* A frase em vigor não mudou: entrar e sair de uma posição sem editar
-       nada não apaga nem recalcula a chave (PBKDF2 + BIP32) que já está na
-       tela. Sem esta saída, o blur refazia a derivação inteira à toa. */
-    var unchanged = next === bitsValue &&
-      (next ? !!(state.hd || deriveTimer) : !state.hd && !state.values);
+       nada não apaga a chave (PBKDF2 + BIP32) nem descarta a revisão e a
+       assinatura de PSBT em andamento — o `focusout` chamava esta função e
+       derrubava as três mesmo sem mudança. `settled` cobre também a
+       derivação em voo (timer e BTC.deriveHD): nessa janela a chave está a
+       caminho e pedir de novo a descartaria. */
+    var changed = next !== bitsValue;
+    var settled = next
+      ? !!(state.hd || deriveTimer || pendingBits === next)
+      : !hasKeyState();
+    if (!changed && settled) return;
     mnemonicEditing = true;
     try {
       /* O conjunto de bits em vigor é o da frase válida; o prefixo, sozinho,
@@ -5312,7 +5344,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       bitsValue = next;
       paintBinary();
       paintMnemonicNote(mnemonicNoteFor(bits, complete, valid));
-      if (unchanged) return;
       /* Sem a frase completa e válida não há 256 bits: a chave anterior cai
          na hora e nada é derivado do prefixo. */
       scheduleBits(next);
@@ -5521,12 +5552,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     });
   });
   function clearKey() {
-    deriveSeq++;
+    cancelPendingDerivation();
     analyzeSeq++;
-    if (deriveTimer) {
-      window.clearTimeout(deriveTimer);
-      deriveTimer = 0;
-    }
     state.hd = null;
     state.values = null;
     state.analysis = null;
@@ -5625,13 +5652,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       clearKey();
       return;
     }
+    pendingBits = bits;
     var seq = ++deriveSeq;
     try {
       var hd = await BTC.deriveHD(bits);
       if (seq !== deriveSeq) return;
+      if (pendingBits === bits) pendingBits = '';
       applyKey(hd);
     } catch (e) {
       if (seq === deriveSeq) {
+        /* A derivação destes bits voltou (com erro): clearKey zera
+           pendingBits junto. */
         clearKey();
         var msg = e && e.message ? e.message : '';
         if (msg === 'Web Crypto indisponível') {
@@ -5654,7 +5685,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      memória e é reavaliado contra a chave nova quando ela chega; o botão de
      assinar não pode ficar ativo com a chave anterior. */
   function invalidateDerivedKey() {
-    deriveSeq++;
+    cancelPendingDerivation();
     state.hd = null;
     state.values = null;
     paintValues();
@@ -5668,15 +5699,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      curto da análise do PSBT, e só o último conjunto é derivado. Sem 256
      bits, o estado antigo cai na hora. */
   function scheduleBits(bits) {
+    /* invalidateDerivedKey cancela o timer e a derivação em voo. */
     invalidateDerivedKey();
-    if (deriveTimer) {
-      window.clearTimeout(deriveTimer);
-      deriveTimer = 0;
-    }
     if (bits.length < BIT_COUNT) {
       applyBits(bits);
       return;
     }
+    /* Daqui até a chave voltar, a derivação destes bits está pedida: sair do
+       campo mnemônico nessa janela não pode pedir de novo. */
+    pendingBits = bits;
     deriveTimer = window.setTimeout(function () {
       deriveTimer = 0;
       applyBits(bits);

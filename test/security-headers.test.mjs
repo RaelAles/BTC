@@ -195,20 +195,24 @@ for (const [nome, valor] of Object.entries(SECURITY_HEADERS)) ESPERADO[nome.toLo
   console.log('ok   /cofre-btc e /cofre-btc.html servidos sem reescrita e com os cabeçalhos');
 }
 
-/* ---------------- 7. sha256 do Cofre publicado no README ---------------- */
+/* ---------------- 7. sha256 do Cofre publicado nos READMEs ---------------- */
 {
   /* A tela “sobre” do Cofre manda conferir o sha256 do arquivo antes de
-     abrir, então o valor precisa estar publicado e em dia. O bloco `>` do
-     README é removido para a busca não depender da quebra de linha. */
-  const texto = read('README.md').replace(/^>\s?/gm, '');
-  const m = texto.match(/sha256 do arquivo publicado é\s*`([0-9a-f]{64})`/);
-  assert.ok(m, 'README.md publica o sha256 do Cofre');
+     abrir, então o valor precisa estar publicado e em dia nos dois idiomas:
+     o leitor de língua portuguesa confere o mesmo arquivo, e o aviso é "se o
+     hash não bater, não abra". O bloco `>` do README é removido para a busca
+     não depender da quebra de linha. */
   const hash = createHash('sha256')
     .update(fs.readFileSync(path.join(root, 'public/cofre-btc.html')))
     .digest('hex');
-  assert.equal(m[1], hash,
-    'sha256 do Cofre no README está em dia (mexeu em public/cofre-btc.html?): ' + hash);
-  console.log('ok   sha256 do Cofre no README confere com o arquivo');
+  for (const arquivo of ['README.md', 'README.pt-BR.md']) {
+    const texto = read(arquivo).replace(/^>\s?/gm, '');
+    const m = texto.match(/sha256 do arquivo publicado é\s*`([0-9a-f]{64})`/);
+    assert.ok(m, arquivo + ' publica o sha256 do Cofre');
+    assert.equal(m[1], hash,
+      'sha256 do Cofre em ' + arquivo + ' está em dia (mexeu em public/cofre-btc.html?): ' + hash);
+  }
+  console.log('ok   sha256 do Cofre nos READMEs confere com o arquivo');
 }
 
 console.log('\ntestes dos cabeçalhos de segurança passaram');
