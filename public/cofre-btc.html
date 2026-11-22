@@ -1708,7 +1708,6 @@
      --motion-fast (ver fadeGeneration): os controles não esperam o contorno
      do hover/foco. */
   .coin-panel button { transition-property: color, background-color, opacity; }
-  .bits-actions { justify-content: center; }
   /* Chaves no mesmo desenho das leituras: o rótulo (só o bip) no --dim à
      esquerda, o valor no --fg à direita, na mesma largura de 28rem do painel
      de jogadas, sem moldura nem fio entre as linhas. A coluna do rótulo
@@ -1759,7 +1758,8 @@
      sob o valor. */
   .key-value { display: block; }
   .key-action[hidden] { display: none; }
-  .key-action {
+  .key-action,
+  .mnemonic-actions button {
     display: block;
     margin: var(--space-3) 0 0 auto;
   }
@@ -1793,7 +1793,6 @@
      256 jogadas. */
   #screen-chave.is-generating .coin-panel { display: flex; }
   #screen-chave.is-generating > :not(h2):not(pre):not(.bits-row),
-  #screen-chave.is-generating .bits-actions,
   #screen-chave.is-generating .entropy-block { display: none; }
   .coin-actions { justify-content: center; }
   .coin-head {
@@ -1994,20 +1993,13 @@
     background: var(--accent);
     color: var(--on-strong);
   }
-  /* O recado da frase, abaixo das 24 posições: quantas faltam, a checagem
-     que não fechou ou as 24 válidas. A linha fica reservada, como nos demais
-     recados, para a frase não empurrar o que vem abaixo a cada palavra
-     digitada. */
-  .mnemonic-note {
+  /* O "gerar chave" fecha o bloco da frase, alinhado à direita como o
+     "copiar" das chaves públicas e no mesmo corpo do valor da tabela. */
+  .mnemonic-actions {
     width: min(100%, 28rem);
-    min-height: 1.65em;
-    margin: var(--space-4) auto 0;
-    color: var(--dim);
-    font-size: var(--text-xs);
-    text-align: center;
+    margin: 0 auto;
+    font-size: var(--text-sm);
   }
-  .mnemonic-note.ok { color: var(--success); }
-  .mnemonic-note.error { color: var(--error); }
   /* A frase secreta fica fora do <ol> das 24 posições, na linha de baixo
      da mesma grade: ocupa a largura toda para que a frase inteira caiba e
      possa ser conferida contra o que foi anotado. Rótulo e texto ficam
@@ -2097,10 +2089,6 @@
           <pre class="rule" aria-hidden="true"></pre>
 
           <div class="bits-row">
-            <div class="chips reveal-block bits-actions chips-dots" role="group" aria-label="Entrada de bits">
-              <button type="button" id="bits-mode">gerar chave</button>
-            </div>
-
             <div class="coin-panel reveal-block" id="coin-panel">
               <div class="coin-head">
                 <span class="coin-head-label">rodada</span>
@@ -2132,7 +2120,9 @@
                   <input class="passphrase-input" id="passphrase" type="text" maxlength="256" placeholder="—" autocomplete="off" spellcheck="false" autocapitalize="none" autocorrect="off">
                 </div>
               </div>
-              <p class="mnemonic-note" id="mnemonic-note" role="status" aria-live="polite"></p>
+              <div class="mnemonic-actions">
+                <button type="button" id="bits-mode">gerar chave</button>
+              </div>
             </div>
 
             <div class="binary-block reveal-block" id="binary-block">
@@ -4238,19 +4228,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["Registrar a face da moeda","Record the coin face","Registrar la cara de la moneda","Enregistrer la face de la pièce","Registra la faccia della moneta","Münzseite erfassen","Muntzijde vastleggen","Registrar la cara de la moneda","Rexistrar a cara da moeda"],
     ["1, cara: registrar a jogada e passar para a próxima","1, heads: record the toss and move to the next","1, cara: registrar el lanzamiento y pasar al siguiente","1, face : enregistrer le lancer et passer au suivant","1, testa: registra il lancio e passa al successivo","1, Kopf: Wurf erfassen und zum nächsten wechseln","1, kop: worp vastleggen en naar de volgende gaan","1, cara: registrar el llançament i passar al següent","1, cara: rexistrar o lanzamento e pasar ao seguinte"],
     ["0, coroa: registrar a jogada e passar para a próxima","0, tails: record the toss and move to the next","0, cruz: registrar el lanzamiento y pasar al siguiente","0, pile : enregistrer le lancer et passer au suivant","0, croce: registra il lancio e passa al successivo","0, Zahl: Wurf erfassen und zum nächsten wechseln","0, munt: worp vastleggen en naar de volgende gaan","0, creu: registrar el llançament i passar al següent","0, cruz: rexistrar o lanzamento e pasar ao seguinte"],
-    ["Entrada de bits","Bit input","Entrada de bits","Saisie de bits","Immissione di bit","Bit-Eingabe","Bit-invoer","Entrada de bits","Entrada de bits"],
     ["mnemonic","mnemonic","mnemónica","mnémonique","mnemonica","mnemonik","mnemoniek","mnemònica","mnemónica"],
     ["entropia","entropy","entropía","entropie","entropia","Entropie","entropie","entropia","entropía"],
     ["frase mnemônica de 24 palavras","24-word mnemonic phrase","frase mnemónica de 24 palabras","phrase mnémotechnique de 24 mots","frase mnemonica di 24 parole","Merkhilfe aus 24 Wörtern","mnemonische zin van 24 woorden","frase mnemònica de 24 paraules","frase mnemónica de 24 palabras"],
     ["palavra {n} da frase mnemônica","word {n} of the mnemonic phrase","palabra {n} de la frase mnemónica","mot {n} de la phrase mnémotechnique","parola {n} della frase mnemonica","Wort {n} der Merkhilfe","woord {n} van de mnemonische zin","paraula {n} de la frase mnemònica","palabra {n} da frase mnemónica"],
     ["frase secreta","secret phrase","frase secreta","phrase secrète","frase segreta","geheime Phrase","geheime zin","frase secreta","frase secreta"],
     ["lista oficial de 2.048 palavras","official list of 2,048 words","lista oficial de 2.048 palabras","liste officielle de 2 048 mots","elenco ufficiale di 2.048 parole","offizielle Liste mit 2.048 Wörtern","officiële lijst van 2.048 woorden","llista oficial de 2.048 paraules","lista oficial de 2.048 palabras"],
-    ["faltam {n} de 24 palavras.","{n} of 24 words missing.","faltan {n} de 24 palabras.","il manque {n} mots sur 24.","mancano {n} parole su 24.","es fehlen {n} von 24 Wörtern.","er ontbreken {n} van 24 woorden.","falten {n} de 24 paraules.","faltan {n} de 24 palabras."],
     ["{word} não está na lista de 2.048 palavras.","{word} is not in the 2,048-word list.","{word} no está en la lista de 2.048 palabras.","{word} ne figure pas dans la liste de 2 048 mots.","{word} non è nell'elenco di 2.048 parole.","{word} steht nicht in der Liste der 2.048 Wörter.","{word} staat niet in de lijst van 2.048 woorden.","{word} no és a la llista de 2.048 paraules.","{word} non está na lista de 2.048 palabras."],
-    ["{word} não está na lista de 2.048 palavras. Escape limpa o campo.","{word} is not in the 2,048-word list. Escape clears the field.","{word} no está en la lista de 2.048 palabras. Escape limpia el campo.","{word} ne figure pas dans la liste de 2 048 mots. Échap vide le champ.","{word} non è nell'elenco di 2.048 parole. Esc svuota il campo.","{word} steht nicht in der Liste der 2.048 Wörter. Escape leert das Feld.","{word} staat niet in de lijst van 2.048 woorden. Escape maakt het veld leeg.","{word} no és a la llista de 2.048 paraules. Escape buida el camp.","{word} non está na lista de 2.048 palabras. Escape limpa o campo."],
-    ["as 24 palavras não fecham a checagem do BIP39.","the 24 words do not pass the BIP39 checksum.","las 24 palabras no pasan la comprobación del BIP39.","les 24 mots ne passent pas la somme de contrôle BIP39.","le 24 parole non superano il controllo del BIP39.","die 24 Wörter bestehen die BIP39-Prüfsumme nicht.","de 24 woorden halen de BIP39-controle niet.","les 24 paraules no passen la comprovació del BIP39.","as 24 palabras non pasan a comprobación do BIP39."],
-    ["24 palavras válidas; os 256 bits estão completos.","24 valid words; all 256 bits are complete.","24 palabras válidas; los 256 bits están completos.","24 mots valides ; les 256 bits sont complets.","24 parole valide; i 256 bit sono completi.","24 gültige Wörter; die 256 Bit sind vollständig.","24 geldige woorden; de 256 bits zijn compleet.","24 paraules vàlides; els 256 bits estan complets.","24 palabras válidas; os 256 bits están completos."],
-    ["frase secreta em vigor: guarde-a à parte; as 24 palavras sozinhas não restauram esta carteira.","secret phrase in effect: keep it separately; the 24 words alone do not restore this wallet.","frase secreta en vigor: guárdala aparte; las 24 palabras por sí solas no restauran esta cartera.","phrase secrète active : conservez-la à part ; les 24 mots seuls ne restaurent pas ce portefeuille.","frase segreta in vigore: conservala a parte; le 24 parole da sole non ripristinano questo portafoglio.","geheime Phrase aktiv: bewahre sie getrennt auf; die 24 Wörter allein stellen diese Wallet nicht wieder her.","geheime zin actief: bewaar die apart; de 24 woorden alleen herstellen deze wallet niet.","frase secreta en vigor: desa-la a part; les 24 paraules soles no restauren aquesta cartera.","frase secreta en vigor: gárdaa á parte; as 24 palabras soas non restauran esta carteira."],
     ["256 bits de entropia, {n} preenchidos.","256 bits of entropy, {n} filled.","256 bits de entropía, {n} rellenados.","256 bits d'entropie, {n} remplis.","256 bit di entropia, {n} inseriti.","256 Bit Entropie, {n} gesetzt.","256 bits entropie, {n} ingevuld.","256 bits d'entropia, {n} omplerts.","256 bits de entropía, {n} cubertos."],
     ["privadas","private","privadas","privées","private","private","privé","privades","privadas"],
     ["chaves privadas","private keys","claves privadas","clés privées","chiavi private","private Schlüssel","privésleutels","claus privades","claves privadas"],
@@ -4640,7 +4624,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     setClearLabel(!!signedPsbtText);
     paintCopyLabels();
     paintMnemonicLabels();
-    paintMnemonicNote(mnemonicNote && mnemonicNote._i18nNote);
     if (coinStatus && coinStatus._i18nStatus) paintStatus(coinStatus);
     if (signStatus && signStatus._i18nStatus) paintStatus(signStatus);
     if (state.lastReview) {
@@ -5105,7 +5088,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      bits; a chave só nasce quando as 24 palavras fecham a checagem do BIP39,
      porque só a frase inteira define os 256 bits. */
   var mnemonicList = $('#mnemonic-words');
-  var mnemonicNote = $('#mnemonic-note');
   var mnemonicBlock = $('#entropy-block');
   var MNEMONIC_LEN = 24;
   /* Teto de opções abertas: o prefixo costuma resolver antes disso, e a
@@ -5168,23 +5150,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (mnemonicOptions) {
       mnemonicOptions.setAttribute('aria-label', t('lista oficial de 2.048 palavras'));
     }
-  }
-
-  /* O recado guarda a chave e os campos, não o texto já montado: a troca de
-     idioma redesenha o mesmo estado, como os demais recados da tela. */
-  function paintMnemonicNote(note) {
-    if (!mnemonicNote) return;
-    mnemonicNote._i18nNote = note || null;
-    var text = note ? t(note.key, note.vars) : '';
-    /* A frase secreta não muda as 24 palavras, mas muda a carteira: o
-       recado avisa sempre que o segundo fator está em vigor. */
-    if (passphraseInput && passphraseInput.value) {
-      text += (text ? ' ' : '') +
-        t('frase secreta em vigor: guarde-a à parte; as 24 palavras sozinhas não restauram esta carteira.');
-    }
-    if (mnemonicNote.textContent !== text) mnemonicNote.textContent = text;
-    mnemonicNote.classList.toggle('ok', !!note && note.kind === 'ok');
-    mnemonicNote.classList.toggle('error', !!note && note.kind === 'erro');
   }
 
   /* O campo só aceita o que ainda pode virar palavra da lista: cada tecla é
@@ -5259,16 +5224,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return typed;
   }
 
-  /* Prefixo recusado: antes de o campo perder o foco, o recado avisa por que
-     a posição não anda e como sair pelo teclado. O aria-invalid amarra o
-     recado ao campo para o leitor de tela. */
-  function paintMnemonicReject(word, input) {
+  /* Prefixo recusado: a posição fica marcada como inválida para o leitor de
+     tela até virar palavra da lista ou ser limpa. */
+  function paintMnemonicReject(input) {
     if (input) input.setAttribute('aria-invalid', 'true');
-    paintMnemonicNote({
-      kind: 'erro',
-      key: '{word} não está na lista de 2.048 palavras. Escape limpa o campo.',
-      vars: { word: word }
-    });
   }
 
   /* As opções são as palavras da lista oficial que começam com o que já foi
@@ -5367,17 +5326,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (next) next.focus();
   }
 
-  function mnemonicNoteFor(bits, complete, valid) {
-    if (valid) return { kind: 'ok', key: '24 palavras válidas; os 256 bits estão completos.' };
-    if (complete) return { kind: 'erro', key: 'as 24 palavras não fecham a checagem do BIP39.' };
-    if (!bits) return null;
-    return {
-      kind: '',
-      key: 'faltam {n} de 24 palavras.',
-      vars: { n: MNEMONIC_LEN - Math.floor(bits.length / 11) }
-    };
-  }
-
   /* Lê as 24 posições: cada palavra da lista vale 11 bits e a frase inteira,
      264 — os 256 primeiros são a entropia e os 8 últimos, a checagem. A
      chave só sai da frase inteira e válida. */
@@ -5416,7 +5364,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
          não define os 256 bits. */
       bitsValue = next;
       paintBinary();
-      paintMnemonicNote(mnemonicNoteFor(bits, complete, valid));
       /* Sem a frase completa e válida não há 256 bits: a chave anterior cai
          na hora e nada é derivado do prefixo. */
       scheduleBits(next);
@@ -5469,7 +5416,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         acceptMnemonicText(input);
         var committed = commitMnemonicWord(input);
         syncMnemonic();
-        if (committed) paintMnemonicReject(committed, input);
+        if (committed) paintMnemonicReject(input);
         return;
       }
       /* Fora essas saídas, nenhum atalho tira o foco de uma posição com
@@ -5480,7 +5427,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         window.setTimeout(function () {
           if (document.activeElement && mnemonicList.contains(document.activeElement)) return;
           input.focus();
-          paintMnemonicReject(input.value, input);
+          paintMnemonicReject(input);
         }, 0);
         return;
       }
@@ -5490,7 +5437,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       acceptMnemonicText(input);
       var rejected = commitMnemonicWord(input);
       syncMnemonic();
-      if (rejected) paintMnemonicReject(rejected, input);
+      if (rejected) paintMnemonicReject(input);
     });
     /* A origem da saída decide se o campo pode ser deixado: clique/toque, sim;
        tecla, não. O registrador fica na captura para valer antes do blur, e
@@ -5542,7 +5489,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         } else if (!mnemonicWordReady(input)) {
           /* Prefixo pela metade: o mesmo recado do Tab, sem sair da posição. */
           ev.preventDefault();
-          paintMnemonicReject(input.value, input);
+          paintMnemonicReject(input);
         } else if (input.value) {
           /* Palavra inteira da lista: o Enter vale como o Tab e leva o foco
              para a próxima posição, sem voltar ao mouse. */
@@ -5570,7 +5517,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
            palavra inteira (ou vazia), nem com Tab nem com Shift+Tab. */
         if (!mnemonicWordReady(input)) {
           ev.preventDefault();
-          paintMnemonicReject(input.value, input);
+          paintMnemonicReject(input);
           return;
         }
         closeMnemonicOptions();
@@ -5599,7 +5546,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      chave para refazer. */
   if (passphraseInput) {
     passphraseInput.addEventListener('input', function () {
-      paintMnemonicNote(mnemonicNote && mnemonicNote._i18nNote);
       if (bitsValue.length === BIT_COUNT) scheduleBits(bitsValue, true);
     });
   }
@@ -5614,9 +5560,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       input.removeAttribute('aria-invalid');
       setMnemonicValueEnd(input, words[i] || '');
     });
-    paintMnemonicNote(hd
-      ? { kind: 'ok', key: '24 palavras válidas; os 256 bits estão completos.' }
-      : null);
   }
   document.addEventListener('click', function (ev) {
     var action = ev.target && ev.target.closest ? ev.target.closest('.key-action') : null;
