@@ -228,7 +228,8 @@
        (--motion-reveal-delay), o escalonamento (--motion-reveal-step) e o
        teto que libera a medida das setas (--motion-reveal-total); e
        --motion-notice é o tempo do aviso temporário (VG-ABS-07), que some
-       sozinho depois de 8 s no padrão. */
+       sozinho depois de 8 s no padrão; e --motion-blink é o pisca-pisca do
+       cursor da geração, no ritmo de um terminal. */
     --motion-fast: 150ms;
     --motion-theme: 150ms;
     --motion-grain: 75ms;
@@ -239,6 +240,7 @@
     --motion-reveal-total: 1000ms;
     --motion-rule-delay: 75ms;
     --motion-notice: 8000ms;
+    --motion-blink: 1000ms;
     --motion-ease: ease;
     --motion-ease-out: cubic-bezier(.16,1,.3,1);
     --motion-ease-draw: cubic-bezier(.65,0,.35,1);
@@ -1701,9 +1703,10 @@
      com o painel de jogadas e os submenus de binários e coordenadas. O
      mnemonic e os demais submenus voltam quando a sequência fecha. */
   .bits-row { margin: var(--space-5) 0 var(--space-7); }
-  /* A troca entre a tela normal e a geração é imediata: os controles do
-     painel não esperam o --motion-fast do contorno, senão continuam ocultos
-     no instante do .focus() chamado logo depois da troca e o foco se perde. */
+  /* A troca entre a tela normal e a geração usa a revelação da skill, mas os
+     controles do painel não esperam o --motion-fast do contorno: o painel já
+     está visível no instante do .focus() chamado logo depois da troca, e a
+     revelação só anima opacidade, deslocamento e desfoque. */
   .bits-col .coin-panel button { transition-property: color, background-color, opacity; }
   .bits-actions { justify-content: center; }
   /* Chaves no mesmo desenho das leituras: o rótulo (só o bip) no --dim à
@@ -1881,9 +1884,26 @@
      do --dim, e a próxima coordenada, a que o clique preenche, assume o
      --accent com o texto no --on-strong. */
   .binary-bits .binary-empty { color: var(--dim); }
+  /* O cursor da geração pisca como o de um terminal: meio ciclo aceso no
+     --accent, meio apagado, com o zero ainda legível no --dim. O passo seco
+     (step-end) evita o degradê de fundo e de cor entre os dois estados. */
   .binary-bits .binary-next {
     background: var(--accent);
     color: var(--on-strong);
+    animation: binary-next-blink var(--motion-blink) step-end infinite;
+  }
+  @keyframes binary-next-blink {
+    0%, 49% {
+      background-color: var(--accent);
+      color: var(--on-strong);
+    }
+    50%, 100% {
+      background-color: transparent;
+      color: var(--dim);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .binary-bits .binary-next { animation: none; }
   }
   /* A lista de sugestões sai do fluxo e sobe para a camada dos controles
      flutuantes: o bloco das palavras é um dos .reveal-block, que pinta em
@@ -4903,11 +4923,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   /* O botão "gerar chave" abre a geração: a tela fica só com o painel de
      jogadas e os submenus de binários e coordenadas, e a sequência anterior
-     não sobrevive ao recomeço. */
+     não sobrevive ao recomeço. A troca usa a revelação da skill (título,
+     régua e blocos), sem esconder o painel do .focus() seguinte. */
   function startGeneration() {
     resetTossRun();
     if (screenChave) screenChave.classList.add('is-generating');
     paintBinary();
+    reveal(screenChave);
     if (coinCara && !coinCara.disabled) coinCara.focus();
     else if (coinCoroa) coinCoroa.focus();
     updateScrollState();
@@ -4918,6 +4940,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function endGeneration() {
     if (screenChave) screenChave.classList.remove('is-generating');
     paintBinary();
+    reveal(screenChave);
     if (modeBtn) modeBtn.focus();
     updateScrollState();
   }
