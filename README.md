@@ -176,7 +176,7 @@ key, the script, the outputs and the fee before signing. The private key never
 reaches the Monitor.
 
 Before opening it, compare the published hash: sha256 do arquivo publicado é
-`abdec8da3ca265d6de59e285db022cc64189a65761be8d5d1b4de62c83684ca0` — run
+`006263940a7ef3de55b1532a088c99e8d6e3db782571a4caa105ba0e28719691` — run
 `sha256sum cofre-btc.html` on the downloaded file. The Cofre's about screen
 asks for the same check. Any edit to the Cofre requires updating this value;
 `npm test` fails when the hash is out of date.

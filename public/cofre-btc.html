@@ -5293,6 +5293,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
           ev.preventDefault();
           chooseMnemonicOption(mnemonicActive);
           focusNextMnemonic(input);
+        } else if (mnemonicOpen && mnemonicMatches.length === 1) {
+          /* Restou um só palpite na lista: o Enter completa a posição com ele
+             e segue para a próxima palavra, como a seta + Enter. */
+          ev.preventDefault();
+          chooseMnemonicOption(0);
+          focusNextMnemonic(input);
         } else if (!mnemonicWordReady(input)) {
           /* Prefixo pela metade: o mesmo recado do Tab, sem sair da posição. */
           ev.preventDefault();
