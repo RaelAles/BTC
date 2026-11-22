@@ -1996,13 +1996,18 @@
   /* A frase-secreta entra na própria grade das palavras, na coluna do
      meio logo abaixo das 24 posições: ocupa o lugar da "26ª palavra", com
      o nome no lugar do número e o mesmo fio da célula. Rótulo e texto
-     ficam centralizados na coluna. Ela entra no PBKDF2 depois das palavras,
-     então não muda a frase — muda a seed e as chaves que saem dela. */
+     ficam centralizados na coluna, com um respiro acima. Ela entra no
+     PBKDF2 depois das palavras, então não muda a frase — muda a seed e as
+     chaves que saem dela. */
   .passphrase-word {
     grid-column: 2;
     flex-direction: column;
     align-items: center;
     gap: 0;
+    /* A célula abre um respiro depois das 24 posições: a linha da grade
+       sozinha (--space-2) não separa a frase-secreta do bloco das
+       palavras. */
+    margin-top: var(--space-7);
   }
   .passphrase-word .passphrase-input {
     width: 100%;
@@ -2016,6 +2021,11 @@
   }
   .passphrase-word .passphrase-input:focus { outline: none; }
   .passphrase-word .passphrase-input::placeholder { color: var(--dim); opacity: 1; }
+  /* O travessão do vazio sai de cena no foco, mesmo antes da primeira
+     tecla: a posição em edição mostra só o cursor. Ao sair sem digitar, ele
+     volta. */
+  .mnemonic-word-input:focus::placeholder,
+  .passphrase-word .passphrase-input:focus::placeholder { opacity: 0; }
 </style>
 <script>
   /* Tema antes da pintura: segue o sistema; a escolha manual do botão vale
