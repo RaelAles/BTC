@@ -178,7 +178,7 @@ script, as saídas e a taxa antes de assinar. A chave privada nunca passa pelo
 Monitor.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
-`1e1e503e969132c26b65a2938a257afe694a379d92f6fd1f26fd4d960ba47b3e` — rode
+`cba1de08083e802bb159655cf84f99f63874c5281af7e2977e04170512dbaaf8` — rode
 `sha256sum cofre-btc.html` no arquivo baixado. A tela “sobre” do Cofre pede a
 mesma conferência. Qualquer edição no Cofre exige atualizar este valor; o
 `npm test` acusa hash vencido.

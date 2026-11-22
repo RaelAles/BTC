@@ -1993,16 +1993,31 @@
   }
   .mnemonic-note.ok { color: var(--success); }
   .mnemonic-note.error { color: var(--error); }
-  /* A frase-secreta é opcional e fica na mesma coluna do mnemonic, logo
-     abaixo das 24 posições: o rótulo em --dim e a caixa de campo do
-     formulário, que acende inteira no foco. Ela entra no PBKDF2 depois das
-     palavras, então não muda a frase — muda a seed e as chaves que saem
-     dela. */
-  .passphrase-block {
+  /* A frase-secreta fica na coluna do mnemonic e usa o mesmo fio das
+     palavras: uma linha única, com o texto centrado, em vez da caixa
+     fechada do formulário. O fio acende no --accent com o foco, como o da
+     palavra em edição. Ela entra no PBKDF2 depois das palavras, então não
+     muda a frase — muda a seed e as chaves que saem dela. */
+  .passphrase-line {
     width: min(100%, 28rem);
-    margin: var(--space-7) auto 0;
+    margin: 0 auto;
+    padding-bottom: var(--space-1);
+    border-bottom: 1px solid var(--line);
   }
-  .passphrase-block .field-label { margin-top: 0; }
+  .passphrase-line:focus-within { border-bottom-color: var(--accent); }
+  .passphrase-line input {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--fg);
+    font: inherit;
+    font-size: var(--text-sm);
+    text-align: center;
+  }
+  .passphrase-line input:focus { outline: none; }
+  .passphrase-line input::placeholder { color: var(--dim); opacity: 1; }
 </style>
 <script>
   /* Tema antes da pintura: segue o sistema; a escolha manual do botão vale
@@ -2089,13 +2104,11 @@
               </div>
               <ol class="mnemonic-words" id="mnemonic-words" aria-label="frase mnemônica de 24 palavras"></ol>
               <p class="mnemonic-note" id="mnemonic-note" role="status" aria-live="polite"></p>
-              <div class="passphrase-block">
-                <label class="field-label" for="passphrase">frase-secreta</label>
-                <div class="field-box">
-                  <div class="edge" aria-hidden="true"></div>
-                  <input type="text" id="passphrase" autocomplete="off" spellcheck="false" autocapitalize="none" autocorrect="off">
-                  <div class="edge" aria-hidden="true"></div>
-                </div>
+              <div class="prose">
+                <h3><span class="prompt" aria-hidden="true">##</span> frase-secreta</h3>
+              </div>
+              <div class="passphrase-line">
+                <input type="text" id="passphrase" aria-label="frase-secreta" placeholder="—" autocomplete="off" spellcheck="false" autocapitalize="none" autocorrect="off">
               </div>
             </div>
 
