@@ -5039,13 +5039,20 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return true;
   }
 
+  /* A posição está pronta quando tem uma palavra inteira da lista ou está
+     vazia; o prefixo pela metade não conta como palavra. */
+  function mnemonicWordReady(input) {
+    var typed = input.value.trim().toLowerCase();
+    return !typed || bip39List.indexOf(typed) >= 0;
+  }
+
   /* A posição só guarda palavra inteira da lista: o prefixo que não chegou a
      palavra é descartado ao sair do campo, em vez de ficar no lugar de uma
      palavra que não existe. Devolve o texto recusado (vazio quando a palavra
      está na lista). */
   function commitMnemonicWord(input) {
     var typed = input.value.trim().toLowerCase();
-    if (!typed || bip39List.indexOf(typed) >= 0) {
+    if (mnemonicWordReady(input)) {
       setMnemonicValue(input, typed);
       return '';
     }
@@ -5277,6 +5284,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
           closeMnemonicOptions();
         }
       } else if (ev.key === 'Tab') {
+        /* O prefixo pela metade não abre a porta: a posição só é deixada com
+           palavra inteira (ou vazia). O Shift+Tab continua servindo de saída
+           para quem veio do teclado. */
+        if (!ev.shiftKey && !mnemonicWordReady(input)) {
+          ev.preventDefault();
+          paintMnemonicNote({
+            kind: 'erro',
+            key: '{word} não está na lista de 2.048 palavras.',
+            vars: { word: input.value }
+          });
+          return;
+        }
         closeMnemonicOptions();
       }
     });
