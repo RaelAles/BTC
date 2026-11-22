@@ -2375,13 +2375,14 @@
     color: var(--on-strong);
   }
   /* A frase secreta fica fora do <ol> das 24 posições, na linha de baixo
-     da mesma grade: ocupa a largura toda para que a frase inteira caiba e
-     possa ser conferida contra o que foi anotado. Rótulo e texto ficam
-     centralizados, com um respiro acima. Ela entra no PBKDF2 depois das
-     palavras, então não muda a frase — muda a seed e as chaves que saem
-     dela. */
+     da mesma grade: ocupa dois terços da largura, o bastante para conferir
+     a frase contra o que foi anotado. Rótulo e texto ficam centralizados,
+     com um respiro acima. Ela entra no PBKDF2 depois das palavras, então
+     não muda a frase — muda a seed e as chaves que saem dela. */
   .passphrase-word {
     grid-column: 1 / -1;
+    justify-self: center;
+    width: calc(100% * 2 / 3);
     flex-direction: column;
     align-items: center;
     gap: 0;
