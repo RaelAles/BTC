@@ -502,7 +502,7 @@ var BTC = (function () {
 
   /* BIP39: lista inglesa de 2.048 palavras. Os 256 bits viram uma frase de
      24 palavras, e é dessa frase (passphrase vazia) que sai a seed; a
-     entrada na tela é por coordenadas. */
+     entrada na tela é pela frase de 24 palavras. */
   var BIP39_WORDS = (
     'abandon ability able about above absent absorb abstract absurd abuse access accident account accuse achieve acid ' +
     'acoustic acquire across act action actor actress actual adapt add addict address adjust admit adult advance ' +

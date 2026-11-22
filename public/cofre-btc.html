@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#2e2d2b">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'">
 <title>Cofre BTC</title>
-<meta name="description" content="Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 jogadas de moeda (cara = 1, coroa = 0) ou de coordenadas a0–z5, mostra xprv/xpub e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.">
+<meta name="description" content="Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 jogadas de moeda (cara = 1, coroa = 0), mostra xprv/xpub e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="cofre btc - contas hd a partir de 256 bits">
 <meta property="og:description" content="256 jogadas de moeda (cara = 1, coroa = 0) entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.">
@@ -1700,8 +1700,8 @@
   .app-block { margin-top: var(--space-7); }
 
   /* Entrada da chave: o botão "gerar chave" abre a geração, e a tela fica só
-     com o painel de jogadas e os submenus de binários e coordenadas. O
-     mnemonic e os demais submenus voltam quando a sequência fecha. */
+     com o painel de jogadas e o submenu de entropia. O mnemonic e os demais
+     submenus voltam quando a sequência fecha. */
   .bits-row { margin: var(--space-5) 0 var(--space-7); }
   /* A troca entre a tela normal e a geração usa a revelação da skill, mas os
      controles do painel não esperam o --motion-fast do contorno: o painel já
@@ -1775,9 +1775,8 @@
      entre as palavras, então esse bloco fica à esquerda. */
   #review-warnings-list li { text-align: left; }
   /* Entrada por jogadas de moeda: cada clique em 1 (cara) ou 0 (coroa)
-     preenche a próxima coordenada da sequência, até completar os 256 bits.
-     O contador mostra o progresso; o campo de coordenadas continua sendo a
-     outra entrada e ocupa o quadrado, um por vez. */
+     preenche a próxima posição da entropia, até completar os 256 bits. O
+     contador mostra o progresso. */
   .coin-panel {
     width: min(100%, 28rem);
     margin: 0 auto;
@@ -1789,7 +1788,7 @@
     font-size: var(--text-sm);
   }
   /* O painel de jogadas é a geração: só aparece com o botão "gerar chave",
-     quando o título da tela fica sozinho com ele e os dois submenus de saída.
+     quando o título da tela fica sozinho com ele e o submenu de saída.
      O cancelar fica dentro do painel, para a volta ser possível antes das
      256 jogadas. */
   #screen-chave.is-generating .coin-panel { display: flex; }
@@ -1863,25 +1862,21 @@
      placeholder, no --dim, e a lista oficial abre sobre o conteúdo, na
      coluna do próprio campo. */
   .entropy-block { margin-top: var(--space-9); }
-  /* Os submenus de saída — binários e coordenadas — mostram a mesma entropia
-     da frase em dígitos e em nomes de posição, um abaixo do outro, na largura
-     do painel. Nenhuma das duas sequências leva separador: são para ser lidas
-     e copiadas inteiras, e a contagem não muda; por isso quebram em qualquer
+  /* O submenu de saída — entropia — mostra a mesma entropia da frase em
+     dígitos, na largura do painel. A sequência não leva separador: é para ser
+     lida e copiada inteira, e a contagem não muda; por isso quebra em qualquer
      ponto dentro da coluna. */
-  .binary-block,
-  .coords-block { margin-top: var(--space-9); }
-  .binary-bits,
-  .coords-text {
+  .binary-block { margin-top: var(--space-9); }
+  .binary-bits {
     width: min(100%, 28rem);
     margin: 0 auto;
     color: var(--fg);
     font-size: var(--text-sm);
     overflow-wrap: anywhere;
   }
-  .binary-bits.is-empty,
-  .coords-text.is-empty { color: var(--dim); }
+  .binary-bits.is-empty { color: var(--dim); }
   /* Durante a geração os 256 lugares já aparecem: o que falta fica no zero
-     do --dim, e a próxima coordenada, a que o clique preenche, assume o
+     do --dim, e a próxima posição, a que o clique preenche, assume o
      --accent com o texto no --on-strong. */
   .binary-bits .binary-empty { color: var(--dim); }
   /* O cursor da geração pisca como o de um terminal: meio ciclo aceso no
@@ -2094,13 +2089,6 @@
                 </div>
                 <p class="binary-bits is-empty" id="binary-bits">—</p>
               </div>
-
-              <div class="coords-block reveal-block" id="coords-block">
-                <div class="prose">
-                  <h3><span class="prompt" aria-hidden="true">##</span> coordenadas</h3>
-                </div>
-                <p class="coords-text is-empty" id="coords">—</p>
-              </div>
             </div>
           </div>
 
@@ -2184,28 +2172,14 @@
 
           <div class="prose reveal-block">
             <h3><span class="prompt" aria-hidden="true">##</span> o que é esta ferramenta</h3>
-            <p>O Cofre BTC transforma 256 jogadas de moeda em uma chave Bitcoin. Cada jogada vale <code>1</code> (cara) ou <code>0</code> (coroa) e é feita na própria tela; a mesma lista também pode ser digitada como coordenadas. As 256 marcas viram a frase de 24 palavras, as quatro contas e as chaves que a tela mostra.</p>
+            <p>O Cofre BTC transforma 256 jogadas de moeda em uma chave Bitcoin. Cada jogada vale <code>1</code> (cara) ou <code>0</code> (coroa) e é feita na própria tela. As 256 marcas viram a frase de 24 palavras, as quatro contas e as chaves que a tela mostra.</p>
             <p>Ele também assina. Você abre o arquivo de transação (PSBT) montado no Monitor BTC, confere o que ele faz e assina com a chave. Quem monta e transmite é o Monitor BTC; aqui a chave privada nunca sai da página, que é um arquivo só, sem servidor e sem internet.</p>
-            <p>Nada fica guardado: as jogadas, a frase, as chaves e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma. Quem tiver as 24 palavras — ou as coordenadas — tem a chave: guarde essa lista em local seguro e confira o sha256 publicado no repositório antes de abrir.</p>
+            <p>Nada fica guardado: as jogadas, a frase, as chaves e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma. Quem tiver as 24 palavras tem a chave: guarde essa lista em local seguro e confira o sha256 publicado no repositório antes de abrir.</p>
 
             <h3><span class="prompt" aria-hidden="true">##</span> como usar</h3>
             <p><b>Gerar.</b> Na tela “chave”, clique em “gerar” e registre 256 jogadas: cara vale <code>1</code> e coroa vale <code>0</code>. A frase de 24 palavras e as chaves aparecem quando a última jogada entra. Anote a frase no papel antes de seguir.</p>
-            <p><b>Coordenadas.</b> Se você já tem a lista, clique em “coordenadas” e digite no campo do alto: são só os nomes das jogadas que deram <code>1</code>, como <code>a0</code>, <code>b7</code> e <code>z5</code>. As outras valem <code>0</code>, e a ordem não importa. Clicar em “gerar” recomeça a entrada do zero.</p>
             <p><b>Assinar.</b> Clique em “importar psbt” e escolha o arquivo que veio do Monitor BTC. Confira a revisão: valor, destino, troco, taxa e avisos. Se estiver tudo certo, clique em “assinar” e baixe o arquivo assinado. Transmitir é no Monitor BTC.</p>
             <p><b>Telas.</b> O menu no alto alterna entre “chave” e “sobre”.</p>
-
-            <h3><span class="prompt" aria-hidden="true">##</span> como refazer os 256 binários e a frase em outra ferramenta</h3>
-            <p>As coordenadas são apenas nomes para cada uma das 256 posições. A primeira se chama <code>a0</code>, a segunda <code>a1</code>, e assim por diante: <code>a0</code> a <code>a9</code>, depois <code>b0</code> a <code>b9</code>, até <code>z5</code>, que é a última posição. A letra <code>z</code> para no 5: <code>z6</code> a <code>z9</code> não existem, porque 26 letras × 10 dígitos dariam 260 nomes e só há 256 posições.</p>
-            <p>Na tela elas aparecem agrupadas: a letra abre o grupo e os dígitos que vêm depois são dela até a próxima letra. Assim <code>a012</code> quer dizer <code>a0</code>, <code>a1</code> e <code>a2</code>. O agrupamento é só a forma de escrever a lista; a ordem não muda o resultado.</p>
-            <p>A posição de uma coordenada é <code>letra × 10 + dígito</code>, contando <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Assim <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 e <code>z5</code> = 255.</p>
-            <p>A tela mostra só as coordenadas que ficaram em <code>1</code>. Todas as outras posições valem <code>0</code>. Com a lista em mãos, refaça os 256 dígitos assim:</p>
-            <ul>
-              <li><b>1.</b> Escreva 256 zeros seguidos.</li>
-              <li><b>2.</b> Numere as posições de 0 a 255, começando no primeiro zero.</li>
-              <li><b>3.</b> Troque por <code>1</code> cada posição que aparece na lista, com o número saindo de <code>letra × 10 + dígito</code>.</li>
-            </ul>
-            <p>No papel dá para usar uma grade de 26 linhas (as letras <code>a</code> a <code>z</code>) por 10 colunas (os dígitos <code>0</code> a <code>9</code>): marque <code>1</code> nas coordenadas da lista e leia da esquerda para a direita, de cima para baixo, parando em <code>z5</code>. O resultado tem sempre 256 dígitos, sem espaço nem vírgula.</p>
-            <p>Em outra ferramenta, informe esses 256 dígitos como a entrada da chave (o campo que às vezes aparece como “binário” ou “bits”). Ela devolve a mesma frase de 24 palavras, desde que use o BIP39 com a lista em inglês. Confira contra a frase que esta tela mostrou: se as 24 palavras forem iguais, a cópia está certa.</p>
 
             <h3><span class="prompt" aria-hidden="true">##</span> os BIPs usados</h3>
             <p>Os BIPs são as regras públicas do Bitcoin que a ferramenta segue. Eles cobrem a chave, os endereços, as assinaturas e o arquivo de transação.</p>
@@ -2853,7 +2827,7 @@ var BTC = (function () {
 
   /* BIP39: lista inglesa de 2.048 palavras. Os 256 bits viram uma frase de
      24 palavras, e é dessa frase (passphrase vazia) que sai a seed; a
-     entrada na tela é por coordenadas. */
+     entrada na tela é pela frase de 24 palavras. */
   var BIP39_WORDS = (
     'abandon ability able about above absent absorb abstract absurd abuse access accident account accuse achieve acid ' +
     'acoustic acquire across act action actor actress actual adapt add addict address adjust admit adult advance ' +
@@ -4204,7 +4178,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["chave","key","clave","clé","chiave","schlüssel","sleutel","clau","clave"],
     ["sobre","about","acerca de","à propos","informazioni","über","over","sobre","sobre"],
     ["CHAVE","KEY","CLAVE","CLÉ","CHIAVE","SCHLÜSSEL","SLEUTEL","CLAU","CLAVE"],
-    ["coordenadas","coordinates","coordenadas","coordonnées","coordinate","koordinaten","coördinaten","coordenades","coordenadas"],
     ["gerar chave","generate key","generar clave","générer la clé","genera chiave","Schlüssel erzeugen","sleutel genereren","genera clau","xerar clave"],
     ["rodada","round","ronda","tour","giro","runde","ronde","ronda","rolda"],
     ["Registrar a face da moeda","Record the coin face","Registrar la cara de la moneda","Enregistrer la face de la pièce","Registra la faccia della moneta","Münzseite erfassen","Muntzijde vastleggen","Registrar la cara de la moneda","Rexistrar a cara da moeda"],
@@ -4266,7 +4239,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["copiar {id}","copy {id}","copiar {id}","copier {id}","copia {id}","{id} kopieren","{id} kopiëren","copia {id}","copiar {id}"],
     ["copiado {id}","copied {id}","copiado {id}","copié {id}","copiato {id}","{id} kopiert","{id} gekopieerd","copiat {id}","copiado {id}"],
     ["256 jogadas registradas; os 256 bits estão completos.","256 tosses recorded; all 256 bits are complete.","256 lanzamientos registrados; los 256 bits están completos.","256 lancers enregistrés ; les 256 bits sont complets.","256 lanci registrati; i 256 bit sono completi.","256 Würfe erfasst; die 256 Bit sind vollständig.","256 worpen vastgelegd; de 256 bits zijn compleet.","256 llançaments registrats; els 256 bits estan complets.","256 lanzamentos rexistrados; os 256 bits están completos."],
-    ["jogada {n} de 256: {face}, coordenada {coord}.","toss {n} of 256: {face}, coordinate {coord}.","lanzamiento {n} de 256: {face}, coordenada {coord}.","lancer {n} sur 256 : {face}, coordonnée {coord}.","lancio {n} di 256: {face}, coordinata {coord}.","Wurf {n} von 256: {face}, Koordinate {coord}.","worp {n} van 256: {face}, coördinaat {coord}.","llançament {n} de 256: {face}, coordenada {coord}.","lanzamento {n} de 256: {face}, coordenada {coord}."],
+    ["jogada {n} de 256: {face}.","toss {n} of 256: {face}.","lanzamiento {n} de 256: {face}.","lancer {n} sur 256 : {face}.","lancio {n} di 256: {face}.","Wurf {n} von 256: {face}.","worp {n} van 256: {face}.","llançament {n} de 256: {face}.","lanzamento {n} de 256: {face}."],
     ["cara, bit 1","heads, bit 1","cara, bit 1","face, bit 1","testa, bit 1","Kopf, Bit 1","kop, bit 1","cara, bit 1","cara, bit 1"],
     ["coroa, bit 0","tails, bit 0","cruz, bit 0","pile, bit 0","croce, bit 0","Zahl, Bit 0","munt, bit 0","creu, bit 0","cruz, bit 0"],
     ["jogadas zeradas.","tosses reset.","lanzamientos puestos a cero.","lancers remis à zéro.","lanci azzerati.","Würfe zurückgesetzt.","worpen gewist.","llançaments posats a zero.","lanzamentos postos a cero."],
@@ -4287,29 +4260,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["[ erro ]","[ error ]","[ error ]","[ erreur ]","[ errore ]","[ Fehler ]","[ fout ]","[ error ]","[ erro ]"],
     ["[ atenção ]","[ warning ]","[ atención ]","[ attention ]","[ attenzione ]","[ Achtung ]","[ let op ]","[ atenció ]","[ atención ]"],
     ["[ ... ]","[ ... ]","[ ... ]","[ ... ]","[ ... ]","[ ... ]","[ ... ]","[ ... ]","[ ... ]"],
-    ["Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 jogadas de moeda (cara = 1, coroa = 0) ou de coordenadas a0–z5, mostra xprv/xpub e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.","Derives Bitcoin HD accounts (BIP44/49/84/86) from 256 coin tosses (heads = 1, tails = 0) or from a0–z5 coordinates, shows xprv/xpub and signs PSBTs from transactions created in another app. Runs offline, in a single file.","Deriva cuentas HD de Bitcoin (BIP44/49/84/86) a partir de 256 lanzamientos de moneda (cara = 1, cruz = 0) o de coordenadas a0–z5, muestra xprv/xpub y firma PSBT de transacciones creadas en otra app. Funciona sin conexión, en un solo archivo.","Dérive des comptes HD Bitcoin (BIP44/49/84/86) à partir de 256 lancers de pièce (face = 1, pile = 0) ou de coordonnées a0–z5, affiche xprv/xpub et signe les PSBT de transactions créées dans une autre app. Fonctionne hors ligne, dans un seul fichier.","Deriva conti HD Bitcoin (BIP44/49/84/86) da 256 lanci di moneta (testa = 1, croce = 0) o da coordinate a0–z5, mostra xprv/xpub e firma PSBT di transazioni create in un'altra app. Funziona offline, in un solo file.","Leitet Bitcoin-HD-Konten (BIP44/49/84/86) aus 256 Münzwürfen (Kopf = 1, Zahl = 0) oder aus a0–z5-Koordinaten ab, zeigt xprv/xpub und signiert PSBTs von Transaktionen, die in einer anderen App erstellt wurden. Läuft offline in einer einzigen Datei.","Leidt Bitcoin HD-rekeningen (BIP44/49/84/86) af uit 256 muntworpen (kop = 1, munt = 0) of uit a0–z5-coördinaten, toont xprv/xpub en ondertekent PSBT's van transacties die in een andere app zijn gemaakt. Werkt offline, in één bestand.","Deriva comptes HD de Bitcoin (BIP44/49/84/86) a partir de 256 llançaments de moneda (cara = 1, creu = 0) o de coordenades a0–z5, mostra xprv/xpub i signa PSBT de transaccions creades en una altra app. Funciona sense connexió, en un sol fitxer.","Deriva contas HD de Bitcoin (BIP44/49/84/86) a partir de 256 lanzamentos de moeda (cara = 1, cruz = 0) ou de coordenadas a0–z5, mostra xprv/xpub e asina PSBT de transaccións creadas noutra app. Funciona sen conexión, nun só ficheiro."],
+    ["Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 jogadas de moeda (cara = 1, coroa = 0), mostra xprv/xpub e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.","Derives Bitcoin HD accounts (BIP44/49/84/86) from 256 coin tosses (heads = 1, tails = 0), shows xprv/xpub and signs PSBTs from transactions created in another app. Runs offline, in a single file.","Deriva cuentas HD de Bitcoin (BIP44/49/84/86) a partir de 256 lanzamientos de moneda (cara = 1, cruz = 0), muestra xprv/xpub y firma PSBT de transacciones creadas en otra app. Funciona sin conexión, en un solo archivo.","Dérive des comptes HD Bitcoin (BIP44/49/84/86) à partir de 256 lancers de pièce (face = 1, pile = 0), affiche xprv/xpub et signe les PSBT de transactions créées dans une autre app. Fonctionne hors ligne, dans un seul fichier.","Deriva conti HD Bitcoin (BIP44/49/84/86) da 256 lanci di moneta (testa = 1, croce = 0), mostra xprv/xpub e firma PSBT di transazioni create in un'altra app. Funziona offline, in un solo file.","Leitet Bitcoin-HD-Konten (BIP44/49/84/86) aus 256 Münzwürfen (Kopf = 1, Zahl = 0) ab, zeigt xprv/xpub und signiert PSBTs von Transaktionen, die in einer anderen App erstellt wurden. Läuft offline in einer einzigen Datei.","Leidt Bitcoin HD-rekeningen (BIP44/49/84/86) af uit 256 muntworpen (kop = 1, munt = 0), toont xprv/xpub en ondertekent PSBT's van transacties die in een andere app zijn gemaakt. Werkt offline, in één bestand.","Deriva comptes HD de Bitcoin (BIP44/49/84/86) a partir de 256 llançaments de moneda (cara = 1, creu = 0), mostra xprv/xpub i signa PSBT de transaccions creades en una altra app. Funciona sense connexió, en un sol fitxer.","Deriva contas HD de Bitcoin (BIP44/49/84/86) a partir de 256 lanzamentos de moeda (cara = 1, cruz = 0), mostra xprv/xpub e asina PSBT de transaccións creadas noutra app. Funciona sen conexión, nun só ficheiro."],
     ["cofre btc - contas hd a partir de 256 bits","cofre btc - hd accounts from 256 bits","cofre btc - cuentas hd a partir de 256 bits","cofre btc - comptes hd à partir de 256 bits","cofre btc - conti hd da 256 bit","cofre btc - hd-konten aus 256 bit","cofre btc - hd-rekeningen uit 256 bits","cofre btc - comptes hd a partir de 256 bits","cofre btc - contas hd a partir de 256 bits"],
     ["256 jogadas de moeda (cara = 1, coroa = 0) entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.","256 coin tosses (heads = 1, tails = 0) go in as BIP39 entropy; HD accounts, xprv/xpub and a signature come out. One file, no network.","256 lanzamientos de moneda (cara = 1, cruz = 0) entran como entropía BIP39; salen cuentas HD, xprv/xpub y firma. Un archivo, sin red.","256 lancers de pièce (face = 1, pile = 0) entrent comme entropie BIP39 ; des comptes HD, xprv/xpub et une signature sortent. Un fichier, sans réseau.","256 lanci di moneta (testa = 1, croce = 0) entrano come entropia BIP39; escono conti HD, xprv/xpub e una firma. Un file, senza rete.","256 Münzwürfe (Kopf = 1, Zahl = 0) gehen als BIP39-Entropie hinein; HD-Konten, xprv/xpub und eine Signatur kommen heraus. Eine Datei, ohne Netzwerk.","256 muntworpen (kop = 1, munt = 0) gaan erin als BIP39-entropie; HD-rekeningen, xprv/xpub en een handtekening komen eruit. Eén bestand, zonder netwerk.","256 llançaments de moneda (cara = 1, creu = 0) entren com a entropia BIP39; surten comptes HD, xprv/xpub i signatura. Un fitxer, sense xarxa.","256 lanzamentos de moeda (cara = 1, cruz = 0) entran como entropía BIP39; saen contas HD, xprv/xpub e sinatura. Un ficheiro, sen rede."],
     ["o que é esta ferramenta","what this tool is","qué es esta herramienta","ce qu'est cet outil","cos'è questo strumento","was dieses Werkzeug ist","wat deze tool is","què és aquesta eina","que é esta ferramenta"],
     ["como usar","how to use","cómo usar","comment utiliser","come usare","so verwenden","hoe te gebruiken","com usar","como usar"],
-    ["como refazer os 256 binários e a frase em outra ferramenta","how to rebuild the 256 bits and the phrase in another tool","cómo rehacer los 256 binarios y la frase en otra herramienta","comment refaire les 256 binaires et la phrase dans un autre outil","come rifare i 256 binari e la frase in un altro strumento","wie man die 256 Binärwerte und die Merkhilfe in einem anderen Werkzeug nachbaut","hoe je de 256 bits en de zin in een andere tool opnieuw opbouwt","com refer els 256 binaris i la frase en una altra eina","como refacer os 256 binarios e a frase noutra ferramenta"],
     ["os BIPs usados","the BIPs used","los BIP usados","les BIP utilisés","i BIP usati","die verwendeten BIPs","de gebruikte BIP's","els BIP usats","os BIP usados"],
-    ["O Cofre BTC transforma 256 jogadas de moeda em uma chave Bitcoin. Cada jogada vale <code>1</code> (cara) ou <code>0</code> (coroa) e é feita na própria tela; a mesma lista também pode ser digitada como coordenadas. As 256 marcas viram a frase de 24 palavras, as quatro contas e as chaves que a tela mostra.","Cofre BTC turns 256 coin tosses into a Bitcoin key. Each toss is worth <code>1</code> (heads) or <code>0</code> (tails) and is made on the screen itself; the same list can also be typed as coordinates. The 256 marks become the 24-word phrase, the four accounts and the keys the screen shows.","Cofre BTC convierte 256 lanzamientos de moneda en una clave Bitcoin. Cada lanzamiento vale <code>1</code> (cara) o <code>0</code> (cruz) y se hace en la propia pantalla; la misma lista también se puede escribir como coordenadas. Las 256 marcas se convierten en la frase de 24 palabras, las cuatro cuentas y las claves que muestra la pantalla.","Cofre BTC transforme 256 lancers de pièce en une clé Bitcoin. Chaque lancer vaut <code>1</code> (face) ou <code>0</code> (pile) et se fait sur l'écran lui-même ; la même liste peut aussi être saisie sous forme de coordonnées. Les 256 marques deviennent la phrase de 24 mots, les quatre comptes et les clés affichées par l'écran.","Cofre BTC trasforma 256 lanci di moneta in una chiave Bitcoin. Ogni lancio vale <code>1</code> (testa) o <code>0</code> (croce) e si fa nella schermata stessa; lo stesso elenco può anche essere digitato come coordinate. I 256 segni diventano la frase di 24 parole, i quattro conti e le chiavi che la schermata mostra.","Cofre BTC verwandelt 256 Münzwürfe in einen Bitcoin-Schlüssel. Jeder Wurf zählt <code>1</code> (Kopf) oder <code>0</code> (Zahl) und wird direkt auf dem Bildschirm ausgeführt; dieselbe Liste kann auch als Koordinaten eingegeben werden. Die 256 Markierungen werden zur Merkhilfe aus 24 Wörtern, zu den vier Konten und zu den Schlüsseln, die der Bildschirm zeigt.","Cofre BTC verandert 256 muntworpen in een Bitcoin-sleutel. Elke worp is <code>1</code> (kop) of <code>0</code> (munt) waard en wordt op het scherm zelf gedaan; dezelfde lijst kan ook als coördinaten worden getypt. De 256 markeringen worden de zin van 24 woorden, de vier rekeningen en de sleutels die het scherm toont.","Cofre BTC converteix 256 llançaments de moneda en una clau Bitcoin. Cada llançament val <code>1</code> (cara) o <code>0</code> (creu) i es fa a la mateixa pantalla; la mateixa llista també es pot escriure com a coordenades. Les 256 marques es converteixen en la frase de 24 paraules, els quatre comptes i les claus que mostra la pantalla.","Cofre BTC converte 256 lanzamentos de moeda nunha clave Bitcoin. Cada lanzamento vale <code>1</code> (cara) ou <code>0</code> (cruz) e faise na propia pantalla; a mesma lista tamén se pode escribir como coordenadas. As 256 marcas convértense na frase de 24 palabras, as catro contas e as claves que mostra a pantalla."],
+    ["O Cofre BTC transforma 256 jogadas de moeda em uma chave Bitcoin. Cada jogada vale <code>1</code> (cara) ou <code>0</code> (coroa) e é feita na própria tela. As 256 marcas viram a frase de 24 palavras, as quatro contas e as chaves que a tela mostra.","Cofre BTC turns 256 coin tosses into a Bitcoin key. Each toss is worth <code>1</code> (heads) or <code>0</code> (tails) and is made on the screen itself. The 256 marks become the 24-word phrase, the four accounts and the keys the screen shows.","Cofre BTC convierte 256 lanzamientos de moneda en una clave Bitcoin. Cada lanzamiento vale <code>1</code> (cara) o <code>0</code> (cruz) y se hace en la propia pantalla. Las 256 marcas se convierten en la frase de 24 palabras, las cuatro cuentas y las claves que muestra la pantalla.","Cofre BTC transforme 256 lancers de pièce en une clé Bitcoin. Chaque lancer vaut <code>1</code> (face) ou <code>0</code> (pile) et se fait sur l'écran lui-même. Les 256 marques deviennent la phrase de 24 mots, les quatre comptes et les clés affichées par l'écran.","Cofre BTC trasforma 256 lanci di moneta in una chiave Bitcoin. Ogni lancio vale <code>1</code> (testa) o <code>0</code> (croce) e si fa nella schermata stessa. I 256 segni diventano la frase di 24 parole, i quattro conti e le chiavi che la schermata mostra.","Cofre BTC verwandelt 256 Münzwürfe in einen Bitcoin-Schlüssel. Jeder Wurf zählt <code>1</code> (Kopf) oder <code>0</code> (Zahl) und wird direkt auf dem Bildschirm ausgeführt. Die 256 Markierungen werden zur Merkhilfe aus 24 Wörtern, zu den vier Konten und zu den Schlüsseln, die der Bildschirm zeigt.","Cofre BTC verandert 256 muntworpen in een Bitcoin-sleutel. Elke worp is <code>1</code> (kop) of <code>0</code> (munt) waard en wordt op het scherm zelf gedaan. De 256 markeringen worden de zin van 24 woorden, de vier rekeningen en de sleutels die het scherm toont.","Cofre BTC converteix 256 llançaments de moneda en una clau Bitcoin. Cada llançament val <code>1</code> (cara) o <code>0</code> (creu) i es fa a la mateixa pantalla. Les 256 marques es converteixen en la frase de 24 paraules, els quatre comptes i les claus que mostra la pantalla.","Cofre BTC converte 256 lanzamentos de moeda nunha clave Bitcoin. Cada lanzamento vale <code>1</code> (cara) ou <code>0</code> (cruz) e faise na propia pantalla. As 256 marcas convértense na frase de 24 palabras, as catro contas e as claves que mostra a pantalla."],
     ["Ele também assina. Você abre o arquivo de transação (PSBT) montado no Monitor BTC, confere o que ele faz e assina com a chave. Quem monta e transmite é o Monitor BTC; aqui a chave privada nunca sai da página, que é um arquivo só, sem servidor e sem internet.","It also signs. You open the transaction file (PSBT) built in Monitor BTC, check what it does and sign it with the key. Monitor BTC builds and broadcasts it; here the private key never leaves the page, which is a single file, with no server and no internet.","También firma. Abres el archivo de transacción (PSBT) montado en Monitor BTC, compruebas lo que hace y lo firmas con la clave. Quien monta y transmite es Monitor BTC; aquí la clave privada nunca sale de la página, que es un solo archivo, sin servidor y sin internet.","Il signe aussi. Vous ouvrez le fichier de transaction (PSBT) construit dans Monitor BTC, vérifiez ce qu'il fait et le signez avec la clé. C'est Monitor BTC qui le construit et le diffuse ; ici, la clé privée ne quitte jamais la page, qui est un seul fichier, sans serveur et sans internet.","Firma anche. Apri il file di transazione (PSBT) creato in Monitor BTC, controlli cosa fa e lo firmi con la chiave. Chi lo crea e lo trasmette è Monitor BTC; qui la chiave privata non lascia mai la pagina, che è un solo file, senza server e senza internet.","Es signiert auch. Du öffnest die in Monitor BTC erstellte Transaktionsdatei (PSBT), prüfst, was sie tut, und signierst sie mit dem Schlüssel. Monitor BTC erstellt und überträgt sie; hier verlässt der private Schlüssel nie die Seite, die eine einzige Datei ist, ohne Server und ohne Internet.","Het ondertekent ook. Je opent het transactiebestand (PSBT) dat in Monitor BTC is gemaakt, controleert wat het doet en ondertekent het met de sleutel. Monitor BTC maakt en verstuurt het; hier verlaat de privésleutel nooit de pagina, die één bestand is, zonder server en zonder internet.","També signa. Obres el fitxer de transacció (PSBT) muntat a Monitor BTC, comproves què fa i el signes amb la clau. Qui el munta i el transmet és Monitor BTC; aquí la clau privada no surt mai de la pàgina, que és un sol fitxer, sense servidor i sense internet.","Tamén asina. Abres o ficheiro de transacción (PSBT) montado en Monitor BTC, comprobas o que fai e asínas con a clave. Quen o monta e transmite é Monitor BTC; aquí a clave privada nunca sae da páxina, que é un só ficheiro, sen servidor e sen internet."],
-    ["Nada fica guardado: as jogadas, a frase, as chaves e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma. Quem tiver as 24 palavras — ou as coordenadas — tem a chave: guarde essa lista em local seguro e confira o sha256 publicado no repositório antes de abrir.","Nothing is stored: the tosses, the phrase, the keys and the files live only in the tab's memory and disappear when you close or reload the page; the browser stores neither the theme nor the language. Whoever has the 24 words — or the coordinates — has the key: keep that list somewhere safe and check the sha256 published in the repository before opening.","No se guarda nada: los lanzamientos, la frase, las claves y los archivos solo están en la memoria de la pestaña y desaparecen al cerrar o recargar la página; el navegador no guarda ni el tema ni el idioma. Quien tenga las 24 palabras —o las coordenadas— tiene la clave: guarda esa lista en un lugar seguro y comprueba el sha256 publicado en el repositorio antes de abrir.","Rien n'est conservé : les lancers, la phrase, les clés et les fichiers restent uniquement dans la mémoire de l'onglet et disparaissent à la fermeture ou au rechargement de la page ; le navigateur ne garde ni le thème ni la langue. Qui possède les 24 mots — ou les coordonnées — possède la clé : conservez cette liste en lieu sûr et vérifiez le sha256 publié dans le dépôt avant d'ouvrir.","Niente viene salvato: i lanci, la frase, le chiavi e i file restano solo nella memoria della scheda e spariscono chiudendo o ricaricando la pagina; il browser non conserva né il tema né la lingua. Chi ha le 24 parole — o le coordinate — ha la chiave: conserva quell'elenco in un luogo sicuro e controlla lo sha256 pubblicato nel repository prima di aprire.","Nichts wird gespeichert: die Würfe, die Merkhilfe, die Schlüssel und die Dateien liegen nur im Speicher des Tabs und verschwinden beim Schließen oder Neuladen der Seite; der Browser speichert weder das Design noch die Sprache. Wer die 24 Wörter — oder die Koordinaten — hat, hat den Schlüssel: bewahre diese Liste an einem sicheren Ort auf und prüfe vor dem Öffnen den im Repository veröffentlichten sha256.","Niets wordt bewaard: de worpen, de zin, de sleutels en de bestanden staan alleen in het geheugen van het tabblad en verdwijnen bij het sluiten of herladen van de pagina; de browser bewaart noch het thema noch de taal. Wie de 24 woorden — of de coördinaten — heeft, heeft de sleutel: bewaar die lijst op een veilige plek en controleer de sha256 die in de repository is gepubliceerd voordat je opent.","No es guarda res: els llançaments, la frase, les claus i els fitxers només són a la memòria de la pestanya i desapareixen en tancar o recarregar la pàgina; el navegador no guarda ni el tema ni l'idioma. Qui tingui les 24 paraules —o les coordenades— té la clau: guarda aquesta llista en un lloc segur i comprova el sha256 publicat al repositori abans d'obrir.","Non se garda nada: os lanzamentos, a frase, as claves e os ficheiros están só na memoria da lapela e desaparecen ao pechar ou recargar a páxina; o navegador non garda nin o tema nin o idioma. Quen teña as 24 palabras —ou as coordenadas— ten a clave: garda esa lista nun lugar seguro e comproba o sha256 publicado no repositorio antes de abrir."],
+    ["Nada fica guardado: as jogadas, a frase, as chaves e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma. Quem tiver as 24 palavras tem a chave: guarde essa lista em local seguro e confira o sha256 publicado no repositório antes de abrir.","Nothing is stored: the tosses, the phrase, the keys and the files live only in the tab's memory and disappear when you close or reload the page; the browser stores neither the theme nor the language. Whoever has the 24 words has the key: keep that list somewhere safe and check the sha256 published in the repository before opening.","No se guarda nada: los lanzamientos, la frase, las claves y los archivos solo están en la memoria de la pestaña y desaparecen al cerrar o recargar la página; el navegador no guarda ni el tema ni el idioma. Quien tenga las 24 palabras tiene la clave: guarda esa lista en un lugar seguro y comprueba el sha256 publicado en el repositorio antes de abrir.","Rien n'est conservé : les lancers, la phrase, les clés et les fichiers restent uniquement dans la mémoire de l'onglet et disparaissent à la fermeture ou au rechargement de la page ; le navigateur ne garde ni le thème ni la langue. Qui possède les 24 mots possède la clé : conservez cette liste en lieu sûr et vérifiez le sha256 publié dans le dépôt avant d'ouvrir.","Niente viene salvato: i lanci, la frase, le chiavi e i file restano solo nella memoria della scheda e spariscono chiudendo o ricaricando la pagina; il browser non conserva né il tema né la lingua. Chi ha le 24 parole ha la chiave: conserva quell'elenco in un luogo sicuro e controlla lo sha256 pubblicato nel repository prima di aprire.","Nichts wird gespeichert: die Würfe, die Merkhilfe, die Schlüssel und die Dateien liegen nur im Speicher des Tabs und verschwinden beim Schließen oder Neuladen der Seite; der Browser speichert weder das Design noch die Sprache. Wer die 24 Wörter hat, hat den Schlüssel: bewahre diese Liste an einem sicheren Ort auf und prüfe vor dem Öffnen den im Repository veröffentlichten sha256.","Niets wordt bewaard: de worpen, de zin, de sleutels en de bestanden staan alleen in het geheugen van het tabblad en verdwijnen bij het sluiten of herladen van de pagina; de browser bewaart noch het thema noch de taal. Wie de 24 woorden heeft, heeft de sleutel: bewaar die lijst op een veilige plek en controleer de sha256 die in de repository is gepubliceerd voordat je opent.","No es guarda res: els llançaments, la frase, les claus i els fitxers només són a la memòria de la pestanya i desapareixen en tancar o recarregar la pàgina; el navegador no guarda ni el tema ni l'idioma. Qui tingui les 24 paraules té la clau: guarda aquesta llista en un lloc segur i comprova el sha256 publicat al repositori abans d'obrir.","Non se garda nada: os lanzamentos, a frase, as claves e os ficheiros están só na memoria da lapela e desaparecen ao pechar ou recargar a páxina; o navegador non garda nin o tema nin o idioma. Quen teña as 24 palabras ten a clave: garda esa lista nun lugar seguro e comproba o sha256 publicado no repositorio antes de abrir."],
     ["<b>Gerar.</b> Na tela “chave”, clique em “gerar” e registre 256 jogadas: cara vale <code>1</code> e coroa vale <code>0</code>. A frase de 24 palavras e as chaves aparecem quando a última jogada entra. Anote a frase no papel antes de seguir.","<b>Generate.</b> On the “key” screen, click “generate” and record 256 tosses: heads is <code>1</code> and tails is <code>0</code>. The 24-word phrase and the keys appear when the last toss goes in. Write the phrase on paper before continuing.","<b>Generar.</b> En la pantalla “clave”, haz clic en “generar” y registra 256 lanzamientos: cara vale <code>1</code> y cruz vale <code>0</code>. La frase de 24 palabras y las claves aparecen cuando entra el último lanzamiento. Anota la frase en papel antes de seguir.","<b>Générer.</b> Sur l'écran « clé », cliquez sur « générer » et enregistrez 256 lancers : face vaut <code>1</code> et pile vaut <code>0</code>. La phrase de 24 mots et les clés apparaissent quand le dernier lancer entre. Notez la phrase sur papier avant de continuer.","<b>Genera.</b> Nella schermata “chiave”, fai clic su “genera” e registra 256 lanci: testa vale <code>1</code> e croce vale <code>0</code>. La frase di 24 parole e le chiavi compaiono quando entra l'ultimo lancio. Annota la frase su carta prima di proseguire.","<b>Erzeugen.</b> Klicke auf dem Bildschirm „Schlüssel“ auf „erzeugen“ und erfasse 256 Würfe: Kopf zählt <code>1</code> und Zahl zählt <code>0</code>. Die Merkhilfe aus 24 Wörtern und die Schlüssel erscheinen, wenn der letzte Wurf eingeht. Notiere die Merkhilfe auf Papier, bevor du fortfährst.","<b>Genereren.</b> Klik op het scherm “sleutel” op “genereren” en leg 256 worpen vast: kop is <code>1</code> en munt is <code>0</code>. De zin van 24 woorden en de sleutels verschijnen wanneer de laatste worp binnenkomt. Schrijf de zin op papier voordat je verdergaat.","<b>Genera.</b> A la pantalla “clau”, fes clic a “genera” i registra 256 llançaments: cara val <code>1</code> i creu val <code>0</code>. La frase de 24 paraules i les claus apareixen quan entra l'últim llançament. Anota la frase en paper abans de continuar.","<b>Xerar.</b> Na pantalla “clave”, fai clic en “xerar” e rexistra 256 lanzamentos: cara vale <code>1</code> e cruz vale <code>0</code>. A frase de 24 palabras e as claves aparecen cando entra o último lanzamento. Anota a frase en papel antes de seguir."],
-    ["<b>Coordenadas.</b> Se você já tem a lista, clique em “coordenadas” e digite no campo do alto: são só os nomes das jogadas que deram <code>1</code>, como <code>a0</code>, <code>b7</code> e <code>z5</code>. As outras valem <code>0</code>, e a ordem não importa. Clicar em “gerar” recomeça a entrada do zero.","<b>Coordinates.</b> If you already have the list, click “coordinates” and type in the field at the top: these are only the names of the tosses that came up <code>1</code>, such as <code>a0</code>, <code>b7</code> and <code>z5</code>. The others are <code>0</code>, and the order does not matter. Clicking “generate” starts the input over from scratch.","<b>Coordenadas.</b> Si ya tienes la lista, haz clic en “coordenadas” y escribe en el campo de arriba: son solo los nombres de los lanzamientos que dieron <code>1</code>, como <code>a0</code>, <code>b7</code> y <code>z5</code>. Los demás valen <code>0</code>, y el orden no importa. Hacer clic en “generar” reinicia la entrada desde cero.","<b>Coordonnées.</b> Si vous avez déjà la liste, cliquez sur « coordonnées » et saisissez dans le champ du haut : ce sont seulement les noms des lancers qui ont donné <code>1</code>, comme <code>a0</code>, <code>b7</code> et <code>z5</code>. Les autres valent <code>0</code>, et l'ordre n'a pas d'importance. Cliquer sur « générer » recommence la saisie à zéro.","<b>Coordinate.</b> Se hai già l'elenco, fai clic su “coordinate” e digita nel campo in alto: sono solo i nomi dei lanci che hanno dato <code>1</code>, come <code>a0</code>, <code>b7</code> e <code>z5</code>. Gli altri valgono <code>0</code> e l'ordine non conta. Facendo clic su “genera” la digitazione ricomincia da zero.","<b>Koordinaten.</b> Wenn du die Liste bereits hast, klicke auf „koordinaten“ und tippe in das Feld oben: Es sind nur die Namen der Würfe, die <code>1</code> ergeben haben, etwa <code>a0</code>, <code>b7</code> und <code>z5</code>. Die anderen zählen <code>0</code>, und die Reihenfolge spielt keine Rolle. Ein Klick auf „erzeugen“ beginnt die Eingabe von vorn.","<b>Coördinaten.</b> Heb je de lijst al, klik dan op “coördinaten” en typ in het veld bovenaan: het zijn alleen de namen van de worpen die <code>1</code> gaven, zoals <code>a0</code>, <code>b7</code> en <code>z5</code>. De andere zijn <code>0</code>, en de volgorde maakt niet uit. Als je op “genereren” klikt, begint de invoer opnieuw.","<b>Coordenades.</b> Si ja tens la llista, fes clic a “coordenades” i escriu al camp de dalt: són només els noms dels llançaments que han donat <code>1</code>, com <code>a0</code>, <code>b7</code> i <code>z5</code>. Els altres valen <code>0</code>, i l'ordre no importa. Fer clic a “genera” torna a començar l'entrada des de zero.","<b>Coordenadas.</b> Se xa tes a lista, fai clic en “coordenadas” e escribe no campo de arriba: son só os nomes dos lanzamentos que deron <code>1</code>, como <code>a0</code>, <code>b7</code> e <code>z5</code>. Os demais valen <code>0</code>, e a orde non importa. Facer clic en “xerar” comeza a entrada desde cero."],
     ["<b>Assinar.</b> Clique em “importar psbt” e escolha o arquivo que veio do Monitor BTC. Confira a revisão: valor, destino, troco, taxa e avisos. Se estiver tudo certo, clique em “assinar” e baixe o arquivo assinado. Transmitir é no Monitor BTC.","<b>Sign.</b> Click “import psbt” and choose the file that came from Monitor BTC. Check the review: amount, destination, change, fee and warnings. If everything is right, click “sign” and download the signed file. Broadcasting is done in Monitor BTC.","<b>Firmar.</b> Haz clic en “importar psbt” y elige el archivo que vino de Monitor BTC. Revisa la revisión: valor, destino, cambio, comisión y avisos. Si todo está bien, haz clic en “firmar” y descarga el archivo firmado. La transmisión se hace en Monitor BTC.","<b>Signer.</b> Cliquez sur « importer psbt » et choisissez le fichier venu de Monitor BTC. Vérifiez la revue : montant, destination, monnaie, frais et avertissements. Si tout est correct, cliquez sur « signer » et téléchargez le fichier signé. La diffusion se fait dans Monitor BTC.","<b>Firma.</b> Fai clic su “importa psbt” e scegli il file che arriva da Monitor BTC. Controlla la revisione: importo, destinazione, resto, commissione e avvisi. Se è tutto corretto, fai clic su “firma” e scarica il file firmato. La trasmissione avviene in Monitor BTC.","<b>Signieren.</b> Klicke auf „psbt importieren“ und wähle die Datei, die aus Monitor BTC kommt. Prüfe die Übersicht: Betrag, Ziel, Wechselgeld, Gebühr und Warnungen. Wenn alles stimmt, klicke auf „signieren“ und lade die signierte Datei herunter. Das Übertragen erfolgt in Monitor BTC.","<b>Ondertekenen.</b> Klik op “psbt importeren” en kies het bestand dat uit Monitor BTC komt. Controleer het overzicht: bedrag, bestemming, wisselgeld, kosten en waarschuwingen. Als alles klopt, klik je op “ondertekenen” en download je het ondertekende bestand. Verzenden gebeurt in Monitor BTC.","<b>Signar.</b> Fes clic a “importar psbt” i tria el fitxer que ve de Monitor BTC. Revisa la revisió: import, destinació, canvi, comissió i avisos. Si tot és correcte, fes clic a “signar” i descarrega el fitxer signat. La transmissió es fa a Monitor BTC.","<b>Asinar.</b> Fai clic en “importar psbt” e escolle o ficheiro que vén de Monitor BTC. Revisa a revisión: importe, destino, troco, comisión e avisos. Se todo está correcto, fai clic en “asinar” e descarga o ficheiro asinado. A transmisión faise en Monitor BTC."],
     ["<b>Telas.</b> O menu no alto alterna entre “chave” e “sobre”.","<b>Screens.</b> The menu at the top switches between “key” and “about”.","<b>Pantallas.</b> El menú de arriba alterna entre “clave” y “acerca de”.","<b>Écrans.</b> Le menu du haut alterne entre « clé » et « à propos ».","<b>Schermate.</b> Il menu in alto alterna tra “chiave” e “informazioni”.","<b>Bildschirme.</b> Das Menü oben wechselt zwischen „schlüssel“ und „über“.","<b>Schermen.</b> Het menu bovenaan wisselt tussen “sleutel” en “over”.","<b>Pantalles.</b> El menú de dalt alterna entre “clau” i “sobre”.","<b>Pantallas.</b> O menú de arriba alterna entre “clave” e “sobre”."],
-    ["As coordenadas são apenas nomes para cada uma das 256 posições. A primeira se chama <code>a0</code>, a segunda <code>a1</code>, e assim por diante: <code>a0</code> a <code>a9</code>, depois <code>b0</code> a <code>b9</code>, até <code>z5</code>, que é a última posição. A letra <code>z</code> para no 5: <code>z6</code> a <code>z9</code> não existem, porque 26 letras × 10 dígitos dariam 260 nomes e só há 256 posições.","The coordinates are just names for each of the 256 positions. The first is <code>a0</code>, the second <code>a1</code>, and so on: <code>a0</code> to <code>a9</code>, then <code>b0</code> to <code>b9</code>, up to <code>z5</code>, which is the last position. The letter <code>z</code> stops at 5: <code>z6</code> to <code>z9</code> do not exist, because 26 letters × 10 digits would give 260 names and there are only 256 positions.","Las coordenadas son solo nombres para cada una de las 256 posiciones. La primera se llama <code>a0</code>, la segunda <code>a1</code>, y así sucesivamente: <code>a0</code> a <code>a9</code>, luego <code>b0</code> a <code>b9</code>, hasta <code>z5</code>, que es la última posición. La letra <code>z</code> se detiene en el 5: <code>z6</code> a <code>z9</code> no existen, porque 26 letras × 10 dígitos darían 260 nombres y solo hay 256 posiciones.","Les coordonnées sont seulement des noms pour chacune des 256 positions. La première s'appelle <code>a0</code>, la deuxième <code>a1</code>, et ainsi de suite : <code>a0</code> à <code>a9</code>, puis <code>b0</code> à <code>b9</code>, jusqu'à <code>z5</code>, qui est la dernière position. La lettre <code>z</code> s'arrête à 5 : <code>z6</code> à <code>z9</code> n'existent pas, car 26 lettres × 10 chiffres donneraient 260 noms et il n'y a que 256 positions.","Le coordinate sono solo nomi per ciascuna delle 256 posizioni. La prima si chiama <code>a0</code>, la seconda <code>a1</code>, e così via: da <code>a0</code> a <code>a9</code>, poi da <code>b0</code> a <code>b9</code>, fino a <code>z5</code>, che è l'ultima posizione. La lettera <code>z</code> si ferma a 5: da <code>z6</code> a <code>z9</code> non esistono, perché 26 lettere × 10 cifre darebbero 260 nomi e ci sono solo 256 posizioni.","Die Koordinaten sind nur Namen für jede der 256 Positionen. Die erste heißt <code>a0</code>, die zweite <code>a1</code>, und so weiter: <code>a0</code> bis <code>a9</code>, dann <code>b0</code> bis <code>b9</code>, bis <code>z5</code>, der letzten Position. Der Buchstabe <code>z</code> endet bei 5: <code>z6</code> bis <code>z9</code> gibt es nicht, weil 26 Buchstaben × 10 Ziffern 260 Namen ergeben würden und es nur 256 Positionen gibt.","De coördinaten zijn alleen namen voor elk van de 256 posities. De eerste heet <code>a0</code>, de tweede <code>a1</code>, enzovoort: <code>a0</code> tot <code>a9</code>, dan <code>b0</code> tot <code>b9</code>, tot <code>z5</code>, de laatste positie. De letter <code>z</code> stopt bij 5: <code>z6</code> tot <code>z9</code> bestaan niet, want 26 letters × 10 cijfers zouden 260 namen geven en er zijn maar 256 posities.","Les coordenades són només noms per a cadascuna de les 256 posicions. La primera es diu <code>a0</code>, la segona <code>a1</code>, i així successivament: <code>a0</code> a <code>a9</code>, després <code>b0</code> a <code>b9</code>, fins a <code>z5</code>, que és l'última posició. La lletra <code>z</code> s'atura al 5: <code>z6</code> a <code>z9</code> no existeixen, perquè 26 lletres × 10 dígits donarien 260 noms i només hi ha 256 posicions.","As coordenadas son só nomes para cada unha das 256 posicións. A primeira chámase <code>a0</code>, a segunda <code>a1</code>, e así sucesivamente: <code>a0</code> a <code>a9</code>, despois <code>b0</code> a <code>b9</code>, ata <code>z5</code>, que é a última posición. A letra <code>z</code> para no 5: <code>z6</code> a <code>z9</code> non existen, porque 26 letras × 10 díxitos darían 260 nomes e só hai 256 posicións."],
-    ["Na tela elas aparecem agrupadas: a letra abre o grupo e os dígitos que vêm depois são dela até a próxima letra. Assim <code>a012</code> quer dizer <code>a0</code>, <code>a1</code> e <code>a2</code>. O agrupamento é só a forma de escrever a lista; a ordem não muda o resultado.","On the screen they appear grouped: the letter opens the group and the digits that follow belong to it until the next letter. So <code>a012</code> means <code>a0</code>, <code>a1</code> and <code>a2</code>. The grouping is only how the list is written; the order does not change the result.","En la pantalla aparecen agrupadas: la letra abre el grupo y los dígitos que vienen después son suyos hasta la siguiente letra. Así, <code>a012</code> significa <code>a0</code>, <code>a1</code> y <code>a2</code>. La agrupación es solo la forma de escribir la lista; el orden no cambia el resultado.","À l'écran, elles apparaissent groupées : la lettre ouvre le groupe et les chiffres qui suivent lui appartiennent jusqu'à la lettre suivante. Ainsi <code>a012</code> signifie <code>a0</code>, <code>a1</code> et <code>a2</code>. Le regroupement n'est qu'une façon d'écrire la liste ; l'ordre ne change pas le résultat.","Sullo schermo compaiono raggruppate: la lettera apre il gruppo e le cifre che seguono sono sue fino alla lettera successiva. Così <code>a012</code> significa <code>a0</code>, <code>a1</code> e <code>a2</code>. Il raggruppamento è solo il modo di scrivere l'elenco; l'ordine non cambia il risultato.","Auf dem Bildschirm erscheinen sie gruppiert: Der Buchstabe öffnet die Gruppe, und die folgenden Ziffern gehören bis zum nächsten Buchstaben dazu. <code>a012</code> bedeutet also <code>a0</code>, <code>a1</code> und <code>a2</code>. Die Gruppierung ist nur die Schreibweise der Liste; die Reihenfolge ändert das Ergebnis nicht.","Op het scherm verschijnen ze gegroepeerd: de letter opent de groep en de cijfers die volgen horen erbij tot de volgende letter. <code>a012</code> betekent dus <code>a0</code>, <code>a1</code> en <code>a2</code>. De groepering is alleen de manier waarop de lijst wordt geschreven; de volgorde verandert het resultaat niet.","A la pantalla apareixen agrupades: la lletra obre el grup i els dígits que vénen després són seus fins a la lletra següent. Així, <code>a012</code> vol dir <code>a0</code>, <code>a1</code> i <code>a2</code>. L'agrupació és només la manera d'escriure la llista; l'ordre no canvia el resultat.","Na pantalla aparecen agrupadas: a letra abre o grupo e os díxitos que veñen despois son dela ata a seguinte letra. Así, <code>a012</code> quere dicir <code>a0</code>, <code>a1</code> e <code>a2</code>. A agrupación é só a forma de escribir a lista; a orde non cambia o resultado."],
-    ["A posição de uma coordenada é <code>letra × 10 + dígito</code>, contando <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Assim <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 e <code>z5</code> = 255.","A coordinate's position is <code>letter × 10 + digit</code>, counting <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. So <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 and <code>z5</code> = 255.","La posición de una coordenada es <code>letra × 10 + dígito</code>, contando <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Así, <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 y <code>z5</code> = 255.","La position d'une coordonnée est <code>lettre × 10 + chiffre</code>, en comptant <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Ainsi <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 et <code>z5</code> = 255.","La posizione di una coordinata è <code>lettera × 10 + cifra</code>, contando <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Quindi <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 e <code>z5</code> = 255.","Die Position einer Koordinate ist <code>Buchstabe × 10 + Ziffer</code>, wobei <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25 gilt. Also <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 und <code>z5</code> = 255.","De positie van een coördinaat is <code>letter × 10 + cijfer</code>, met <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Dus <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 en <code>z5</code> = 255.","La posició d'una coordenada és <code>lletra × 10 + dígit</code>, comptant <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Així, <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 i <code>z5</code> = 255.","A posición dunha coordenada é <code>letra × 10 + díxito</code>, contando <code>a</code> = 0, <code>b</code> = 1, … <code>z</code> = 25. Así, <code>a0</code> = 0, <code>b0</code> = 10, <code>h7</code> = 77 e <code>z5</code> = 255."],
-    ["A tela mostra só as coordenadas que ficaram em <code>1</code>. Todas as outras posições valem <code>0</code>. Com a lista em mãos, refaça os 256 dígitos assim:","The screen shows only the coordinates that came up <code>1</code>. Every other position is <code>0</code>. With the list in hand, rebuild the 256 digits like this:","La pantalla muestra solo las coordenadas que quedaron en <code>1</code>. Todas las demás posiciones valen <code>0</code>. Con la lista en la mano, rehaz los 256 dígitos así:","L'écran n'affiche que les coordonnées qui ont donné <code>1</code>. Toutes les autres positions valent <code>0</code>. Avec la liste en main, refaites les 256 chiffres ainsi :","Lo schermo mostra solo le coordinate che sono uscite <code>1</code>. Tutte le altre posizioni valgono <code>0</code>. Con l'elenco in mano, ricostruisci i 256 bit così:","Der Bildschirm zeigt nur die Koordinaten, die <code>1</code> ergeben haben. Alle anderen Positionen zählen <code>0</code>. Mit der Liste zur Hand baust du die 256 Binärwerte so nach:","Het scherm toont alleen de coördinaten die <code>1</code> zijn geworden. Alle andere posities zijn <code>0</code>. Met de lijst bij de hand bouw je de 256 bits zo opnieuw op:","La pantalla mostra només les coordenades que han quedat en <code>1</code>. Totes les altres posicions valen <code>0</code>. Amb la llista a mà, refés els 256 dígits així:","A pantalla mostra só as coordenadas que quedaron en <code>1</code>. Todas as demais posicións valen <code>0</code>. Coa lista na man, refai os 256 díxitos así:"],
-    ["<b>1.</b> Escreva 256 zeros seguidos.","<b>1.</b> Write 256 zeros in a row.","<b>1.</b> Escribe 256 ceros seguidos.","<b>1.</b> Écrivez 256 zéros à la suite.","<b>1.</b> Scrivi 256 zeri di seguito.","<b>1.</b> Schreibe 256 Nullen hintereinander.","<b>1.</b> Schrijf 256 nullen achter elkaar.","<b>1.</b> Escriu 256 zeros seguits.","<b>1.</b> Escribe 256 ceros seguidos."],
-    ["<b>2.</b> Numere as posições de 0 a 255, começando no primeiro zero.","<b>2.</b> Number the positions from 0 to 255, starting at the first zero.","<b>2.</b> Numera las posiciones de 0 a 255, empezando por el primer cero.","<b>2.</b> Numérotez les positions de 0 à 255, en partant du premier zéro.","<b>2.</b> Numera le posizioni da 0 a 255, partendo dal primo zero.","<b>2.</b> Nummeriere die Positionen von 0 bis 255, beginnend beim ersten Nullwert.","<b>2.</b> Nummer de posities van 0 tot 255, beginnend bij de eerste nul.","<b>2.</b> Numera les posicions de 0 a 255, començant pel primer zero.","<b>2.</b> Numera as posicións de 0 a 255, comezando polo primeiro cero."],
-    ["<b>3.</b> Troque por <code>1</code> cada posição que aparece na lista, com o número saindo de <code>letra × 10 + dígito</code>.","<b>3.</b> Change every position that appears in the list to <code>1</code>, with the number coming from <code>letter × 10 + digit</code>.","<b>3.</b> Cambia por <code>1</code> cada posición que aparece en la lista, con el número saliendo de <code>letra × 10 + dígito</code>.","<b>3.</b> Remplacez par <code>1</code> chaque position qui figure dans la liste, le numéro venant de <code>lettre × 10 + chiffre</code>.","<b>3.</b> Sostituisci con <code>1</code> ogni posizione che compare nell'elenco, con il numero che viene da <code>lettera × 10 + cifra</code>.","<b>3.</b> Setze jede Position aus der Liste auf <code>1</code>, wobei die Nummer aus <code>Buchstabe × 10 + Ziffer</code> kommt.","<b>3.</b> Zet elke positie die in de lijst voorkomt op <code>1</code>, waarbij het nummer uit <code>letter × 10 + cijfer</code> komt.","<b>3.</b> Canvia per <code>1</code> cada posició que apareix a la llista, amb el número sortint de <code>lletra × 10 + dígit</code>.","<b>3.</b> Troca por <code>1</code> cada posición que aparece na lista, co número saíndo de <code>letra × 10 + díxito</code>."],
-    ["No papel dá para usar uma grade de 26 linhas (as letras <code>a</code> a <code>z</code>) por 10 colunas (os dígitos <code>0</code> a <code>9</code>): marque <code>1</code> nas coordenadas da lista e leia da esquerda para a direita, de cima para baixo, parando em <code>z5</code>. O resultado tem sempre 256 dígitos, sem espaço nem vírgula.","On paper you can use a grid of 26 rows (the letters <code>a</code> to <code>z</code>) by 10 columns (the digits <code>0</code> to <code>9</code>): mark <code>1</code> at the coordinates in the list and read from left to right, top to bottom, stopping at <code>z5</code>. The result always has 256 digits, with no space or comma.","En papel se puede usar una cuadrícula de 26 filas (las letras <code>a</code> a <code>z</code>) por 10 columnas (los dígitos <code>0</code> a <code>9</code>): marca <code>1</code> en las coordenadas de la lista y lee de izquierda a derecha, de arriba abajo, parando en <code>z5</code>. El resultado tiene siempre 256 dígitos, sin espacio ni coma.","Sur papier, on peut utiliser une grille de 26 lignes (les lettres <code>a</code> à <code>z</code>) sur 10 colonnes (les chiffres <code>0</code> à <code>9</code>) : marquez <code>1</code> aux coordonnées de la liste et lisez de gauche à droite, de haut en bas, en vous arrêtant à <code>z5</code>. Le résultat comporte toujours 256 chiffres, sans espace ni virgule.","Sulla carta si può usare una griglia di 26 righe (le lettere da <code>a</code> a <code>z</code>) per 10 colonne (le cifre da <code>0</code> a <code>9</code>): segna <code>1</code> nelle coordinate dell'elenco e leggi da sinistra a destra, dall'alto in basso, fermandoti a <code>z5</code>. Il risultato ha sempre 256 cifre, senza spazi né virgole.","Auf Papier kannst du ein Raster aus 26 Zeilen (den Buchstaben <code>a</code> bis <code>z</code>) und 10 Spalten (den Ziffern <code>0</code> bis <code>9</code>) verwenden: Markiere <code>1</code> an den Koordinaten der Liste und lies von links nach rechts, von oben nach unten, bis <code>z5</code>. Das Ergebnis hat immer 256 Ziffern, ohne Leerzeichen oder Komma.","Op papier kun je een raster van 26 rijen (de letters <code>a</code> tot <code>z</code>) bij 10 kolommen (de cijfers <code>0</code> tot <code>9</code>) gebruiken: markeer <code>1</code> bij de coördinaten uit de lijst en lees van links naar rechts, van boven naar beneden, tot <code>z5</code>. Het resultaat heeft altijd 256 bits, zonder spatie of komma.","En paper es pot fer servir una graella de 26 files (les lletres <code>a</code> a <code>z</code>) per 10 columnes (els dígits <code>0</code> a <code>9</code>): marca <code>1</code> a les coordenades de la llista i llegeix d'esquerra a dreta, de dalt a baix, parant a <code>z5</code>. El resultat té sempre 256 dígits, sense espai ni coma.","No papel pódese usar unha grella de 26 filas (as letras <code>a</code> a <code>z</code>) por 10 columnas (os díxitos <code>0</code> a <code>9</code>): marca <code>1</code> nas coordenadas da lista e le de esquerda a dereita, de arriba abaixo, parando en <code>z5</code>. O resultado ten sempre 256 díxitos, sen espazo nin coma."],
-    ["Em outra ferramenta, informe esses 256 dígitos como a entrada da chave (o campo que às vezes aparece como “binário” ou “bits”). Ela devolve a mesma frase de 24 palavras, desde que use o BIP39 com a lista em inglês. Confira contra a frase que esta tela mostrou: se as 24 palavras forem iguais, a cópia está certa.","In another tool, enter those 256 digits as the key input (the field that sometimes appears as “binary” or “bits”). It returns the same 24-word phrase, as long as it uses BIP39 with the English list. Check it against the phrase this screen showed: if the 24 words match, the copy is correct.","En otra herramienta, introduce esos 256 dígitos como la entrada de la clave (el campo que a veces aparece como “binario” o “bits”). Devuelve la misma frase de 24 palabras, siempre que use BIP39 con la lista en inglés. Compruébala contra la frase que mostró esta pantalla: si las 24 palabras son iguales, la copia es correcta.","Dans un autre outil, saisissez ces 256 chiffres comme entrée de la clé (le champ qui apparaît parfois comme « binaire » ou « bits »). Il renvoie la même phrase de 24 mots, à condition d'utiliser BIP39 avec la liste anglaise. Vérifiez-la par rapport à la phrase affichée par cet écran : si les 24 mots sont identiques, la copie est correcte.","In un altro strumento, inserisci quei 256 bit come input della chiave (il campo che a volte compare come “binario” o “bit”). Restituisce la stessa frase di 24 parole, purché usi BIP39 con l'elenco inglese. Confrontala con la frase mostrata da questa schermata: se le 24 parole coincidono, la copia è corretta.","Gib diese 256 Binärwerte in einem anderen Werkzeug als Schlüsseleingabe ein (das Feld, das manchmal als „binär“ oder „bits“ erscheint). Es liefert dieselbe Merkhilfe aus 24 Wörtern, sofern es BIP39 mit der englischen Liste verwendet. Vergleiche sie mit der Merkhilfe, die dieser Bildschirm gezeigt hat: Wenn die 24 Wörter übereinstimmen, ist die Kopie richtig.","Voer die 256 bits in een andere tool in als sleutelinvoer (het veld dat soms als “binair” of “bits” verschijnt). Het geeft dezelfde zin van 24 woorden terug, zolang het BIP39 met de Engelse lijst gebruikt. Controleer hem tegen de zin die dit scherm toonde: als de 24 woorden overeenkomen, is de kopie correct.","En una altra eina, introdueix aquests 256 dígits com a entrada de la clau (el camp que de vegades apareix com a “binari” o “bits”). Retorna la mateixa frase de 24 paraules, sempre que faci servir BIP39 amb la llista en anglès. Comprova-la contra la frase que ha mostrat aquesta pantalla: si les 24 paraules coincideixen, la còpia és correcta.","Noutra ferramenta, introduce eses 256 díxitos como a entrada da clave (o campo que ás veces aparece como “binario” ou “bits”). Devolve a mesma frase de 24 palabras, sempre que use BIP39 coa lista en inglés. Compárea coa frase que mostrou esta pantalla: se as 24 palabras coinciden, a copia é correcta."],
     ["Os BIPs são as regras públicas do Bitcoin que a ferramenta segue. Eles cobrem a chave, os endereços, as assinaturas e o arquivo de transação.","The BIPs are the public Bitcoin rules the tool follows. They cover the key, the addresses, the signatures and the transaction file.","Los BIP son las reglas públicas de Bitcoin que sigue la herramienta. Cubren la clave, las direcciones, las firmas y el archivo de transacción.","Les BIP sont les règles publiques de Bitcoin que suit l'outil. Elles couvrent la clé, les adresses, les signatures et le fichier de transaction.","I BIP sono le regole pubbliche di Bitcoin che lo strumento segue. Coprono la chiave, gli indirizzi, le firme e il file di transazione.","Die BIPs sind die öffentlichen Bitcoin-Regeln, denen das Werkzeug folgt. Sie decken den Schlüssel, die Adressen, die Signaturen und die Transaktionsdatei ab.","De BIP's zijn de openbare Bitcoin-regels die de tool volgt. Ze dekken de sleutel, de adressen, de handtekeningen en het transactiebestand.","Els BIP són les regles públiques de Bitcoin que segueix l'eina. Cobreixen la clau, les adreces, les signatures i el fitxer de transacció.","Os BIP son as regras públicas de Bitcoin que segue a ferramenta. Cobren a clave, os enderezos, as sinaturas e o ficheiro de transacción."],
     ["<b>Chave e contas.</b>","<b>Key and accounts.</b>","<b>Clave y cuentas.</b>","<b>Clé et comptes.</b>","<b>Chiave e conti.</b>","<b>Schlüssel und Konten.</b>","<b>Sleutel en rekeningen.</b>","<b>Clau i comptes.</b>","<b>Clave e contas.</b>"],
     ["<b>BIP39</b> — as 256 marcas e a frase de 24 palavras que sai delas.","<b>BIP39</b> — the 256 marks and the 24-word phrase that comes from them.","<b>BIP39</b> — las 256 marcas y la frase de 24 palabras que sale de ellas.","<b>BIP39</b> — les 256 marques et la phrase de 24 mots qui en découle.","<b>BIP39</b> — i 256 segni e la frase di 24 parole che ne deriva.","<b>BIP39</b> — die 256 Markierungen und die daraus entstehende Merkhilfe aus 24 Wörtern.","<b>BIP39</b> — de 256 markeringen en de zin van 24 woorden die eruit komt.","<b>BIP39</b> — les 256 marques i la frase de 24 paraules que en surt.","<b>BIP39</b> — as 256 marcas e a frase de 24 palabras que sae delas."],
@@ -4581,7 +4543,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     });
   }
 
-  var META_DESCRIPTION = 'Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 jogadas de moeda (cara = 1, coroa = 0) ou de coordenadas a0–z5, mostra xprv/xpub e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.';
+  var META_DESCRIPTION = 'Deriva contas HD Bitcoin (BIP44/49/84/86) a partir de 256 jogadas de moeda (cara = 1, coroa = 0), mostra xprv/xpub e assina PSBT de transações criadas em outro app. Roda offline, em um arquivo só.';
   var META_TITLE = 'cofre btc - contas hd a partir de 256 bits';
   var META_SHARE = '256 jogadas de moeda (cara = 1, coroa = 0) entram como entropia BIP39; contas HD, xprv/xpub e assinatura saem. Um arquivo, sem rede.';
   function setMeta(selector, attr, key) {
@@ -4631,7 +4593,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var analyzeSeq = 0;
 
   var screenChave = $('#screen-chave');
-  var coordsOut = $('#coords');
   var modeBtn = $('#bits-mode');
   var coinCancel = $('#coin-cancel');
   var coinCara = $('#coin-cara');
@@ -4639,7 +4600,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var coinCounter = $('#coin-counter');
   var coinLast = $('#coin-last');
   var coinStatus = $('#coin-status');
-  var markedPath = [];
   var bitsValue = '';
   var binaryBits = $('#binary-bits');
   var psbtText = '';
@@ -4713,9 +4673,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     paintStatus(el);
   }
 
-  /* As mensagens de erro nunca levam bits, seed, xprv, coordenadas, PSBT
-     bruto, assinatura, endereço ou valor. Só tipo de script, SIGHASH e nome
-     de campo. Só as mensagens conhecidas abaixo chegam à tela; o resto vira
+  /* As mensagens de erro nunca levam bits, seed, xprv, PSBT bruto,
+     assinatura, endereço ou valor. Só tipo de script, SIGHASH e nome de
+     campo. Só as mensagens conhecidas abaixo chegam à tela; o resto vira
      uma mensagem genérica. */
   var USER_ERROR = /^(uma entrada|uma saída|o troco|PSBT |SIGHASH |este PSBT|a transação|o PSBT|o arquivo|o conteúdo|saídas |script do tipo |não foi possível decodificar|conta )/;
   /* Guarda a mensagem original do núcleo: na troca de idioma, o mesmo erro
@@ -4734,12 +4694,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   /* ---------------------------------------------- entrada por jogadas */
   var BIT_COUNT = 256;
-  /* tosses: as jogadas na ordem em que foram registradas (index + bit).
-     freeCoords: as coordenadas ainda sem jogada, em ordem crescente.
-     markedPath: as coordenadas que ficaram em 1, que é o que o campo de
-     coordenadas mostra e o que vira entropia. */
+  /* tosses: as jogadas na ordem em que foram registradas (bit + horário).
+     bitsValue é a entropia em vigor: a sequência de 256 dígitos que sai das
+     jogadas ou da frase mnemônica. */
   var tosses = [];
-  var freeCoords = [];
 
   function padDigits(value, size) {
     var text = String(value);
@@ -4754,47 +4712,24 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       padDigits(date.getSeconds(), 2);
   }
 
-  /* Coordenada do bit: letra de a a z e dígito de 0 a 9, na ordem de
-     leitura: a0–a9, b0–b9, … até z5. */
-  function coordName(index) {
-    var letter = Math.floor(index / 10);
-    var digit = index % 10;
-    return String.fromCharCode(97 + letter) + digit;
-  }
-
-  /* O conjunto marcado é a lista markedPath. A ordem das jogadas não entra
-     nos bits: os 256 saem das coordenadas que ficaram em 1. Sem coordenada
-     não há entropia e a chave antiga cai. */
-  function bitsFromPath() {
-    if (!markedPath.length) return '';
-    var bits = new Array(BIT_COUNT + 1).join('0').split('');
-    markedPath.forEach(function (index) { bits[index] = '1'; });
-    return bits.join('');
-  }
-
-  /* O ## binários mostra o mesmo conjunto que vira mnemonic e chave, nos 256
+  /* O ## entropia mostra o mesmo conjunto que vira mnemonic e chave, nos 256
      dígitos que a entropia tem. Durante a geração os 256 lugares aparecem
-     desde o começo, com o que falta no zero do --dim e a próxima coordenada
+     desde o começo, com o que falta no zero do --dim e a próxima posição
      destacada; o dígito da vez entra no lugar do zero a cada jogada. Sem os
-     256 bits — frase pela metade, sequência ainda sem coordenada marcada —
-     fica no travessão. */
+     256 bits — frase pela metade — fica no travessão. */
   function paintBinary() {
     if (!binaryBits) return;
     var generating = screenChave && screenChave.classList.contains('is-generating');
     if (generating && tosses.length < BIT_COUNT) {
       var slots = new Array(BIT_COUNT + 1).join('0').split('');
-      var filled = {};
-      tosses.forEach(function (toss) {
-        slots[toss.index] = toss.bit ? '1' : '0';
-        filled[toss.index] = true;
-      });
-      var next = freeCoords.length ? freeCoords[0] : -1;
+      for (var i = 0; i < tosses.length; i++) slots[i] = tosses[i].bit ? '1' : '0';
+      var next = tosses.length;
       var frag = document.createDocumentFragment();
       for (var i = 0; i < BIT_COUNT; i++) {
         var span = document.createElement('span');
         span.textContent = slots[i];
         if (i === next) span.className = 'binary-next';
-        else if (!filled[i]) span.className = 'binary-empty';
+        else if (i >= tosses.length) span.className = 'binary-empty';
         frag.appendChild(span);
       }
       binaryBits.textContent = '';
@@ -4807,50 +4742,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     binaryBits.classList.toggle('is-empty', !bits);
   }
 
-  /* Agrupa as coordenadas marcadas por letra (a0123456789b…), em ordem
-     crescente: a lista sai como a sequência das jogadas, sem sorteio. */
-  function groupedCoords() {
-    var byLetter = {};
-    var letters = [];
-    markedPath.slice().sort(function (a, b) { return a - b; }).forEach(function (index) {
-      var name = coordName(index);
-      var letter = name.charAt(0);
-      var digit = name.charAt(1);
-      if (!byLetter[letter]) {
-        byLetter[letter] = [];
-        letters.push(letter);
-      }
-      byLetter[letter].push(digit);
-    });
-    return letters.map(function (letter) {
-      return letter + byLetter[letter].join('');
-    }).join('');
-  }
-
-  /* O submenu ## coordenadas mostra markedPath agrupado por letra, só com as
-     marcadas; sem coordenada fica no travessão do estado vazio. */
-  function syncCoords() {
-    if (!coordsOut) return;
-    var text = groupedCoords();
-    var shown = text || '—';
-    if (coordsOut.textContent !== shown) coordsOut.textContent = shown;
-    coordsOut.classList.toggle('is-empty', !text);
-  }
-
-  /* A jogada n ocupa a n-ésima coordenada da sequência (a0, a1, …, z5). A
-     fila de livres fica em ordem crescente: a próxima jogada sempre pega o
-     primeiro item. */
-  function fillFreeCoords() {
-    var marked = {};
-    markedPath.forEach(function (index) { marked[index] = true; });
-    freeCoords = [];
-    for (var i = 0; i < BIT_COUNT; i++) {
-      if (!marked[i]) freeCoords.push(i);
-    }
-  }
-
-  /* O contador é o número de jogadas registradas, que também é o número de
-     coordenadas já preenchidas. No fim as duas faces ficam bloqueadas. */
+  /* O contador é o número de jogadas registradas. No fim as duas faces ficam
+     bloqueadas. */
   function paintTosses(message, vars) {
     var count = tosses.length;
     var full = count >= BIT_COUNT;
@@ -4877,40 +4770,31 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (state.hd || state.values || state.analysis) clearKey();
   }
 
-  /* Registra a face da moeda na próxima coordenada da sequência. O clique
-     em coroa também ocupa a coordenada (bit 0); só cara entra em markedPath,
-     que é o que o submenu de coordenadas mostra, em ordem crescente. Na
-     última jogada a sequência fecha, a tela volta ao normal e a chave sai dos
-     256 bits. */
+  /* Registra a face da moeda na próxima posição da entropia. O clique em
+     coroa também entra como bit 0 na sequência. Na última jogada a sequência
+     fecha, a tela volta ao normal e a chave sai dos 256 bits. */
   function registerToss(bit) {
-    if (tosses.length >= BIT_COUNT || !freeCoords.length) return;
-    var index = freeCoords.shift();
-    tosses.push({ index: index, bit: bit ? 1 : 0, at: new Date() });
-    if (bit) markedPath.push(index);
-    bitsValue = bitsFromPath();
+    if (tosses.length >= BIT_COUNT) return;
+    tosses.push({ bit: bit ? 1 : 0, at: new Date() });
+    bitsValue += bit ? '1' : '0';
     paintBinary();
-    syncCoords();
     if (tosses.length >= BIT_COUNT) {
       paintTosses('256 jogadas registradas; os 256 bits estão completos.');
       endGeneration();
       applyBits(bitsValue);
       return;
     }
-    paintTosses('jogada {n} de 256: {face}, coordenada {coord}.', {
+    paintTosses('jogada {n} de 256: {face}.', {
       n: padDigits(tosses.length, 3),
-      face: bit ? 'cara, bit 1' : 'coroa, bit 0',
-      coord: coordName(index)
+      face: bit ? 'cara, bit 1' : 'coroa, bit 0'
     });
     discardKey();
   }
 
   function resetTossRun() {
     tosses = [];
-    markedPath = [];
     bitsValue = '';
     paintBinary();
-    fillFreeCoords();
-    syncCoords();
     paintTosses('jogadas zeradas.');
     discardKey();
     /* Recomeçar pelas jogadas também esvazia a frase digitada: a entrada
@@ -4922,9 +4806,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   if (coinCoroa) coinCoroa.addEventListener('click', function () { registerToss(0); });
 
   /* O botão "gerar chave" abre a geração: a tela fica só com o painel de
-     jogadas e os submenus de binários e coordenadas, e a sequência anterior
-     não sobrevive ao recomeço. A troca usa a revelação da skill (título,
-     régua e blocos), sem esconder o painel do .focus() seguinte. */
+     jogadas e o submenu de entropia, e a sequência anterior não sobrevive ao
+     recomeço. A troca usa a revelação da skill (título, régua e blocos), sem
+     esconder o painel do .focus() seguinte. */
   function startGeneration() {
     resetTossRun();
     if (screenChave) screenChave.classList.add('is-generating');
@@ -5047,10 +4931,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   /* --------------------------------------------------- palavras da frase */
   /* O mnemonic é entrada e saída: as 24 posições são campos, e a frase que
-     sai das jogadas ou das coordenadas é escrita neles. Cada palavra da
-     lista oficial vale 11 bits, então o prefixo já digitado desenha as
-     coordenadas; a chave só nasce quando as 24 palavras fecham a checagem
-     do BIP39, porque só a frase inteira define os 256 bits. */
+     sai das jogadas é escrita neles. Cada palavra da lista oficial vale 11
+     bits; a chave só nasce quando as 24 palavras fecham a checagem do BIP39,
+     porque só a frase inteira define os 256 bits. */
   var mnemonicList = $('#mnemonic-words');
   var mnemonicNote = $('#mnemonic-note');
   var mnemonicBlock = $('#entropy-block');
@@ -5251,16 +5134,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (next) next.focus();
   }
 
-  /* Posições em 1 viram coordenadas; os bits que a frase ainda não alcançou
-     ficam de fora, então o que aparece é só o que já está definido. */
-  function pathFromBits(bits) {
-    var path = [];
-    for (var i = 0; i < bits.length; i++) {
-      if (bits.charAt(i) === '1') path.push(i);
-    }
-    return path;
-  }
-
   function mnemonicNoteFor(bits, complete, valid) {
     if (valid) return { kind: 'ok', key: '24 palavras válidas; os 256 bits estão completos.' };
     if (complete) return { kind: 'erro', key: 'as 24 palavras não fecham a checagem do BIP39.' };
@@ -5273,9 +5146,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* Lê as 24 posições: cada palavra da lista vale 11 bits e a frase inteira,
-     264 — os 256 primeiros são a entropia e os 8 últimos, a checagem. O
-     prefixo formado até a primeira posição vazia ou pela metade vira o
-     conjunto de coordenadas; a chave só sai da frase inteira e válida. */
+     264 — os 256 primeiros são a entropia e os 8 últimos, a checagem. A
+     chave só sai da frase inteira e válida. */
   function syncMnemonic() {
     var words = mnemonicInputs.map(function (input) {
       return input.value.trim().toLowerCase();
@@ -5299,13 +5171,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
          não define os 256 bits. */
       bitsValue = valid ? entropy : '';
       paintBinary();
-      markedPath = pathFromBits(entropy);
-      syncCoords();
-      tosses = markedPath.map(function (position) {
-        return { index: position, bit: 1 };
-      });
-      fillFreeCoords();
-      paintTosses();
       paintMnemonicNote(mnemonicNoteFor(bits, complete, valid));
       /* Sem a frase completa e válida não há 256 bits: a chave anterior cai
          na hora e nada é derivado do prefixo. */
@@ -5402,9 +5267,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     });
   }
 
-  /* A frase que vem das jogadas ou das coordenadas é escrita nos campos;
-     enquanto o usuário digita a própria frase, nenhum desenho passa por
-     cima do que ele escreveu. */
+  /* A frase que vem das jogadas é escrita nos campos; enquanto o usuário
+     digita a própria frase, nenhum desenho passa por cima do que ele
+     escreveu. */
   function paintEntropy(hd) {
     if (!mnemonicList || mnemonicEditing) return;
     var words = hd ? hd.mnemonic.split(' ') : [];
@@ -5536,8 +5401,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   /* ---------------------------------------------------------- bits/entrada */
 
-  /* A derivação recebe os 256 bits que saem das coordenadas. Com menos de
-     256 bits não há chave, e o estado antigo cai. */
+  /* A derivação recebe os 256 bits da entropia. Com menos de 256 bits não há
+     chave, e o estado antigo cai. */
   async function applyBits(bits) {
     if (bits.length < BIT_COUNT) {
       clearKey();
@@ -5581,10 +5446,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     setClearLabel(false);
     invalidateSignature();
   }
-  /* A digitação no campo de coordenadas muda os bits a cada tecla; a chave
-     anterior cai na hora e a derivação completa (PBKDF2 + BIP32) espera o
-     mesmo intervalo curto da análise do PSBT, e só o último conjunto é
-     derivado. Sem 256 bits, o estado antigo cai na hora. */
+  /* A edição da frase muda os bits a cada tecla; a chave anterior cai na
+     hora e a derivação completa (PBKDF2 + BIP32) espera o mesmo intervalo
+     curto da análise do PSBT, e só o último conjunto é derivado. Sem 256
+     bits, o estado antigo cai na hora. */
   function scheduleBits(bits) {
     invalidateDerivedKey();
     if (deriveTimer) {
@@ -6676,10 +6541,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   applyLanguage();
   updateThemeButton();
   syncThemeColor();
-  fillFreeCoords();
   paintTosses('');
   paintBinary();
-  syncCoords();
   applyBits(bitsValue);
   paintPsbt('');
   buildKeyCells();
