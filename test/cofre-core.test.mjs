@@ -114,6 +114,14 @@ console.log('ok   derivação HD idêntica à do btc-core');
   const comFrase = await BTC.deriveHD(bits, 'TREZOR');
   assert.notEqual(comFrase.fingerprint, hd.fingerprint);
   assert.equal(comFrase.fingerprint, (await C.deriveHD(bits, 'TREZOR')).fingerprint);
+  /* Vetor japonês do BIP39: a frase secreta só bate depois da normalização
+     NFKD do sal (ex.: ㍍ vira メートル). Sem ela, o teste com "TREZOR"
+     passaria mesmo que o nfkd do sal tivesse regredido. */
+  const jpWords = 'あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あおぞら';
+  const jpPass = '㍍ガバヴァぱばぐゞちぢ十人十色';
+  const jpSeed = 'a262d6fb6122ecf45be09c50492b31f92e9beb7d9a845987a02cefda57a15f9c467a17872029a9e92299b5cbdf306e3a0ee620245cbd508959b6cb7ca637bd55';
+  assert.equal(hex(await BTC.bip39Seed(jpWords, jpPass)), jpSeed);
+  assert.equal(hex(await C.bip39Seed(jpWords, jpPass)), jpSeed);
   console.log('ok   frase secreta entra no PBKDF2 e muda a derivação');
 }
 

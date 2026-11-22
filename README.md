@@ -176,7 +176,7 @@ key, the script, the outputs and the fee before signing. The private key never
 reaches the Monitor.
 
 Before opening it, compare the published hash: sha256 do arquivo publicado é
-`ce5b83f28ffefbe56063ff50640de752d1bfe6b07e7892ea65fdad7b8f0ebced` — run
+`ac75c1816e377078bbbcff59be40a9b90a37b0e3b3231e03e04af9b341648ccc` — run
 `sha256sum cofre-btc.html` on the downloaded file. The Cofre's about screen
 asks for the same check. Any edit to the Cofre requires updating this value;
 `npm test` fails when the hash is out of date.
@@ -189,7 +189,8 @@ phrase loses the wallet it defines.
 
 Earlier versions of the Cofre also recorded the tosses as coordinates
 (`a0`–`z5`) and told users to write that list down. That input was removed in
-favour of the 24-word phrase. A saved coordinate list still recovers the key:
+favour of the 24-word phrase. A saved coordinate list still recovers the key,
+as long as the secret phrase is empty (as in the versions of that time):
 each `letter × 10 + digit` (with `a` = 0, …, `z` = 25) sets `1` at that
 position of the 256 bits and every other position is `0`; enter the 256 digits
 in any BIP39 tool with the English list to get the same 24 words. The Cofre's

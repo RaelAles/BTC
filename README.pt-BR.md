@@ -178,7 +178,7 @@ script, as saídas e a taxa antes de assinar. A chave privada nunca passa pelo
 Monitor.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
-`ce5b83f28ffefbe56063ff50640de752d1bfe6b07e7892ea65fdad7b8f0ebced` — rode
+`ac75c1816e377078bbbcff59be40a9b90a37b0e3b3231e03e04af9b341648ccc` — rode
 `sha256sum cofre-btc.html` no arquivo baixado. A tela “sobre” do Cofre pede a
 mesma conferência. Qualquer edição no Cofre exige atualizar este valor; o
 `npm test` acusa hash vencido.
@@ -192,7 +192,8 @@ define.
 Versões anteriores do Cofre também gravavam as jogadas como coordenadas
 (`a0`–`z5`) e mandavam anotar essa lista. Essa entrada foi removida em favor
 da frase de 24 palavras. Uma lista de coordenadas guardada ainda recupera a
-chave: cada `letra × 10 + dígito` (com `a` = 0, …, `z` = 25) marca `1` naquela
+chave, desde que a frase secreta esteja vazia (como nas versões daquela
+época): cada `letra × 10 + dígito` (com `a` = 0, …, `z` = 25) marca `1` naquela
 posição dos 256 bits e todas as outras posições valem `0`; informe os 256
 dígitos em qualquer ferramenta BIP39 com a lista em inglês para chegar às
 mesmas 24 palavras. A tela “sobre” do Cofre traz a mesma nota de migração.

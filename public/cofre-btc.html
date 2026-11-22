@@ -1659,7 +1659,8 @@
     /* A palavra em digitação e o foco do campo se distinguiam só pela cor:
        a opção escolhida ganha a borda tracejada e o fio do campo em uso
        passa a tracejado, como o foco do resto da tela. */
-    .mnemonic-word:focus-within { border-bottom-style: dashed; }
+    .mnemonic-word:focus-within,
+    .passphrase-word:focus-within { border-bottom-style: dashed; }
     .mnemonic-option[aria-selected="true"] {
       outline: 1px dashed;
       outline-offset: -2px;
@@ -1903,24 +1904,37 @@
      flutuantes: o bloco das palavras é um dos .reveal-block, que pinta em
      ordem, e sem o z-index a lista ficaria atrás dos blocos seguintes. */
   .entropy-block.has-options { position: relative; z-index: var(--layer-float); }
+  /* A grade da frase fica no contêiner; as 24 posições formam a lista
+     semântica, e a frase secreta mora na linha de baixo, fora do <ol>: o
+     leitor de tela anuncia 24 itens, não 25. */
   .mnemonic-words {
     display: grid;
     width: min(100%, 28rem);
     margin: 0 auto;
-    padding: 0;
-    list-style: none;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-2) var(--space-4);
     font-size: var(--text-sm);
   }
-  .mnemonic-word {
+  .mnemonic-word-list {
+    grid-column: 1 / -1;
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2) var(--space-4);
+  }
+  .mnemonic-word,
+  .passphrase-word {
     position: relative;
     display: flex;
-    align-items: flex-end;
-    gap: .8ch;
     min-width: 0;
     padding-bottom: var(--space-1);
     border-bottom: 1px solid var(--line);
+  }
+  .mnemonic-word {
+    align-items: flex-end;
+    gap: .8ch;
   }
   /* O número é o convite: usa o --accent dos links, enquanto o fio da linha
      continua no --line neutro dos itens e só acende no foco. */
@@ -1943,7 +1957,8 @@
   .mnemonic-word-input::placeholder { color: var(--dim); opacity: 1; }
   /* O foco é do item, não do campo: o fio inferior acende inteiro no
      --accent, como a moldura da .field-box. */
-  .mnemonic-word:focus-within { border-bottom-color: var(--accent); }
+  .mnemonic-word:focus-within,
+  .passphrase-word:focus-within { border-bottom-color: var(--accent); }
   /* A lista oficial aberta: fundo opaco do --bg, como as opções do <select>,
      uma palavra por linha na largura do campo. A opção em digitação troca o
      fundo pelo --accent e o texto pelo --on-strong. */
@@ -1993,14 +2008,14 @@
   }
   .mnemonic-note.ok { color: var(--success); }
   .mnemonic-note.error { color: var(--error); }
-  /* A frase secreta entra na própria grade das palavras, na coluna do
-     meio logo abaixo das 24 posições: ocupa o lugar da "26ª palavra", com
-     o nome no lugar do número e o mesmo fio da célula. Rótulo e texto
-     ficam centralizados na coluna, com um respiro acima. Ela entra no
-     PBKDF2 depois das palavras, então não muda a frase — muda a seed e as
-     chaves que saem dela. */
+  /* A frase secreta fica fora do <ol> das 24 posições, na linha de baixo
+     da mesma grade: ocupa a largura toda para que a frase inteira caiba e
+     possa ser conferida contra o que foi anotado. Rótulo e texto ficam
+     centralizados, com um respiro acima. Ela entra no PBKDF2 depois das
+     palavras, então não muda a frase — muda a seed e as chaves que saem
+     dela. */
   .passphrase-word {
-    grid-column: 2;
+    grid-column: 1 / -1;
     flex-direction: column;
     align-items: center;
     gap: 0;
@@ -2110,12 +2125,13 @@
               <div class="prose">
                 <h3><span class="prompt" aria-hidden="true">##</span> mnemonic</h3>
               </div>
-              <ol class="mnemonic-words" id="mnemonic-words" aria-label="frase mnemônica de 24 palavras">
-                <li class="mnemonic-word passphrase-word" id="passphrase-word">
+              <div class="mnemonic-words">
+                <ol class="mnemonic-word-list" id="mnemonic-words" aria-label="frase mnemônica de 24 palavras"></ol>
+                <div class="passphrase-word" id="passphrase-word">
                   <label class="mnemonic-word-index" for="passphrase">frase secreta</label>
-                  <input class="passphrase-input" id="passphrase" type="text" placeholder="—" autocomplete="off" spellcheck="false" autocapitalize="none" autocorrect="off">
-                </li>
-              </ol>
+                  <input class="passphrase-input" id="passphrase" type="text" maxlength="256" placeholder="—" autocomplete="off" spellcheck="false" autocapitalize="none" autocorrect="off">
+                </div>
+              </div>
               <p class="mnemonic-note" id="mnemonic-note" role="status" aria-live="polite"></p>
             </div>
 
@@ -2210,7 +2226,7 @@
             <p>O Cofre BTC transforma 256 jogadas de moeda em uma chave Bitcoin. Cada jogada vale <code>1</code> (cara) ou <code>0</code> (coroa) e é feita na própria tela. As 256 marcas viram a frase de 24 palavras, as quatro contas e as chaves que a tela mostra.</p>
             <p>Ele também assina. Você abre o arquivo de transação (PSBT) montado no Monitor BTC, confere o que ele faz e assina com a chave. Quem monta e transmite é o Monitor BTC; aqui a chave privada nunca sai da página, que é um arquivo só, sem servidor e sem internet.</p>
             <p>Nada fica guardado: as jogadas, a frase, as chaves e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma. Quem tiver as 24 palavras tem a chave: guarde essa lista em local seguro e confira o sha256 publicado no repositório antes de abrir.</p>
-            <p>Versões anteriores anotavam as jogadas como coordenadas: a primeira era <code>a0</code>, a segunda <code>a1</code>, e assim até <code>z5</code>, a última. Quem guardou só essa lista não perdeu a chave: cada <code>letra × 10 + dígito</code> (com <code>a</code> = 0, … <code>z</code> = 25) marca <code>1</code> na posição correspondente dos 256 bits, e todas as outras posições valem <code>0</code>. Com os 256 dígitos em mãos, informe-os em outra ferramenta BIP39 com a lista em inglês: ela devolve a mesma frase de 24 palavras, que esta tela aceita de volta. Esta versão não lê mais coordenadas.</p>
+            <p>Versões anteriores anotavam as jogadas como coordenadas: a primeira era <code>a0</code>, a segunda <code>a1</code>, e assim até <code>z5</code>, a última. Quem guardou só essa lista não perdeu a chave, desde que a frase secreta esteja vazia (como nas versões daquela época): cada <code>letra × 10 + dígito</code> (com <code>a</code> = 0, … <code>z</code> = 25) marca <code>1</code> na posição correspondente dos 256 bits, e todas as outras posições valem <code>0</code>. Com os 256 dígitos em mãos, informe-os em outra ferramenta BIP39 com a lista em inglês: ela devolve a mesma frase de 24 palavras, que esta tela aceita de volta. Esta versão não lê mais coordenadas.</p>
 
             <h3><span class="prompt" aria-hidden="true">##</span> como usar</h3>
             <p><b>Gerar.</b> Na tela “chave”, clique em “gerar” e registre 256 jogadas: cara vale <code>1</code> e coroa vale <code>0</code>. A frase de 24 palavras e as chaves aparecem quando a última jogada entra. Anote a frase no papel antes de seguir.</p>
@@ -4234,6 +4250,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["{word} não está na lista de 2.048 palavras. Escape limpa o campo.","{word} is not in the 2,048-word list. Escape clears the field.","{word} no está en la lista de 2.048 palabras. Escape limpia el campo.","{word} ne figure pas dans la liste de 2 048 mots. Échap vide le champ.","{word} non è nell'elenco di 2.048 parole. Esc svuota il campo.","{word} steht nicht in der Liste der 2.048 Wörter. Escape leert das Feld.","{word} staat niet in de lijst van 2.048 woorden. Escape maakt het veld leeg.","{word} no és a la llista de 2.048 paraules. Escape buida el camp.","{word} non está na lista de 2.048 palabras. Escape limpa o campo."],
     ["as 24 palavras não fecham a checagem do BIP39.","the 24 words do not pass the BIP39 checksum.","las 24 palabras no pasan la comprobación del BIP39.","les 24 mots ne passent pas la somme de contrôle BIP39.","le 24 parole non superano il controllo del BIP39.","die 24 Wörter bestehen die BIP39-Prüfsumme nicht.","de 24 woorden halen de BIP39-controle niet.","les 24 paraules no passen la comprovació del BIP39.","as 24 palabras non pasan a comprobación do BIP39."],
     ["24 palavras válidas; os 256 bits estão completos.","24 valid words; all 256 bits are complete.","24 palabras válidas; los 256 bits están completos.","24 mots valides ; les 256 bits sont complets.","24 parole valide; i 256 bit sono completi.","24 gültige Wörter; die 256 Bit sind vollständig.","24 geldige woorden; de 256 bits zijn compleet.","24 paraules vàlides; els 256 bits estan complets.","24 palabras válidas; os 256 bits están completos."],
+    ["frase secreta em vigor: guarde-a à parte; as 24 palavras sozinhas não restauram esta carteira.","secret phrase in effect: keep it separately; the 24 words alone do not restore this wallet.","frase secreta en vigor: guárdala aparte; las 24 palabras por sí solas no restauran esta cartera.","phrase secrète active : conservez-la à part ; les 24 mots seuls ne restaurent pas ce portefeuille.","frase segreta in vigore: conservala a parte; le 24 parole da sole non ripristinano questo portafoglio.","geheime Phrase aktiv: bewahre sie getrennt auf; die 24 Wörter allein stellen diese Wallet nicht wieder her.","geheime zin actief: bewaar die apart; de 24 woorden alleen herstellen deze wallet niet.","frase secreta en vigor: desa-la a part; les 24 paraules soles no restauren aquesta cartera.","frase secreta en vigor: gárdaa á parte; as 24 palabras soas non restauran esta carteira."],
     ["256 bits de entropia, {n} preenchidos.","256 bits of entropy, {n} filled.","256 bits de entropía, {n} rellenados.","256 bits d'entropie, {n} remplis.","256 bit di entropia, {n} inseriti.","256 Bit Entropie, {n} gesetzt.","256 bits entropie, {n} ingevuld.","256 bits d'entropia, {n} omplerts.","256 bits de entropía, {n} cubertos."],
     ["privadas","private","privadas","privées","private","private","privé","privades","privadas"],
     ["chaves privadas","private keys","claves privadas","clés privées","chiavi private","private Schlüssel","privésleutels","claus privades","claves privadas"],
@@ -4312,7 +4329,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["O Cofre BTC transforma 256 jogadas de moeda em uma chave Bitcoin. Cada jogada vale <code>1</code> (cara) ou <code>0</code> (coroa) e é feita na própria tela. As 256 marcas viram a frase de 24 palavras, as quatro contas e as chaves que a tela mostra.","Cofre BTC turns 256 coin tosses into a Bitcoin key. Each toss is worth <code>1</code> (heads) or <code>0</code> (tails) and is made on the screen itself. The 256 marks become the 24-word phrase, the four accounts and the keys the screen shows.","Cofre BTC convierte 256 lanzamientos de moneda en una clave Bitcoin. Cada lanzamiento vale <code>1</code> (cara) o <code>0</code> (cruz) y se hace en la propia pantalla. Las 256 marcas se convierten en la frase de 24 palabras, las cuatro cuentas y las claves que muestra la pantalla.","Cofre BTC transforme 256 lancers de pièce en une clé Bitcoin. Chaque lancer vaut <code>1</code> (face) ou <code>0</code> (pile) et se fait sur l'écran lui-même. Les 256 marques deviennent la phrase de 24 mots, les quatre comptes et les clés affichées par l'écran.","Cofre BTC trasforma 256 lanci di moneta in una chiave Bitcoin. Ogni lancio vale <code>1</code> (testa) o <code>0</code> (croce) e si fa nella schermata stessa. I 256 segni diventano la frase di 24 parole, i quattro conti e le chiavi che la schermata mostra.","Cofre BTC verwandelt 256 Münzwürfe in einen Bitcoin-Schlüssel. Jeder Wurf zählt <code>1</code> (Kopf) oder <code>0</code> (Zahl) und wird direkt auf dem Bildschirm ausgeführt. Die 256 Markierungen werden zur Merkhilfe aus 24 Wörtern, zu den vier Konten und zu den Schlüsseln, die der Bildschirm zeigt.","Cofre BTC verandert 256 muntworpen in een Bitcoin-sleutel. Elke worp is <code>1</code> (kop) of <code>0</code> (munt) waard en wordt op het scherm zelf gedaan. De 256 markeringen worden de zin van 24 woorden, de vier rekeningen en de sleutels die het scherm toont.","Cofre BTC converteix 256 llançaments de moneda en una clau Bitcoin. Cada llançament val <code>1</code> (cara) o <code>0</code> (creu) i es fa a la mateixa pantalla. Les 256 marques es converteixen en la frase de 24 paraules, els quatre comptes i les claus que mostra la pantalla.","Cofre BTC converte 256 lanzamentos de moeda nunha clave Bitcoin. Cada lanzamento vale <code>1</code> (cara) ou <code>0</code> (cruz) e faise na propia pantalla. As 256 marcas convértense na frase de 24 palabras, as catro contas e as claves que mostra a pantalla."],
     ["Ele também assina. Você abre o arquivo de transação (PSBT) montado no Monitor BTC, confere o que ele faz e assina com a chave. Quem monta e transmite é o Monitor BTC; aqui a chave privada nunca sai da página, que é um arquivo só, sem servidor e sem internet.","It also signs. You open the transaction file (PSBT) built in Monitor BTC, check what it does and sign it with the key. Monitor BTC builds and broadcasts it; here the private key never leaves the page, which is a single file, with no server and no internet.","También firma. Abres el archivo de transacción (PSBT) montado en Monitor BTC, compruebas lo que hace y lo firmas con la clave. Quien monta y transmite es Monitor BTC; aquí la clave privada nunca sale de la página, que es un solo archivo, sin servidor y sin internet.","Il signe aussi. Vous ouvrez le fichier de transaction (PSBT) construit dans Monitor BTC, vérifiez ce qu'il fait et le signez avec la clé. C'est Monitor BTC qui le construit et le diffuse ; ici, la clé privée ne quitte jamais la page, qui est un seul fichier, sans serveur et sans internet.","Firma anche. Apri il file di transazione (PSBT) creato in Monitor BTC, controlli cosa fa e lo firmi con la chiave. Chi lo crea e lo trasmette è Monitor BTC; qui la chiave privata non lascia mai la pagina, che è un solo file, senza server e senza internet.","Es signiert auch. Du öffnest die in Monitor BTC erstellte Transaktionsdatei (PSBT), prüfst, was sie tut, und signierst sie mit dem Schlüssel. Monitor BTC erstellt und überträgt sie; hier verlässt der private Schlüssel nie die Seite, die eine einzige Datei ist, ohne Server und ohne Internet.","Het ondertekent ook. Je opent het transactiebestand (PSBT) dat in Monitor BTC is gemaakt, controleert wat het doet en ondertekent het met de sleutel. Monitor BTC maakt en verstuurt het; hier verlaat de privésleutel nooit de pagina, die één bestand is, zonder server en zonder internet.","També signa. Obres el fitxer de transacció (PSBT) muntat a Monitor BTC, comproves què fa i el signes amb la clau. Qui el munta i el transmet és Monitor BTC; aquí la clau privada no surt mai de la pàgina, que és un sol fitxer, sense servidor i sense internet.","Tamén asina. Abres o ficheiro de transacción (PSBT) montado en Monitor BTC, comprobas o que fai e asínas con a clave. Quen o monta e transmite é Monitor BTC; aquí a clave privada nunca sae da páxina, que é un só ficheiro, sen servidor e sen internet."],
     ["Nada fica guardado: as jogadas, a frase, as chaves e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma. Quem tiver as 24 palavras tem a chave: guarde essa lista em local seguro e confira o sha256 publicado no repositório antes de abrir.","Nothing is stored: the tosses, the phrase, the keys and the files live only in the tab's memory and disappear when you close or reload the page; the browser stores neither the theme nor the language. Whoever has the 24 words has the key: keep that list somewhere safe and check the sha256 published in the repository before opening.","No se guarda nada: los lanzamientos, la frase, las claves y los archivos solo están en la memoria de la pestaña y desaparecen al cerrar o recargar la página; el navegador no guarda ni el tema ni el idioma. Quien tenga las 24 palabras tiene la clave: guarda esa lista en un lugar seguro y comprueba el sha256 publicado en el repositorio antes de abrir.","Rien n'est conservé : les lancers, la phrase, les clés et les fichiers restent uniquement dans la mémoire de l'onglet et disparaissent à la fermeture ou au rechargement de la page ; le navigateur ne garde ni le thème ni la langue. Qui possède les 24 mots possède la clé : conservez cette liste en lieu sûr et vérifiez le sha256 publié dans le dépôt avant d'ouvrir.","Niente viene salvato: i lanci, la frase, le chiavi e i file restano solo nella memoria della scheda e spariscono chiudendo o ricaricando la pagina; il browser non conserva né il tema né la lingua. Chi ha le 24 parole ha la chiave: conserva quell'elenco in un luogo sicuro e controlla lo sha256 pubblicato nel repository prima di aprire.","Nichts wird gespeichert: die Würfe, die Merkhilfe, die Schlüssel und die Dateien liegen nur im Speicher des Tabs und verschwinden beim Schließen oder Neuladen der Seite; der Browser speichert weder das Design noch die Sprache. Wer die 24 Wörter hat, hat den Schlüssel: bewahre diese Liste an einem sicheren Ort auf und prüfe vor dem Öffnen den im Repository veröffentlichten sha256.","Niets wordt bewaard: de worpen, de zin, de sleutels en de bestanden staan alleen in het geheugen van het tabblad en verdwijnen bij het sluiten of herladen van de pagina; de browser bewaart noch het thema noch de taal. Wie de 24 woorden heeft, heeft de sleutel: bewaar die lijst op een veilige plek en controleer de sha256 die in de repository is gepubliceerd voordat je opent.","No es guarda res: els llançaments, la frase, les claus i els fitxers només són a la memòria de la pestanya i desapareixen en tancar o recarregar la pàgina; el navegador no guarda ni el tema ni l'idioma. Qui tingui les 24 paraules té la clau: guarda aquesta llista en un lloc segur i comprova el sha256 publicat al repositori abans d'obrir.","Non se garda nada: os lanzamentos, a frase, as claves e os ficheiros están só na memoria da lapela e desaparecen ao pechar ou recargar a páxina; o navegador non garda nin o tema nin o idioma. Quen teña as 24 palabras ten a clave: garda esa lista nun lugar seguro e comproba o sha256 publicado no repositorio antes de abrir."],
-    ["Versões anteriores anotavam as jogadas como coordenadas: a primeira era <code>a0</code>, a segunda <code>a1</code>, e assim até <code>z5</code>, a última. Quem guardou só essa lista não perdeu a chave: cada <code>letra × 10 + dígito</code> (com <code>a</code> = 0, … <code>z</code> = 25) marca <code>1</code> na posição correspondente dos 256 bits, e todas as outras posições valem <code>0</code>. Com os 256 dígitos em mãos, informe-os em outra ferramenta BIP39 com a lista em inglês: ela devolve a mesma frase de 24 palavras, que esta tela aceita de volta. Esta versão não lê mais coordenadas.","Earlier versions recorded the tosses as coordinates: the first was <code>a0</code>, the second <code>a1</code>, and so on up to <code>z5</code>, the last. Anyone who kept only that list did not lose the key: each <code>letter × 10 + digit</code> (with <code>a</code> = 0, … <code>z</code> = 25) marks <code>1</code> at the matching position of the 256 bits, and every other position is <code>0</code>. With the 256 digits in hand, enter them in another BIP39 tool with the English list: it returns the same 24-word phrase, which this screen accepts back. This version no longer reads coordinates.","Las versiones anteriores anotaban los lanzamientos como coordenadas: la primera era <code>a0</code>, la segunda <code>a1</code>, y así hasta <code>z5</code>, la última. Quien guardó solo esa lista no perdió la clave: cada <code>letra × 10 + dígito</code> (con <code>a</code> = 0, … <code>z</code> = 25) marca <code>1</code> en la posición correspondiente de los 256 bits, y todas las demás posiciones valen <code>0</code>. Con los 256 dígitos en la mano, introdúcelos en otra herramienta BIP39 con la lista en inglés: devuelve la misma frase de 24 palabras, que esta pantalla acepta de vuelta. Esta versión ya no lee coordenadas.","Les versions précédentes notaient les lancers sous forme de coordonnées : la première était <code>a0</code>, la deuxième <code>a1</code>, et ainsi de suite jusqu'à <code>z5</code>, la dernière. Qui n'a conservé que cette liste n'a pas perdu la clé : chaque <code>lettre × 10 + chiffre</code> (avec <code>a</code> = 0, … <code>z</code> = 25) marque <code>1</code> à la position correspondante des 256 bits, et toutes les autres positions valent <code>0</code>. Avec les 256 chiffres en main, saisissez-les dans un autre outil BIP39 avec la liste anglaise : il renvoie la même phrase de 24 mots, que cet écran accepte en retour. Cette version ne lit plus les coordonnées.","Le versioni precedenti annotavano i lanci come coordinate: la prima era <code>a0</code>, la seconda <code>a1</code>, e così via fino a <code>z5</code>, l'ultima. Chi ha conservato solo quell'elenco non ha perso la chiave: ogni <code>lettera × 10 + cifra</code> (con <code>a</code> = 0, … <code>z</code> = 25) segna <code>1</code> nella posizione corrispondente dei 256 bit, e tutte le altre posizioni valgono <code>0</code>. Con i 256 bit in mano, inseriscili in un altro strumento BIP39 con l'elenco inglese: restituisce la stessa frase di 24 parole, che questa schermata accetta di nuovo. Questa versione non legge più le coordinate.","Frühere Versionen notierten die Würfe als Koordinaten: der erste war <code>a0</code>, der zweite <code>a1</code>, und so weiter bis <code>z5</code>, dem letzten. Wer nur diese Liste aufbewahrt hat, hat den Schlüssel nicht verloren: jedes <code>Buchstabe × 10 + Ziffer</code> (mit <code>a</code> = 0, … <code>z</code> = 25) markiert <code>1</code> an der entsprechenden Position der 256 Bit, und alle anderen Positionen zählen <code>0</code>. Mit den 256 Binärwerten zur Hand gib sie in einem anderen BIP39-Werkzeug mit der englischen Liste ein: Es liefert dieselbe Merkhilfe aus 24 Wörtern, die dieser Bildschirm wieder annimmt. Diese Version liest keine Koordinaten mehr.","Eerdere versies noteerden de worpen als coördinaten: de eerste was <code>a0</code>, de tweede <code>a1</code>, enzovoort tot <code>z5</code>, de laatste. Wie alleen die lijst bewaarde, is de sleutel niet kwijt: elke <code>letter × 10 + cijfer</code> (met <code>a</code> = 0, … <code>z</code> = 25) markeert <code>1</code> op de overeenkomstige positie van de 256 bits, en alle andere posities zijn <code>0</code>. Met de 256 bits bij de hand voer je ze in een andere BIP39-tool met de Engelse lijst in: die geeft dezelfde zin van 24 woorden terug, die dit scherm weer accepteert. Deze versie leest geen coördinaten meer.","Les versions anteriors anotaven els llançaments com a coordenades: la primera era <code>a0</code>, la segona <code>a1</code>, i així fins a <code>z5</code>, l'última. Qui va guardar només aquesta llista no va perdre la clau: cada <code>lletra × 10 + dígit</code> (amb <code>a</code> = 0, … <code>z</code> = 25) marca <code>1</code> a la posició corresponent dels 256 bits, i totes les altres posicions valen <code>0</code>. Amb els 256 dígits a mà, introdueix-los en una altra eina BIP39 amb la llista en anglès: retorna la mateixa frase de 24 paraules, que aquesta pantalla accepta de nou. Aquesta versió ja no llegeix coordenades.","As versións anteriores anotaban os lanzamentos como coordenadas: a primeira era <code>a0</code>, a segunda <code>a1</code>, e así ata <code>z5</code>, a última. Quen gardou só esa lista non perdeu a clave: cada <code>letra × 10 + díxito</code> (con <code>a</code> = 0, … <code>z</code> = 25) marca <code>1</code> na posición correspondente dos 256 bits, e todas as outras posicións valen <code>0</code>. Cos 256 díxitos na man, introdúceos noutra ferramenta BIP39 coa lista en inglés: devolve a mesma frase de 24 palabras, que esta pantalla acepta de volta. Esta versión xa non le coordenadas."],
+    ["Versões anteriores anotavam as jogadas como coordenadas: a primeira era <code>a0</code>, a segunda <code>a1</code>, e assim até <code>z5</code>, a última. Quem guardou só essa lista não perdeu a chave, desde que a frase secreta esteja vazia (como nas versões daquela época): cada <code>letra × 10 + dígito</code> (com <code>a</code> = 0, … <code>z</code> = 25) marca <code>1</code> na posição correspondente dos 256 bits, e todas as outras posições valem <code>0</code>. Com os 256 dígitos em mãos, informe-os em outra ferramenta BIP39 com a lista em inglês: ela devolve a mesma frase de 24 palavras, que esta tela aceita de volta. Esta versão não lê mais coordenadas.","Earlier versions recorded the tosses as coordinates: the first was <code>a0</code>, the second <code>a1</code>, and so on up to <code>z5</code>, the last. Anyone who kept only that list did not lose the key, as long as the secret phrase is empty (as in the versions of that time): each <code>letter × 10 + digit</code> (with <code>a</code> = 0, … <code>z</code> = 25) marks <code>1</code> at the matching position of the 256 bits, and every other position is <code>0</code>. With the 256 digits in hand, enter them in another BIP39 tool with the English list: it returns the same 24-word phrase, which this screen accepts back. This version no longer reads coordinates.","Las versiones anteriores anotaban los lanzamientos como coordenadas: la primera era <code>a0</code>, la segunda <code>a1</code>, y así hasta <code>z5</code>, la última. Quien guardó solo esa lista no perdió la clave, siempre que la frase secreta esté vacía (como en las versiones de aquella época): cada <code>letra × 10 + dígito</code> (con <code>a</code> = 0, … <code>z</code> = 25) marca <code>1</code> en la posición correspondiente de los 256 bits, y todas las demás posiciones valen <code>0</code>. Con los 256 dígitos en la mano, introdúcelos en otra herramienta BIP39 con la lista en inglés: devuelve la misma frase de 24 palabras, que esta pantalla acepta de vuelta. Esta versión ya no lee coordenadas.","Les versions précédentes notaient les lancers sous forme de coordonnées : la première était <code>a0</code>, la deuxième <code>a1</code>, et ainsi de suite jusqu'à <code>z5</code>, la dernière. Qui n'a conservé que cette liste n'a pas perdu la clé, à condition que la phrase secrète soit vide (comme dans les versions de l'époque) : chaque <code>lettre × 10 + chiffre</code> (avec <code>a</code> = 0, … <code>z</code> = 25) marque <code>1</code> à la position correspondante des 256 bits, et toutes les autres positions valent <code>0</code>. Avec les 256 chiffres en main, saisissez-les dans un autre outil BIP39 avec la liste anglaise : il renvoie la même phrase de 24 mots, que cet écran accepte en retour. Cette version ne lit plus les coordonnées.","Le versioni precedenti annotavano i lanci come coordinate: la prima era <code>a0</code>, la seconda <code>a1</code>, e così via fino a <code>z5</code>, l'ultima. Chi ha conservato solo quell'elenco non ha perso la chiave, purché la frase segreta sia vuota (come nelle versioni di allora): ogni <code>lettera × 10 + cifra</code> (con <code>a</code> = 0, … <code>z</code> = 25) segna <code>1</code> nella posizione corrispondente dei 256 bit, e tutte le altre posizioni valgono <code>0</code>. Con i 256 bit in mano, inseriscili in un altro strumento BIP39 con l'elenco inglese: restituisce la stessa frase di 24 parole, che questa schermata accetta di nuovo. Questa versione non legge più le coordinate.","Frühere Versionen notierten die Würfe als Koordinaten: der erste war <code>a0</code>, der zweite <code>a1</code>, und so weiter bis <code>z5</code>, dem letzten. Wer nur diese Liste aufbewahrt hat, hat den Schlüssel nicht verloren, sofern die geheime Phrase leer ist (wie in den Versionen jener Zeit): jedes <code>Buchstabe × 10 + Ziffer</code> (mit <code>a</code> = 0, … <code>z</code> = 25) markiert <code>1</code> an der entsprechenden Position der 256 Bit, und alle anderen Positionen zählen <code>0</code>. Mit den 256 Binärwerten zur Hand gib sie in einem anderen BIP39-Werkzeug mit der englischen Liste ein: Es liefert dieselbe Merkhilfe aus 24 Wörtern, die dieser Bildschirm wieder annimmt. Diese Version liest keine Koordinaten mehr.","Eerdere versies noteerden de worpen als coördinaten: de eerste was <code>a0</code>, de tweede <code>a1</code>, enzovoort tot <code>z5</code>, de laatste. Wie alleen die lijst bewaarde, is de sleutel niet kwijt, zolang de geheime zin leeg is (zoals in de versies van die tijd): elke <code>letter × 10 + cijfer</code> (met <code>a</code> = 0, … <code>z</code> = 25) markeert <code>1</code> op de overeenkomstige positie van de 256 bits, en alle andere posities zijn <code>0</code>. Met de 256 bits bij de hand voer je ze in een andere BIP39-tool met de Engelse lijst in: die geeft dezelfde zin van 24 woorden terug, die dit scherm weer accepteert. Deze versie leest geen coördinaten meer.","Les versions anteriors anotaven els llançaments com a coordenades: la primera era <code>a0</code>, la segona <code>a1</code>, i així fins a <code>z5</code>, l'última. Qui va guardar només aquesta llista no va perdre la clau, sempre que la frase secreta estigui buida (com a les versions d'aquella època): cada <code>lletra × 10 + dígit</code> (amb <code>a</code> = 0, … <code>z</code> = 25) marca <code>1</code> a la posició corresponent dels 256 bits, i totes les altres posicions valen <code>0</code>. Amb els 256 dígits a mà, introdueix-los en una altra eina BIP39 amb la llista en anglès: retorna la mateixa frase de 24 paraules, que aquesta pantalla accepta de nou. Aquesta versió ja no llegeix coordenades.","As versións anteriores anotaban os lanzamentos como coordenadas: a primeira era <code>a0</code>, a segunda <code>a1</code>, e así ata <code>z5</code>, a última. Quen gardou só esa lista non perdeu a clave, sempre que a frase secreta estea baleira (como nas versións daquelas datas): cada <code>letra × 10 + díxito</code> (con <code>a</code> = 0, … <code>z</code> = 25) marca <code>1</code> na posición correspondente dos 256 bits, e todas as outras posicións valen <code>0</code>. Cos 256 díxitos na man, introdúceos noutra ferramenta BIP39 coa lista en inglés: devolve a mesma frase de 24 palabras, que esta pantalla acepta de volta. Esta versión xa non le coordenadas."],
     ["<b>Gerar.</b> Na tela “chave”, clique em “gerar” e registre 256 jogadas: cara vale <code>1</code> e coroa vale <code>0</code>. A frase de 24 palavras e as chaves aparecem quando a última jogada entra. Anote a frase no papel antes de seguir.","<b>Generate.</b> On the “key” screen, click “generate” and record 256 tosses: heads is <code>1</code> and tails is <code>0</code>. The 24-word phrase and the keys appear when the last toss goes in. Write the phrase on paper before continuing.","<b>Generar.</b> En la pantalla “clave”, haz clic en “generar” y registra 256 lanzamientos: cara vale <code>1</code> y cruz vale <code>0</code>. La frase de 24 palabras y las claves aparecen cuando entra el último lanzamiento. Anota la frase en papel antes de seguir.","<b>Générer.</b> Sur l'écran « clé », cliquez sur « générer » et enregistrez 256 lancers : face vaut <code>1</code> et pile vaut <code>0</code>. La phrase de 24 mots et les clés apparaissent quand le dernier lancer entre. Notez la phrase sur papier avant de continuer.","<b>Genera.</b> Nella schermata “chiave”, fai clic su “genera” e registra 256 lanci: testa vale <code>1</code> e croce vale <code>0</code>. La frase di 24 parole e le chiavi compaiono quando entra l'ultimo lancio. Annota la frase su carta prima di proseguire.","<b>Erzeugen.</b> Klicke auf dem Bildschirm „Schlüssel“ auf „erzeugen“ und erfasse 256 Würfe: Kopf zählt <code>1</code> und Zahl zählt <code>0</code>. Die Merkhilfe aus 24 Wörtern und die Schlüssel erscheinen, wenn der letzte Wurf eingeht. Notiere die Merkhilfe auf Papier, bevor du fortfährst.","<b>Genereren.</b> Klik op het scherm “sleutel” op “genereren” en leg 256 worpen vast: kop is <code>1</code> en munt is <code>0</code>. De zin van 24 woorden en de sleutels verschijnen wanneer de laatste worp binnenkomt. Schrijf de zin op papier voordat je verdergaat.","<b>Genera.</b> A la pantalla “clau”, fes clic a “genera” i registra 256 llançaments: cara val <code>1</code> i creu val <code>0</code>. La frase de 24 paraules i les claus apareixen quan entra l'últim llançament. Anota la frase en paper abans de continuar.","<b>Xerar.</b> Na pantalla “clave”, fai clic en “xerar” e rexistra 256 lanzamentos: cara vale <code>1</code> e cruz vale <code>0</code>. A frase de 24 palabras e as claves aparecen cando entra o último lanzamento. Anota a frase en papel antes de seguir."],
     ["<b>Assinar.</b> Clique em “importar psbt” e escolha o arquivo que veio do Monitor BTC. Confira a revisão: valor, destino, troco, taxa e avisos. Se estiver tudo certo, clique em “assinar” e baixe o arquivo assinado. Transmitir é no Monitor BTC.","<b>Sign.</b> Click “import psbt” and choose the file that came from Monitor BTC. Check the review: amount, destination, change, fee and warnings. If everything is right, click “sign” and download the signed file. Broadcasting is done in Monitor BTC.","<b>Firmar.</b> Haz clic en “importar psbt” y elige el archivo que vino de Monitor BTC. Revisa la revisión: valor, destino, cambio, comisión y avisos. Si todo está bien, haz clic en “firmar” y descarga el archivo firmado. La transmisión se hace en Monitor BTC.","<b>Signer.</b> Cliquez sur « importer psbt » et choisissez le fichier venu de Monitor BTC. Vérifiez la revue : montant, destination, monnaie, frais et avertissements. Si tout est correct, cliquez sur « signer » et téléchargez le fichier signé. La diffusion se fait dans Monitor BTC.","<b>Firma.</b> Fai clic su “importa psbt” e scegli il file che arriva da Monitor BTC. Controlla la revisione: importo, destinazione, resto, commissione e avvisi. Se è tutto corretto, fai clic su “firma” e scarica il file firmato. La trasmissione avviene in Monitor BTC.","<b>Signieren.</b> Klicke auf „psbt importieren“ und wähle die Datei, die aus Monitor BTC kommt. Prüfe die Übersicht: Betrag, Ziel, Wechselgeld, Gebühr und Warnungen. Wenn alles stimmt, klicke auf „signieren“ und lade die signierte Datei herunter. Das Übertragen erfolgt in Monitor BTC.","<b>Ondertekenen.</b> Klik op “psbt importeren” en kies het bestand dat uit Monitor BTC komt. Controleer het overzicht: bedrag, bestemming, wisselgeld, kosten en waarschuwingen. Als alles klopt, klik je op “ondertekenen” en download je het ondertekende bestand. Verzenden gebeurt in Monitor BTC.","<b>Signar.</b> Fes clic a “importar psbt” i tria el fitxer que ve de Monitor BTC. Revisa la revisió: import, destinació, canvi, comissió i avisos. Si tot és correcte, fes clic a “signar” i descarrega el fitxer signat. La transmissió es fa a Monitor BTC.","<b>Asinar.</b> Fai clic en “importar psbt” e escolle o ficheiro que vén de Monitor BTC. Revisa a revisión: importe, destino, troco, comisión e avisos. Se todo está correcto, fai clic en “asinar” e descarga o ficheiro asinado. A transmisión faise en Monitor BTC."],
     ["<b>Telas.</b> O menu no alto alterna entre “chave” e “sobre”.","<b>Screens.</b> The menu at the top switches between “key” and “about”.","<b>Pantallas.</b> El menú de arriba alterna entre “clave” y “acerca de”.","<b>Écrans.</b> Le menu du haut alterne entre « clé » et « à propos ».","<b>Schermate.</b> Il menu in alto alterna tra “chiave” e “informazioni”.","<b>Bildschirme.</b> Das Menü oben wechselt zwischen „schlüssel“ und „über“.","<b>Schermen.</b> Het menu bovenaan wisselt tussen “sleutel” en “over”.","<b>Pantalles.</b> El menú de dalt alterna entre “clau” i “sobre”.","<b>Pantallas.</b> O menú de arriba alterna entre “clave” e “sobre”."],
@@ -4651,8 +4668,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var coinStatus = $('#coin-status');
   var bitsValue = '';
   /* A frase secreta é opcional e entra só na derivação: é entrada do
-     usuário, como a mnemônica digitada, e nada a redesenha. */
-  var passphraseValue = '';
+     usuário, como a mnemônica digitada, e o campo é a fonte única. */
   var passphraseInput = $('#passphrase');
   var binaryBits = $('#binary-bits');
   var psbtText = '';
@@ -4881,12 +4897,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   /* Registra a face da moeda na próxima posição da entropia. O clique em
      coroa também entra como bit 0 na sequência. Na última jogada a sequência
      fecha, a tela volta ao normal e a chave sai dos 256 bits. A primeira
-     jogada é o que descarta a frase digitada e a chave que saía dela: abrir
-     a geração e cancelar não apaga a entrada anterior. */
+     jogada é o que descarta a frase digitada, a frase secreta e a chave que
+     saía dela: abrir a geração e cancelar não apaga a entrada anterior. */
   function registerToss(bit) {
     if (tosses.length >= BIT_COUNT) return;
     if (!tosses.length) {
       bitsValue = '';
+      /* Uma carteira nova nasce sem o segundo fator de um teste anterior:
+         as 24 palavras anotadas precisam bastar para restaurá-la. */
+      if (passphraseInput) passphraseInput.value = '';
       paintEntropy(null);
       discardKey();
     }
@@ -5103,9 +5122,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   (function buildMnemonic() {
     if (!mnemonicList) return;
-    /* A frase secreta já está no fim da lista, na coluna do meio; as 24
-       posições entram antes dela, na ordem 01–24. */
-    var passphraseWord = $('#passphrase-word');
+    /* As 24 posições entram na lista na ordem 01–24; a frase secreta fica
+       fora dela, na grade do contêiner. */
     for (var i = 0; i < MNEMONIC_LEN; i++) {
       var item = document.createElement('li');
       item.className = 'mnemonic-word';
@@ -5130,7 +5148,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       input.setAttribute('aria-controls', 'mnemonic-options');
       item.appendChild(index);
       item.appendChild(input);
-      mnemonicList.insertBefore(item, passphraseWord);
+      mnemonicList.appendChild(item);
       mnemonicInputs.push(input);
       input._mnValue = '';
     }
@@ -5158,6 +5176,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (!mnemonicNote) return;
     mnemonicNote._i18nNote = note || null;
     var text = note ? t(note.key, note.vars) : '';
+    /* A frase secreta não muda as 24 palavras, mas muda a carteira: o
+       recado avisa sempre que o segundo fator está em vigor. */
+    if (passphraseInput && passphraseInput.value) {
+      text += (text ? ' ' : '') +
+        t('frase secreta em vigor: guarde-a à parte; as 24 palavras sozinhas não restauram esta carteira.');
+    }
     if (mnemonicNote.textContent !== text) mnemonicNote.textContent = text;
     mnemonicNote.classList.toggle('ok', !!note && note.kind === 'ok');
     mnemonicNote.classList.toggle('error', !!note && note.kind === 'erro');
@@ -5575,7 +5599,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      chave para refazer. */
   if (passphraseInput) {
     passphraseInput.addEventListener('input', function () {
-      passphraseValue = passphraseInput.value;
+      paintMnemonicNote(mnemonicNote && mnemonicNote._i18nNote);
       if (bitsValue.length === BIT_COUNT) scheduleBits(bitsValue, true);
     });
   }
@@ -5718,9 +5742,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       clearKey();
       return;
     }
-    /* A frase secreta do disparo: qualquer edição incrementa deriveSeq e
-       esta derivação deixa de valer antes de chegar à tela. */
-    var passphrase = passphraseValue;
+    /* A frase secreta vem do campo no disparo, a fonte única: qualquer
+       edição incrementa deriveSeq e esta derivação deixa de valer antes de
+       chegar à tela. */
+    var passphrase = passphraseInput ? passphraseInput.value : '';
     pendingBits = bits;
     var seq = ++deriveSeq;
     try {
