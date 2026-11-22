@@ -1911,9 +1911,11 @@
     padding-bottom: var(--space-1);
     border-bottom: 1px solid var(--line);
   }
+  /* O número é o convite: usa o --accent dos links, enquanto o fio da linha
+     continua no --line neutro dos itens e só acende no foco. */
   .mnemonic-word-index {
     flex: 0 0 auto;
-    color: var(--dim);
+    color: var(--accent);
     font-size: var(--text-xs);
     cursor: pointer;
   }
@@ -1928,10 +1930,9 @@
   }
   .mnemonic-word-input:focus { outline: none; }
   .mnemonic-word-input::placeholder { color: var(--dim); opacity: 1; }
-  /* O foco é do item, não do campo: o fio inferior acende inteiro e o
-     índice sobe ao --accent, como a moldura da .field-box. */
+  /* O foco é do item, não do campo: o fio inferior acende inteiro no
+     --accent, como a moldura da .field-box. */
   .mnemonic-word:focus-within { border-bottom-color: var(--accent); }
-  .mnemonic-word:focus-within .mnemonic-word-index { color: var(--accent); }
   /* Palavra fora da lista oficial, depois de o campo perder o foco: o fio e
      o índice assumem o --error dos demais estados de erro. */
   .mnemonic-word.is-invalid,
@@ -5332,6 +5333,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     syncMnemonic();
   }
 
+  /* Depois do Enter, o foco passa para a próxima posição, que já se marca com
+     o fio em --accent: a frase se preenche palavra a palavra sem voltar ao
+     mouse. Na última posição o foco fica onde está. */
+  function focusNextMnemonic(input) {
+    var at = mnemonicInputs.indexOf(input);
+    var next = at >= 0 ? mnemonicInputs[at + 1] : null;
+    if (next) next.focus();
+  }
+
   /* Posições em 1 viram coordenadas; os bits que a frase ainda não alcançou
      ficam de fora, então o que aparece é só o que já está definido. */
   function pathFromBits(bits) {
@@ -5453,6 +5463,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         if (mnemonicOpen && mnemonicActive >= 0) {
           ev.preventDefault();
           chooseMnemonicOption(mnemonicActive);
+          focusNextMnemonic(input);
         }
       } else if (ev.key === 'Escape') {
         if (mnemonicOpen) {
