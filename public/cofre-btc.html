@@ -4190,6 +4190,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["palavra {n} da frase mnemônica","word {n} of the mnemonic phrase","palabra {n} de la frase mnemónica","mot {n} de la phrase mnémotechnique","parola {n} della frase mnemonica","Wort {n} der Merkhilfe","woord {n} van de mnemonische zin","paraula {n} de la frase mnemònica","palabra {n} da frase mnemónica"],
     ["lista oficial de 2.048 palavras","official list of 2,048 words","lista oficial de 2.048 palabras","liste officielle de 2 048 mots","elenco ufficiale di 2.048 parole","offizielle Liste mit 2.048 Wörtern","officiële lijst van 2.048 woorden","llista oficial de 2.048 paraules","lista oficial de 2.048 palabras"],
     ["faltam {n} de 24 palavras.","{n} of 24 words missing.","faltan {n} de 24 palabras.","il manque {n} mots sur 24.","mancano {n} parole su 24.","es fehlen {n} von 24 Wörtern.","er ontbreken {n} van 24 woorden.","falten {n} de 24 paraules.","faltan {n} de 24 palabras."],
+    ["{word} não está na lista de 2.048 palavras.","{word} is not in the 2,048-word list.","{word} no está en la lista de 2.048 palabras.","{word} ne figure pas dans la liste de 2 048 mots.","{word} non è nell'elenco di 2.048 parole.","{word} steht nicht in der Liste der 2.048 Wörter.","{word} staat niet in de lijst van 2.048 woorden.","{word} no és a la llista de 2.048 paraules.","{word} non está na lista de 2.048 palabras."],
     ["as 24 palavras não fecham a checagem do BIP39.","the 24 words do not pass the BIP39 checksum.","las 24 palabras no pasan la comprobación del BIP39.","les 24 mots ne passent pas la somme de contrôle BIP39.","le 24 parole non superano il controllo del BIP39.","die 24 Wörter bestehen die BIP39-Prüfsumme nicht.","de 24 woorden halen de BIP39-controle niet.","les 24 paraules no passen la comprovació del BIP39.","as 24 palabras non pasan a comprobación do BIP39."],
     ["24 palavras válidas; os 256 bits estão completos.","24 valid words; all 256 bits are complete.","24 palabras válidas; los 256 bits están completos.","24 mots valides ; les 256 bits sont complets.","24 parole valide; i 256 bit sono completi.","24 gültige Wörter; die 256 Bit sind vollständig.","24 geldige woorden; de 256 bits zijn compleet.","24 paraules vàlides; els 256 bits estan complets.","24 palabras válidas; os 256 bits están completos."],
     ["privadas","private","privadas","privées","private","private","privé","privades","privadas"],
@@ -5038,6 +5039,20 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return true;
   }
 
+  /* A posição só guarda palavra inteira da lista: o prefixo que não chegou a
+     palavra é descartado ao sair do campo, em vez de ficar no lugar de uma
+     palavra que não existe. Devolve o texto recusado (vazio quando a palavra
+     está na lista). */
+  function commitMnemonicWord(input) {
+    var typed = input.value.trim().toLowerCase();
+    if (!typed || bip39List.indexOf(typed) >= 0) {
+      setMnemonicValue(input, typed);
+      return '';
+    }
+    setMnemonicValue(input, '');
+    return typed;
+  }
+
   /* As opções são as palavras da lista oficial que começam com o que já foi
      digitado; a lista para no teto e o resto sai digitando mais uma letra. */
   function mnemonicMatchList(query) {
@@ -5209,9 +5224,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       var input = ev.target;
       if (!input || !input.classList || !input.classList.contains('mnemonic-word-input')) return;
       closeMnemonicOptions();
-      /* O que ficou no campo passa pelo mesmo filtro ao sair. */
+      /* O que ficou no campo passa pelo mesmo filtro ao sair, e só palavra
+         inteira permanece na posição. */
       acceptMnemonicText(input);
+      var rejected = commitMnemonicWord(input);
       syncMnemonic();
+      if (rejected) {
+        paintMnemonicNote({
+          kind: 'erro',
+          key: '{word} não está na lista de 2.048 palavras.',
+          vars: { word: rejected }
+        });
+      }
     });
     /* Setas percorrem a lista sem tirar o foco do campo; Enter escolhe a
        opção em digitação e Escape fecha a lista. */
@@ -5239,6 +5263,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         if (mnemonicOpen && mnemonicActive >= 0) {
           ev.preventDefault();
           chooseMnemonicOption(mnemonicActive);
+          focusNextMnemonic(input);
+        } else if (input.value && bip39List.indexOf(input.value.trim().toLowerCase()) >= 0) {
+          /* Palavra inteira da lista: o Enter vale como o Tab e leva o foco
+             para a próxima posição, sem voltar ao mouse. */
+          ev.preventDefault();
+          closeMnemonicOptions();
           focusNextMnemonic(input);
         }
       } else if (ev.key === 'Escape') {
