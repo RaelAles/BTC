@@ -1251,8 +1251,9 @@
   function syncLangButton() {
     var button = $('#lang-btn');
     if (!button) return;
-    button.textContent = LOCALE_CODES[state.lang] || 'PT';
-    button.setAttribute('aria-label', t('Idioma'));
+    var code = LOCALE_CODES[state.lang] || 'PT';
+    button.textContent = code;
+    button.setAttribute('aria-label', t('Idioma') + ': ' + code);
   }
   function updateThemeButton() {
     var b = $('#theme-toggle');

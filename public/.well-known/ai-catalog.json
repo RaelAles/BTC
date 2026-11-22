@@ -1,0 +1,8 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "Monitor BTC",
+    "documentationUrl": "https://btc.raelales.com/"
+  },
+  "entries": []
+}

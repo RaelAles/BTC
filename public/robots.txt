@@ -1,0 +1,4 @@
+# Monitor BTC: site de leitura; a API nao e conteudo para rastreadores.
+User-agent: *
+Allow: /
+Disallow: /api/

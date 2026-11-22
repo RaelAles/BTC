@@ -29,3 +29,7 @@
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: require-corp
   Cross-Origin-Resource-Policy: same-origin
+
+# Catálogo ARD: público e feito para ser lido por agentes de outra origem.
+/.well-known/ai-catalog.json
+  Access-Control-Allow-Origin: *

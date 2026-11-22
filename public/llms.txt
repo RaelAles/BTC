@@ -1,0 +1,14 @@
+# Monitor BTC
+
+> Carteira watch-only de Bitcoin: a chave pública da carteira vira credencial para consultar saldo, endereços e histórico. Nada é guardado no navegador ou no servidor, e a chave privada nunca passa pela tela.
+
+## Páginas
+
+- [Monitor BTC](https://btc.raelales.com/): carteira, envio em PSBT e histórico.
+- [Cofre BTC](https://btc.raelales.com/cofre-btc.html): assinador standalone que funciona offline.
+
+## Limites
+
+- O Monitor BTC só lê a rede principal do Bitcoin.
+- O envio monta um PSBT sem assinatura; a assinatura acontece no Cofre BTC.
+- Não há API pública para agentes; o catálogo de recursos agênticos está vazio.
