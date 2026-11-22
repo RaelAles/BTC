@@ -6,8 +6,6 @@
 
 <!-- Português (Brasil) · [English](README.md) -->
 
-Publicado em **https://btc.raelales.com**.
-
 Carteira Bitcoin **watch-only** em Cloudflare Workers. Você entrega a **xpub**
 da conta (ou `zpub`/`ypub`), o Worker deriva os endereços públicos e lê o
 saldo, os endereços de recebimento e o histórico de transações de um servidor
