@@ -32,8 +32,8 @@ export function electrumConfig(env) {
    test/security-headers.test.mjs mantém os dois lados iguais. A CSP só
    libera o próprio domínio; o script inline do tema entra por hash sha256,
    então qualquer mudança nele exige recalcular o hash aqui e em
-   public/_headers. HSTS com includeSubDomains: tire se algum subdomínio
-   deste host ainda responder em HTTP.
+   public/_headers. HSTS com includeSubDomains e preload: tire o preload e o
+   includeSubDomains se algum subdomínio deste host ainda responder em HTTP.
 
    Cross-Origin-*: COOP `same-origin` corta o vínculo de janela com outras
    origens; COEP `require-corp` só deixa entrar recurso que autorize via
@@ -41,7 +41,7 @@ export function electrumConfig(env) {
    `same-origin` impede que outra origem carregue estes arquivos. Juntos,
    permitem cross-origin isolation caso alguma API nova peça. */
 export const SECURITY_HEADERS = {
-  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
   'Content-Security-Policy': [
     "default-src 'none'",
     "script-src 'self' 'sha256-T08kaWUFF/GqDmyLchktCTzNizp52LMczP7D96a7bT4='",

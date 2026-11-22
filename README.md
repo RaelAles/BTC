@@ -177,9 +177,9 @@ browser, without a server. It checks the account, the derivation, the public
 key, the script, the outputs and the fee before signing. The private key never
 reaches the Monitor.
 
-Before opening it, compare the published hash: sha256 do arquivo publicado é
-`f43c032be7c9e6fca961421ca696338285886e7f51183c5752908f4dbabfb66e` — run
-`sha256sum cofre-btc.html` on the downloaded file. The Cofre's about screen
+Before opening it, compare the published hash: the sha256 of the published
+file is `f43c032be7c9e6fca961421ca696338285886e7f51183c5752908f4dbabfb66e` —
+run `sha256sum cofre-btc.html` on the downloaded file. The Cofre's about screen
 asks for the same check. Any edit to the Cofre requires updating this value;
 `npm test` fails when the hash is out of date.
 
@@ -243,9 +243,10 @@ The repository root is the Worker project: `wrangler.jsonc`, `src/`,
 
 For **Workers Builds**, leave the root directory empty (the repository root),
 use `npm ci` as the build command and `npx wrangler deploy` as the deploy
-command. `workers_dev` and `preview_urls` are disabled, so the Worker responds
-only on the custom domain. Observability is disabled to avoid keeping
-invocation logs in Cloudflare.
+command. `routes` declares `btc.raelales.com` as a custom domain, and
+`workers_dev` and `preview_urls` are disabled, so the Worker responds only on
+that domain. Observability is disabled to avoid keeping invocation logs in
+Cloudflare.
 
 ### Configuration
 

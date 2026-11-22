@@ -7,8 +7,10 @@
 # e que o hash do script inline do tema em index.html está em dia.
 #
 # O Strict-Transport-Security vale para este host e, com includeSubDomains,
-# para os subdomínios dele. Não há subdomínio em HTTP neste projeto; se
-# houver, tire o includeSubDomains antes de publicar.
+# para os subdomínios dele. O preload só vale se o domínio for enviado às
+# listas dos navegadores; ele já é enviado na borda. Não há subdomínio em
+# HTTP neste projeto; se houver, tire o preload e o includeSubDomains antes
+# de publicar.
 #
 # O Cofre BTC é o assinador standalone: o link da tela "sobre" baixa o
 # arquivo. O Content-Disposition garante o download mesmo se a página for
@@ -18,7 +20,7 @@
 /cofre-btc
   Content-Disposition: attachment; filename="cofre-btc.html"
 /*
-  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
   Content-Security-Policy: default-src 'none'; script-src 'self' 'sha256-T08kaWUFF/GqDmyLchktCTzNizp52LMczP7D96a7bT4='; style-src 'self'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff

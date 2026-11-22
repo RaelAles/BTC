@@ -22,6 +22,14 @@
     // os cabeçalhos de public/_headers sem acordar o Worker. As respostas
     // dinâmicas recebem os mesmos cabeçalhos em src/config.js.
   },
+  // O domínio personalizado também fica declarado aqui, para um deploy a
+  // partir do repositório reatar a rota sem depender do painel.
+  "routes": [
+    {
+      "pattern": "btc.raelales.com",
+      "custom_domain": true
+    }
+  ],
   // Nada de D1/KV/R2: o projeto não guarda estado. O Durable Object abaixo
   // também não usa storage (sem put/alarm); ele só vive enquanto a tela
   // estiver aberta, com conexão Electrum e assinaturas em memória.

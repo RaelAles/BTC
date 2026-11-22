@@ -246,9 +246,10 @@ A raiz do repositório é o projeto do Worker: `wrangler.jsonc`, `src/`,
 
 Para o **Workers Builds**, deixe o diretório raiz vazio (a raiz do
 repositório), use `npm ci` como build e `npx wrangler deploy` como deploy.
-`workers_dev` e `preview_urls` estão desligados, então o Worker responde só no
-domínio personalizado. A observabilidade está desligada para não guardar log
-de invocação na Cloudflare.
+O `routes` declara `btc.raelales.com` como domínio personalizado, e
+`workers_dev` e `preview_urls` estão desligados, então o Worker responde só
+nesse domínio. A observabilidade fica desligada para não guardar logs de
+invocação na Cloudflare.
 
 ### Configuração
 

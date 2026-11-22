@@ -207,7 +207,7 @@ for (const [nome, valor] of Object.entries(SECURITY_HEADERS)) ESPERADO[nome.toLo
     .digest('hex');
   for (const arquivo of ['README.md', 'README.pt-BR.md']) {
     const texto = read(arquivo).replace(/^>\s?/gm, '');
-    const m = texto.match(/sha256 do arquivo publicado é\s*`([0-9a-f]{64})`/);
+    const m = texto.match(/sha256 (?:do arquivo publicado é|of the published\s+file is)\s*`([0-9a-f]{64})`/);
     assert.ok(m, arquivo + ' publica o sha256 do Cofre');
     assert.equal(m[1], hash,
       'sha256 do Cofre em ' + arquivo + ' está em dia (mexeu em public/cofre-btc.html?): ' + hash);
