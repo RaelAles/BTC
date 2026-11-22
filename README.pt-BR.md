@@ -178,10 +178,16 @@ script, as saídas e a taxa antes de assinar. A chave privada nunca passa pelo
 Monitor.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
-`f6220a03ca03c2e06e9416bbbb17336a784c6798450541209650575b9c79514d` — rode
+`1e1e503e969132c26b65a2938a257afe694a379d92f6fd1f26fd4d960ba47b3e` — rode
 `sha256sum cofre-btc.html` no arquivo baixado. A tela “sobre” do Cofre pede a
 mesma conferência. Qualquer edição no Cofre exige atualizar este valor; o
 `npm test` acusa hash vencido.
+
+A tela “chave” tem um campo opcional **frase-secreta**: ele entra no PBKDF2
+do BIP39 depois das 24 palavras, não muda a frase e muda a seed, as contas e
+os endereços. Editar ou apagar o campo refaz a derivação; vazio, vale a
+passphrase vazia. Quem perder a frase-secreta perde a carteira que ela
+define.
 
 Versões anteriores do Cofre também gravavam as jogadas como coordenadas
 (`a0`–`z5`) e mandavam anotar essa lista. Essa entrada foi removida em favor

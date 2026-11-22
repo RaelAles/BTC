@@ -1993,6 +1993,16 @@
   }
   .mnemonic-note.ok { color: var(--success); }
   .mnemonic-note.error { color: var(--error); }
+  /* A frase-secreta é opcional e fica na mesma coluna do mnemonic, logo
+     abaixo das 24 posições: o rótulo em --dim e a caixa de campo do
+     formulário, que acende inteira no foco. Ela entra no PBKDF2 depois das
+     palavras, então não muda a frase — muda a seed e as chaves que saem
+     dela. */
+  .passphrase-block {
+    width: min(100%, 28rem);
+    margin: var(--space-7) auto 0;
+  }
+  .passphrase-block .field-label { margin-top: 0; }
 </style>
 <script>
   /* Tema antes da pintura: segue o sistema; a escolha manual do botão vale
@@ -2079,6 +2089,14 @@
               </div>
               <ol class="mnemonic-words" id="mnemonic-words" aria-label="frase mnemônica de 24 palavras"></ol>
               <p class="mnemonic-note" id="mnemonic-note" role="status" aria-live="polite"></p>
+              <div class="passphrase-block">
+                <label class="field-label" for="passphrase">frase-secreta</label>
+                <div class="field-box">
+                  <div class="edge" aria-hidden="true"></div>
+                  <input type="text" id="passphrase" autocomplete="off" spellcheck="false" autocapitalize="none" autocorrect="off">
+                  <div class="edge" aria-hidden="true"></div>
+                </div>
+              </div>
             </div>
 
             <div class="binary-block reveal-block" id="binary-block">
@@ -2824,8 +2842,8 @@ var BTC = (function () {
   }
 
   /* BIP39: lista inglesa de 2.048 palavras. Os 256 bits viram uma frase de
-     24 palavras, e é dessa frase (passphrase vazia) que sai a seed; a
-     entrada na tela é pela frase de 24 palavras. */
+     24 palavras; a frase e a frase-secreta (passphrase opcional) entram no
+     PBKDF2 que gera a seed. A entrada na tela é pela frase de 24 palavras. */
   var BIP39_WORDS = (
     'abandon ability able about above absent absorb abstract absurd abuse access accident account accuse achieve acid ' +
     'acoustic acquire across act action actor actress actual adapt add addict address adjust admit adult advance ' +
@@ -2988,8 +3006,11 @@ var BTC = (function () {
     var sig = await subtle().sign('HMAC', k, msg);
     return new Uint8Array(sig);
   }
-  async function bip39Seed(mnemonic) {
-    var pass = '';
+  async function bip39Seed(mnemonic, passphrase) {
+    /* A frase-secreta é opcional e entra inteira no sal do PBKDF2: espaço,
+       acento e maiúscula contam. Vazia, a seed é a do BIP39 sem segundo
+       fator. */
+    var pass = passphrase == null ? '' : String(passphrase);
     var key = await subtle().importKey('raw', utf8(nfkd(mnemonic)), 'PBKDF2', false, ['deriveBits']);
     var salt = utf8(nfkd('mnemonic' + pass));
     var bits = await subtle().deriveBits(
@@ -3081,10 +3102,10 @@ var BTC = (function () {
       node: node
     };
   }
-  async function deriveHD(bits) {
+  async function deriveHD(bits, passphrase) {
     if (bits.length !== 256) throw new Error('são necessários exatamente 256 bits');
     var mnemonic = bip39Mnemonic(bits);
-    var seed = await bip39Seed(mnemonic);
+    var seed = await bip39Seed(mnemonic, passphrase);
     var master = await masterFromSeed(seed);
     var fingerprint = bytesToHex(fingerprintOf(master));
     var accounts = {};
@@ -4186,6 +4207,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["entropia","entropy","entropía","entropie","entropia","Entropie","entropie","entropia","entropía"],
     ["frase mnemônica de 24 palavras","24-word mnemonic phrase","frase mnemónica de 24 palabras","phrase mnémotechnique de 24 mots","frase mnemonica di 24 parole","Merkhilfe aus 24 Wörtern","mnemonische zin van 24 woorden","frase mnemònica de 24 paraules","frase mnemónica de 24 palabras"],
     ["palavra {n} da frase mnemônica","word {n} of the mnemonic phrase","palabra {n} de la frase mnemónica","mot {n} de la phrase mnémotechnique","parola {n} della frase mnemonica","Wort {n} der Merkhilfe","woord {n} van de mnemonische zin","paraula {n} de la frase mnemònica","palabra {n} da frase mnemónica"],
+    ["frase-secreta","secret phrase","frase secreta","phrase secrète","frase segreta","geheime Phrase","geheime zin","frase secreta","frase secreta"],
     ["lista oficial de 2.048 palavras","official list of 2,048 words","lista oficial de 2.048 palabras","liste officielle de 2 048 mots","elenco ufficiale di 2.048 parole","offizielle Liste mit 2.048 Wörtern","officiële lijst van 2.048 woorden","llista oficial de 2.048 paraules","lista oficial de 2.048 palabras"],
     ["faltam {n} de 24 palavras.","{n} of 24 words missing.","faltan {n} de 24 palabras.","il manque {n} mots sur 24.","mancano {n} parole su 24.","es fehlen {n} von 24 Wörtern.","er ontbreken {n} van 24 woorden.","falten {n} de 24 paraules.","faltan {n} de 24 palabras."],
     ["{word} não está na lista de 2.048 palavras.","{word} is not in the 2,048-word list.","{word} no está en la lista de 2.048 palabras.","{word} ne figure pas dans la liste de 2 048 mots.","{word} non è nell'elenco di 2.048 parole.","{word} steht nicht in der Liste der 2.048 Wörter.","{word} staat niet in de lijst van 2.048 woorden.","{word} no és a la llista de 2.048 paraules.","{word} non está na lista de 2.048 palabras."],
@@ -4608,6 +4630,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var coinLast = $('#coin-last');
   var coinStatus = $('#coin-status');
   var bitsValue = '';
+  /* A frase-secreta é opcional e entra só na derivação: é entrada do
+     usuário, como a mnemônica digitada, e nada a redesenha. */
+  var passphraseValue = '';
+  var passphraseInput = $('#passphrase');
   var binaryBits = $('#binary-bits');
   var psbtText = '';
   var psbtImport = $('#psbt-import');
@@ -5514,6 +5540,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     });
   }
 
+  /* A frase-secreta é opcional: entra no PBKDF2 depois das 24 palavras e não
+     muda a frase. Cada edição refaz a chave a partir dos mesmos bits, com o
+     atraso e o cancelamento de scheduleBits; sem 256 bits em vigor não há
+     chave para refazer. */
+  if (passphraseInput) {
+    passphraseInput.addEventListener('input', function () {
+      passphraseValue = passphraseInput.value;
+      if (bitsValue.length === BIT_COUNT) scheduleBits(bitsValue, true);
+    });
+  }
+
   /* A frase que vem das jogadas é escrita nos campos; enquanto o usuário
      digita a própria frase, nenhum desenho passa por cima do que ele
      escreveu. */
@@ -5652,10 +5689,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       clearKey();
       return;
     }
+    /* A frase-secreta do disparo: qualquer edição incrementa deriveSeq e
+       esta derivação deixa de valer antes de chegar à tela. */
+    var passphrase = passphraseValue;
     pendingBits = bits;
     var seq = ++deriveSeq;
     try {
-      var hd = await BTC.deriveHD(bits);
+      var hd = await BTC.deriveHD(bits, passphrase);
       if (seq !== deriveSeq) return;
       if (pendingBits === bits) pendingBits = '';
       applyKey(hd);
@@ -5684,12 +5724,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      na hora, antes do atraso da derivação. O PSBT importado continua na
      memória e é reavaliado contra a chave nova quando ela chega; o botão de
      assinar não pode ficar ativo com a chave anterior. */
-  function invalidateDerivedKey() {
+  function invalidateDerivedKey(keepEntropy) {
     cancelPendingDerivation();
     state.hd = null;
     state.values = null;
     paintValues();
-    paintEntropy(null);
+    /* A edição da frase-secreta não muda a mnemônica: as 24 posições ficam
+       como o usuário as deixou. */
+    if (!keepEntropy) paintEntropy(null);
     setImportEnabled(false);
     setClearLabel(false);
     invalidateSignature();
@@ -5698,9 +5740,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      hora e a derivação completa (PBKDF2 + BIP32) espera o mesmo intervalo
      curto da análise do PSBT, e só o último conjunto é derivado. Sem 256
      bits, o estado antigo cai na hora. */
-  function scheduleBits(bits) {
+  function scheduleBits(bits, keepEntropy) {
     /* invalidateDerivedKey cancela o timer e a derivação em voo. */
-    invalidateDerivedKey();
+    invalidateDerivedKey(keepEntropy);
     if (bits.length < BIT_COUNT) {
       applyBits(bits);
       return;

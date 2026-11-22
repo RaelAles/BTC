@@ -501,8 +501,8 @@ var BTC = (function () {
   }
 
   /* BIP39: lista inglesa de 2.048 palavras. Os 256 bits viram uma frase de
-     24 palavras, e é dessa frase (passphrase vazia) que sai a seed; a
-     entrada na tela é pela frase de 24 palavras. */
+     24 palavras; a frase e a frase-secreta (passphrase opcional) entram no
+     PBKDF2 que gera a seed. A entrada na tela é pela frase de 24 palavras. */
   var BIP39_WORDS = (
     'abandon ability able about above absent absorb abstract absurd abuse access accident account accuse achieve acid ' +
     'acoustic acquire across act action actor actress actual adapt add addict address adjust admit adult advance ' +
@@ -665,8 +665,11 @@ var BTC = (function () {
     var sig = await subtle().sign('HMAC', k, msg);
     return new Uint8Array(sig);
   }
-  async function bip39Seed(mnemonic) {
-    var pass = '';
+  async function bip39Seed(mnemonic, passphrase) {
+    /* A frase-secreta é opcional e entra inteira no sal do PBKDF2: espaço,
+       acento e maiúscula contam. Vazia, a seed é a do BIP39 sem segundo
+       fator. */
+    var pass = passphrase == null ? '' : String(passphrase);
     var key = await subtle().importKey('raw', utf8(nfkd(mnemonic)), 'PBKDF2', false, ['deriveBits']);
     var salt = utf8(nfkd('mnemonic' + pass));
     var bits = await subtle().deriveBits(
@@ -743,10 +746,10 @@ var BTC = (function () {
       node: node
     };
   }
-  async function deriveHD(bits) {
+  async function deriveHD(bits, passphrase) {
     if (bits.length !== 256) throw new Error('são necessários exatamente 256 bits');
     var mnemonic = bip39Mnemonic(bits);
-    var seed = await bip39Seed(mnemonic);
+    var seed = await bip39Seed(mnemonic, passphrase);
     var master = await masterFromSeed(seed);
     var fingerprint = bytesToHex(fingerprintOf(master));
     var accounts = {};

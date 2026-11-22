@@ -100,6 +100,23 @@ for (const id of ['bip44', 'bip49', 'bip84', 'bip86']) {
 }
 console.log('ok   derivação HD idêntica à do btc-core');
 
+/* ---------------- frase-secreta opcional (BIP39) ---------------- */
+{
+  /* Vetor oficial do BIP39: a mesma frase com a frase-secreta "TREZOR"
+     muda a seed e, com ela, toda a árvore BIP32. */
+  const words = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+  const seed = await BTC.bip39Seed(words, 'TREZOR');
+  assert.equal(hex(seed),
+    'c55257c360c07c72029aebc1b53c05ed0362ada38ead3e3e9efa3708e53495531f09a6987599d18264c1e1c92f2cf141630c7a3c4ab7c81b2f001698e7463b04');
+  assert.equal(hex(await C.bip39Seed(words, 'TREZOR')), hex(seed));
+  /* Sem a frase-secreta, ou com ela vazia, a seed é a de antes. */
+  assert.equal(hex(await BTC.bip39Seed(words)), hex(await BTC.bip39Seed(words, '')));
+  const comFrase = await BTC.deriveHD(bits, 'TREZOR');
+  assert.notEqual(comFrase.fingerprint, hd.fingerprint);
+  assert.equal(comFrase.fingerprint, (await C.deriveHD(bits, 'TREZOR')).fingerprint);
+  console.log('ok   frase-secreta entra no PBKDF2 e muda a derivação');
+}
+
 const cases = [
   { kind: 'p2pkh', path: "m/44'/0'/0'", leaf: "m/44'/0'/0'/0/0" },
   { kind: 'p2sh-p2wpkh', path: "m/49'/0'/0'", leaf: "m/49'/0'/0'/0/0" },

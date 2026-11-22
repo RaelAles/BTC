@@ -176,10 +176,16 @@ key, the script, the outputs and the fee before signing. The private key never
 reaches the Monitor.
 
 Before opening it, compare the published hash: sha256 do arquivo publicado é
-`f6220a03ca03c2e06e9416bbbb17336a784c6798450541209650575b9c79514d` — run
+`1e1e503e969132c26b65a2938a257afe694a379d92f6fd1f26fd4d960ba47b3e` — run
 `sha256sum cofre-btc.html` on the downloaded file. The Cofre's about screen
 asks for the same check. Any edit to the Cofre requires updating this value;
 `npm test` fails when the hash is out of date.
+
+The “key” screen has an optional **secret phrase** field: it goes into the
+BIP39 PBKDF2 after the 24 words, does not change the phrase, and changes the
+seed, the accounts and the addresses. Editing or clearing the field reruns
+the derivation; empty, it is the empty passphrase. Whoever loses the secret
+phrase loses the wallet it defines.
 
 Earlier versions of the Cofre also recorded the tosses as coordinates
 (`a0`–`z5`) and told users to write that list down. That input was removed in
