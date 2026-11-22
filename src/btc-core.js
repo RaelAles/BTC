@@ -501,7 +501,7 @@ var BTC = (function () {
   }
 
   /* BIP39: lista inglesa de 2.048 palavras. Os 256 bits viram uma frase de
-     24 palavras; a frase e a frase-secreta (passphrase opcional) entram no
+     24 palavras; a frase e a frase secreta (passphrase opcional) entram no
      PBKDF2 que gera a seed. A entrada na tela é pela frase de 24 palavras. */
   var BIP39_WORDS = (
     'abandon ability able about above absent absorb abstract absurd abuse access accident account accuse achieve acid ' +
@@ -666,7 +666,7 @@ var BTC = (function () {
     return new Uint8Array(sig);
   }
   async function bip39Seed(mnemonic, passphrase) {
-    /* A frase-secreta é opcional e entra inteira no sal do PBKDF2: espaço,
+    /* A frase secreta é opcional e entra inteira no sal do PBKDF2: espaço,
        acento e maiúscula contam. Vazia, a seed é a do BIP39 sem segundo
        fator. */
     var pass = passphrase == null ? '' : String(passphrase);

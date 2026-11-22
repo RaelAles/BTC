@@ -1993,7 +1993,7 @@
   }
   .mnemonic-note.ok { color: var(--success); }
   .mnemonic-note.error { color: var(--error); }
-  /* A frase-secreta entra na própria grade das palavras, na coluna do
+  /* A frase secreta entra na própria grade das palavras, na coluna do
      meio logo abaixo das 24 posições: ocupa o lugar da "26ª palavra", com
      o nome no lugar do número e o mesmo fio da célula. Rótulo e texto
      ficam centralizados na coluna, com um respiro acima. Ela entra no
@@ -2005,7 +2005,7 @@
     align-items: center;
     gap: 0;
     /* A célula abre um respiro depois das 24 posições: a linha da grade
-       sozinha (--space-2) não separa a frase-secreta do bloco das
+       sozinha (--space-2) não separa a frase secreta do bloco das
        palavras. */
     margin-top: var(--space-7);
   }
@@ -2112,7 +2112,7 @@
               </div>
               <ol class="mnemonic-words" id="mnemonic-words" aria-label="frase mnemônica de 24 palavras">
                 <li class="mnemonic-word passphrase-word" id="passphrase-word">
-                  <label class="mnemonic-word-index" for="passphrase">frase-secreta</label>
+                  <label class="mnemonic-word-index" for="passphrase">frase secreta</label>
                   <input class="passphrase-input" id="passphrase" type="text" placeholder="—" autocomplete="off" spellcheck="false" autocapitalize="none" autocorrect="off">
                 </li>
               </ol>
@@ -2862,7 +2862,7 @@ var BTC = (function () {
   }
 
   /* BIP39: lista inglesa de 2.048 palavras. Os 256 bits viram uma frase de
-     24 palavras; a frase e a frase-secreta (passphrase opcional) entram no
+     24 palavras; a frase e a frase secreta (passphrase opcional) entram no
      PBKDF2 que gera a seed. A entrada na tela é pela frase de 24 palavras. */
   var BIP39_WORDS = (
     'abandon ability able about above absent absorb abstract absurd abuse access accident account accuse achieve acid ' +
@@ -3027,7 +3027,7 @@ var BTC = (function () {
     return new Uint8Array(sig);
   }
   async function bip39Seed(mnemonic, passphrase) {
-    /* A frase-secreta é opcional e entra inteira no sal do PBKDF2: espaço,
+    /* A frase secreta é opcional e entra inteira no sal do PBKDF2: espaço,
        acento e maiúscula contam. Vazia, a seed é a do BIP39 sem segundo
        fator. */
     var pass = passphrase == null ? '' : String(passphrase);
@@ -4227,7 +4227,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["entropia","entropy","entropía","entropie","entropia","Entropie","entropie","entropia","entropía"],
     ["frase mnemônica de 24 palavras","24-word mnemonic phrase","frase mnemónica de 24 palabras","phrase mnémotechnique de 24 mots","frase mnemonica di 24 parole","Merkhilfe aus 24 Wörtern","mnemonische zin van 24 woorden","frase mnemònica de 24 paraules","frase mnemónica de 24 palabras"],
     ["palavra {n} da frase mnemônica","word {n} of the mnemonic phrase","palabra {n} de la frase mnemónica","mot {n} de la phrase mnémotechnique","parola {n} della frase mnemonica","Wort {n} der Merkhilfe","woord {n} van de mnemonische zin","paraula {n} de la frase mnemònica","palabra {n} da frase mnemónica"],
-    ["frase-secreta","secret phrase","frase secreta","phrase secrète","frase segreta","geheime Phrase","geheime zin","frase secreta","frase secreta"],
+    ["frase secreta","secret phrase","frase secreta","phrase secrète","frase segreta","geheime Phrase","geheime zin","frase secreta","frase secreta"],
     ["lista oficial de 2.048 palavras","official list of 2,048 words","lista oficial de 2.048 palabras","liste officielle de 2 048 mots","elenco ufficiale di 2.048 parole","offizielle Liste mit 2.048 Wörtern","officiële lijst van 2.048 woorden","llista oficial de 2.048 paraules","lista oficial de 2.048 palabras"],
     ["faltam {n} de 24 palavras.","{n} of 24 words missing.","faltan {n} de 24 palabras.","il manque {n} mots sur 24.","mancano {n} parole su 24.","es fehlen {n} von 24 Wörtern.","er ontbreken {n} van 24 woorden.","falten {n} de 24 paraules.","faltan {n} de 24 palabras."],
     ["{word} não está na lista de 2.048 palavras.","{word} is not in the 2,048-word list.","{word} no está en la lista de 2.048 palabras.","{word} ne figure pas dans la liste de 2 048 mots.","{word} non è nell'elenco di 2.048 parole.","{word} steht nicht in der Liste der 2.048 Wörter.","{word} staat niet in de lijst van 2.048 woorden.","{word} no és a la llista de 2.048 paraules.","{word} non está na lista de 2.048 palabras."],
@@ -4650,7 +4650,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var coinLast = $('#coin-last');
   var coinStatus = $('#coin-status');
   var bitsValue = '';
-  /* A frase-secreta é opcional e entra só na derivação: é entrada do
+  /* A frase secreta é opcional e entra só na derivação: é entrada do
      usuário, como a mnemônica digitada, e nada a redesenha. */
   var passphraseValue = '';
   var passphraseInput = $('#passphrase');
@@ -5103,7 +5103,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   (function buildMnemonic() {
     if (!mnemonicList) return;
-    /* A frase-secreta já está no fim da lista, na coluna do meio; as 24
+    /* A frase secreta já está no fim da lista, na coluna do meio; as 24
        posições entram antes dela, na ordem 01–24. */
     var passphraseWord = $('#passphrase-word');
     for (var i = 0; i < MNEMONIC_LEN; i++) {
@@ -5434,7 +5434,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       var pointerOut = mnemonicPointerOut;
       mnemonicPointerOut = false;
       var next = ev.relatedTarget;
-      /* A frase-secreta mora na mesma lista, mas não é palavra: entrar nela
+      /* A frase secreta mora na mesma lista, mas não é palavra: entrar nela
          encerra a posição como qualquer saída do bloco das 24. */
       var nextInBlock = !!(next && mnemonicList.contains(next) &&
         !(next.closest && next.closest('.passphrase-word')));
@@ -5569,7 +5569,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     });
   }
 
-  /* A frase-secreta é opcional: entra no PBKDF2 depois das 24 palavras e não
+  /* A frase secreta é opcional: entra no PBKDF2 depois das 24 palavras e não
      muda a frase. Cada edição refaz a chave a partir dos mesmos bits, com o
      atraso e o cancelamento de scheduleBits; sem 256 bits em vigor não há
      chave para refazer. */
@@ -5718,7 +5718,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       clearKey();
       return;
     }
-    /* A frase-secreta do disparo: qualquer edição incrementa deriveSeq e
+    /* A frase secreta do disparo: qualquer edição incrementa deriveSeq e
        esta derivação deixa de valer antes de chegar à tela. */
     var passphrase = passphraseValue;
     pendingBits = bits;
@@ -5758,7 +5758,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     state.hd = null;
     state.values = null;
     paintValues();
-    /* A edição da frase-secreta não muda a mnemônica: as 24 posições ficam
+    /* A edição da frase secreta não muda a mnemônica: as 24 posições ficam
        como o usuário as deixou. */
     if (!keepEntropy) paintEntropy(null);
     setImportEnabled(false);
