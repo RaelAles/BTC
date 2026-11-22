@@ -1418,7 +1418,7 @@
   }
   /* Ações do PSBT na mesma linha: importar psbt (ou cancelar/fechar) e assinar,
      com o ponto médio entre os controles. O grupo fica
-     centralizado sob a revisão, na mesma medida da tabela de 28rem
+     centralizado sob a revisão, na coluna de leitura
      (VG-BOT-01/VG-BOT-05). O envio perde a margem própria, que aqui
      pertence ao grupo. O vão e o respiro dos botões seguem o menu do topo:
      o ponto médio fica à mesma distância do rótulo. */
@@ -1703,29 +1703,24 @@
   /* Entrada da chave: a página "gerar" reúne o painel de jogadas e o
      submenu de entropia; a "chave" recebe a frase e as contas. */
   .bits-row { margin: var(--space-5) 0 var(--space-7); }
-  /* As duas telas usam a coluna de 28rem dos dados também nos subtítulos e
-     dispensam o respiro de seção no primeiro bloco, para o mnemonic começar
-     logo abaixo da régua. */
-  #screen-chave .prose,
-  #screen-gerar .prose {
-    width: min(100%, 28rem);
-    margin-inline: auto;
-  }
+  /* Os subtítulos das duas telas dispensam o respiro de seção no primeiro
+     bloco, para o mnemonic começar logo abaixo da régua; a largura é a da
+     coluna de leitura, como o resto da tela. */
   #screen-chave .prose h3,
   #screen-gerar .prose h3 { margin-top: 0; }
   #screen-chave .entropy-block { margin-top: 0; }
   #screen-gerar .binary-block { margin-top: var(--space-7); }
   .coin-panel button { transition-property: color, background-color, opacity; }
   /* Chaves no mesmo desenho das leituras: o rótulo (só o bip) no --dim à
-     esquerda, o valor no --fg à direita, na mesma largura de 28rem do painel
-     de jogadas, sem moldura nem fio entre as linhas. A coluna do rótulo
-     cabe o maior rótulo das leituras ("endereço") mais o vão, então todas as
+     esquerda, o valor no --fg à direita, na coluna de leitura, sem moldura
+     nem fio entre as linhas. A coluna do rótulo cabe o maior rótulo das
+     leituras ("endereço") mais o vão, então todas as
      tabelas — chaves, públicas e PSBT — começam o valor na mesma coluna; as
      privadas ficam sem o botão de copiar e as públicas mantêm o botão sob o
      valor. */
   .data-table.key-readout {
-    width: min(100%, 28rem);
-    margin: 0 auto var(--space-7);
+    width: 100%;
+    margin: 0 0 var(--space-7);
     table-layout: fixed;
     font-size: var(--text-sm);
   }
@@ -1785,8 +1780,8 @@
      preenche a próxima posição da entropia, até completar os 256 bits. O
      contador mostra o progresso. */
   .coin-panel {
-    width: min(100%, 28rem);
-    margin: 0 auto;
+    width: 100%;
+    margin: 0;
     padding: var(--space-7);
     border: 1px solid var(--line);
     display: flex;
@@ -1855,8 +1850,8 @@
     text-align: center;
   }
   /* O mnemonic é entrada e saída: a frase de 24 palavras fica sempre
-     visível, em 3 colunas de 8 linhas, na mesma largura do painel, e cada
-     palavra é um campo. O travessão do estado vazio continua como
+     visível, em 3 colunas de 8 linhas, na largura da coluna de leitura, e
+     cada palavra é um campo. O travessão do estado vazio continua como
      placeholder, no --dim, e a lista oficial abre sobre o conteúdo, na
      coluna do próprio campo. */
   .entropy-block { margin-top: var(--space-9); }
@@ -1866,8 +1861,8 @@
      ponto dentro da coluna. */
   .binary-block { margin-top: var(--space-9); }
   .binary-bits {
-    width: min(100%, 28rem);
-    margin: 0 auto;
+    width: 100%;
+    margin: 0;
     color: var(--fg);
     font-size: var(--text-sm);
     overflow-wrap: anywhere;
@@ -1907,8 +1902,8 @@
      leitor de tela anuncia 24 itens, não 25. */
   .mnemonic-words {
     display: grid;
-    width: min(100%, 28rem);
-    margin: 0 auto;
+    width: 100%;
+    margin: 0;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-2) var(--space-4);
     font-size: var(--text-sm);
