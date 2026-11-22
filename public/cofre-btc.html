@@ -1691,58 +1691,14 @@
   .app-gap { margin-top: var(--space-5); }
   .app-block { margin-top: var(--space-7); }
 
-  /* Entrada por coordenadas: o painel de jogadas e o campo de coordenadas
-     editam o mesmo conjunto de bits e ocupam o mesmo espaço da entrada, um
-     por vez, como as antigas 24 palavras. O botão abaixo alterna qual
-     aparece. */
+  /* Entrada da chave: o botão "gerar chave" abre a geração, e a tela fica só
+     com o painel de jogadas e os submenus de binários e coordenadas. O
+     mnemonic e os demais submenus voltam quando a sequência fecha. */
   .bits-row { margin: var(--space-5) 0 var(--space-7); }
-  /* As duas entradas dividem a primeira linha do grid: a que está fora de
-     uso fica invisível, mas continua medindo a caixa. Assim o campo de
-     coordenadas herda a altura do painel de jogadas e a troca entre os dois
-     não mexe no layout. */
-  .bits-col {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .bits-col > .coords-panel,
-  .bits-col > .coin-panel { grid-area: 1 / 1; }
-  .bits-col > .bits-actions { grid-row: 2; }
-  .bits-col > .binary-block { grid-row: 3; }
-  .bits-col > .entropy-block { grid-row: 4; }
-  .bits-col > .is-off { visibility: hidden; }
-  /* A troca entre as duas entradas é imediata: os controles não esperam o
-     --motion-fast do contorno, senão continuam ocultos no instante do
-     .focus() chamado logo depois da troca e o foco se perde. */
-  .bits-col .coords-box,
+  /* A troca entre a tela normal e a geração é imediata: os controles do
+     painel não esperam o --motion-fast do contorno, senão continuam ocultos
+     no instante do .focus() chamado logo depois da troca e o foco se perde. */
   .bits-col .coin-panel button { transition-property: color, background-color, opacity; }
-  /* O campo das coordenadas ocupa a mesma caixa do painel de jogadas e segue
-     o desenho de campo do formulário (VG-FRM-02): a caixa com as réguas em
-     cima e embaixo e o fio de 1 px nos lados, sem rótulo visível. O texto
-     preenche a caixa inteira. */
-  .coords-panel {
-    width: min(100%, 28rem);
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-  }
-  .coords-box {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
-    width: 100%;
-    min-width: 0;
-  }
-  /* Nas coordenadas as réguas de cima e de baixo correm na borda da caixa,
-     não no meio delas: assim o contorno visível ocupa a caixa inteira. Os
-     fios laterais acompanham de ponta a ponta. */
-  .coords-box .edge:first-of-type { background-position: 0 0; }
-  .coords-box .edge:last-of-type { background-position: 0 100%; }
-  .coords-box::before,
-  .coords-box::after { top: 0; bottom: 0; }
-  .coords-box textarea {
-    flex: 1 1 auto;
-    min-height: 0;
-  }
   .bits-actions { justify-content: center; }
   /* Chaves no mesmo desenho das leituras: o rótulo (só o bip) no --dim à
      esquerda, o valor no --fg à direita, na mesma largura de 28rem do painel
@@ -1818,11 +1774,20 @@
     margin: 0 auto;
     padding: var(--space-7);
     border: 1px solid var(--line);
-    display: flex;
+    display: none;
     flex-direction: column;
     gap: var(--space-6);
     font-size: var(--text-sm);
   }
+  /* O painel de jogadas é a geração: só aparece com o botão "gerar chave",
+     quando o título da tela fica sozinho com ele e os dois submenus de saída.
+     O cancelar fica dentro do painel, para a volta ser possível antes das
+     256 jogadas. */
+  #screen-chave.is-generating .coin-panel { display: flex; }
+  #screen-chave.is-generating > :not(h2):not(pre):not(.bits-row),
+  #screen-chave.is-generating .bits-actions,
+  #screen-chave.is-generating .entropy-block { display: none; }
+  .coin-actions { justify-content: center; }
   .coin-head {
     display: flex;
     align-items: baseline;
@@ -1889,19 +1854,23 @@
      placeholder, no --dim, e a lista oficial abre sobre o conteúdo, na
      coluna do próprio campo. */
   .entropy-block { margin-top: var(--space-9); }
-  /* O binário é a mesma entropia da frase, nos 256 dígitos que a chave usa:
-     fica acima do mnemonic, na largura do painel. A sequência não leva
-     separador — é para ser lida e copiada inteira, e a contagem não muda —,
-     então quebra em qualquer ponto dentro da coluna. */
-  .binary-block { margin-top: var(--space-9); }
-  .binary-bits {
+  /* Os submenus de saída — binários e coordenadas — mostram a mesma entropia
+     da frase em dígitos e em nomes de posição, um abaixo do outro, na largura
+     do painel. Nenhuma das duas sequências leva separador: são para ser lidas
+     e copiadas inteiras, e a contagem não muda; por isso quebram em qualquer
+     ponto dentro da coluna. */
+  .binary-block,
+  .coords-block { margin-top: var(--space-9); }
+  .binary-bits,
+  .coords-text {
     width: min(100%, 28rem);
     margin: 0 auto;
     color: var(--fg);
     font-size: var(--text-sm);
     overflow-wrap: anywhere;
   }
-  .binary-bits.is-empty { color: var(--dim); }
+  .binary-bits.is-empty,
+  .coords-text.is-empty { color: var(--dim); }
   /* A lista de sugestões sai do fluxo e sobe para a camada dos controles
      flutuantes: o bloco das palavras é um dos .reveal-block, que pinta em
      ordem, e sem o z-index a lista ficaria atrás dos blocos seguintes. */
@@ -2053,18 +2022,11 @@
 
           <div class="bits-row">
             <div class="bits-col">
-              <div class="coords-panel reveal-block" id="coords-panel">
-                <label class="sr-only" for="coords">coordenadas</label>
-                <div class="field-box coords-box">
-                  <div class="edge" aria-hidden="true"></div>
-                  <textarea id="coords" spellcheck="false"
-                            autocomplete="off" autocapitalize="characters"
-                            placeholder="Insira as coordenadas da sua chave..."></textarea>
-                  <div class="edge" aria-hidden="true"></div>
-                </div>
+              <div class="chips reveal-block bits-actions chips-dots" role="group" aria-label="Entrada de bits">
+                <button type="button" id="bits-mode">gerar chave</button>
               </div>
 
-              <div class="coin-panel reveal-block is-off" id="coin-panel">
+              <div class="coin-panel reveal-block" id="coin-panel">
                 <div class="coin-head">
                   <span class="coin-head-label">rodada</span>
                   <span class="coin-counter" id="coin-counter">000/256</span>
@@ -2078,12 +2040,19 @@
                   </button>
                 </div>
                 <p class="coin-last" id="coin-last"></p>
-              </div>
-
-              <div class="chips app-gap reveal-block bits-actions chips-dots" role="group" aria-label="Entrada de bits">
-                <button type="button" id="bits-mode" aria-label="Mostrar a entrada por jogadas de moeda">gerar</button>
+                <div class="chips chips-dots coin-actions">
+                  <button type="button" id="coin-cancel">cancelar</button>
+                </div>
               </div>
               <p class="sr-only" id="coin-status" role="status" aria-live="polite"></p>
+
+              <div class="entropy-block reveal-block" id="entropy-block">
+                <div class="prose">
+                  <h3><span class="prompt" aria-hidden="true">##</span> mnemonic</h3>
+                </div>
+                <ol class="mnemonic-words" id="mnemonic-words" aria-label="frase mnemônica de 24 palavras"></ol>
+                <p class="mnemonic-note" id="mnemonic-note" role="status" aria-live="polite"></p>
+              </div>
 
               <div class="binary-block reveal-block" id="binary-block">
                 <div class="prose">
@@ -2092,12 +2061,11 @@
                 <p class="binary-bits is-empty" id="binary-bits">—</p>
               </div>
 
-              <div class="entropy-block reveal-block" id="entropy-block">
+              <div class="coords-block reveal-block" id="coords-block">
                 <div class="prose">
-                  <h3><span class="prompt" aria-hidden="true">##</span> mnemonic</h3>
+                  <h3><span class="prompt" aria-hidden="true">##</span> coordenadas</h3>
                 </div>
-                <ol class="mnemonic-words" id="mnemonic-words" aria-label="frase mnemônica de 24 palavras"></ol>
-                <p class="mnemonic-note" id="mnemonic-note" role="status" aria-live="polite"></p>
+                <p class="coords-text is-empty" id="coords">—</p>
               </div>
             </div>
           </div>
@@ -4203,15 +4171,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["sobre","about","acerca de","à propos","informazioni","über","over","sobre","sobre"],
     ["CHAVE","KEY","CLAVE","CLÉ","CHIAVE","SCHLÜSSEL","SLEUTEL","CLAU","CLAVE"],
     ["coordenadas","coordinates","coordenadas","coordonnées","coordinate","koordinaten","coördinaten","coordenades","coordenadas"],
-    ["Insira as coordenadas da sua chave...","Enter your key coordinates...","Introduce las coordenadas de tu clave...","Saisissez les coordonnées de votre clé…","Inserisci le coordinate della tua chiave…","Koordinaten des Schlüssels eingeben …","Voer de coördinaten van je sleutel in…","Introduïu les coordenades de la clau…","Introduce as coordenadas da túa clave…"],
+    ["gerar chave","generate key","generar clave","générer la clé","genera chiave","Schlüssel erzeugen","sleutel genereren","genera clau","xerar clave"],
     ["rodada","round","ronda","tour","giro","runde","ronde","ronda","rolda"],
     ["Registrar a face da moeda","Record the coin face","Registrar la cara de la moneda","Enregistrer la face de la pièce","Registra la faccia della moneta","Münzseite erfassen","Muntzijde vastleggen","Registrar la cara de la moneda","Rexistrar a cara da moeda"],
     ["1, cara: registrar a jogada e passar para a próxima","1, heads: record the toss and move to the next","1, cara: registrar el lanzamiento y pasar al siguiente","1, face : enregistrer le lancer et passer au suivant","1, testa: registra il lancio e passa al successivo","1, Kopf: Wurf erfassen und zum nächsten wechseln","1, kop: worp vastleggen en naar de volgende gaan","1, cara: registrar el llançament i passar al següent","1, cara: rexistrar o lanzamento e pasar ao seguinte"],
     ["0, coroa: registrar a jogada e passar para a próxima","0, tails: record the toss and move to the next","0, cruz: registrar el lanzamiento y pasar al siguiente","0, pile : enregistrer le lancer et passer au suivant","0, croce: registra il lancio e passa al successivo","0, Zahl: Wurf erfassen und zum nächsten wechseln","0, munt: worp vastleggen en naar de volgende gaan","0, creu: registrar el llançament i passar al següent","0, cruz: rexistrar o lanzamento e pasar ao seguinte"],
     ["Entrada de bits","Bit input","Entrada de bits","Saisie de bits","Immissione di bit","Bit-Eingabe","Bit-invoer","Entrada de bits","Entrada de bits"],
-    ["gerar","generate","generar","générer","genera","erzeugen","genereren","genera","xerar"],
-    ["Mostrar a entrada por jogadas de moeda","Show input by coin tosses","Mostrar la entrada por lanzamientos de moneda","Afficher la saisie par lancers de pièce","Mostra l'inserimento tramite lanci di moneta","Eingabe über Münzwürfe anzeigen","Invoer via muntworpen tonen","Mostrar l'entrada per llançaments de moneda","Mostrar a entrada por lanzamentos de moeda"],
-    ["Mostrar a entrada por coordenadas","Show input by coordinates","Mostrar la entrada por coordenadas","Afficher la saisie par coordonnées","Mostra l'inserimento tramite coordinate","Eingabe über Koordinaten anzeigen","Invoer via coördinaten tonen","Mostrar l'entrada per coordenades","Mostrar a entrada por coordenadas"],
     ["mnemonic","mnemonic","mnemónica","mnémonique","mnemonica","mnemonik","mnemoniek","mnemònica","mnemónica"],
     ["binários","binary","binarios","binaires","binari","Binärwerte","binair","binaris","binarios"],
     ["frase mnemônica de 24 palavras","24-word mnemonic phrase","frase mnemónica de 24 palabras","phrase mnémotechnique de 24 mots","frase mnemonica di 24 parole","Merkhilfe aus 24 Wörtern","mnemonische zin van 24 woorden","frase mnemònica de 24 paraules","frase mnemónica de 24 palabras"],
@@ -4271,8 +4236,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["cara, bit 1","heads, bit 1","cara, bit 1","face, bit 1","testa, bit 1","Kopf, Bit 1","kop, bit 1","cara, bit 1","cara, bit 1"],
     ["coroa, bit 0","tails, bit 0","cruz, bit 0","pile, bit 0","croce, bit 0","Zahl, Bit 0","munt, bit 0","creu, bit 0","cruz, bit 0"],
     ["jogadas zeradas.","tosses reset.","lanzamientos puestos a cero.","lancers remis à zéro.","lanci azzerati.","Würfe zurückgesetzt.","worpen gewist.","llançaments posats a zero.","lanzamentos postos a cero."],
-    ["coordenadas digitadas: {n} de 256.","typed coordinates: {n} of 256.","coordenadas introducidas: {n} de 256.","coordonnées saisies : {n} sur 256.","coordinate digitate: {n} di 256.","eingegebene Koordinaten: {n} von 256.","ingevoerde coördinaten: {n} van 256.","coordenades introduïdes: {n} de 256.","coordenadas introducidas: {n} de 256."],
-    ["cada coordenada é uma letra e até dez dígitos (a0, a1, …); em duas letras seguidas vale a última digitada.","each coordinate is one letter and up to ten digits (a0, a1, …); when two letters come in a row, the last one typed counts.","cada coordenada es una letra y hasta diez dígitos (a0, a1, …); si hay dos letras seguidas, vale la última escrita.","chaque coordonnée est une lettre et jusqu'à dix chiffres (a0, a1, …) ; si deux lettres se suivent, la dernière saisie compte.","ogni coordinata è una lettera e fino a dieci cifre (a0, a1, …); con due lettere di seguito vale l'ultima digitata.","jede Koordinate ist ein Buchstabe und bis zu zehn Ziffern (a0, a1, …); bei zwei aufeinanderfolgenden Buchstaben zählt der zuletzt eingegebene.","elke coördinaat is één letter en maximaal tien cijfers (a0, a1, …); bij twee letters achter elkaar telt de laatst getypte.","cada coordenada és una lletra i fins a deu dígits (a0, a1, …); si hi ha dues lletres seguides, val l'última escrita.","cada coordenada é unha letra e ata dez díxitos (a0, a1, …); se hai dúas letras seguidas, vale a última escrita."],
     ["este navegador não oferece Web Crypto; use um navegador atualizado.","this browser does not offer Web Crypto; use an up-to-date browser.","este navegador no ofrece Web Crypto; usa un navegador actualizado.","ce navigateur ne propose pas Web Crypto ; utilisez un navigateur à jour.","questo browser non offre Web Crypto; usa un browser aggiornato.","dieser Browser bietet kein Web Crypto; verwende einen aktuellen Browser.","deze browser biedt geen Web Crypto; gebruik een bijgewerkte browser.","aquest navegador no ofereix Web Crypto; feu servir un navegador actualitzat.","este navegador non ofrece Web Crypto; usa un navegador actualizado."],
     ["a entropia tem {n} bits; são necessários exatamente 256.","the entropy has {n} bits; exactly 256 are required.","la entropía tiene {n} bits; se necesitan exactamente 256.","l'entropie contient {n} bits ; il en faut exactement 256.","l'entropia ha {n} bit; ne servono esattamente 256.","die Entropie hat {n} Bit; es sind genau 256 erforderlich.","de entropie heeft {n} bits; er zijn precies 256 nodig.","l'entropia té {n} bits; calen exactament 256.","a entropía ten {n} bits; son necesarios exactamente 256."],
     ["não foi possível derivar a chave; recarregue a página e tente de novo.","could not derive the key; reload the page and try again.","no se pudo derivar la clave; recarga la página e inténtalo de nuevo.","impossible de dériver la clé ; rechargez la page et réessayez.","impossibile derivare la chiave; ricarica la pagina e riprova.","der Schlüssel konnte nicht abgeleitet werden; lade die Seite neu und versuche es erneut.","de sleutel kon niet worden afgeleid; herlaad de pagina en probeer het opnieuw.","no s'ha pogut derivar la clau; recarrega la pàgina i torna-ho a provar.","non foi posible derivar a clave; recarga a páxina e téntao de novo."],
@@ -4617,7 +4580,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     syncLangButton();
     updateThemeButton();
     paintFootState();
-    paintModeButton();
     setClearLabel(!!signedPsbtText);
     paintCopyLabels();
     paintMnemonicLabels();
@@ -4634,18 +4596,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var deriveTimer = 0;
   var analyzeSeq = 0;
 
-  var coordsInput = $('#coords');
-  var coordsPanel = $('#coords-panel');
+  var screenChave = $('#screen-chave');
+  var coordsOut = $('#coords');
   var modeBtn = $('#bits-mode');
-  var coinOn = false;
-  var coinPanel = $('#coin-panel');
+  var coinCancel = $('#coin-cancel');
   var coinCara = $('#coin-cara');
   var coinCoroa = $('#coin-coroa');
   var coinCounter = $('#coin-counter');
   var coinLast = $('#coin-last');
   var coinStatus = $('#coin-status');
   var markedPath = [];
-  var coordsDirty = false;
   var bitsValue = '';
   var binaryBits = $('#binary-bits');
   var psbtText = '';
@@ -4779,8 +4739,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* O ## binários mostra o mesmo conjunto que vira mnemonic e chave, nos 256
-     dígitos que a entropia tem. Sem os 256 bits — frase pela metade, campo
-     de coordenadas vazio — fica no travessão do estado vazio. */
+     dígitos que a entropia tem. Sem os 256 bits — frase pela metade,
+     sequência ainda sem coordenada marcada — fica no travessão. */
   function paintBinary() {
     if (!binaryBits) return;
     var bits = bitsValue.length === BIT_COUNT ? bitsValue : '';
@@ -4788,102 +4748,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     binaryBits.classList.toggle('is-empty', !bits);
   }
 
-  /* Coordenada: letra a–z e dígito 0–9, na ordem de leitura das jogadas:
-     a0–a9, b0–b9, … até z5. O que passa de z5 (z6–z9) não existe. */
-  function coordIndex(name) {
-    if (!/^[a-z][0-9]$/.test(name)) return -1;
-    var index = (name.charCodeAt(0) - 97) * 10 + Number(name.charAt(1));
-    return index < BIT_COUNT ? index : -1;
-  }
-
-  /* Lê o campo no formato agrupado (a0123456789b…), na ordem digitada e sem
-     repetir. Cada letra abre o seu grupo e os dígitos seguintes pertencem a
-     ela até a próxima letra; espaço, vírgula e outros sinais separam. Como a
-     coordenada é sempre uma letra seguida de números (a0–z5), em duas letras
-     seguidas vale a última digitada: o grupo vazio da anterior sai e a nova
-     letra assume a dianteira. Dígito inválido (z6–z9) ou repetido também é
-     descartado. O texto devolvido é o próprio campo já agrupado, com o grupo
-     em digitação no fim para a próxima tecla cair nele. twoLetters diz se
-     houve letras seguidas. */
-  function parseCoords(value) {
-    var raw = String(value).toLowerCase().replace(/[^a-z0-9]/g, '');
-    var seen = {};
-    var groups = [];
-    var groupOf = {};
-    var current = null;
-    var lastLetter = null;
-    var twoLetters = false;
-    var i = 0;
-    while (i < raw.length) {
-      var ch = raw.charAt(i);
-      if (ch >= 'a' && ch <= 'z') {
-        if (lastLetter) {
-          twoLetters = true;
-          if (!lastLetter.digits.length && groupOf[lastLetter.letter] === lastLetter) {
-            delete groupOf[lastLetter.letter];
-            var slot = groups.indexOf(lastLetter);
-            if (slot >= 0) groups.splice(slot, 1);
-          }
-        }
-        current = groupOf[ch];
-        if (!current) {
-          current = { letter: ch, digits: [] };
-          groupOf[ch] = current;
-          groups.push(current);
-        }
-        lastLetter = current;
-      } else {
-        lastLetter = null;
-        if (current) {
-          var index = coordIndex(current.letter + ch);
-          if (index >= 0 && !seen[index]) {
-            seen[index] = true;
-            current.digits.push(ch);
-          }
-        }
-      }
-      i += 1;
-    }
-    var order = groups.slice();
-    var at = current ? order.indexOf(current) : -1;
-    if (at >= 0 && at < order.length - 1) {
-      order.splice(at, 1);
-      order.push(current);
-    }
-    var path = [];
-    var text = order.map(function (g) {
-      g.digits.forEach(function (digit) { path.push(coordIndex(g.letter + digit)); });
-      return g.letter + g.digits.join('');
-    }).join('');
-    return { path: path, text: text, twoLetters: twoLetters };
-  }
-
-  /* Embaralha uma lista no lugar. Só a exibição das coordenadas no fim das
-     256 jogadas usa o sorteio; Fisher–Yates com o gerador do navegador e,
-     sem ele, Math.random, já que a ordem exibida não é segredo. */
-  function shuffleArray(list) {
-    var random = Math.random;
-    if (window.crypto && window.crypto.getRandomValues) {
-      var buffer = new Uint32Array(1);
-      random = function () {
-        window.crypto.getRandomValues(buffer);
-        return buffer[0] / 4294967296;
-      };
-    }
-    for (var i = list.length - 1; i > 0; i--) {
-      var j = Math.floor(random() * (i + 1));
-      var swap = list[i];
-      list[i] = list[j];
-      list[j] = swap;
-    }
-  }
-
-  /* Agrupa markedPath por letra (a0123456789b…), só com as coordenadas
-     marcadas e na ordem em que ela está. */
+  /* Agrupa as coordenadas marcadas por letra (a0123456789b…), em ordem
+     crescente: a lista sai como a sequência das jogadas, sem sorteio. */
   function groupedCoords() {
     var byLetter = {};
     var letters = [];
-    markedPath.forEach(function (index) {
+    markedPath.slice().sort(function (a, b) { return a - b; }).forEach(function (index) {
       var name = coordName(index);
       var letter = name.charAt(0);
       var digit = name.charAt(1);
@@ -4898,20 +4768,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }).join('');
   }
 
-  /* O campo mostra markedPath agrupado por letra, na ordem guardada — que
-     segue a sequência durante as jogadas e é embaralhada só no fim. */
+  /* O submenu ## coordenadas mostra markedPath agrupado por letra, só com as
+     marcadas; sem coordenada fica no travessão do estado vazio. */
   function syncCoords() {
-    if (!coordsInput) return;
+    if (!coordsOut) return;
     var text = groupedCoords();
-    if (coordsInput.value !== text) coordsInput.value = text;
-  }
-
-  /* O campo de coordenadas é saída só depois da última jogada: enquanto a
-     sequência não fecha, ele fica vazio. A digitação manual marca
-     coordsDirty e é tratada pelos eventos do próprio campo. */
-  function clearCoordsInput() {
-    coordsDirty = false;
-    if (coordsInput && coordsInput.value) coordsInput.value = '';
+    var shown = text || '—';
+    if (coordsOut.textContent !== shown) coordsOut.textContent = shown;
+    coordsOut.classList.toggle('is-empty', !text);
   }
 
   /* A jogada n ocupa a n-ésima coordenada da sequência (a0, a1, …, z5). A
@@ -4924,16 +4788,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     for (var i = 0; i < BIT_COUNT; i++) {
       if (!marked[i]) freeCoords.push(i);
     }
-  }
-
-  function samePath(a, b) {
-    if (a.length !== b.length) return false;
-    var set = {};
-    a.forEach(function (index) { set[index] = true; });
-    for (var i = 0; i < b.length; i++) {
-      if (!set[b[i]]) return false;
-    }
-    return true;
   }
 
   /* O contador é o número de jogadas registradas, que também é o número de
@@ -4966,8 +4820,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   /* Registra a face da moeda na próxima coordenada da sequência. O clique
      em coroa também ocupa a coordenada (bit 0); só cara entra em markedPath,
-     que é o que o campo de coordenadas mostra. Na última jogada a lista de
-     marcadas é embaralhada só para a exibição. */
+     que é o que o submenu de coordenadas mostra, em ordem crescente. Na
+     última jogada a sequência fecha, a tela volta ao normal e a chave sai dos
+     256 bits. */
   function registerToss(bit) {
     if (tosses.length >= BIT_COUNT || !freeCoords.length) return;
     var index = freeCoords.shift();
@@ -4975,16 +4830,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (bit) markedPath.push(index);
     bitsValue = bitsFromPath();
     paintBinary();
+    syncCoords();
     if (tosses.length >= BIT_COUNT) {
-      coordsDirty = false;
-      shuffleArray(markedPath);
-      syncCoords();
       paintTosses('256 jogadas registradas; os 256 bits estão completos.');
+      endGeneration();
       applyBits(bitsValue);
-      setCoinOn(false);
       return;
     }
-    clearCoordsInput();
     paintTosses('jogada {n} de 256: {face}, coordenada {coord}.', {
       n: padDigits(tosses.length, 3),
       face: bit ? 'cara, bit 1' : 'coroa, bit 0',
@@ -4999,7 +4851,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     bitsValue = '';
     paintBinary();
     fillFreeCoords();
-    clearCoordsInput();
+    syncCoords();
     paintTosses('jogadas zeradas.');
     discardKey();
     /* Recomeçar pelas jogadas também esvazia a frase digitada: a entrada
@@ -5007,104 +4859,36 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     paintEntropy(null);
   }
 
-  /* As coordenadas digitadas viram o ponto de partida de uma nova sequência:
-     cada marca conta como uma jogada já feita, e as livres ficam na fila em
-     ordem crescente. Assim o contador e a fila nunca divergem do conjunto. */
-  function adoptCoords() {
-    tosses = markedPath.map(function (index) {
-      return { index: index, bit: 1 };
-    });
-    fillFreeCoords();
-    paintTosses('coordenadas digitadas: {n} de 256.', { n: tosses.length });
-  }
-
   if (coinCara) coinCara.addEventListener('click', function () { registerToss(1); });
   if (coinCoroa) coinCoroa.addEventListener('click', function () { registerToss(0); });
 
-  var COORD_TWO_LETTERS = 'cada coordenada é uma letra e até dez dígitos (a0, a1, …); em duas letras seguidas vale a última digitada.';
-
-  /* A digitação normaliza o valor no lugar, no formato agrupado e na ordem
-     digitada. O grupo em digitação vai para o fim, e o cursor acompanha, de
-     onde a sequência cresce; a ordem do texto passa para markedPath, então o
-     campo não se reordena ao sair. Só deriva de novo quando o conjunto de
-     bits muda de fato. */
-  function onCoordsInput() {
-    coordsDirty = true;
-    var parsed = parseCoords(coordsInput.value);
-    var before = bitsValue;
-    var changed = !samePath(parsed.path, markedPath);
-    markedPath = parsed.path;
-    bitsValue = bitsFromPath();
-    paintBinary();
-    if (changed) adoptCoords();
-    /* O recado das duas letras vem depois do adoptCoords: paintTosses()
-       escreve no mesmo #coin-status e apagaria o aviso. */
-    if (coinStatus) {
-      if (parsed.twoLetters) setStatus(coinStatus, '', COORD_TWO_LETTERS);
-      else if (coinStatus._i18nStatus && coinStatus._i18nStatus.key === COORD_TWO_LETTERS) {
-        setStatus(coinStatus, '', '');
-      }
-    }
-    if (coordsInput.value !== parsed.text) {
-      coordsInput.value = parsed.text;
-      try {
-        coordsInput.setSelectionRange(parsed.text.length, parsed.text.length);
-      } catch (e) {}
-    }
-    if (bitsValue !== before) scheduleBits(bitsValue);
-  }
-
-  /* Ao sair do campo, a sequência digitada vira o formato de apresentação:
-     agrupada por letra e só com as marcadas. Sem digitação, o campo vazio não
-     mexe no conjunto que veio das jogadas. */
-  function onCoordsBlur() {
-    if (!coordsDirty) return;
-    coordsDirty = false;
-    markedPath = parseCoords(coordsInput.value).path;
-    syncCoords();
-  }
-
-  if (coordsInput) {
-    coordsInput.addEventListener('input', onCoordsInput);
-    coordsInput.addEventListener('blur', onCoordsBlur);
-  }
-
-  /* O botão alterna as duas entradas, como nas 24 palavras: o painel de
-     jogadas e o campo de coordenadas ocupam o mesmo lugar. Ao abrir as
-     coordenadas, o campo mostra a sequência atual e recebe o foco no fim; ao
-     voltar, o foco vai para a primeira face da moeda que ainda responde. A
-     volta para as jogadas sempre zera o campo de coordenadas e a sequência,
-     sem herdar bits digitados nem jogadas anteriores. */
-  function paintModeButton() {
-    if (!modeBtn) return;
-    modeBtn.textContent = t(coinOn ? 'coordenadas' : 'gerar');
-    modeBtn.setAttribute('aria-label', t(coinOn
-      ? 'Mostrar a entrada por coordenadas'
-      : 'Mostrar a entrada por jogadas de moeda'));
-  }
-  function setCoinOn(on) {
-    coinOn = on;
-    coordsPanel.classList.toggle('is-off', on);
-    coinPanel.classList.toggle('is-off', !on);
-    if (on) resetTossRun();
-    paintModeButton();
-    if (on) {
-      if (coinCara && !coinCara.disabled) coinCara.focus();
-      else if (coinCoroa) coinCoroa.focus();
-    } else {
-      if (coordsInput) {
-        coordsInput.focus();
-        var end = coordsInput.value.length;
-        try {
-          coordsInput.setSelectionRange(end, end);
-          coordsInput.scrollTop = coordsInput.scrollHeight;
-        } catch (e) {}
-      }
-    }
+  /* O botão "gerar chave" abre a geração: a tela fica só com o painel de
+     jogadas e os submenus de binários e coordenadas, e a sequência anterior
+     não sobrevive ao recomeço. */
+  function startGeneration() {
+    resetTossRun();
+    if (screenChave) screenChave.classList.add('is-generating');
+    if (coinCara && !coinCara.disabled) coinCara.focus();
+    else if (coinCoroa) coinCoroa.focus();
     updateScrollState();
   }
 
-  if (modeBtn) modeBtn.addEventListener('click', function () { setCoinOn(!coinOn); });
+  /* Fechada a sequência — ou cancelada —, a tela volta ao normal: o mnemonic
+     e as chaves reaparecem, e o foco volta ao botão que abriu a geração. */
+  function endGeneration() {
+    if (screenChave) screenChave.classList.remove('is-generating');
+    if (modeBtn) modeBtn.focus();
+    updateScrollState();
+  }
+
+  /* Cancelar no meio abandona a sequência: meia lista de 256 não vira chave. */
+  function cancelGeneration() {
+    resetTossRun();
+    endGeneration();
+  }
+
+  if (modeBtn) modeBtn.addEventListener('click', startGeneration);
+  if (coinCancel) coinCancel.addEventListener('click', cancelGeneration);
 
   /* ------------------------------------------------------------- chaves */
   var KEY_CELLS = [
@@ -5452,7 +5236,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       bitsValue = valid ? entropy : '';
       paintBinary();
       markedPath = pathFromBits(entropy);
-      coordsDirty = false;
       syncCoords();
       tosses = markedPath.map(function (position) {
         return { index: position, bit: 1 };
@@ -6832,6 +6615,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   fillFreeCoords();
   paintTosses('');
   paintBinary();
+  syncCoords();
   applyBits(bitsValue);
   paintPsbt('');
   buildKeyCells();
