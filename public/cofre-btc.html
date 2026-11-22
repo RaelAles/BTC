@@ -5299,16 +5299,23 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     var entropy = bits.slice(0, BIT_COUNT);
     var valid = complete && entropy.length === BIT_COUNT &&
       BTC.bip39Mnemonic(entropy) === words.join(' ');
+    var next = valid ? entropy : '';
+    /* A frase em vigor não mudou: entrar e sair de uma posição sem editar
+       nada não apaga nem recalcula a chave (PBKDF2 + BIP32) que já está na
+       tela. Sem esta saída, o blur refazia a derivação inteira à toa. */
+    var unchanged = next === bitsValue &&
+      (next ? !!(state.hd || deriveTimer) : !state.hd && !state.values);
     mnemonicEditing = true;
     try {
       /* O conjunto de bits em vigor é o da frase válida; o prefixo, sozinho,
          não define os 256 bits. */
-      bitsValue = valid ? entropy : '';
+      bitsValue = next;
       paintBinary();
       paintMnemonicNote(mnemonicNoteFor(bits, complete, valid));
+      if (unchanged) return;
       /* Sem a frase completa e válida não há 256 bits: a chave anterior cai
          na hora e nada é derivado do prefixo. */
-      scheduleBits(valid ? entropy : '');
+      scheduleBits(next);
     } finally {
       mnemonicEditing = false;
     }
