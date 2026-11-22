@@ -502,13 +502,6 @@ package.json
 - **Sem RBF.** O montador usa sequence final, então o resumo mostra
   `rbf: false`; o caminho de aceleração é o CPFP.
 
-## Licença
-
-MIT — veja [LICENSE](LICENSE). © 2026 Rael Ales.
-
-Contribuições: [CONTRIBUTING.md](CONTRIBUTING.md). Relatos de segurança:
-[SECURITY.md](SECURITY.md); não abra issue pública para uma vulnerabilidade.
-
 ## Apoie
 
 Se este projeto te ajuda, você pode apoiar o trabalho: https://raelales.com/apoiar

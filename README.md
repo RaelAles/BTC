@@ -492,13 +492,6 @@ package.json
 - **No RBF.** The builder uses final sequence values, so the summary reports
   `rbf: false`; the acceleration path is CPFP.
 
-## License
-
-MIT — see [LICENSE](LICENSE). © 2026 Rael Ales.
-
-Contributions: [CONTRIBUTING.md](CONTRIBUTING.md). Security reports:
-[SECURITY.md](SECURITY.md); do not open a public issue for a vulnerability.
-
 ## Support
 
 If this project helps you, you can support the work: https://raelales.com/apoiar
