@@ -69,9 +69,15 @@ for (const [nome, valor] of Object.entries(SECURITY_HEADERS)) ESPERADO[nome.toLo
 /* ---------------- 2. hash do script inline do tema ---------------- */
 {
   const html = read('public/index.html');
-  const inline = html.match(/<script>([\s\S]*?)<\/script>/);
-  assert.ok(inline, 'index.html mantém o script inline do tema');
-  const hash = createHash('sha256').update(inline[1], 'utf8').digest('base64');
+  /* Sem regex de tag: o script inline é delimitado por indexOf, então o
+     teste não depende de um filtro de HTML escrito à mão. */
+  const abre = '<script>';
+  const fecha = '</script>';
+  const inicio = html.indexOf(abre);
+  const fim = inicio < 0 ? -1 : html.indexOf(fecha, inicio + abre.length);
+  assert.ok(inicio >= 0 && fim > inicio, 'index.html mantém o script inline do tema');
+  const hash = createHash('sha256')
+    .update(html.slice(inicio + abre.length, fim), 'utf8').digest('base64');
   const csp = SECURITY_HEADERS['Content-Security-Policy'];
   assert.ok(csp.includes("'sha256-" + hash + "'"),
     'o hash da CSP acompanha o script inline do tema');
@@ -114,7 +120,21 @@ for (const [nome, valor] of Object.entries(SECURITY_HEADERS)) ESPERADO[nome.toLo
 {
   const html = read('public/index.html');
   const alvos = [];
-  for (const [tag] of html.matchAll(/<(script|link)\b[^>]*>/g)) {
+  /* Varre as tags com indexOf em vez de um regex de HTML: o teste só precisa
+     achar as tags de script/link do próprio index.html, e um regex de tag
+     deixaria a porta aberta para as variações que o navegador aceita. */
+  let cursor = 0;
+  for (;;) {
+    const inicio = html.indexOf('<', cursor);
+    if (inicio < 0) break;
+    const seguinte = html.charAt(inicio + 1);
+    if (!/[A-Za-z/!]/.test(seguinte)) { cursor = inicio + 1; continue; }
+    const fim = html.indexOf('>', inicio + 1);
+    if (fim < 0) break;
+    const tag = html.slice(inicio, fim + 1);
+    cursor = fim + 1;
+    const nome = tag.slice(1).split(/[\s/>]/, 1)[0].toLowerCase();
+    if (nome !== 'script' && nome !== 'link') continue;
     const src = /\ssrc="([^"]+)"/.exec(tag);
     const href = /\shref="([^"]+)"/.exec(tag);
     const rel = /\srel="([^"]+)"/.exec(tag);

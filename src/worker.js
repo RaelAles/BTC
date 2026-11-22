@@ -185,7 +185,7 @@ function scanFailure(e, client) {
   /* Falha de transporte (Electrum caiu no meio do scan) não é erro de
      validação: a tela trata 400 como formulário inválido. */
   const transport = (client && client.dead) || (e && e.failures);
-  return fail(e && e.message ? e.message : String(e), transport ? 502 : 400);
+  return fail(e && e.message ? e.message : '' + e, transport ? 502 : 400);
 }
 
 async function handlePsbt(request, env) {
@@ -533,7 +533,7 @@ async function route(request, env) {
     }
     return new Response('not found', { status: 404 });
   } catch (e) {
-    return fail(e && e.message ? e.message : String(e), 500);
+    return fail(e && e.message ? e.message : '' + e, 500);
   }
 }
 

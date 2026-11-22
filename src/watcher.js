@@ -79,7 +79,7 @@ export class WalletWatcher {
      validação do formulário: 502, para a tela não culpar o pedido. */
   scanFailure(e) {
     const transport = (this.client && this.client.dead) || (e && e.failures);
-    return json({ error: e && e.message ? e.message : String(e) }, transport ? 502 : 400);
+    return json({ error: e && e.message ? e.message : '' + e }, transport ? 502 : 400);
   }
 
   async handle(request) {
@@ -180,7 +180,7 @@ export class WalletWatcher {
       }
       return json({ error: 'rota do watch não encontrada' }, 404);
     } catch (e) {
-      this.lastError = e && e.message ? e.message : String(e);
+      this.lastError = e && e.message ? e.message : '' + e;
       return json({ error: this.lastError }, 502);
     }
   }
@@ -316,7 +316,7 @@ export class WalletWatcher {
         }
       }
     } catch (e) {
-      this.lastError = e && e.message ? e.message : String(e);
+      this.lastError = e && e.message ? e.message : '' + e;
       this.broadcast({ type: 'error', error: this.lastError });
     }
   }
@@ -356,7 +356,7 @@ export class WalletWatcher {
       if (this.client && !this.client.dead) await this.client.ping();
       else await this.sync(null, true);
     } catch (e) {
-      this.lastError = e && e.message ? e.message : String(e);
+      this.lastError = e && e.message ? e.message : '' + e;
       await this.closeClient();
       this.broadcast({ type: 'error', error: this.lastError });
     }

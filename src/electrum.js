@@ -125,7 +125,7 @@ export class ElectrumClient {
 
   _fail(err) {
     if (this.dead) return;
-    this.dead = err instanceof Error ? err : new Error(String(err));
+    this.dead = err instanceof Error ? err : new Error('' + err);
     for (const [, p] of this.pending) {
       clearTimeout(p.timer);
       p.reject(this.dead);
@@ -325,7 +325,7 @@ export async function transactionsMany(client, txids, opts) {
       if (i >= txids.length) return;
       const txid = txids[i];
       try { raw.set(txid, await client.request('blockchain.transaction.get', [txid])); }
-      catch (e) { errors.set(txid, e && e.message ? e.message : String(e)); }
+      catch (e) { errors.set(txid, e && e.message ? e.message : '' + e); }
     }
   };
   const workers = [];

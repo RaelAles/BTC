@@ -97,8 +97,9 @@ const server = http.createServer(async (req, res) => {
     }));
     fs.createReadStream(full).pipe(res);
   } catch (e) {
+    console.error(e);
     res.writeHead(500, SECURITY_HEADERS);
-    res.end(String((e && e.stack) || e));
+    res.end('erro interno');
   }
 });
 

@@ -2916,9 +2916,11 @@
     if (Number(tx.fee_sats) > 0) {
       values.push('<span class="value-label">' + esc(t('taxa')) + '</span> ' + signedBtc(tx.fee_sats, 'out'));
     }
-    var meta = fmtInt(tx.input_count) + ' ' +
+    /* As contagens vêm do servidor; passam por esc como os demais campos,
+       mesmo sendo hoje só números. */
+    var meta = esc(fmtInt(tx.input_count)) + ' ' +
       t(tx.input_count === 1 ? 'entrada' : 'entradas') + sep +
-      fmtInt(tx.output_count) + ' ' + t(tx.output_count === 1 ? 'saída' : 'saídas');
+      esc(fmtInt(tx.output_count)) + ' ' + t(tx.output_count === 1 ? 'saída' : 'saídas');
     var eligible = !!(tx.cpfp && tx.cpfp.eligible);
     var valueText = values.join(' <span class="value-sep" aria-hidden="true">|</span> ');
     /* O estado e o acelerar formam uma coluna à direita das duas linhas de
