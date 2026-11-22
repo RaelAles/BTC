@@ -6,8 +6,6 @@
 
 <!-- English · [Português (Brasil)](README.pt-BR.md) -->
 
-Published at **https://btc.raelales.com**.
-
 Watch-only Bitcoin wallet on Cloudflare Workers. You paste an account
 **xpub** (or `zpub`/`ypub`), the Worker derives the public addresses and reads
 the balance, the receive addresses and the transaction history from an
@@ -243,7 +241,7 @@ The repository root is the Worker project: `wrangler.jsonc`, `src/`,
 
 For **Workers Builds**, leave the root directory empty (the repository root),
 use `npm ci` as the build command and `npx wrangler deploy` as the deploy
-command. `routes` declares `btc.raelales.com` as a custom domain, and
+command. `routes` declares the project's custom domain, and
 `workers_dev` and `preview_urls` are disabled, so the Worker responds only on
 that domain. Observability is disabled to avoid keeping invocation logs in
 Cloudflare.
