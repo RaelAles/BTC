@@ -4949,6 +4949,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var mnemonicMatches = [];    // palavras que casam com o prefixo digitado
   var mnemonicActive = -1;     // opção em digitação (-1 = nenhuma)
   var mnemonicEditing = false;  // a frase é do usuário: nada a sobrescreve
+  var mnemonicPointerOut = false;  // a saída do campo veio de clique/toque
 
   (function buildMnemonic() {
     if (!mnemonicList) return;
@@ -5058,6 +5059,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }
     setMnemonicValue(input, '');
     return typed;
+  }
+
+  /* Prefixo recusado: antes de o campo perder o foco, o recado avisa por que
+     a posição não anda. */
+  function paintMnemonicReject(word) {
+    paintMnemonicNote({
+      kind: 'erro',
+      key: '{word} não está na lista de 2.048 palavras.',
+      vars: { word: word }
+    });
   }
 
   /* As opções são as palavras da lista oficial que começam com o que já foi
@@ -5230,20 +5241,31 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     mnemonicList.addEventListener('focusout', function (ev) {
       var input = ev.target;
       if (!input || !input.classList || !input.classList.contains('mnemonic-word-input')) return;
+      /* Fora o clique/toque, nenhum atalho tira o foco de uma posição com
+         prefixo pela metade: o campo volta ao foco com o recado, e o texto
+         fica onde está para ser terminado. O clique fora é a saída. */
+      if (!mnemonicPointerOut && !mnemonicWordReady(input)) {
+        closeMnemonicOptions();
+        window.setTimeout(function () {
+          input.focus();
+          paintMnemonicReject(input.value);
+        }, 0);
+        return;
+      }
       closeMnemonicOptions();
       /* O que ficou no campo passa pelo mesmo filtro ao sair, e só palavra
          inteira permanece na posição. */
       acceptMnemonicText(input);
       var rejected = commitMnemonicWord(input);
       syncMnemonic();
-      if (rejected) {
-        paintMnemonicNote({
-          kind: 'erro',
-          key: '{word} não está na lista de 2.048 palavras.',
-          vars: { word: rejected }
-        });
-      }
+      if (rejected) paintMnemonicReject(rejected);
     });
+    /* A origem da saída decide se o campo pode ser deixado: clique/toque, sim;
+       tecla, não. O registrador fica na captura para valer antes do blur. */
+    ['pointerdown', 'mousedown', 'touchstart'].forEach(function (type) {
+      document.addEventListener(type, function () { mnemonicPointerOut = true; }, true);
+    });
+    document.addEventListener('keydown', function () { mnemonicPointerOut = false; }, true);
     /* Setas percorrem a lista sem tirar o foco do campo; Enter escolhe a
        opção em digitação e Escape fecha a lista. */
     mnemonicList.addEventListener('keydown', function (ev) {
@@ -5271,7 +5293,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
           ev.preventDefault();
           chooseMnemonicOption(mnemonicActive);
           focusNextMnemonic(input);
-        } else if (input.value && bip39List.indexOf(input.value.trim().toLowerCase()) >= 0) {
+        } else if (!mnemonicWordReady(input)) {
+          /* Prefixo pela metade: o mesmo recado do Tab, sem sair da posição. */
+          ev.preventDefault();
+          paintMnemonicReject(input.value);
+        } else if (input.value) {
           /* Palavra inteira da lista: o Enter vale como o Tab e leva o foco
              para a próxima posição, sem voltar ao mouse. */
           ev.preventDefault();
@@ -5285,15 +5311,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         }
       } else if (ev.key === 'Tab') {
         /* O prefixo pela metade não abre a porta: a posição só é deixada com
-           palavra inteira (ou vazia). O Shift+Tab continua servindo de saída
-           para quem veio do teclado. */
-        if (!ev.shiftKey && !mnemonicWordReady(input)) {
+           palavra inteira (ou vazia), nem com Tab nem com Shift+Tab. */
+        if (!mnemonicWordReady(input)) {
           ev.preventDefault();
-          paintMnemonicNote({
-            kind: 'erro',
-            key: '{word} não está na lista de 2.048 palavras.',
-            vars: { word: input.value }
-          });
+          paintMnemonicReject(input.value);
           return;
         }
         closeMnemonicOptions();
