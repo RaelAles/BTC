@@ -10,6 +10,7 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "icons": "node scripts/build-icons.mjs",
+    "sync:cofre-css": "node scripts/sync-cofre-css.mjs",
     "test": "node --test test/*.test.mjs"
   },
   "devDependencies": {
