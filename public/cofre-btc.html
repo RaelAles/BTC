@@ -1811,6 +1811,11 @@
      para o --accent e a pressão assume o --support do restante dos controles. */
   .coin-choices {
     display: grid;
+    /* O par de botões fica numa coluna mais estreita e centrada no painel:
+       com a largura toda, os dois alvos ocupariam a coluna de leitura sem
+       necessidade e o número ficaria longe do meio da tela. */
+    width: min(100%, 28rem);
+    margin-inline: auto;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-3);
   }
@@ -1850,8 +1855,8 @@
     text-align: center;
   }
   /* O mnemonic é entrada e saída: a frase de 24 palavras fica sempre
-     visível, em 3 colunas de 8 linhas, na largura da coluna de leitura, e
-     cada palavra é um campo. O travessão do estado vazio continua como
+     visível, em 3 colunas de 8 linhas, numa coluna mais estreita e centrada,
+     e cada palavra é um campo. O travessão do estado vazio continua como
      placeholder, no --dim, e a lista oficial abre sobre o conteúdo, na
      coluna do próprio campo. */
   .entropy-block { margin-top: var(--space-9); }
@@ -1902,8 +1907,11 @@
      leitor de tela anuncia 24 itens, não 25. */
   .mnemonic-words {
     display: grid;
-    width: 100%;
-    margin: 0;
+    /* A grade das palavras volta a uma coluna mais estreita e centrada: a
+       largura toda da coluna de leitura espalharia as três colunas e a
+       legenda da frase secreta, que ficariam sem um eixo central claro. */
+    width: min(100%, 28rem);
+    margin: 0 auto;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-2) var(--space-4);
     font-size: var(--text-sm);
