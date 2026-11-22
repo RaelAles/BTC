@@ -1700,13 +1700,22 @@
   .app-gap { margin-top: var(--space-5); }
   .app-block { margin-top: var(--space-7); }
 
-  /* Entrada da chave: o botão "gerar chave" abre a geração, e a tela fica só
+  /* Entrada da chave: o "gerar" do menu abre a geração, e a tela fica só
      com o painel de jogadas e o submenu de entropia. O mnemonic e os demais
      submenus voltam quando a sequência fecha. */
   .bits-row { margin: var(--space-5) 0 var(--space-7); }
-  /* A alternância geração↔mnemonic anima só a opacidade dos painéis, no
-     --motion-fast (ver fadeGeneration): os controles não esperam o contorno
-     do hover/foco. */
+  /* A tela "chave" usa a coluna de 28rem dos dados também nos subtítulos e
+     dispensa o respiro de seção no primeiro bloco, para o mnemonic começar
+     logo abaixo da régua. */
+  #screen-chave .prose {
+    width: min(100%, 28rem);
+    margin-inline: auto;
+  }
+  #screen-chave .prose h3 { margin-top: 0; }
+  #screen-chave .entropy-block { margin-top: 0; }
+  #screen-chave .binary-block { margin-top: var(--space-7); }
+  /* A abertura e o fechamento da geração usam a revelação dos blocos (ver
+     revealGeneration): os controles não esperam o contorno do hover/foco. */
   .coin-panel button { transition-property: color, background-color, opacity; }
   /* Chaves no mesmo desenho das leituras: o rótulo (só o bip) no --dim à
      esquerda, o valor no --fg à direita, na mesma largura de 28rem do painel
@@ -1758,8 +1767,7 @@
      sob o valor. */
   .key-value { display: block; }
   .key-action[hidden] { display: none; }
-  .key-action,
-  .mnemonic-actions button {
+  .key-action {
     display: block;
     margin: var(--space-3) 0 0 auto;
   }
@@ -1787,7 +1795,7 @@
     gap: var(--space-6);
     font-size: var(--text-sm);
   }
-  /* O painel de jogadas é a geração: só aparece com o botão "gerar chave",
+  /* O painel de jogadas é a geração: só aparece com o "gerar" do menu,
      quando o título da tela fica sozinho com ele e o submenu de saída.
      O cancelar fica dentro do painel, para a volta ser possível antes das
      256 jogadas. */
@@ -1993,13 +2001,6 @@
     background: var(--accent);
     color: var(--on-strong);
   }
-  /* O "gerar chave" fecha o bloco da frase, alinhado à direita como o
-     "copiar" das chaves públicas e no mesmo corpo do valor da tabela. */
-  .mnemonic-actions {
-    width: min(100%, 28rem);
-    margin: 0 auto;
-    font-size: var(--text-sm);
-  }
   /* A frase secreta fica fora do <ol> das 24 posições, na linha de baixo
      da mesma grade: ocupa a largura toda para que a frase inteira caiba e
      possa ser conferida contra o que foi anotado. Rótulo e texto ficam
@@ -2074,6 +2075,8 @@
     <nav class="menu" aria-label="Telas">
       <button type="button" data-screen="chave" aria-current="page" tabindex="-1">chave</button>
       <span class="dot-sep" aria-hidden="true">·</span>
+      <button type="button" id="bits-mode" aria-pressed="false" aria-controls="coin-panel">gerar</button>
+      <span class="dot-sep" aria-hidden="true">·</span>
       <button type="button" data-screen="sobre">sobre</button>
     </nav>
 
@@ -2119,9 +2122,6 @@
                   <label class="mnemonic-word-index" for="passphrase">frase secreta</label>
                   <input class="passphrase-input" id="passphrase" type="text" maxlength="256" placeholder="—" autocomplete="off" spellcheck="false" autocapitalize="none" autocorrect="off">
                 </div>
-              </div>
-              <div class="mnemonic-actions">
-                <button type="button" id="bits-mode">gerar chave</button>
               </div>
             </div>
 
@@ -2219,7 +2219,7 @@
             <p>Versões anteriores anotavam as jogadas como coordenadas: a primeira era <code>a0</code>, a segunda <code>a1</code>, e assim até <code>z5</code>, a última. Quem guardou só essa lista não perdeu a chave, desde que a frase secreta esteja vazia (como nas versões daquela época): cada <code>letra × 10 + dígito</code> (com <code>a</code> = 0, … <code>z</code> = 25) marca <code>1</code> na posição correspondente dos 256 bits, e todas as outras posições valem <code>0</code>. Com os 256 dígitos em mãos, informe-os em outra ferramenta BIP39 com a lista em inglês: ela devolve a mesma frase de 24 palavras, que esta tela aceita de volta. Esta versão não lê mais coordenadas.</p>
 
             <h3><span class="prompt" aria-hidden="true">##</span> como usar</h3>
-            <p><b>Gerar.</b> Na tela “chave”, clique em “gerar” e registre 256 jogadas: cara vale <code>1</code> e coroa vale <code>0</code>. A frase de 24 palavras e as chaves aparecem quando a última jogada entra. Anote a frase no papel antes de seguir.</p>
+            <p><b>Gerar.</b> No menu do alto, clique em “gerar” e registre 256 jogadas: cara vale <code>1</code> e coroa vale <code>0</code>. A frase de 24 palavras e as chaves aparecem quando a última jogada entra. Anote a frase no papel antes de seguir.</p>
             <p><b>Assinar.</b> Clique em “importar psbt” e escolha o arquivo que veio do Monitor BTC. Confira a revisão: valor, destino, troco, taxa e avisos. Se estiver tudo certo, clique em “assinar” e baixe o arquivo assinado. Transmitir é no Monitor BTC.</p>
             <p><b>Telas.</b> O menu no alto alterna entre “chave” e “sobre”.</p>
 
@@ -4223,7 +4223,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["chave","key","clave","clé","chiave","schlüssel","sleutel","clau","clave"],
     ["sobre","about","acerca de","à propos","informazioni","über","over","sobre","sobre"],
     ["CHAVE","KEY","CLAVE","CLÉ","CHIAVE","SCHLÜSSEL","SLEUTEL","CLAU","CLAVE"],
-    ["gerar chave","generate key","generar clave","générer la clé","genera chiave","Schlüssel erzeugen","sleutel genereren","genera clau","xerar clave"],
+    ["gerar","generate","generar","générer","genera","erzeugen","genereren","genera","xerar"],
     ["rodada","round","ronda","tour","giro","runde","ronde","ronda","rolda"],
     ["Registrar a face da moeda","Record the coin face","Registrar la cara de la moneda","Enregistrer la face de la pièce","Registra la faccia della moneta","Münzseite erfassen","Muntzijde vastleggen","Registrar la cara de la moneda","Rexistrar a cara da moeda"],
     ["1, cara: registrar a jogada e passar para a próxima","1, heads: record the toss and move to the next","1, cara: registrar el lanzamiento y pasar al siguiente","1, face : enregistrer le lancer et passer au suivant","1, testa: registra il lancio e passa al successivo","1, Kopf: Wurf erfassen und zum nächsten wechseln","1, kop: worp vastleggen en naar de volgende gaan","1, cara: registrar el llançament i passar al següent","1, cara: rexistrar o lanzamento e pasar ao seguinte"],
@@ -4314,7 +4314,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["Ele também assina. Você abre o arquivo de transação (PSBT) montado no Monitor BTC, confere o que ele faz e assina com a chave. Quem monta e transmite é o Monitor BTC; aqui a chave privada nunca sai da página, que é um arquivo só, sem servidor e sem internet.","It also signs. You open the transaction file (PSBT) built in Monitor BTC, check what it does and sign it with the key. Monitor BTC builds and broadcasts it; here the private key never leaves the page, which is a single file, with no server and no internet.","También firma. Abres el archivo de transacción (PSBT) montado en Monitor BTC, compruebas lo que hace y lo firmas con la clave. Quien monta y transmite es Monitor BTC; aquí la clave privada nunca sale de la página, que es un solo archivo, sin servidor y sin internet.","Il signe aussi. Vous ouvrez le fichier de transaction (PSBT) construit dans Monitor BTC, vérifiez ce qu'il fait et le signez avec la clé. C'est Monitor BTC qui le construit et le diffuse ; ici, la clé privée ne quitte jamais la page, qui est un seul fichier, sans serveur et sans internet.","Firma anche. Apri il file di transazione (PSBT) creato in Monitor BTC, controlli cosa fa e lo firmi con la chiave. Chi lo crea e lo trasmette è Monitor BTC; qui la chiave privata non lascia mai la pagina, che è un solo file, senza server e senza internet.","Es signiert auch. Du öffnest die in Monitor BTC erstellte Transaktionsdatei (PSBT), prüfst, was sie tut, und signierst sie mit dem Schlüssel. Monitor BTC erstellt und überträgt sie; hier verlässt der private Schlüssel nie die Seite, die eine einzige Datei ist, ohne Server und ohne Internet.","Het ondertekent ook. Je opent het transactiebestand (PSBT) dat in Monitor BTC is gemaakt, controleert wat het doet en ondertekent het met de sleutel. Monitor BTC maakt en verstuurt het; hier verlaat de privésleutel nooit de pagina, die één bestand is, zonder server en zonder internet.","També signa. Obres el fitxer de transacció (PSBT) muntat a Monitor BTC, comproves què fa i el signes amb la clau. Qui el munta i el transmet és Monitor BTC; aquí la clau privada no surt mai de la pàgina, que és un sol fitxer, sense servidor i sense internet.","Tamén asina. Abres o ficheiro de transacción (PSBT) montado en Monitor BTC, comprobas o que fai e asínas con a clave. Quen o monta e transmite é Monitor BTC; aquí a clave privada nunca sae da páxina, que é un só ficheiro, sen servidor e sen internet."],
     ["Nada fica guardado: as jogadas, a frase, as chaves e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma. Quem tiver as 24 palavras tem a chave: guarde essa lista em local seguro e confira o sha256 publicado no repositório antes de abrir.","Nothing is stored: the tosses, the phrase, the keys and the files live only in the tab's memory and disappear when you close or reload the page; the browser stores neither the theme nor the language. Whoever has the 24 words has the key: keep that list somewhere safe and check the sha256 published in the repository before opening.","No se guarda nada: los lanzamientos, la frase, las claves y los archivos solo están en la memoria de la pestaña y desaparecen al cerrar o recargar la página; el navegador no guarda ni el tema ni el idioma. Quien tenga las 24 palabras tiene la clave: guarda esa lista en un lugar seguro y comprueba el sha256 publicado en el repositorio antes de abrir.","Rien n'est conservé : les lancers, la phrase, les clés et les fichiers restent uniquement dans la mémoire de l'onglet et disparaissent à la fermeture ou au rechargement de la page ; le navigateur ne garde ni le thème ni la langue. Qui possède les 24 mots possède la clé : conservez cette liste en lieu sûr et vérifiez le sha256 publié dans le dépôt avant d'ouvrir.","Niente viene salvato: i lanci, la frase, le chiavi e i file restano solo nella memoria della scheda e spariscono chiudendo o ricaricando la pagina; il browser non conserva né il tema né la lingua. Chi ha le 24 parole ha la chiave: conserva quell'elenco in un luogo sicuro e controlla lo sha256 pubblicato nel repository prima di aprire.","Nichts wird gespeichert: die Würfe, die Merkhilfe, die Schlüssel und die Dateien liegen nur im Speicher des Tabs und verschwinden beim Schließen oder Neuladen der Seite; der Browser speichert weder das Design noch die Sprache. Wer die 24 Wörter hat, hat den Schlüssel: bewahre diese Liste an einem sicheren Ort auf und prüfe vor dem Öffnen den im Repository veröffentlichten sha256.","Niets wordt bewaard: de worpen, de zin, de sleutels en de bestanden staan alleen in het geheugen van het tabblad en verdwijnen bij het sluiten of herladen van de pagina; de browser bewaart noch het thema noch de taal. Wie de 24 woorden heeft, heeft de sleutel: bewaar die lijst op een veilige plek en controleer de sha256 die in de repository is gepubliceerd voordat je opent.","No es guarda res: els llançaments, la frase, les claus i els fitxers només són a la memòria de la pestanya i desapareixen en tancar o recarregar la pàgina; el navegador no guarda ni el tema ni l'idioma. Qui tingui les 24 paraules té la clau: guarda aquesta llista en un lloc segur i comprova el sha256 publicat al repositori abans d'obrir.","Non se garda nada: os lanzamentos, a frase, as claves e os ficheiros están só na memoria da lapela e desaparecen ao pechar ou recargar a páxina; o navegador non garda nin o tema nin o idioma. Quen teña as 24 palabras ten a clave: garda esa lista nun lugar seguro e comproba o sha256 publicado no repositorio antes de abrir."],
     ["Versões anteriores anotavam as jogadas como coordenadas: a primeira era <code>a0</code>, a segunda <code>a1</code>, e assim até <code>z5</code>, a última. Quem guardou só essa lista não perdeu a chave, desde que a frase secreta esteja vazia (como nas versões daquela época): cada <code>letra × 10 + dígito</code> (com <code>a</code> = 0, … <code>z</code> = 25) marca <code>1</code> na posição correspondente dos 256 bits, e todas as outras posições valem <code>0</code>. Com os 256 dígitos em mãos, informe-os em outra ferramenta BIP39 com a lista em inglês: ela devolve a mesma frase de 24 palavras, que esta tela aceita de volta. Esta versão não lê mais coordenadas.","Earlier versions recorded the tosses as coordinates: the first was <code>a0</code>, the second <code>a1</code>, and so on up to <code>z5</code>, the last. Anyone who kept only that list did not lose the key, as long as the secret phrase is empty (as in the versions of that time): each <code>letter × 10 + digit</code> (with <code>a</code> = 0, … <code>z</code> = 25) marks <code>1</code> at the matching position of the 256 bits, and every other position is <code>0</code>. With the 256 digits in hand, enter them in another BIP39 tool with the English list: it returns the same 24-word phrase, which this screen accepts back. This version no longer reads coordinates.","Las versiones anteriores anotaban los lanzamientos como coordenadas: la primera era <code>a0</code>, la segunda <code>a1</code>, y así hasta <code>z5</code>, la última. Quien guardó solo esa lista no perdió la clave, siempre que la frase secreta esté vacía (como en las versiones de aquella época): cada <code>letra × 10 + dígito</code> (con <code>a</code> = 0, … <code>z</code> = 25) marca <code>1</code> en la posición correspondiente de los 256 bits, y todas las demás posiciones valen <code>0</code>. Con los 256 dígitos en la mano, introdúcelos en otra herramienta BIP39 con la lista en inglés: devuelve la misma frase de 24 palabras, que esta pantalla acepta de vuelta. Esta versión ya no lee coordenadas.","Les versions précédentes notaient les lancers sous forme de coordonnées : la première était <code>a0</code>, la deuxième <code>a1</code>, et ainsi de suite jusqu'à <code>z5</code>, la dernière. Qui n'a conservé que cette liste n'a pas perdu la clé, à condition que la phrase secrète soit vide (comme dans les versions de l'époque) : chaque <code>lettre × 10 + chiffre</code> (avec <code>a</code> = 0, … <code>z</code> = 25) marque <code>1</code> à la position correspondante des 256 bits, et toutes les autres positions valent <code>0</code>. Avec les 256 chiffres en main, saisissez-les dans un autre outil BIP39 avec la liste anglaise : il renvoie la même phrase de 24 mots, que cet écran accepte en retour. Cette version ne lit plus les coordonnées.","Le versioni precedenti annotavano i lanci come coordinate: la prima era <code>a0</code>, la seconda <code>a1</code>, e così via fino a <code>z5</code>, l'ultima. Chi ha conservato solo quell'elenco non ha perso la chiave, purché la frase segreta sia vuota (come nelle versioni di allora): ogni <code>lettera × 10 + cifra</code> (con <code>a</code> = 0, … <code>z</code> = 25) segna <code>1</code> nella posizione corrispondente dei 256 bit, e tutte le altre posizioni valgono <code>0</code>. Con i 256 bit in mano, inseriscili in un altro strumento BIP39 con l'elenco inglese: restituisce la stessa frase di 24 parole, che questa schermata accetta di nuovo. Questa versione non legge più le coordinate.","Frühere Versionen notierten die Würfe als Koordinaten: der erste war <code>a0</code>, der zweite <code>a1</code>, und so weiter bis <code>z5</code>, dem letzten. Wer nur diese Liste aufbewahrt hat, hat den Schlüssel nicht verloren, sofern die geheime Phrase leer ist (wie in den Versionen jener Zeit): jedes <code>Buchstabe × 10 + Ziffer</code> (mit <code>a</code> = 0, … <code>z</code> = 25) markiert <code>1</code> an der entsprechenden Position der 256 Bit, und alle anderen Positionen zählen <code>0</code>. Mit den 256 Binärwerten zur Hand gib sie in einem anderen BIP39-Werkzeug mit der englischen Liste ein: Es liefert dieselbe Merkhilfe aus 24 Wörtern, die dieser Bildschirm wieder annimmt. Diese Version liest keine Koordinaten mehr.","Eerdere versies noteerden de worpen als coördinaten: de eerste was <code>a0</code>, de tweede <code>a1</code>, enzovoort tot <code>z5</code>, de laatste. Wie alleen die lijst bewaarde, is de sleutel niet kwijt, zolang de geheime zin leeg is (zoals in de versies van die tijd): elke <code>letter × 10 + cijfer</code> (met <code>a</code> = 0, … <code>z</code> = 25) markeert <code>1</code> op de overeenkomstige positie van de 256 bits, en alle andere posities zijn <code>0</code>. Met de 256 bits bij de hand voer je ze in een andere BIP39-tool met de Engelse lijst in: die geeft dezelfde zin van 24 woorden terug, die dit scherm weer accepteert. Deze versie leest geen coördinaten meer.","Les versions anteriors anotaven els llançaments com a coordenades: la primera era <code>a0</code>, la segona <code>a1</code>, i així fins a <code>z5</code>, l'última. Qui va guardar només aquesta llista no va perdre la clau, sempre que la frase secreta estigui buida (com a les versions d'aquella època): cada <code>lletra × 10 + dígit</code> (amb <code>a</code> = 0, … <code>z</code> = 25) marca <code>1</code> a la posició corresponent dels 256 bits, i totes les altres posicions valen <code>0</code>. Amb els 256 dígits a mà, introdueix-los en una altra eina BIP39 amb la llista en anglès: retorna la mateixa frase de 24 paraules, que aquesta pantalla accepta de nou. Aquesta versió ja no llegeix coordenades.","As versións anteriores anotaban os lanzamentos como coordenadas: a primeira era <code>a0</code>, a segunda <code>a1</code>, e así ata <code>z5</code>, a última. Quen gardou só esa lista non perdeu a clave, sempre que a frase secreta estea baleira (como nas versións daquelas datas): cada <code>letra × 10 + díxito</code> (con <code>a</code> = 0, … <code>z</code> = 25) marca <code>1</code> na posición correspondente dos 256 bits, e todas as outras posicións valen <code>0</code>. Cos 256 díxitos na man, introdúceos noutra ferramenta BIP39 coa lista en inglés: devolve a mesma frase de 24 palabras, que esta pantalla acepta de volta. Esta versión xa non le coordenadas."],
-    ["<b>Gerar.</b> Na tela “chave”, clique em “gerar” e registre 256 jogadas: cara vale <code>1</code> e coroa vale <code>0</code>. A frase de 24 palavras e as chaves aparecem quando a última jogada entra. Anote a frase no papel antes de seguir.","<b>Generate.</b> On the “key” screen, click “generate” and record 256 tosses: heads is <code>1</code> and tails is <code>0</code>. The 24-word phrase and the keys appear when the last toss goes in. Write the phrase on paper before continuing.","<b>Generar.</b> En la pantalla “clave”, haz clic en “generar” y registra 256 lanzamientos: cara vale <code>1</code> y cruz vale <code>0</code>. La frase de 24 palabras y las claves aparecen cuando entra el último lanzamiento. Anota la frase en papel antes de seguir.","<b>Générer.</b> Sur l'écran « clé », cliquez sur « générer » et enregistrez 256 lancers : face vaut <code>1</code> et pile vaut <code>0</code>. La phrase de 24 mots et les clés apparaissent quand le dernier lancer entre. Notez la phrase sur papier avant de continuer.","<b>Genera.</b> Nella schermata “chiave”, fai clic su “genera” e registra 256 lanci: testa vale <code>1</code> e croce vale <code>0</code>. La frase di 24 parole e le chiavi compaiono quando entra l'ultimo lancio. Annota la frase su carta prima di proseguire.","<b>Erzeugen.</b> Klicke auf dem Bildschirm „Schlüssel“ auf „erzeugen“ und erfasse 256 Würfe: Kopf zählt <code>1</code> und Zahl zählt <code>0</code>. Die Merkhilfe aus 24 Wörtern und die Schlüssel erscheinen, wenn der letzte Wurf eingeht. Notiere die Merkhilfe auf Papier, bevor du fortfährst.","<b>Genereren.</b> Klik op het scherm “sleutel” op “genereren” en leg 256 worpen vast: kop is <code>1</code> en munt is <code>0</code>. De zin van 24 woorden en de sleutels verschijnen wanneer de laatste worp binnenkomt. Schrijf de zin op papier voordat je verdergaat.","<b>Genera.</b> A la pantalla “clau”, fes clic a “genera” i registra 256 llançaments: cara val <code>1</code> i creu val <code>0</code>. La frase de 24 paraules i les claus apareixen quan entra l'últim llançament. Anota la frase en paper abans de continuar.","<b>Xerar.</b> Na pantalla “clave”, fai clic en “xerar” e rexistra 256 lanzamentos: cara vale <code>1</code> e cruz vale <code>0</code>. A frase de 24 palabras e as claves aparecen cando entra o último lanzamento. Anota a frase en papel antes de seguir."],
+    ["<b>Gerar.</b> No menu do alto, clique em “gerar” e registre 256 jogadas: cara vale <code>1</code> e coroa vale <code>0</code>. A frase de 24 palavras e as chaves aparecem quando a última jogada entra. Anote a frase no papel antes de seguir.","<b>Generate.</b> In the top menu, click “generate” and record 256 tosses: heads is <code>1</code> and tails is <code>0</code>. The 24-word phrase and the keys appear when the last toss goes in. Write the phrase on paper before continuing.","<b>Generar.</b> En el menú de arriba, haz clic en “generar” y registra 256 lanzamientos: cara vale <code>1</code> y cruz vale <code>0</code>. La frase de 24 palabras y las claves aparecen cuando entra el último lanzamiento. Anota la frase en papel antes de seguir.","<b>Générer.</b> Dans le menu du haut, cliquez sur « générer » et enregistrez 256 lancers : face vaut <code>1</code> et pile vaut <code>0</code>. La phrase de 24 mots et les clés apparaissent quand le dernier lancer entre. Notez la phrase sur papier avant de continuer.","<b>Genera.</b> Nel menu in alto, fai clic su “genera” e registra 256 lanci: testa vale <code>1</code> e croce vale <code>0</code>. La frase di 24 parole e le chiavi compaiono quando entra l'ultimo lancio. Annota la frase su carta prima di proseguire.","<b>Erzeugen.</b> Klicke im Menü oben auf „erzeugen“ und erfasse 256 Würfe: Kopf zählt <code>1</code> und Zahl zählt <code>0</code>. Die Merkhilfe aus 24 Wörtern und die Schlüssel erscheinen, wenn der letzte Wurf eingeht. Notiere die Merkhilfe auf Papier, bevor du fortfährst.","<b>Genereren.</b> Klik in het menu bovenaan op “genereren” en leg 256 worpen vast: kop is <code>1</code> en munt is <code>0</code>. De zin van 24 woorden en de sleutels verschijnen wanneer de laatste worp binnenkomt. Schrijf de zin op papier voordat je verdergaat.","<b>Genera.</b> Al menú de dalt, fes clic a “genera” i registra 256 llançaments: cara val <code>1</code> i creu val <code>0</code>. La frase de 24 paraules i les claus apareixen quan entra l'últim llançament. Anota la frase en paper abans de continuar.","<b>Xerar.</b> No menú de arriba, fai clic en “xerar” e rexistra 256 lanzamentos: cara vale <code>1</code> e cruz vale <code>0</code>. A frase de 24 palabras e as claves aparecen cando entra o último lanzamento. Anota a frase en papel antes de seguir."],
     ["<b>Assinar.</b> Clique em “importar psbt” e escolha o arquivo que veio do Monitor BTC. Confira a revisão: valor, destino, troco, taxa e avisos. Se estiver tudo certo, clique em “assinar” e baixe o arquivo assinado. Transmitir é no Monitor BTC.","<b>Sign.</b> Click “import psbt” and choose the file that came from Monitor BTC. Check the review: amount, destination, change, fee and warnings. If everything is right, click “sign” and download the signed file. Broadcasting is done in Monitor BTC.","<b>Firmar.</b> Haz clic en “importar psbt” y elige el archivo que vino de Monitor BTC. Revisa la revisión: valor, destino, cambio, comisión y avisos. Si todo está bien, haz clic en “firmar” y descarga el archivo firmado. La transmisión se hace en Monitor BTC.","<b>Signer.</b> Cliquez sur « importer psbt » et choisissez le fichier venu de Monitor BTC. Vérifiez la revue : montant, destination, monnaie, frais et avertissements. Si tout est correct, cliquez sur « signer » et téléchargez le fichier signé. La diffusion se fait dans Monitor BTC.","<b>Firma.</b> Fai clic su “importa psbt” e scegli il file che arriva da Monitor BTC. Controlla la revisione: importo, destinazione, resto, commissione e avvisi. Se è tutto corretto, fai clic su “firma” e scarica il file firmato. La trasmissione avviene in Monitor BTC.","<b>Signieren.</b> Klicke auf „psbt importieren“ und wähle die Datei, die aus Monitor BTC kommt. Prüfe die Übersicht: Betrag, Ziel, Wechselgeld, Gebühr und Warnungen. Wenn alles stimmt, klicke auf „signieren“ und lade die signierte Datei herunter. Das Übertragen erfolgt in Monitor BTC.","<b>Ondertekenen.</b> Klik op “psbt importeren” en kies het bestand dat uit Monitor BTC komt. Controleer het overzicht: bedrag, bestemming, wisselgeld, kosten en waarschuwingen. Als alles klopt, klik je op “ondertekenen” en download je het ondertekende bestand. Verzenden gebeurt in Monitor BTC.","<b>Signar.</b> Fes clic a “importar psbt” i tria el fitxer que ve de Monitor BTC. Revisa la revisió: import, destinació, canvi, comissió i avisos. Si tot és correcte, fes clic a “signar” i descarrega el fitxer signat. La transmissió es fa a Monitor BTC.","<b>Asinar.</b> Fai clic en “importar psbt” e escolle o ficheiro que vén de Monitor BTC. Revisa a revisión: importe, destino, troco, comisión e avisos. Se todo está correcto, fai clic en “asinar” e descarga o ficheiro asinado. A transmisión faise en Monitor BTC."],
     ["<b>Telas.</b> O menu no alto alterna entre “chave” e “sobre”.","<b>Screens.</b> The menu at the top switches between “key” and “about”.","<b>Pantallas.</b> El menú de arriba alterna entre “clave” y “acerca de”.","<b>Écrans.</b> Le menu du haut alterne entre « clé » et « à propos ».","<b>Schermate.</b> Il menu in alto alterna tra “chiave” e “informazioni”.","<b>Bildschirme.</b> Das Menü oben wechselt zwischen „schlüssel“ und „über“.","<b>Schermen.</b> Het menu bovenaan wisselt tussen “sleutel” en “over”.","<b>Pantalles.</b> El menú de dalt alterna entre “clau” i “sobre”.","<b>Pantallas.</b> O menú de arriba alterna entre “clave” e “sobre”."],
     ["Os BIPs são as regras públicas do Bitcoin que a ferramenta segue. Eles cobrem a chave, os endereços, as assinaturas e o arquivo de transação.","The BIPs are the public Bitcoin rules the tool follows. They cover the key, the addresses, the signatures and the transaction file.","Los BIP son las reglas públicas de Bitcoin que sigue la herramienta. Cubren la clave, las direcciones, las firmas y el archivo de transacción.","Les BIP sont les règles publiques de Bitcoin que suit l'outil. Elles couvrent la clé, les adresses, les signatures et le fichier de transaction.","I BIP sono le regole pubbliche di Bitcoin che lo strumento segue. Coprono la chiave, gli indirizzi, le firme e il file di transazione.","Die BIPs sind die öffentlichen Bitcoin-Regeln, denen das Werkzeug folgt. Sie decken den Schlüssel, die Adressen, die Signaturen und die Transaktionsdatei ab.","De BIP's zijn de openbare Bitcoin-regels die de tool volgt. Ze dekken de sleutel, de adressen, de handtekeningen en het transactiebestand.","Els BIP són les regles públiques de Bitcoin que segueix l'eina. Cobreixen la clau, les adreces, les signatures i el fitxer de transacció.","Os BIP son as regras públicas de Bitcoin que segue a ferramenta. Cobren a clave, os enderezos, as sinaturas e o ficheiro de transacción."],
@@ -4928,32 +4928,70 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   if (coinCara) coinCara.addEventListener('click', function () { registerToss(1); });
   if (coinCoroa) coinCoroa.addEventListener('click', function () { registerToss(0); });
 
-  /* A alternância geração↔mnemonic anima só a opacidade dos painéis que
-     ficam visíveis, no --motion-fast: a revelação da skill é da troca de
-     tela e de página, não de cada clique no botão da tela. */
-  function fadeGeneration() {
-    if (!screenChave || reduced() || !screenChave.animate) return;
-    $$('.coin-panel, .entropy-block, .binary-block', screenChave).forEach(function (el) {
-      if (getComputedStyle(el).display === 'none') return;
+  /* A abertura e o fechamento da geração usam a revelação dos blocos da
+     skill: cada bloco visível sobe 12 px enquanto sai do desfoque de 3 px e
+     da opacidade zero, escalonado pelo --motion-reveal-step. O título e a
+     régua não se repetem, porque a tela não mudou. */
+  var generationRevealTimer = 0;
+  function revealGeneration() {
+    var blocks = screenChave ? $$('.reveal-block', screenChave) : [];
+    blocks.forEach(function (el) {
       if (el.getAnimations) el.getAnimations().forEach(function (a) { a.cancel(); });
+    });
+    if (generationRevealTimer) {
+      window.clearTimeout(generationRevealTimer);
+      generationRevealTimer = 0;
+    }
+    if (!screenChave || reduced() || !screenChave.animate || !contentEl) {
+      if (contentEl) contentEl.classList.remove('is-revealing');
+      updateScrollState();
+      return;
+    }
+    blocks = blocks.filter(function (el) {
+      return getComputedStyle(el).display !== 'none';
+    });
+    if (!blocks.length) {
+      contentEl.classList.remove('is-revealing');
+      updateScrollState();
+      return;
+    }
+    var total = tokenMs('--motion-reveal-delay', 50) +
+      (blocks.length - 1) * tokenMs('--motion-reveal-step', 25) +
+      tokenMs('--motion-reveal', 250);
+    total = Math.min(total, tokenMs('--motion-reveal-total', 1000));
+    contentEl.classList.add('is-revealing');
+    updateScrollState();
+    generationRevealTimer = window.setTimeout(function () {
+      generationRevealTimer = 0;
+      contentEl.classList.remove('is-revealing');
+      updateScrollState();
+    }, total);
+    blocks.forEach(function (el, i) {
       if (!el.animate) return;
-      el.animate([{ opacity: 0 }, { opacity: 1 }], {
-        duration: tokenMs('--motion-fast', 150),
-        easing: tokenEase('--motion-ease', 'ease')
-      });
+      el.animate(
+        [{ opacity: 0, transform: 'translateY(' + REVEAL_OFFSET + 'px)', filter: 'blur(3px)' },
+         { opacity: 1, transform: 'none', filter: 'blur(0px)' }],
+        {
+          duration: tokenMs('--motion-reveal', 250),
+          delay: tokenMs('--motion-reveal-delay', 50) + i * tokenMs('--motion-reveal-step', 25),
+          easing: tokenEase('--motion-ease-out', 'ease-out'),
+          fill: 'both'
+        }
+      );
     });
   }
 
-  /* O botão "gerar chave" abre a geração: a tela fica só com o painel de
-     jogadas e o submenu de entropia. A frase digitada e a chave que saía
-     dela ficam intactas até a primeira jogada (registerToss); abrir e
-     cancelar não apaga a entrada anterior. */
+  /* O "gerar" abre a geração: a tela fica só com o painel de jogadas e o
+     submenu de entropia. A frase digitada e a chave que saía dela ficam
+     intactas até a primeira jogada (registerToss); abrir e cancelar não apaga
+     a entrada anterior. */
   function startGeneration() {
     tosses = [];
     paintTosses('jogadas zeradas.');
     if (screenChave) screenChave.classList.add('is-generating');
+    if (modeBtn) modeBtn.setAttribute('aria-pressed', 'true');
     paintBinary();
-    fadeGeneration();
+    revealGeneration();
     if (coinCara && !coinCara.disabled) coinCara.focus();
     else if (coinCoroa) coinCoroa.focus();
     updateScrollState();
@@ -4964,8 +5002,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      à primeira palavra, quando a frase é o resultado). */
   function endGeneration(focusWord) {
     if (screenChave) screenChave.classList.remove('is-generating');
+    if (modeBtn) modeBtn.setAttribute('aria-pressed', 'false');
     paintBinary();
-    fadeGeneration();
+    revealGeneration();
     if (focusWord && mnemonicInputs.length) mnemonicInputs[0].focus({ preventScroll: true });
     else if (modeBtn) modeBtn.focus({ preventScroll: true });
     updateScrollState();
@@ -4985,10 +5024,23 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (tosses.length) resetTossRun();
     tosses = [];
     screenChave.classList.remove('is-generating');
+    if (modeBtn) modeBtn.setAttribute('aria-pressed', 'false');
     paintBinary();
   }
 
-  if (modeBtn) modeBtn.addEventListener('click', startGeneration);
+  /* O item "gerar" do menu abre e fecha a geração. Vindo de outra tela, o
+     clique primeiro abre a "chave"; o cancelar do painel faz o mesmo que o
+     segundo clique no menu. */
+  function toggleGeneration() {
+    if (screenChave && screenChave.classList.contains('is-generating')) {
+      cancelGeneration();
+      return;
+    }
+    if (state.screen !== 'chave') showScreen('chave');
+    startGeneration();
+  }
+
+  if (modeBtn) modeBtn.addEventListener('click', toggleGeneration);
   if (coinCancel) coinCancel.addEventListener('click', cancelGeneration);
 
   /* ------------------------------------------------------------- chaves */
@@ -6119,7 +6171,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     });
   }
   /* --------------------------------------------------------------- telas */
-  var menuButtons = $$('.menu button');
+  var menuButtons = $$('.menu button[data-screen]');
   var langButton = $('#lang-btn');
   function screenName(value) {
     return SCREENS.indexOf(value) >= 0 ? value : 'chave';
@@ -6188,6 +6240,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      de leitura. Ela não entra no endereço (#chave/#sobre). */
   function showLanguage() {
     if (state.langOpen) return;
+    /* A tela de idiomas também deixa a "chave": a geração aberta é
+       cancelada, como na troca de tela. */
+    abandonGeneration();
     state.langScroll = readingTop();
     state.langOpen = true;
     setScreenVisible('language');
