@@ -1993,31 +1993,29 @@
   }
   .mnemonic-note.ok { color: var(--success); }
   .mnemonic-note.error { color: var(--error); }
-  /* A frase-secreta fica na coluna do mnemonic e usa o mesmo fio das
-     palavras: uma linha única, com o texto centrado, em vez da caixa
-     fechada do formulário. O fio acende no --accent com o foco, como o da
-     palavra em edição. Ela entra no PBKDF2 depois das palavras, então não
-     muda a frase — muda a seed e as chaves que saem dela. */
-  .passphrase-line {
-    width: min(100%, 28rem);
-    margin: 0 auto;
-    padding-bottom: var(--space-1);
-    border-bottom: 1px solid var(--line);
+  /* A frase-secreta entra na própria grade das palavras, na coluna do
+     meio logo abaixo das 24 posições: ocupa o lugar da "26ª palavra", com
+     o nome no lugar do número e o mesmo fio da célula. Rótulo e texto
+     ficam centralizados na coluna. Ela entra no PBKDF2 depois das palavras,
+     então não muda a frase — muda a seed e as chaves que saem dela. */
+  .passphrase-word {
+    grid-column: 2;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
   }
-  .passphrase-line:focus-within { border-bottom-color: var(--accent); }
-  .passphrase-line input {
-    display: block;
+  .passphrase-word .passphrase-input {
     width: 100%;
+    min-width: 0;
     padding: 0;
     border: 0;
     background: none;
     color: var(--fg);
     font: inherit;
-    font-size: var(--text-sm);
     text-align: center;
   }
-  .passphrase-line input:focus { outline: none; }
-  .passphrase-line input::placeholder { color: var(--dim); opacity: 1; }
+  .passphrase-word .passphrase-input:focus { outline: none; }
+  .passphrase-word .passphrase-input::placeholder { color: var(--dim); opacity: 1; }
 </style>
 <script>
   /* Tema antes da pintura: segue o sistema; a escolha manual do botão vale
@@ -2102,14 +2100,13 @@
               <div class="prose">
                 <h3><span class="prompt" aria-hidden="true">##</span> mnemonic</h3>
               </div>
-              <ol class="mnemonic-words" id="mnemonic-words" aria-label="frase mnemônica de 24 palavras"></ol>
+              <ol class="mnemonic-words" id="mnemonic-words" aria-label="frase mnemônica de 24 palavras">
+                <li class="mnemonic-word passphrase-word" id="passphrase-word">
+                  <label class="mnemonic-word-index" for="passphrase">frase-secreta</label>
+                  <input class="passphrase-input" id="passphrase" type="text" placeholder="—" autocomplete="off" spellcheck="false" autocapitalize="none" autocorrect="off">
+                </li>
+              </ol>
               <p class="mnemonic-note" id="mnemonic-note" role="status" aria-live="polite"></p>
-              <div class="prose">
-                <h3><span class="prompt" aria-hidden="true">##</span> frase-secreta</h3>
-              </div>
-              <div class="passphrase-line">
-                <input type="text" id="passphrase" aria-label="frase-secreta" placeholder="—" autocomplete="off" spellcheck="false" autocapitalize="none" autocorrect="off">
-              </div>
             </div>
 
             <div class="binary-block reveal-block" id="binary-block">
@@ -5096,6 +5093,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   (function buildMnemonic() {
     if (!mnemonicList) return;
+    /* A frase-secreta já está no fim da lista, na coluna do meio; as 24
+       posições entram antes dela, na ordem 01–24. */
+    var passphraseWord = $('#passphrase-word');
     for (var i = 0; i < MNEMONIC_LEN; i++) {
       var item = document.createElement('li');
       item.className = 'mnemonic-word';
@@ -5120,7 +5120,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       input.setAttribute('aria-controls', 'mnemonic-options');
       item.appendChild(index);
       item.appendChild(input);
-      mnemonicList.appendChild(item);
+      mnemonicList.insertBefore(item, passphraseWord);
       mnemonicInputs.push(input);
       input._mnValue = '';
     }
@@ -5424,7 +5424,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       var pointerOut = mnemonicPointerOut;
       mnemonicPointerOut = false;
       var next = ev.relatedTarget;
-      var nextInBlock = !!(next && mnemonicList.contains(next));
+      /* A frase-secreta mora na mesma lista, mas não é palavra: entrar nela
+         encerra a posição como qualquer saída do bloco das 24. */
+      var nextInBlock = !!(next && mnemonicList.contains(next) &&
+        !(next.closest && next.closest('.passphrase-word')));
       /* Ponteiro ou um .focus() de propósito para fora do bloco (fim da
          geração, tela de idiomas): a posição é encerrada, não travada. */
       if (pointerOut || (next && !nextInBlock)) {
@@ -5461,7 +5464,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
        reposicionar o cursor. */
     ['pointerdown', 'mousedown', 'touchstart'].forEach(function (type) {
       document.addEventListener(type, function (ev) {
-        mnemonicPointerOut = !(mnemonicList && ev.target && mnemonicList.contains(ev.target));
+        var target = ev.target;
+        var inWords = !!(mnemonicList && target && mnemonicList.contains(target) &&
+          !(target.closest && target.closest('.passphrase-word')));
+        mnemonicPointerOut = !inWords;
       }, true);
     });
     document.addEventListener('keydown', function () { mnemonicPointerOut = false; }, true);
