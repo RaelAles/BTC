@@ -43,23 +43,18 @@ const faltando = [...usadas].filter(key => !keys.includes(key));
 assert.deepEqual(faltando, [], 'chaves de t() sem linha em I18N_ROWS');
 console.log('ok   ' + usadas.size + ' chaves literais de t() existem em I18N_ROWS');
 
-/* ---------------- 2b. recados da frase e da rodada têm linha em I18N_ROWS ---------------- */
+/* ---------------- 2b. recado da rodada tem linha em I18N_ROWS e a nota da frase fica ligada aos campos ---------------- */
 const chavesDeRecado = [
-  '{word} não está na lista de 2.048 palavras.',
-  'faltam {n} de 24 palavras.',
-  'as 24 palavras não fecham a checagem do BIP39.',
-  '24 palavras válidas; os 256 bits estão completos.',
-  'frase secreta em vigor: guarde-a à parte; as 24 palavras sozinhas não restauram esta carteira.',
   'última jogada desfeita; restam {n} de 256.'
 ];
 for (const key of chavesDeRecado) {
   assert.ok(keys.includes(key), 'recado sem linha em I18N_ROWS: ' + key);
 }
-assert.match(html, /id="mnemonic-note" role="status"/, '#mnemonic-note é região viva do recado');
+assert.match(html, /id="mnemonic-note" role="status"/, '#mnemonic-note é região viva reservada no bloco da frase');
 assert.match(html, /aria-describedby="mnemonic-note"/, '#passphrase aponta para #mnemonic-note');
 assert.match(html, /input\.setAttribute\('aria-describedby', 'mnemonic-note'\)/,
   'cada palavra da frase aponta para #mnemonic-note');
-console.log('ok   recados da frase e da rodada têm linha e a nota está ligada aos campos');
+console.log('ok   recado da rodada tem linha e a nota reservada da frase está ligada aos campos');
 
 /* ---------------- 3. menu e seções de tela batem com SCREENS ---------------- */
 const screens = listaDeStrings('SCREENS');
