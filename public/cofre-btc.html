@@ -1707,7 +1707,8 @@
   .bits-col > .coords-panel,
   .bits-col > .coin-panel { grid-area: 1 / 1; }
   .bits-col > .bits-actions { grid-row: 2; }
-  .bits-col > .entropy-block { grid-row: 3; }
+  .bits-col > .binary-block { grid-row: 3; }
+  .bits-col > .entropy-block { grid-row: 4; }
   .bits-col > .is-off { visibility: hidden; }
   /* A troca entre as duas entradas é imediata: os controles não esperam o
      --motion-fast do contorno, senão continuam ocultos no instante do
@@ -1888,6 +1889,19 @@
      placeholder, no --dim, e a lista oficial abre sobre o conteúdo, na
      coluna do próprio campo. */
   .entropy-block { margin-top: var(--space-9); }
+  /* O binário é a mesma entropia da frase, nos 256 dígitos que a chave usa:
+     fica acima do mnemonic, na largura do painel. A sequência não leva
+     separador — é para ser lida e copiada inteira, e a contagem não muda —,
+     então quebra em qualquer ponto dentro da coluna. */
+  .binary-block { margin-top: var(--space-9); }
+  .binary-bits {
+    width: min(100%, 28rem);
+    margin: 0 auto;
+    color: var(--fg);
+    font-size: var(--text-sm);
+    overflow-wrap: anywhere;
+  }
+  .binary-bits.is-empty { color: var(--dim); }
   /* A lista de sugestões sai do fluxo e sobe para a camada dos controles
      flutuantes: o bloco das palavras é um dos .reveal-block, que pinta em
      ordem, e sem o z-index a lista ficaria atrás dos blocos seguintes. */
@@ -1933,11 +1947,6 @@
   /* O foco é do item, não do campo: o fio inferior acende inteiro no
      --accent, como a moldura da .field-box. */
   .mnemonic-word:focus-within { border-bottom-color: var(--accent); }
-  /* Palavra fora da lista oficial, depois de o campo perder o foco: o fio e
-     o índice assumem o --error dos demais estados de erro. */
-  .mnemonic-word.is-invalid,
-  .mnemonic-word.is-invalid:focus-within { border-bottom-color: var(--error); }
-  .mnemonic-word.is-invalid .mnemonic-word-index { color: var(--error); }
   /* A lista oficial aberta: fundo opaco do --bg, como as opções do <select>,
      uma palavra por linha na largura do campo. A opção em digitação troca o
      fundo pelo --accent e o texto pelo --on-strong. */
@@ -1973,10 +1982,10 @@
     background: var(--accent);
     color: var(--on-strong);
   }
-  /* O recado da frase, abaixo das 24 posições: quantas faltam, a palavra
-     fora da lista, a checagem que não fechou ou as 24 válidas. A linha fica
-     reservada, como nos demais recados, para a frase não empurrar o que vem
-     abaixo a cada palavra digitada. */
+  /* O recado da frase, abaixo das 24 posições: quantas faltam, a checagem
+     que não fechou ou as 24 válidas. A linha fica reservada, como nos demais
+     recados, para a frase não empurrar o que vem abaixo a cada palavra
+     digitada. */
   .mnemonic-note {
     width: min(100%, 28rem);
     min-height: 1.65em;
@@ -2075,6 +2084,13 @@
                 <button type="button" id="bits-mode" aria-label="Mostrar a entrada por jogadas de moeda">gerar</button>
               </div>
               <p class="sr-only" id="coin-status" role="status" aria-live="polite"></p>
+
+              <div class="binary-block reveal-block" id="binary-block">
+                <div class="prose">
+                  <h3><span class="prompt" aria-hidden="true">##</span> binários</h3>
+                </div>
+                <p class="binary-bits is-empty" id="binary-bits">—</p>
+              </div>
 
               <div class="entropy-block reveal-block" id="entropy-block">
                 <div class="prose">
@@ -4197,11 +4213,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["Mostrar a entrada por jogadas de moeda","Show input by coin tosses","Mostrar la entrada por lanzamientos de moneda","Afficher la saisie par lancers de pièce","Mostra l'inserimento tramite lanci di moneta","Eingabe über Münzwürfe anzeigen","Invoer via muntworpen tonen","Mostrar l'entrada per llançaments de moneda","Mostrar a entrada por lanzamentos de moeda"],
     ["Mostrar a entrada por coordenadas","Show input by coordinates","Mostrar la entrada por coordenadas","Afficher la saisie par coordonnées","Mostra l'inserimento tramite coordinate","Eingabe über Koordinaten anzeigen","Invoer via coördinaten tonen","Mostrar l'entrada per coordenades","Mostrar a entrada por coordenadas"],
     ["mnemonic","mnemonic","mnemónica","mnémonique","mnemonica","mnemonik","mnemoniek","mnemònica","mnemónica"],
+    ["binários","binary","binarios","binaires","binari","Binärwerte","binair","binaris","binarios"],
     ["frase mnemônica de 24 palavras","24-word mnemonic phrase","frase mnemónica de 24 palabras","phrase mnémotechnique de 24 mots","frase mnemonica di 24 parole","Merkhilfe aus 24 Wörtern","mnemonische zin van 24 woorden","frase mnemònica de 24 paraules","frase mnemónica de 24 palabras"],
     ["palavra {n} da frase mnemônica","word {n} of the mnemonic phrase","palabra {n} de la frase mnemónica","mot {n} de la phrase mnémotechnique","parola {n} della frase mnemonica","Wort {n} der Merkhilfe","woord {n} van de mnemonische zin","paraula {n} de la frase mnemònica","palabra {n} da frase mnemónica"],
     ["lista oficial de 2.048 palavras","official list of 2,048 words","lista oficial de 2.048 palabras","liste officielle de 2 048 mots","elenco ufficiale di 2.048 parole","offizielle Liste mit 2.048 Wörtern","officiële lijst van 2.048 woorden","llista oficial de 2.048 paraules","lista oficial de 2.048 palabras"],
     ["faltam {n} de 24 palavras.","{n} of 24 words missing.","faltan {n} de 24 palabras.","il manque {n} mots sur 24.","mancano {n} parole su 24.","es fehlen {n} von 24 Wörtern.","er ontbreken {n} van 24 woorden.","falten {n} de 24 paraules.","faltan {n} de 24 palabras."],
-    ["palavra fora da lista oficial de 2.048.","word not in the official 2,048-word list.","palabra fuera de la lista oficial de 2.048.","mot absent de la liste officielle de 2 048 mots.","parola fuori dall'elenco ufficiale di 2.048.","Wort nicht in der offiziellen Liste mit 2.048 Wörtern.","woord niet in de officiële lijst van 2.048 woorden.","paraula fora de la llista oficial de 2.048.","palabra fóra da lista oficial de 2.048."],
     ["as 24 palavras não fecham a checagem do BIP39.","the 24 words do not pass the BIP39 checksum.","las 24 palabras no pasan la comprobación del BIP39.","les 24 mots ne passent pas la somme de contrôle BIP39.","le 24 parole non superano il controllo del BIP39.","die 24 Wörter bestehen die BIP39-Prüfsumme nicht.","de 24 woorden halen de BIP39-controle niet.","les 24 paraules no passen la comprovació del BIP39.","as 24 palabras non pasan a comprobación do BIP39."],
     ["24 palavras válidas; os 256 bits estão completos.","24 valid words; all 256 bits are complete.","24 palabras válidas; los 256 bits están completos.","24 mots valides ; les 256 bits sont complets.","24 parole valide; i 256 bit sono completi.","24 gültige Wörter; die 256 Bit sind vollständig.","24 geldige woorden; de 256 bits zijn compleet.","24 paraules vàlides; els 256 bits estan complets.","24 palabras válidas; os 256 bits están completos."],
     ["privadas","private","privadas","privées","private","private","privé","privades","privadas"],
@@ -4631,6 +4647,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var markedPath = [];
   var coordsDirty = false;
   var bitsValue = '';
+  var binaryBits = $('#binary-bits');
   var psbtText = '';
   var psbtImport = $('#psbt-import');
   var psbtFile = $('#psbt-file');
@@ -4759,6 +4776,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     var bits = new Array(BIT_COUNT + 1).join('0').split('');
     markedPath.forEach(function (index) { bits[index] = '1'; });
     return bits.join('');
+  }
+
+  /* O ## binários mostra o mesmo conjunto que vira mnemonic e chave, nos 256
+     dígitos que a entropia tem. Sem os 256 bits — frase pela metade, campo
+     de coordenadas vazio — fica no travessão do estado vazio. */
+  function paintBinary() {
+    if (!binaryBits) return;
+    var bits = bitsValue.length === BIT_COUNT ? bitsValue : '';
+    binaryBits.textContent = bits || '—';
+    binaryBits.classList.toggle('is-empty', !bits);
   }
 
   /* Coordenada: letra a–z e dígito 0–9, na ordem de leitura das jogadas:
@@ -4947,6 +4974,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     tosses.push({ index: index, bit: bit ? 1 : 0, at: new Date() });
     if (bit) markedPath.push(index);
     bitsValue = bitsFromPath();
+    paintBinary();
     if (tosses.length >= BIT_COUNT) {
       coordsDirty = false;
       shuffleArray(markedPath);
@@ -4969,6 +4997,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     tosses = [];
     markedPath = [];
     bitsValue = '';
+    paintBinary();
     fillFreeCoords();
     clearCoordsInput();
     paintTosses('jogadas zeradas.');
@@ -5006,6 +5035,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     var changed = !samePath(parsed.path, markedPath);
     markedPath = parsed.path;
     bitsValue = bitsFromPath();
+    paintBinary();
     if (changed) adoptCoords();
     /* O recado das duas letras vem depois do adoptCoords: paintTosses()
        escreve no mesmo #coin-status e apagaria o aviso. */
@@ -5216,6 +5246,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       item.appendChild(input);
       mnemonicList.appendChild(item);
       mnemonicInputs.push(input);
+      input._mnValue = '';
     }
     mnemonicOptions = document.createElement('ul');
     mnemonicOptions.className = 'mnemonic-options';
@@ -5244,6 +5275,36 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (mnemonicNote.textContent !== text) mnemonicNote.textContent = text;
     mnemonicNote.classList.toggle('ok', !!note && note.kind === 'ok');
     mnemonicNote.classList.toggle('error', !!note && note.kind === 'erro');
+  }
+
+  /* O campo só aceita o que ainda pode virar palavra da lista: cada tecla é
+     testada como prefixo, então dígito, espaço, acento ou letra que não abre
+     palavra nenhuma nem chegam a aparecer. */
+  function mnemonicIsPrefix(text) {
+    for (var i = 0; i < bip39List.length; i++) {
+      if (bip39List[i].indexOf(text) === 0) return true;
+    }
+    return false;
+  }
+
+  /* Grava o texto aceito no campo e no valor guardado, com o cursor no fim. */
+  function setMnemonicValue(input, value) {
+    input.value = value;
+    input._mnValue = value;
+    try { input.setSelectionRange(value.length, value.length); } catch (e) {}
+  }
+
+  /* Aplica o filtro ao que está no campo. O que não abre palavra nenhuma
+     devolve o último valor aceito, sem recado de erro: o texto inválido não
+     chega a existir. Devolve false quando houve essa devolução. */
+  function acceptMnemonicText(input) {
+    var typed = input.value.toLowerCase();
+    if (typed && !mnemonicIsPrefix(typed)) {
+      setMnemonicValue(input, input._mnValue || '');
+      return false;
+    }
+    setMnemonicValue(input, typed);
+    return true;
   }
 
   /* As opções são as palavras da lista oficial que começam com o que já foi
@@ -5329,7 +5390,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     var input = mnemonicOpen;
     var word = mnemonicMatches[index];
     closeMnemonicOptions();
-    input.value = word;
+    setMnemonicValue(input, word);
     syncMnemonic();
   }
 
@@ -5352,8 +5413,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return path;
   }
 
-  function mnemonicNoteFor(unknown, bits, complete, valid) {
-    if (unknown) return { kind: 'erro', key: 'palavra fora da lista oficial de 2.048.' };
+  function mnemonicNoteFor(bits, complete, valid) {
     if (valid) return { kind: 'ok', key: '24 palavras válidas; os 256 bits estão completos.' };
     if (complete) return { kind: 'erro', key: 'as 24 palavras não fecham a checagem do BIP39.' };
     if (!bits) return null;
@@ -5366,31 +5426,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   /* Lê as 24 posições: cada palavra da lista vale 11 bits e a frase inteira,
      264 — os 256 primeiros são a entropia e os 8 últimos, a checagem. O
-     prefixo válido até a primeira posição vazia ou fora da lista vira o
+     prefixo formado até a primeira posição vazia ou pela metade vira o
      conjunto de coordenadas; a chave só sai da frase inteira e válida. */
   function syncMnemonic() {
-    var focused = document.activeElement;
     var words = mnemonicInputs.map(function (input) {
       return input.value.trim().toLowerCase();
     });
-    mnemonicInputs.forEach(function (input) {
-      input.parentNode.classList.remove('is-invalid');
-      input.setAttribute('aria-invalid', 'false');
-    });
     var bits = '';
-    var unknown = false;
     var complete = true;
     for (var i = 0; i < words.length; i++) {
       var index = words[i] ? bip39List.indexOf(words[i]) : -1;
-      /* A palavra só é dada como errada depois que o campo perde o foco: no
-         meio da digitação ela ainda é um prefixo de outra, e a posição
-         vazia não é erro. */
-      var bad = index < 0 && !!words[i] && mnemonicInputs[i] !== focused;
-      if (bad) {
-        mnemonicInputs[i].parentNode.classList.add('is-invalid');
-        mnemonicInputs[i].setAttribute('aria-invalid', 'true');
-        unknown = true;
-      }
       if (index < 0) {
         complete = false;
         break;
@@ -5405,6 +5450,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       /* O conjunto de bits em vigor é o da frase válida; o prefixo, sozinho,
          não define os 256 bits. */
       bitsValue = valid ? entropy : '';
+      paintBinary();
       markedPath = pathFromBits(entropy);
       coordsDirty = false;
       syncCoords();
@@ -5413,7 +5459,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       });
       fillFreeCoords();
       paintTosses();
-      paintMnemonicNote(mnemonicNoteFor(unknown, bits, complete, valid));
+      paintMnemonicNote(mnemonicNoteFor(bits, complete, valid));
       /* Sem a frase completa e válida não há 256 bits: a chave anterior cai
          na hora e nada é derivado do prefixo. */
       scheduleBits(valid ? entropy : '');
@@ -5423,9 +5469,27 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   if (mnemonicList) {
+    /* Barreira antes da tecla entrar: o texto que resultaria da inserção é
+       testado como prefixo e, se não abrir palavra nenhuma, o navegador nem
+       aplica a edição. Assim nada fora da lista chega a aparecer no campo —
+       nem com colagem, que também passa por aqui. */
+    mnemonicList.addEventListener('beforeinput', function (ev) {
+      var input = ev.target;
+      if (!input || !input.classList || !input.classList.contains('mnemonic-word-input')) return;
+      if (ev.isComposing || !ev.data || ev.inputType.indexOf('insert') !== 0) return;
+      var start = input.selectionStart;
+      var end = input.selectionEnd;
+      if (start === null || end === null) return;
+      var next = (input.value.slice(0, start) + ev.data + input.value.slice(end)).toLowerCase();
+      if (next && !mnemonicIsPrefix(next)) ev.preventDefault();
+    });
     mnemonicList.addEventListener('input', function (ev) {
       var input = ev.target;
       if (!input || !input.classList || !input.classList.contains('mnemonic-word-input')) return;
+      /* O texto em composição (IME) ainda não é final: o filtro espera o
+         evento que fecha a composição. */
+      if (ev.isComposing) return;
+      if (!acceptMnemonicText(input)) return;
       syncMnemonic();
       openMnemonicOptions(input);
     });
@@ -5433,8 +5497,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       var input = ev.target;
       if (!input || !input.classList || !input.classList.contains('mnemonic-word-input')) return;
       closeMnemonicOptions();
-      var word = input.value.trim().toLowerCase();
-      if (word !== input.value) input.value = word;
+      /* O que ficou no campo passa pelo mesmo filtro ao sair. */
+      acceptMnemonicText(input);
       syncMnemonic();
     });
     /* Setas percorrem a lista sem tirar o foco do campo; Enter escolhe a
@@ -5498,9 +5562,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (!mnemonicList || mnemonicEditing) return;
     var words = hd ? hd.mnemonic.split(' ') : [];
     mnemonicInputs.forEach(function (input, i) {
-      input.value = words[i] || '';
-      input.parentNode.classList.remove('is-invalid');
-      input.setAttribute('aria-invalid', 'false');
+      setMnemonicValue(input, words[i] || '');
     });
     paintMnemonicNote(hd
       ? { kind: 'ok', key: '24 palavras válidas; os 256 bits estão completos.' }
@@ -6769,6 +6831,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   syncThemeColor();
   fillFreeCoords();
   paintTosses('');
+  paintBinary();
   applyBits(bitsValue);
   paintPsbt('');
   buildKeyCells();
