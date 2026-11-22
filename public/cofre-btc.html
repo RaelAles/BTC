@@ -1662,6 +1662,12 @@
       outline: 1px dashed;
       outline-offset: -2px;
     }
+    /* O próximo bit se distinguia pelo fundo --accent; no modo, a borda
+       tracejada mantém o destaque quando a cor de fundo é descartada. */
+    .binary-bits .binary-next {
+      outline: 1px dashed;
+      outline-offset: -1px;
+    }
     /* O estado em vigor (menu e assunto) só se
        distinguia pela cor; no modo, o sublinhado mantém o sinal. A marcação
        e o anexo não entram: o glifo [x]/(*) e o nome do arquivo já não
@@ -1871,6 +1877,14 @@
   }
   .binary-bits.is-empty,
   .coords-text.is-empty { color: var(--dim); }
+  /* Durante a geração os 256 lugares já aparecem: o que falta fica no zero
+     do --dim, e a próxima coordenada, a que o clique preenche, assume o
+     --accent com o texto no --on-strong. */
+  .binary-bits .binary-empty { color: var(--dim); }
+  .binary-bits .binary-next {
+    background: var(--accent);
+    color: var(--on-strong);
+  }
   /* A lista de sugestões sai do fluxo e sobe para a camada dos controles
      flutuantes: o bloco das palavras é um dos .reveal-block, que pinta em
      ordem, e sem o z-index a lista ficaria atrás dos blocos seguintes. */
@@ -4739,10 +4753,35 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* O ## binários mostra o mesmo conjunto que vira mnemonic e chave, nos 256
-     dígitos que a entropia tem. Sem os 256 bits — frase pela metade,
-     sequência ainda sem coordenada marcada — fica no travessão. */
+     dígitos que a entropia tem. Durante a geração os 256 lugares aparecem
+     desde o começo, com o que falta no zero do --dim e a próxima coordenada
+     destacada; o dígito da vez entra no lugar do zero a cada jogada. Sem os
+     256 bits — frase pela metade, sequência ainda sem coordenada marcada —
+     fica no travessão. */
   function paintBinary() {
     if (!binaryBits) return;
+    var generating = screenChave && screenChave.classList.contains('is-generating');
+    if (generating && tosses.length < BIT_COUNT) {
+      var slots = new Array(BIT_COUNT + 1).join('0').split('');
+      var filled = {};
+      tosses.forEach(function (toss) {
+        slots[toss.index] = toss.bit ? '1' : '0';
+        filled[toss.index] = true;
+      });
+      var next = freeCoords.length ? freeCoords[0] : -1;
+      var frag = document.createDocumentFragment();
+      for (var i = 0; i < BIT_COUNT; i++) {
+        var span = document.createElement('span');
+        span.textContent = slots[i];
+        if (i === next) span.className = 'binary-next';
+        else if (!filled[i]) span.className = 'binary-empty';
+        frag.appendChild(span);
+      }
+      binaryBits.textContent = '';
+      binaryBits.appendChild(frag);
+      binaryBits.classList.remove('is-empty');
+      return;
+    }
     var bits = bitsValue.length === BIT_COUNT ? bitsValue : '';
     binaryBits.textContent = bits || '—';
     binaryBits.classList.toggle('is-empty', !bits);
@@ -4868,6 +4907,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function startGeneration() {
     resetTossRun();
     if (screenChave) screenChave.classList.add('is-generating');
+    paintBinary();
     if (coinCara && !coinCara.disabled) coinCara.focus();
     else if (coinCoroa) coinCoroa.focus();
     updateScrollState();
@@ -4877,6 +4917,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      e as chaves reaparecem, e o foco volta ao botão que abriu a geração. */
   function endGeneration() {
     if (screenChave) screenChave.classList.remove('is-generating');
+    paintBinary();
     if (modeBtn) modeBtn.focus();
     updateScrollState();
   }
