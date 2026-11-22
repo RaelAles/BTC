@@ -16,7 +16,10 @@
     // cabeçalho de reescrita de caminho (x-original-url e afins) nunca
     // valia ali: era o que o ZAP lia como "Bypassing 403". Os demais
     // estáticos seguem direto do asset layer.
-    "run_worker_first": ["/", "/index.html", "/cofre-btc", "/cofre-btc.html"],
+    // A API também precisa passar pelo Worker: sem `/api/*` o asset layer
+    // responde por ela (index.html no GET e 405 no POST), e nenhuma rota
+    // dinâmica chega a rodar.
+    "run_worker_first": ["/", "/index.html", "/cofre-btc", "/cofre-btc.html", "/api/*"],
     // Explicito para /cofre-btc (declarado em public/_headers) não mudar
     // de comportamento num bump do Wrangler.
     "html_handling": "auto-trailing-slash",
