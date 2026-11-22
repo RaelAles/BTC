@@ -3793,12 +3793,13 @@
   }
 
   /* ------------------------------------------------------------- instalar */
-  /* O service worker mínimo não guarda nada: ele só deixa o navegador
-     oferecer o Monitor BTC como aplicativo instalável. Nenhum aviso é
-     disparado pela página: quem decide instalar usa o próprio controle do
-     navegador. */
+  /* Não há mais service worker: a instalação é definida pelo manifest e
+     nenhuma navegação precisa passar por um worker. Desregistra o que tiver
+     ficado de versões anteriores. */
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(function () {});
+    navigator.serviceWorker.getRegistrations().then(function (registros) {
+      registros.forEach(function (registro) { registro.unregister(); });
+    }).catch(function () {});
   }
 
   document.addEventListener('DOMContentLoaded', wire);
