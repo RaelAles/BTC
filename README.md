@@ -6,6 +6,8 @@
 
 <!-- English · [Português (Brasil)](README.pt-BR.md) -->
 
+Published at **https://btc.raelales.com**.
+
 Watch-only Bitcoin wallet on Cloudflare Workers. You paste an account
 **xpub** (or `zpub`/`ypub`), the Worker derives the public addresses and reads
 the balance, the receive addresses and the transaction history from an
@@ -208,9 +210,15 @@ in any BIP39 tool with the English list to get the same 24 words.
 
 ```bash
 npm install
-npm run dev          # wrangler dev, with the real Electrum configuration
-npm test             # all *.test.mjs, no network
+npm run dev             # wrangler dev, with the real Electrum configuration
+npm test                # all *.test.mjs, no network
+npm run icons           # render the PWA icons from icon.svg (needs Chromium)
+npm run sync:cofre-css  # re-inject the embedded style into the Cofre (maintainer)
 ```
+
+`sync:cofre-css` reads the ascii-ui skill's `estilo.css` by default; pass a
+path to use another file. It rewrites only the marked block and its hash in
+`public/cofre-btc.html`, and `npm test` fails when the copy is out of sync.
 
 For a fully offline UI with a fake Electrum and a fixed scenario:
 
@@ -356,7 +364,8 @@ answers 409.
 ### `GET /api/health`
 
 Returns `{ "ok": true, "service": "monitor-btc-electrum", "source":
-"electrum", "storage": "nenhum", "realtime": true, "electrum": [...] }`.
+"electrum", "storage": "nenhum", "realtime": true, "electrum": [...],
+"time": "..." }`.
 
 ## Security
 
@@ -399,10 +408,12 @@ own BTC core:
 | `psbt.test.mjs` | Fee, coin selection, change, dust, BIP32 origins and PSBT signing. |
 | `coin-selection.test.mjs` | Selection rule over randomized wallets. |
 | `cpfp.test.mjs` | History grouped by txid, child PSBT and package fee. |
+| `cofre-ui.test.mjs` | Cofre screens, the nine i18n columns and the embedded CSS hash. |
 | `broadcast.test.mjs` | Signed PSBT checks and broadcast, including the Durable Object path. |
 | `watcher.test.mjs` | Subscriptions, notifications, reconnect, eviction and total discard. |
 | `hardening.test.mjs` | Input caps, abuse brake and WebSocket Origin. |
 | `security-headers.test.mjs` | Header parity, CSP, SRI hashes and the Cofre hash in this README. |
+| `http-surface.test.mjs` | 404 status for unknown paths and the read-only asset surface. |
 | `cofre-core.test.mjs` / `cofre-core-parity.test.mjs` | The embedded Cofre core and its parity with `src/btc-core.js`. |
 
 ## Structure
@@ -417,12 +428,14 @@ public/
   manifest.webmanifest   installable PWA metadata
   icon.svg               icon source (round seal the PNGs are rendered from)
   icon-*.png             app icons
+  LICENCAS-FONTES.txt    font license (Liberation Mono)
   og-image.png           link preview image
   style.css              interface styles
   _headers               security headers for static assets
 scripts/
   build-icons.mjs        renders the PWA icons from icon.svg
   sync-cofre-core.mjs    extracts the Cofre core for parity tests
+  sync-cofre-css.mjs     reinjects the skill's style.css into the Cofre
 src/
   btc-core.js            BTC core (keys, addresses, tx, PSBT, signing helpers)
   derivation.js          CKDpub, xpub parsing and the four address types
@@ -477,6 +490,13 @@ package.json
 - **Mainnet only.** The project works with Bitcoin mainnet keys and addresses.
 - **No RBF.** The builder uses final sequence values, so the summary reports
   `rbf: false`; the acceleration path is CPFP.
+
+## License
+
+MIT — see [LICENSE](LICENSE). © 2026 Rael Ales.
+
+Contributions: [CONTRIBUTING.md](CONTRIBUTING.md). Security reports:
+[SECURITY.md](SECURITY.md); do not open a public issue for a vulnerability.
 
 ## Support
 
