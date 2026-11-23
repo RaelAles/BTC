@@ -1,0 +1,90 @@
+name: Release do Cofre BTC
+
+# Cada versão do Cofre publicada é uma tag `vX.Y.Z` (aceita também
+# `cofre-vX.Y.Z`). O release leva o HTML do assinador e um SHA256SUMS.txt,
+# e o sha256 também aparece no corpo do release para conferência antes de
+# abrir, como já acontece nos READMEs.
+#
+# O site continua sendo publicado por `npm run deploy`; o release é o
+# arquivo versionado, não o deploy.
+on:
+  push:
+    tags:
+      - 'v*'
+      - 'cofre-v*'
+
+permissions:
+  # Só o necessário para criar o release e subir os assets.
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # O teste falha se o sha256 dos READMEs estiver vencido em relação a
+      # public/cofre-btc.html. Sem isso o release publicaria um arquivo com
+      # hash publicado errado nos dois READMEs.
+      - run: npm test
+
+      - name: Preparar artefatos e notas
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          versao="${TAG#cofre-}"
+          versao="${versao#v}"
+          # Aceita MAJOR.MINOR.PATCH com sufixo opcional (-rc.1, +build).
+          if ! printf '%s' "$versao" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.+-]+)?$'; then
+            echo "tag $TAG não é vX.Y.Z (nem cofre-vX.Y.Z)" >&2
+            exit 1
+          fi
+          arquivo="cofre-btc-$versao.html"
+          cp public/cofre-btc.html "$arquivo"
+          sha256sum "$arquivo" > SHA256SUMS.txt
+          {
+            echo "Cofre BTC $versao"
+            echo
+            echo "Arquivo único, offline, sem servidor. Confira o sha256 antes de abrir:"
+            echo
+            echo '```'
+            cat SHA256SUMS.txt
+            echo '```'
+            echo
+            echo "No Linux: \`sha256sum -c SHA256SUMS.txt\`."
+            echo "No macOS: \`shasum -a 256 -c SHA256SUMS.txt\`."
+            echo
+            echo "Commit: $GITHUB_SHA"
+            echo "Tamanho: $(wc -c < "$arquivo") bytes"
+            echo
+            echo "O mesmo sha256 está publicado em README.md e README.pt-BR.md no commit acima."
+          } > release-notes.md
+          echo "VERSAO=$versao" >> "$GITHUB_ENV"
+          echo "ARQUIVO=$arquivo" >> "$GITHUB_ENV"
+          cat release-notes.md
+
+      # gh já vem na imagem ubuntu-latest; evita action de terceiros que
+      # precisaria de outro pin por SHA.
+      - name: Publicar release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Cofre BTC $VERSAO" \
+            --notes-file release-notes.md \
+            --verify-tag \
+            "$ARQUIVO" SHA256SUMS.txt
