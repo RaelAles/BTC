@@ -2141,14 +2141,25 @@
   .review-readout tbody tr.group-end td {
     padding-bottom: var(--space-5);
   }
-  /* Todas as chaves ficam inteiras; as públicas levam o botão de copiar
-     sob o valor. */
-  .key-value { display: block; }
+  /* Todas as chaves ficam inteiras; as públicas levam o botão de copiar na
+     mesma linha do valor, como os endereços do projeto principal. */
+  .key-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    align-items: baseline;
+  }
+  .key-value {
+    display: block;
+    flex: 1 1 20ch;
+    min-width: 0;
+  }
   .key-action[hidden] { display: none; }
   .key-action {
     display: block;
     margin: var(--space-3) 0 0 auto;
   }
+  .key-line .key-action { margin: 0; }
   /* As tabelas de revisão do PSBT seguem o desenho e a largura das chaves,
      para que as linhas da revisão caiam nas mesmas colunas dos outros
      subtítulos. */
@@ -5403,11 +5414,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     KEY_CELLS.forEach(function (id) {
       var cell = document.getElementById('v-' + id);
       if (!cell || cell.querySelector('.key-value')) return;
+      var line = document.createElement('span');
+      line.className = 'key-line';
       var value = document.createElement('span');
       value.className = 'key-value';
       value.id = 'key-' + id;
       cell.textContent = '';
-      cell.appendChild(value);
+      line.appendChild(value);
+      cell.appendChild(line);
       if (PRIVATE_CELLS.indexOf(id) >= 0) return;
       var action = document.createElement('button');
       action.type = 'button';
@@ -5416,7 +5430,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       action.dataset.key = id;
       action.setAttribute('aria-label', t('copiar {id}', { id: id }));
       action.hidden = true;
-      cell.appendChild(action);
+      line.appendChild(action);
     });
   }
   function paintKey(cell, value) {
