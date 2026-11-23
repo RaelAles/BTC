@@ -179,8 +179,8 @@ Monitor.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
 `7ba6d9f4f1aac1295af281d155c37c5cb31fa71d1645a56de4c23e01b715f2db` — rode
-`sha256sum cofre-btc*.html` no arquivo baixado; o asset do release leva a
-versão no nome, como em `cofre-btc-1.0.0.html`. A tela “sobre” do Cofre
+`sha256sum cofre-btc.html` no arquivo baixado; o asset do release tem sempre
+esse nome fixo. A tela “sobre” do Cofre
 pede a mesma conferência. Qualquer edição no Cofre exige atualizar este
 valor; o `npm test` acusa hash vencido.
 

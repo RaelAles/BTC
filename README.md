@@ -177,8 +177,8 @@ reaches the Monitor.
 
 Before opening it, compare the published hash: the sha256 of the published
 file is `7ba6d9f4f1aac1295af281d155c37c5cb31fa71d1645a56de4c23e01b715f2db` —
-run `sha256sum cofre-btc*.html` on the downloaded file; a release asset keeps
-the version in the file name, as in `cofre-btc-1.0.0.html`. The Cofre's about
+run `sha256sum cofre-btc.html` on the downloaded file; the release asset
+always has this fixed name. The Cofre's about
 screen asks for the same check. Any edit to the Cofre requires updating this
 value; `npm test` fails when the hash is out of date.
 

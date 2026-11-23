@@ -1,9 +1,10 @@
 name: Release do Cofre BTC
 
-# Cada versão do Cofre publicada é uma tag `vX.Y.Z` (aceita também
-# `cofre-vX.Y.Z`). O release leva o HTML do assinador e um SHA256SUMS.txt,
-# e o sha256 também aparece no corpo do release para conferência antes de
-# abrir, como já acontece nos READMEs.
+# Cada versão do Cofre publicada é a tag `vX.Y.Z`, e só ela: prefixo ou
+# sufixo de pré-release falham no passo de preparação. O release leva o HTML
+# do assinador com nome fixo (`cofre-btc.html`, o mesmo do link da tela
+# “sobre”) e um SHA256SUMS.txt, e o sha256 também aparece no corpo do release
+# para conferência antes de abrir, como já acontece nos READMEs.
 #
 # O site continua sendo publicado por `npm run deploy`; o release é o
 # arquivo versionado, não o deploy.
@@ -11,7 +12,6 @@ on:
   push:
     tags:
       - 'v*'
-      - 'cofre-v*'
 
 permissions:
   # Só o necessário para criar o release e subir os assets.
@@ -45,20 +45,16 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          versao="${TAG#cofre-}"
-          versao="${versao#v}"
-          # Aceita MAJOR.MINOR.PATCH com sufixo opcional (-rc.1, +build).
-          if ! printf '%s' "$versao" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.+-]+)?$'; then
-            echo "tag $TAG não é vX.Y.Z (nem cofre-vX.Y.Z)" >&2
+          # Nome do release é a tag, sem prefixo extra e sem sufixo.
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "tag $TAG não é vX.Y.Z" >&2
             exit 1
           fi
-          arquivo="cofre-btc-$versao.html"
-          cp public/cofre-btc.html "$arquivo"
-          # Cópia de nome fixo: é o alvo do link da tela “sobre”, que aponta para
-          # .../releases/latest/download/cofre-btc.html. Sem ela o link só
-          # funcionaria com a versão escrita na URL e quebraria a cada tag.
+          versao="${TAG#v}"
+          # Nome fixo: é o alvo do link da tela “sobre”, que aponta para
+          # .../releases/latest/download/cofre-btc.html.
           cp public/cofre-btc.html cofre-btc.html
-          sha256sum "$arquivo" > SHA256SUMS.txt
+          sha256sum cofre-btc.html > SHA256SUMS.txt
           {
             echo "Cofre BTC $versao"
             echo
@@ -72,12 +68,10 @@ jobs:
             echo "No macOS: \`shasum -a 256 -c SHA256SUMS.txt\`."
             echo
             echo "Commit: $GITHUB_SHA"
-            echo "Tamanho: $(wc -c < "$arquivo") bytes"
+            echo "Tamanho: $(wc -c < cofre-btc.html) bytes"
             echo
             echo "O mesmo sha256 está publicado em README.md e README.pt-BR.md no commit acima."
           } > release-notes.md
-          echo "VERSAO=$versao" >> "$GITHUB_ENV"
-          echo "ARQUIVO=$arquivo" >> "$GITHUB_ENV"
           cat release-notes.md
 
       # gh já vem na imagem ubuntu-latest; evita action de terceiros que
@@ -88,7 +82,7 @@ jobs:
         run: |
           set -euo pipefail
           gh release create "$GITHUB_REF_NAME" \
-            --title "Cofre BTC $VERSAO" \
+            --title "$GITHUB_REF_NAME" \
             --notes-file release-notes.md \
             --verify-tag \
-            "$ARQUIVO" cofre-btc.html SHA256SUMS.txt
+            cofre-btc.html SHA256SUMS.txt
