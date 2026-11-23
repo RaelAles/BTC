@@ -31,8 +31,8 @@ Nothing is stored: no wallet data in the browser, no database in Cloudflare.
   anything reaches the network. Publishing only happens after the explicit
   confirmation.
 
-It is not a full node, not a custody wallet, not a replacement for a hardware
-wallet, and it does not keep a background watch with the page closed.
+It is not a full node, not a custody wallet, and it does not keep a
+background watch with the page closed.
 
 ## What the screen shows
 
@@ -177,9 +177,10 @@ reaches the Monitor.
 
 Before opening it, compare the published hash: the sha256 of the published
 file is `7ba6d9f4f1aac1295af281d155c37c5cb31fa71d1645a56de4c23e01b715f2db` —
-run `sha256sum cofre-btc.html` on the downloaded file. The Cofre's about screen
-asks for the same check. Any edit to the Cofre requires updating this value;
-`npm test` fails when the hash is out of date.
+run `sha256sum cofre-btc*.html` on the downloaded file; a release asset keeps
+the version in the file name, as in `cofre-btc-1.0.0.html`. The Cofre's about
+screen asks for the same check. Any edit to the Cofre requires updating this
+value; `npm test` fails when the hash is out of date.
 
 The “key” screen has an optional **secret phrase** field: it goes into the
 BIP39 PBKDF2 after the 24 words, does not change the phrase, and changes the
@@ -388,7 +389,6 @@ Returns `{ "ok": true, "service": "monitor-btc-electrum", "source":
 - `app.js`, `fontes.css` and `style.css` use SRI. Any edit requires updating
   the hash in `public/index.html`, and `npm test` fails on a stale hash. Keep
   Cloudflare minification and Rocket Loader off for the same reason.
-- For large amounts, use a hardware wallet and your own node/Electrum server.
 
 ## Tests
 
