@@ -47,9 +47,10 @@ background watch with the page closed.
    `bip49`, `bip44`), and the address has a copy button.
 3. **History grouped by transaction**, newest first, with `[ pending ]` or
    `[ confirmed ]`, direction (sent, received or self), input/output counts,
-   values, fee and the wallet addresses involved. A pending transaction that
-   still has an unspent wallet output gets the **accelerate** button, which
-   builds an unsigned CPFP child PSBT.
+   values, fee and the wallet addresses involved; the list is paginated, with
+   the page size fitted to the visible area. A pending transaction that still
+   has an unspent wallet output gets the **accelerate** button, which builds
+   an unsigned CPFP child PSBT.
 4. **Send BTC**: amount, destination and the fee calculated live from the
    Bitcoin Core `estimatefee` (2-block target), refreshed every 60 seconds.
    There is no fee picker. The amount uses a BTC mask: digits only, with the
@@ -169,11 +170,14 @@ and inputs the session has not seen. A broadcast cannot be undone.
 
 ## The Cofre BTC
 
-The signer is a single standalone HTML file, `public/cofre-btc.html`, served
+The Cofre is a single standalone HTML file, `public/cofre-btc.html`, served
 as a download at `/cofre-btc` (or `/cofre-btc.html`). It runs offline, in the
-browser, without a server. It checks the account, the derivation, the public
-key, the script, the outputs and the fee before signing. The private key never
-reaches the Monitor.
+browser, without a server. The **generate** screen records 256 coin tosses
+(heads = 1, tails = 0) as BIP39 entropy, turns them into a 24-word phrase and
+derives the four accounts; the **key** screen also accepts the 24 words typed
+by hand. When a PSBT is imported, it checks the account, the derivation, the
+public key, the script, the outputs and the fee before signing. The private
+key never reaches the Monitor.
 
 Before opening it, compare the published hash: the sha256 of the published
 file is `7ba6d9f4f1aac1295af281d155c37c5cb31fa71d1645a56de4c23e01b715f2db` —
@@ -238,7 +242,8 @@ npm run deploy
 ```
 
 The repository root is the Worker project: `wrangler.jsonc`, `src/`,
-`public/`, `test/`. There is no database, no schema and no migration to apply.
+`public/`, `test/`. There is no database or schema; the only migration is the
+Durable Object class declaration `v1` in `wrangler.jsonc`.
 
 For **Workers Builds**, leave the root directory empty (the repository root),
 use `npm ci` as the build command and `npx wrangler deploy` as the deploy
@@ -384,8 +389,8 @@ Returns `{ "ok": true, "service": "monitor-btc-electrum", "source":
   before signing is the one that matters.
 - All responses carry HSTS, CSP, `X-Frame-Options`, `X-Content-Type-Options`,
   `Referrer-Policy`, `Permissions-Policy`, COOP, COEP and CORP. The static
-  `public/_headers` and `SECURITY_HEADERS` in `src/config.js` must stay
-  identical; a test enforces it.
+  `public/_headers` and `SECURITY_HEADERS` in `src/config.js` keep those nine
+  values identical; a test enforces it.
 - `app.js`, `fontes.css` and `style.css` use SRI. Any edit requires updating
   the hash in `public/index.html`, and `npm test` fails on a stale hash. Keep
   Cloudflare minification and Rocket Loader off for the same reason.
@@ -413,6 +418,7 @@ own BTC core:
 | `hardening.test.mjs` | Input caps, abuse brake and WebSocket Origin. |
 | `security-headers.test.mjs` | Header parity, CSP, SRI hashes and the Cofre hash in this README. |
 | `http-surface.test.mjs` | 404 status for unknown paths and the read-only asset surface. |
+| `well-known-manifest.test.mjs` | ARD/ai-catalog manifests, `rel="ard"` and the `.well-known` route. |
 | `cofre-core.test.mjs` / `cofre-core-parity.test.mjs` | The embedded Cofre core and its parity with `src/btc-core.js`. |
 
 ## Structure
@@ -422,16 +428,22 @@ own BTC core:
 .github/workflows/       CI and Cofre release automation
 public/
   app.js                 browser client (xpub, scan, render, WebSocket)
-  cofre-btc.html         standalone offline PSBT signer
+  apple-touch-icon.png   iOS home-screen icon
+  cofre-btc.html         standalone offline key generator and PSBT signer
   fontes.css             embedded font
   index.html             published page
+  llms.txt               guidance for language models
   manifest.webmanifest   installable PWA metadata
   icon.svg               icon source (round seal the PNGs are rendered from)
   icon-*.png             app icons
   LICENCAS-FONTES.txt    font license (Liberation Mono)
   og-image.png           link preview image
+  robots.txt             crawler rules (the API is blocked)
   style.css              interface styles
   _headers               security headers for static assets
+  .well-known/
+    ard.json             ARD manifest (empty agent catalog)
+    ai-catalog.json      previous name, same manifest
 scripts/
   build-icons.mjs        renders the PWA icons from icon.svg
   sync-cofre-core.mjs    extracts the Cofre core for parity tests

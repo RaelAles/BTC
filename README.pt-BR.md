@@ -49,7 +49,8 @@ em segundo plano com a tela fechada.
 3. **Histórico por transação**, do mais recente para o mais antigo, com
    `[ pendente ]` ou `[ confirmada ]`, a direção (enviado, recebido ou auto),
    o número de entradas e saídas, os valores, a taxa e os endereços da
-   carteira que participam. A transação pendente que ainda tem uma saída
+   carteira que participam. A lista é paginada, com o tamanho da página
+   ajustado à área visível. A transação pendente que ainda tem uma saída
    própria não gasta ganha o botão **acelerar**, que monta um PSBT filho de
    CPFP sem assinatura.
 4. **Enviar BTC**: quantidade, destino e a taxa calculada ao vivo pelo
@@ -171,11 +172,14 @@ externa e entrada que a sessão não conhece. Transmitir não tem volta.
 
 ## O Cofre BTC
 
-O assinador é um arquivo HTML único, `public/cofre-btc.html`, servido como
+O Cofre é um arquivo HTML único, `public/cofre-btc.html`, servido como
 download em `/cofre-btc` (ou `/cofre-btc.html`). Ele funciona offline, no
-navegador, sem servidor. Confere a conta, a derivação, a chave pública, o
-script, as saídas e a taxa antes de assinar. A chave privada nunca passa pelo
-Monitor.
+navegador, sem servidor. A tela **gerar** registra 256 jogadas de moeda
+(cara = 1, coroa = 0) como entropia BIP39, transforma-as em uma frase de 24
+palavras e deriva as quatro contas; a tela **chave** também aceita as 24 palavras
+digitadas à mão. Ao importar um PSBT, ele confere a conta, a derivação, a
+chave pública, o script, as saídas e a taxa antes de assinar. A chave privada
+nunca passa pelo Monitor.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
 `7ba6d9f4f1aac1295af281d155c37c5cb31fa71d1645a56de4c23e01b715f2db` — rode
@@ -241,7 +245,8 @@ npm run deploy
 ```
 
 A raiz do repositório é o projeto do Worker: `wrangler.jsonc`, `src/`,
-`public/`, `test/`. Não há banco, schema nem migration para aplicar.
+`public/`, `test/`. Não há banco nem schema; a única migration é a declaração
+da classe Durable Object `v1` em `wrangler.jsonc`.
 
 Para o **Workers Builds**, deixe o diretório raiz vazio (a raiz do
 repositório), use `npm ci` como build e `npx wrangler deploy` como deploy.
@@ -390,7 +395,7 @@ Devolve `{ "ok": true, "service": "monitor-btc-electrum", "source":
 - Toda resposta leva HSTS, CSP, `X-Frame-Options`, `X-Content-Type-Options`,
   `Referrer-Policy`, `Permissions-Policy`, COOP, COEP e CORP. O
   `public/_headers` dos estáticos e o `SECURITY_HEADERS` de `src/config.js`
-  precisam continuar iguais; um teste confere.
+  mantêm esses nove valores iguais; um teste confere.
 - `app.js`, `fontes.css` e `style.css` usam SRI. Qualquer edição exige
   recalcular o hash em `public/index.html`, e o `npm test` acusa hash vencido.
   Mantenha a minificação e o Rocket Loader da Cloudflare desligados pelo mesmo
@@ -419,6 +424,7 @@ projeto:
 | `hardening.test.mjs` | Tetos de entrada, freio de abuso e Origin do WebSocket. |
 | `security-headers.test.mjs` | Cabeçalhos iguais, CSP, SRI e o hash do Cofre neste README. |
 | `http-surface.test.mjs` | Status 404 em caminho desconhecido e a superfície somente leitura dos estáticos. |
+| `well-known-manifest.test.mjs` | Manifestos ARD/ai-catalog, `rel="ard"` e a rota `.well-known`. |
 | `cofre-core.test.mjs` / `cofre-core-parity.test.mjs` | Núcleo embutido do Cofre e paridade com `src/btc-core.js`. |
 
 ## Estrutura
@@ -428,16 +434,22 @@ projeto:
 .github/workflows/       CI e publicação de releases do Cofre
 public/
   app.js                 cliente do navegador (xpub, varredura, render, WebSocket)
-  cofre-btc.html         assinador PSBT standalone e offline
+  apple-touch-icon.png   ícone da tela inicial do iOS
+  cofre-btc.html         gerador de chave e assinador PSBT standalone e offline
   fontes.css             fonte embutida
   index.html             página publicada
+  llms.txt               orientação para modelos de linguagem
   manifest.webmanifest   metadados da PWA instalável
   icon.svg               fonte do ícone (selo redondo de onde saem os PNGs)
   icon-*.png             ícones do app
   LICENCAS-FONTES.txt    licença da fonte (Liberation Mono)
   og-image.png           imagem de prévia do link
+  robots.txt             regras para rastreadores (a API fica bloqueada)
   style.css              estilos da interface
   _headers               cabeçalhos de segurança dos estáticos
+  .well-known/
+    ard.json             manifesto ARD (catálogo de agentes vazio)
+    ai-catalog.json      nome anterior, mesmo manifesto
 scripts/
   build-icons.mjs        gera os ícones da PWA a partir do icon.svg
   sync-cofre-core.mjs    extrai o núcleo do Cofre para os testes de paridade
