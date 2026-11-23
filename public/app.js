@@ -954,6 +954,19 @@
       if (timer) clearTimeout(timer);
     }
   }
+
+  /* O freio de abuso responde 429 com Retry-After. A varredura em passos
+     espera esse tempo e repete o mesmo passo em vez de perder a busca; o
+     limite do servidor continua valendo, só o ritmo é respeitado. */
+  var RETRY_MAX_WAIT_MS = 120000;
+  function retryAfterMs(r) {
+    var secs = Number(r && r.headers ? r.headers.get('Retry-After') : 0);
+    if (!isFinite(secs) || secs <= 0) secs = 5;
+    return Math.min(RETRY_MAX_WAIT_MS, Math.max(1000, secs * 1000));
+  }
+  function waitMs(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
   /* O erro de campo usa o recado geral (VG-FRM-07): o texto fica no
      #send-status, e o campo só leva o fio/rótulo em --error e aria-invalid.
      O sinal separado evita que a atualização automática do formulário apague
@@ -3279,6 +3292,13 @@
         });
         var r = res.r;
         var j = res.j;
+        if (r.status === 429) {
+          if ($('#xpub').value.trim() !== xpub) return;
+          setStatus('', errSpec(apiFail(r, j)));
+          await waitMs(retryAfterMs(r));
+          if ($('#xpub').value.trim() !== xpub) return;
+          continue;
+        }
         if (!r.ok || j.error) throw apiFail(r, j);
         // a xpub pode ter mudado enquanto a consulta corria: descarta a resposta
         if ($('#xpub').value.trim() !== xpub) return;

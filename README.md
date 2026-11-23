@@ -78,7 +78,9 @@ background watch with the page closed.
   next address is always `last used + 1`.
 - The scan runs in steps: each request derives at most **200 new addresses**
   and returns progress; the screen asks for the next step. Only the last step
-  returns the final payload.
+  returns the final payload. If the abuse brake answers **429**, the screen
+  waits for `Retry-After` and repeats the same step, so a very large wallet
+  finishes across several budget windows.
 
 ### Balance
 
@@ -487,9 +489,12 @@ package.json
   current queue. There is no histogram, median or economic floor; only the
   relay floor is shown as a warning.
 - **Abuse brake.** 120 requests per minute per IP outside the scan and 600
-  scan steps per minute per IP, with at most 6 simultaneous scans. The
-  separate budget covers about 120k addresses per minute; an even larger
-  wallet can still hit the ceiling.
+  scan steps per minute per IP, with at most 6 simultaneous scans. The scan
+  has its own budget; when it answers 429, the screen waits for
+  `Retry-After` and resumes the same step, so even a very large wallet can
+  finish while the sustained rate stays limited. The counter lives in the
+  isolate's memory and is not a global quota: it contains bursts per Worker
+  instance.
 - **Electrum sees the queried scripthashes** (TLS hides them from the network
   path, not from the server). The Cofre remains the authoritative signer.
 - **Mainnet only.** The project works with Bitcoin mainnet keys and addresses.

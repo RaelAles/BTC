@@ -81,7 +81,9 @@ em segundo plano com a tela fechada.
   uso**. O próximo endereço é sempre `último usado + 1`.
 - A varredura acontece em passos: cada requisição deriva no máximo **200
   endereços novos** e devolve o progresso; a tela pede o próximo passo. Só o
-  último passo devolve o payload final.
+  último passo devolve o payload final. Se o freio de abuso responder **429**,
+  a tela espera o `Retry-After` e repete o mesmo passo, então uma carteira
+  muito grande termina ao longo de várias janelas de orçamento.
 
 ### Saldo
 
@@ -496,8 +498,11 @@ package.json
   piso de relay aparece como aviso.
 - **Freio de abuso.** 120 pedidos por minuto por IP fora da varredura e 600
   passos de varredura por minuto por IP, com no máximo 6 varreduras
-  simultâneas. O orçamento próprio cobre cerca de 120 mil endereços por
-  minuto; uma carteira ainda maior pode atingir o teto.
+  simultâneas. A varredura tem orçamento próprio; quando ele responde 429, a
+  tela espera o `Retry-After` e retoma o mesmo passo, então mesmo uma
+  carteira muito grande termina com o ritmo sustentado limitado. O contador
+  vive na memória do isolate e não é uma cota global: ele contém rajadas por
+  instância do Worker.
 - **O Electrum vê os scripthashes consultados** (o TLS esconde do caminho da
   rede, não do servidor). O Cofre continua sendo o assinador que vale.
 - **Só rede principal.** O projeto trabalha com chaves e endereços da mainnet

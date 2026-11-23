@@ -407,9 +407,12 @@ function withSecurityHeaders(response) {
   });
 }
 
-/* Rate por IP. Sem credencial nenhuma, um laço externo vira custo direto
-   de CPU/rede. O contador vive só na memória do isolate (não é durável):
-   serve para conter rajada e pedido repetido, não como cota exata.
+/* Rate por IP em balde de fichas. Sem credencial nenhuma, um laço externo
+   vira custo direto de CPU/rede. O balde repõe fichas continuamente, então
+   o limite é de ritmo (não uma janela fixa que zera de uma vez) e uma
+   carteira grande pode continuar logo após uma pausa curta. O estado vive
+   só na memória do isolate (não é durável): serve para conter rajada e
+   pedido repetido, não como cota exata.
    A varredura é uma ação só, dividida em passos de até 200 endereços, e
    por isso tem orçamento próprio: uma carteira grande não esbarra no teto
    das rotas avulsas. */
@@ -417,7 +420,9 @@ const RATE_WINDOW_MS = 60000;
 const RATE_MAX_REQUESTS = 120;
 const RATE_MAX_SCAN_REQUESTS = 600;
 const RATE_MAX_SCANS = 6;
-const rateBuckets = new Map(); // ip -> { since, count, scanSince, scanCount, scans }
+const RATE_REFILL_PER_MS = RATE_MAX_REQUESTS / RATE_WINDOW_MS;
+const RATE_SCAN_REFILL_PER_MS = RATE_MAX_SCAN_REQUESTS / RATE_WINDOW_MS;
+const rateBuckets = new Map(); // ip -> { general, scan, scans }
 
 function clientIp(request) {
   const h = request.headers;
@@ -425,33 +430,36 @@ function clientIp(request) {
   return String(raw).split(',')[0].trim() || 'local';
 }
 
+function refill(counter, now, max, perMs) {
+  const elapsed = Math.max(0, now - counter.updated);
+  counter.tokens = Math.min(max, counter.tokens + elapsed * perMs);
+  counter.updated = now;
+}
+
 function rateBucket(ip) {
   const now = Date.now();
   let bucket = rateBuckets.get(ip);
   if (!bucket) {
-    bucket = { since: now, count: 0, scanSince: now, scanCount: 0, scans: 0 };
+    bucket = {
+      general: { tokens: RATE_MAX_REQUESTS, updated: now },
+      scan: { tokens: RATE_MAX_SCAN_REQUESTS, updated: now },
+      scans: 0
+    };
     rateBuckets.set(ip, bucket);
   }
-  if (now - bucket.since >= RATE_WINDOW_MS) {
-    bucket.since = now;
-    bucket.count = 0;
-  }
-  if (now - bucket.scanSince >= RATE_WINDOW_MS) {
-    bucket.scanSince = now;
-    bucket.scanCount = 0;
-  }
+  refill(bucket.general, now, RATE_MAX_REQUESTS, RATE_REFILL_PER_MS);
+  refill(bucket.scan, now, RATE_MAX_SCAN_REQUESTS, RATE_SCAN_REFILL_PER_MS);
   if (rateBuckets.size > 2000) {
     for (const [key, value] of rateBuckets) {
-      const expired = now - value.since >= RATE_WINDOW_MS &&
-        now - value.scanSince >= RATE_WINDOW_MS;
-      if (expired && value.scans === 0) rateBuckets.delete(key);
+      const idle = now - Math.max(value.general.updated, value.scan.updated);
+      if (idle >= RATE_WINDOW_MS && value.scans === 0) rateBuckets.delete(key);
     }
   }
   return bucket;
 }
 
-function tooMany(resetAt) {
-  const retry = Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+function tooMany(waitMs) {
+  const retry = Math.max(1, Math.ceil(waitMs / 1000));
   return new Response(JSON.stringify({ error: 'muitos pedidos; tente de novo em ' + retry + ' s' }), {
     status: 429,
     headers: {
@@ -468,11 +476,12 @@ function tooMany(resetAt) {
    rotas para não punir carteiras grandes. */
 async function withRateLimit(request, run, scan = false) {
   const bucket = rateBucket(clientIp(request));
-  const used = scan ? ++bucket.scanCount : ++bucket.count;
-  const max = scan ? RATE_MAX_SCAN_REQUESTS : RATE_MAX_REQUESTS;
-  if (used > max) {
-    return tooMany((scan ? bucket.scanSince : bucket.since) + RATE_WINDOW_MS);
+  const counter = scan ? bucket.scan : bucket.general;
+  const perMs = scan ? RATE_SCAN_REFILL_PER_MS : RATE_REFILL_PER_MS;
+  if (counter.tokens < 1) {
+    return tooMany((1 - counter.tokens) / perMs);
   }
+  counter.tokens--;
   return await run();
 }
 
@@ -481,9 +490,7 @@ async function withRateLimit(request, run, scan = false) {
 async function withScanSlot(request, run, scan = false) {
   return await withRateLimit(request, async () => {
     const bucket = rateBucket(clientIp(request));
-    if (bucket.scans >= RATE_MAX_SCANS) {
-      return tooMany((scan ? bucket.scanSince : bucket.since) + RATE_WINDOW_MS);
-    }
+    if (bucket.scans >= RATE_MAX_SCANS) return tooMany(1000);
     bucket.scans++;
     try {
       return await run();
