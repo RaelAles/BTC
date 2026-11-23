@@ -174,15 +174,16 @@ and inputs the session has not seen. A broadcast cannot be undone.
 
 The Cofre is a single standalone HTML file, `public/cofre-btc.html`, served
 as a download at `/cofre-btc` (or `/cofre-btc.html`). It runs offline, in the
-browser, without a server. The **generate** screen records 256 coin tosses
-(heads = 1, tails = 0) as BIP39 entropy, turns them into a 24-word phrase and
-derives the four accounts; the **key** screen also accepts the 24 words typed
-by hand. When a PSBT is imported, it checks the account, the derivation, the
-public key, the script, the outputs and the fee before signing. The private
-key never reaches the Monitor.
+browser, without a server. The **generate** screen records 256 bits of entropy
+using the method you choose; tossing a coin is just one suggestion (heads = 1,
+tails = 0). The bits become a 24-word phrase and derive the four accounts; the
+**key** screen also accepts the 24 words typed by hand. When a PSBT is
+imported, it checks the account, the derivation, the public key, the script,
+the outputs and the fee before signing. The private key never reaches the
+Monitor.
 
 Before opening it, compare the published hash: the sha256 of the published
-file is `e929e900d8d05adcc4752d650b936a59b4c3f951068844ddc3fbf46a1446b495` —
+file is `0557763a22376e72f629648c40a1a4ec3481e69c2c9823a87d7d6059aee5f6aa` —
 run `sha256sum cofre-btc.html` on the downloaded file; the release asset
 always has this fixed name. The Cofre's about
 screen asks for the same check. Any edit to the Cofre requires updating this

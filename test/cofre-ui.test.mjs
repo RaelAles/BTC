@@ -45,7 +45,7 @@ console.log('ok   ' + usadas.size + ' chaves literais de t() existem em I18N_ROW
 
 /* ---------------- 2b. recado da rodada tem linha em I18N_ROWS e a nota da frase fica ligada aos campos ---------------- */
 const chavesDeRecado = [
-  'última jogada desfeita; restam {n} de 256.'
+  'último bit desfeito; restam {n} de 256.'
 ];
 for (const key of chavesDeRecado) {
   assert.ok(keys.includes(key), 'recado sem linha em I18N_ROWS: ' + key);

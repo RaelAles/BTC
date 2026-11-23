@@ -176,15 +176,15 @@ externa e entrada que a sessão não conhece. Transmitir não tem volta.
 
 O Cofre é um arquivo HTML único, `public/cofre-btc.html`, servido como
 download em `/cofre-btc` (ou `/cofre-btc.html`). Ele funciona offline, no
-navegador, sem servidor. A tela **gerar** registra 256 jogadas de moeda
-(cara = 1, coroa = 0) como entropia BIP39, transforma-as em uma frase de 24
-palavras e deriva as quatro contas; a tela **chave** também aceita as 24 palavras
-digitadas à mão. Ao importar um PSBT, ele confere a conta, a derivação, a
-chave pública, o script, as saídas e a taxa antes de assinar. A chave privada
-nunca passa pelo Monitor.
+navegador, sem servidor. A tela **gerar** registra 256 bits de entropia pelo
+método que você escolher; jogar uma moeda é só uma sugestão (cara = 1,
+coroa = 0). Os bits viram uma frase de 24 palavras e derivam as quatro contas;
+a tela **chave** também aceita as 24 palavras digitadas à mão. Ao importar um
+PSBT, ele confere a conta, a derivação, a chave pública, o script, as saídas e
+a taxa antes de assinar. A chave privada nunca passa pelo Monitor.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
-`e929e900d8d05adcc4752d650b936a59b4c3f951068844ddc3fbf46a1446b495` — rode
+`0557763a22376e72f629648c40a1a4ec3481e69c2c9823a87d7d6059aee5f6aa` — rode
 `sha256sum cofre-btc.html` no arquivo baixado; o asset do release tem sempre
 esse nome fixo. A tela “sobre” do Cofre
 pede a mesma conferência. Qualquer edição no Cofre exige atualizar este
