@@ -54,6 +54,10 @@ jobs:
           fi
           arquivo="cofre-btc-$versao.html"
           cp public/cofre-btc.html "$arquivo"
+          # Cópia de nome fixo: é o alvo do link da tela “sobre”, que aponta para
+          # .../releases/latest/download/cofre-btc.html. Sem ela o link só
+          # funcionaria com a versão escrita na URL e quebraria a cada tag.
+          cp public/cofre-btc.html cofre-btc.html
           sha256sum "$arquivo" > SHA256SUMS.txt
           {
             echo "Cofre BTC $versao"
@@ -87,4 +91,4 @@ jobs:
             --title "Cofre BTC $VERSAO" \
             --notes-file release-notes.md \
             --verify-tag \
-            "$ARQUIVO" SHA256SUMS.txt
+            "$ARQUIVO" cofre-btc.html SHA256SUMS.txt

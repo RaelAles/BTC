@@ -269,13 +269,13 @@
           <div class="prose">
             <h3><span class="prompt" aria-hidden="true">##</span> o que é esta ferramenta</h3>
             <p>O Monitor BTC é uma carteira de acompanhamento. Você cola a chave pública da sua carteira Bitcoin (<code>xpub</code>, <code>zpub</code> ou <code>ypub</code>) e ele mostra o saldo, os endereços para receber e o histórico de transações. Ele não pede senha, não guarda nada e não tem a chave privada: só lê o que já existe na rede.</p>
-            <p>Ele também prepara o envio. Você informa o valor e o destino; a taxa é calculada ao vivo e a ferramenta monta um arquivo de transação (PSBT) para ser assinado em outro programa. Depois de assinado, o arquivo volta para cá e pode ser transmitido. Quem assina é você, no <a class="prose-link" href="/cofre-btc.html" download="cofre-btc.html" title="baixar o Cofre BTC (arquivo standalone)" aria-label="baixar o Cofre BTC (arquivo standalone)">Cofre BTC</a>, offline; a chave privada nunca passa por esta tela.</p>
+            <p>Ele também prepara o envio. Você informa o valor e o destino; a taxa é calculada ao vivo e a ferramenta monta um arquivo de transação (PSBT) para ser assinado em outro programa. Depois de assinado, o arquivo volta para cá e pode ser transmitido. Quem assina é você, no <a class="prose-link" href="https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html" download="cofre-btc.html" title="baixar o Cofre BTC (arquivo standalone)" aria-label="baixar o Cofre BTC (arquivo standalone)">Cofre BTC</a>, offline; a chave privada nunca passa por esta tela.</p>
             <p>Nada fica guardado: a chave, o saldo, os endereços e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma.</p>
 
             <h3><span class="prompt" aria-hidden="true">##</span> como usar</h3>
             <p><b>Acompanhar.</b> Na tela “carteira”, cole a chave pública no campo indicado. O saldo e os endereços aparecem sozinhos. Em “receber”, copie o endereço do tipo que o pagador aceita. Em “histórico”, veja as transações agrupadas pelo txid, com o que entrou, o que saiu e a taxa.</p>
             <p><b>Enviar.</b> Ainda em “carteira”, desça até “enviar”. Digite o valor e o destino; a taxa aparece sozinha e o arquivo é montado na hora. Clique em “baixar”. Assine esse arquivo no Cofre BTC, offline. Depois volte, abra “transmitir”, escolha o arquivo assinado, confira o resumo e clique em “confirmar”.</p>
-            <p><b>Cofre BTC.</b> O assinador é o <a class="prose-link" href="/cofre-btc.html" download="cofre-btc.html" title="baixar o Cofre BTC (arquivo standalone)" aria-label="baixar o Cofre BTC (arquivo standalone)">Cofre BTC</a>, um arquivo único que funciona offline, sem servidor e sem internet. Clique no nome para baixar o standalone e abra-o no computador que guarda a chave.</p>
+            <p><b>Cofre BTC.</b> O assinador é o <a class="prose-link" href="https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html" download="cofre-btc.html" title="baixar o Cofre BTC (arquivo standalone)" aria-label="baixar o Cofre BTC (arquivo standalone)">Cofre BTC</a>, um arquivo único que funciona offline, sem servidor e sem internet. Clique no nome para baixar o standalone e abra-o no computador que guarda a chave.</p>
             <p><b>Acelerar.</b> Se uma transação sua ficar presa no mempool, o histórico oferece o botão “acelerar”. Ele monta um PSBT filho (CPFP) que gasta o troco da transação presa e devolve o resto para a carteira; o pai não muda. Assine o filho no Cofre BTC e importe o arquivo em “carteira”, no bloco “transmitir”. Se o Cofre mostrar a saída como externa, não assine.</p>
             <p><b>Telas.</b> O menu no alto alterna entre “carteira”, “histórico” e “sobre”.</p>
 
@@ -364,6 +364,6 @@
   </main>
 </div>
 
-<script src="/app.js" defer integrity="sha384-euDzfAkIoBbUdBn3RRYuLW5OomSp9mHxqjNLH+7Mud83jqgt9iZjmm7zLLj+gJgQ"></script>
+<script src="/app.js" defer integrity="sha384-mYCWTrHhc4QV9DJpQWuzFqBEafZBKzLQK3+4MaPjZZ3KGOJC6PkgnUrMkiTeSWfK"></script>
 </body>
 </html>

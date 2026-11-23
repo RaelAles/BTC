@@ -12,9 +12,11 @@
 # HTTP neste projeto; se houver, tire o preload e o includeSubDomains antes
 # de publicar.
 #
-# O Cofre BTC é o assinador standalone: o link da tela "sobre" baixa o
-# arquivo. O Content-Disposition garante o download mesmo se a página for
-# aberta direto, e a CSP da página publicada não se aplica ao arquivo baixado.
+# O Cofre BTC é o assinador standalone: o link da tela "sobre" aponta para o
+# asset cofre-btc.html do último release, e estas rotas continuam servindo a
+# cópia do deploy. O Content-Disposition garante o download mesmo se a página
+# for aberta direto, e a CSP da página publicada não se aplica ao arquivo
+# baixado.
 /cofre-btc.html
   Content-Disposition: attachment; filename="cofre-btc.html"
 /cofre-btc
