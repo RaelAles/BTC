@@ -31,5 +31,8 @@
   Cross-Origin-Resource-Policy: same-origin
 
 # Catálogo ARD: público e feito para ser lido por agentes de outra origem.
+# ard.json é o caminho da especificação atual; ai-catalog.json é o anterior.
 /.well-known/ai-catalog.json
+  Access-Control-Allow-Origin: *
+/.well-known/ard.json
   Access-Control-Allow-Origin: *

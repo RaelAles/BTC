@@ -19,7 +19,10 @@
     // A API também precisa passar pelo Worker: sem `/api/*` o asset layer
     // responde por ela (index.html no GET e 405 no POST), e nenhuma rota
     // dinâmica chega a rodar.
-    "run_worker_first": ["/", "/index.html", "/cofre-btc", "/cofre-btc.html", "/api/*"],
+    // `/.well-known/*` idem: sem isso um manifesto ausente (ard.json,
+    // ai-catalog.json) volta como 200 com o index.html, e quem espera JSON
+    // reporta "malformed JSON" em vez do 404 que é a verdade.
+    "run_worker_first": ["/", "/index.html", "/cofre-btc", "/cofre-btc.html", "/api/*", "/.well-known/*"],
     // Explicito para /cofre-btc (declarado em public/_headers) não mudar
     // de comportamento num bump do Wrangler.
     "html_handling": "auto-trailing-slash",

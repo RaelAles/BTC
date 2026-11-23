@@ -88,4 +88,34 @@ function envComAssets(chamadas) {
   console.log('ok   cabeçalho de reescrita de caminho responde 400 sem tocar no ASSETS');
 }
 
+/* ---------------- 6. manifestos em /.well-known ---------------- */
+{
+  /* O manifesto que existe no ASSETS volta como JSON; o que não existe não
+     pode voltar como o index.html (200 text/html): um validador lê esse HTML
+     como "JSON malformado" em vez de ver um 404. */
+  const env = {
+    ASSETS: {
+      fetch: async (request) => {
+        const p = new URL(request.url).pathname;
+        if (p === '/.well-known/ard.json') {
+          return new Response('{"entries":[]}', {
+            status: 200, headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        return new Response('<!doctype html><title>app</title>', {
+          status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
+      }
+    }
+  };
+  const existencia = await worker.fetch(new Request('https://x/.well-known/ard.json'), env);
+  assert.equal(existencia.status, 200, 'manifesto existente continua 200');
+  assert.match(existencia.headers.get('Content-Type'), /application\/json/,
+    'manifesto existente continua sendo JSON');
+
+  const ausente = await worker.fetch(new Request('https://x/.well-known/nao-existe.json'), env);
+  assert.equal(ausente.status, 404, 'manifesto ausente responde 404, não 200 com HTML');
+  console.log('ok   /.well-known preserva o JSON e devolve 404 no que não existe');
+}
+
 console.log('\ntestes da superfície HTTP passaram');
