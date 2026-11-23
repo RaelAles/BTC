@@ -180,7 +180,7 @@ public key, the script, the outputs and the fee before signing. The private
 key never reaches the Monitor.
 
 Before opening it, compare the published hash: the sha256 of the published
-file is `7ba6d9f4f1aac1295af281d155c37c5cb31fa71d1645a56de4c23e01b715f2db` —
+file is `2ef1a912941de5e69b290bb0ef6edddc1f76093431491035c2d4459faea6b0a7` —
 run `sha256sum cofre-btc.html` on the downloaded file; the release asset
 always has this fixed name. The Cofre's about
 screen asks for the same check. Any edit to the Cofre requires updating this
