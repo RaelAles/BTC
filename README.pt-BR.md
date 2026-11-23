@@ -32,8 +32,8 @@ Cloudflare.
   antes de qualquer coisa ir para a rede. A publicação só acontece depois do
   clique explícito em **confirmar**.
 
-Ele não é nó completo, não é carteira de custódia, não substitui uma hardware
-wallet e não mantém vigilância em segundo plano com a tela fechada.
+Ele não é nó completo, não é carteira de custódia e não mantém vigilância
+em segundo plano com a tela fechada.
 
 ## O que a tela mostra
 
@@ -179,9 +179,10 @@ Monitor.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
 `7ba6d9f4f1aac1295af281d155c37c5cb31fa71d1645a56de4c23e01b715f2db` — rode
-`sha256sum cofre-btc.html` no arquivo baixado. A tela “sobre” do Cofre pede a
-mesma conferência. Qualquer edição no Cofre exige atualizar este valor; o
-`npm test` acusa hash vencido.
+`sha256sum cofre-btc*.html` no arquivo baixado; o asset do release leva a
+versão no nome, como em `cofre-btc-1.0.0.html`. A tela “sobre” do Cofre
+pede a mesma conferência. Qualquer edição no Cofre exige atualizar este
+valor; o `npm test` acusa hash vencido.
 
 A tela “chave” tem um campo opcional **frase secreta**: ele entra no PBKDF2
 do BIP39 depois das 24 palavras, não muda a frase e muda a seed, as contas e
@@ -394,7 +395,6 @@ Devolve `{ "ok": true, "service": "monitor-btc-electrum", "source":
   recalcular o hash em `public/index.html`, e o `npm test` acusa hash vencido.
   Mantenha a minificação e o Rocket Loader da Cloudflare desligados pelo mesmo
   motivo.
-- Para valores altos, use hardware wallet e um nó/Electrum próprio.
 
 ## Testes
 
@@ -425,6 +425,7 @@ projeto:
 
 ```text
 .github/assets/          botões de apoio usados por este README
+.github/workflows/       CI e publicação de releases do Cofre
 public/
   app.js                 cliente do navegador (xpub, varredura, render, WebSocket)
   cofre-btc.html         assinador PSBT standalone e offline

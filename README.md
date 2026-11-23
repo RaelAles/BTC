@@ -419,6 +419,7 @@ own BTC core:
 
 ```text
 .github/assets/          support buttons used by this README
+.github/workflows/       CI and Cofre release automation
 public/
   app.js                 browser client (xpub, scan, render, WebSocket)
   cofre-btc.html         standalone offline PSBT signer
