@@ -60,7 +60,7 @@
   unicode-range: U+0020-007E,U+00A0-00FF,U+0100-017F,U+2010-2027,U+2039-203A,U+20AC,U+2116,U+25B2,U+25BA,U+25BC,U+25C4,U+25CF,U+25CB,U+2660;
 }
 
-  /* @copia-estilo.css begin sha256=92012653d0f103848769588d701f6f5ea462c872a8702b13f5b2d7bc8080e29d */
+  /* @copia-estilo.css begin sha256=00790179e3bdf6f21100bb34b4da60339e441b263d8a2d32e26404ce5fe4ca3f */
 /* Base visual do sistema ASCII UI.
    Tokens, componentes e estados vivem aqui; o guia visual importa este
    arquivo para mostrar sempre o desenho real. As fontes embutidas ficam em
@@ -304,7 +304,9 @@
      (--motion-theme) e liga a transição de cor em todos os elementos, para
      fundo, card, moldura, menu, rodapé, texto e controles passarem juntos.
      Fora dela, hover e foco usam a regra única de --motion-fast (ver
-     VG-EFE-08). O grão é redesenhado pelo JS (ver fadeGrain). */
+     VG-EFE-08). O grão é sempre desenhado com a tinta do tema claro; o tema
+     escuro é essa mesma textura escurecida por um filtro, que o compositor
+     anima junto com as cores (ver VG-EFE-07). */
   html.theme-fx,
   html.theme-fx *,
   html.theme-fx *::before,
