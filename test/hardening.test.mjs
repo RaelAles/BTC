@@ -86,6 +86,26 @@ async function post(path, body, env, ip) {
   console.log('ok   /api/fees entra no freio de abuso (429 com Retry-After)');
 }
 
+/* ---------------- 3b. varredura tem orçamento próprio, maior ---------------- */
+{
+  const ip = '203.0.113.78';
+  const env = { ELECTRUM_SERVERS: 'off' };
+  let last;
+  for (let i = 0; i < 600; i++) {
+    last = await post('/api/wallet', { xpub: USER, scan: 'step' }, env, ip);
+    assert.notEqual(last.status, 429, 'passo ' + (i + 1) + ' da varredura ainda passa');
+  }
+  const blocked = await post('/api/wallet', { xpub: USER, scan: 'step' }, env, ip);
+  assert.equal(blocked.status, 429, 'o teto da varredura continua existindo');
+  assert.match(blocked.j.error, /muitos pedidos/);
+
+  const fees = await worker.fetch(new Request('https://x/api/fees', {
+    headers: { 'cf-connecting-ip': ip }
+  }), env);
+  assert.notEqual(fees.status, 429, 'orçamento da varredura não consome o das rotas avulsas');
+  console.log('ok   varredura tem 600 passos/min por IP, separados dos 120 das outras rotas');
+}
+
 /* ---------------- 4. queda no meio da varredura vira 502, não 500 ---------------- */
 {
   setConnectOverride(nodeConnect);

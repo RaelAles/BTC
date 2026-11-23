@@ -407,14 +407,17 @@ function withSecurityHeaders(response) {
   });
 }
 
-/* Rate por IP. O contador é compartilhado por todas as rotas públicas:
-   sem credencial nenhuma, um laço externo vira custo direto de CPU/rede.
-   O contador vive só na memória do isolate (não é durável): serve para
-   conter rajada e pedido repetido, não como cota exata. */
+/* Rate por IP. Sem credencial nenhuma, um laço externo vira custo direto
+   de CPU/rede. O contador vive só na memória do isolate (não é durável):
+   serve para conter rajada e pedido repetido, não como cota exata.
+   A varredura é uma ação só, dividida em passos de até 200 endereços, e
+   por isso tem orçamento próprio: uma carteira grande não esbarra no teto
+   das rotas avulsas. */
 const RATE_WINDOW_MS = 60000;
 const RATE_MAX_REQUESTS = 120;
+const RATE_MAX_SCAN_REQUESTS = 600;
 const RATE_MAX_SCANS = 6;
-const rateBuckets = new Map(); // ip -> { since, count, scans }
+const rateBuckets = new Map(); // ip -> { since, count, scanSince, scanCount, scans }
 
 function clientIp(request) {
   const h = request.headers;
@@ -425,20 +428,30 @@ function clientIp(request) {
 function rateBucket(ip) {
   const now = Date.now();
   let bucket = rateBuckets.get(ip);
-  if (!bucket || now - bucket.since >= RATE_WINDOW_MS) {
-    bucket = { since: now, count: 0, scans: 0 };
+  if (!bucket) {
+    bucket = { since: now, count: 0, scanSince: now, scanCount: 0, scans: 0 };
     rateBuckets.set(ip, bucket);
-    if (rateBuckets.size > 2000) {
-      for (const [key, value] of rateBuckets) {
-        if (now - value.since >= RATE_WINDOW_MS) rateBuckets.delete(key);
-      }
+  }
+  if (now - bucket.since >= RATE_WINDOW_MS) {
+    bucket.since = now;
+    bucket.count = 0;
+  }
+  if (now - bucket.scanSince >= RATE_WINDOW_MS) {
+    bucket.scanSince = now;
+    bucket.scanCount = 0;
+  }
+  if (rateBuckets.size > 2000) {
+    for (const [key, value] of rateBuckets) {
+      const expired = now - value.since >= RATE_WINDOW_MS &&
+        now - value.scanSince >= RATE_WINDOW_MS;
+      if (expired && value.scans === 0) rateBuckets.delete(key);
     }
   }
   return bucket;
 }
 
-function tooMany(bucket) {
-  const retry = Math.max(1, Math.ceil((bucket.since + RATE_WINDOW_MS - Date.now()) / 1000));
+function tooMany(resetAt) {
+  const retry = Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
   return new Response(JSON.stringify({ error: 'muitos pedidos; tente de novo em ' + retry + ' s' }), {
     status: 429,
     headers: {
@@ -450,27 +463,34 @@ function tooMany(bucket) {
 }
 
 /* Freio de contagem, sem consumir slot de varredura: usado também nas rotas
-   leves (fees/events) que ainda abrem conexão ou instanciam um objeto. */
-async function withRateLimit(request, run) {
+   leves (fees/events) que ainda abrem conexão ou instanciam um objeto.
+   `scan` escolhe o orçamento da varredura, que é separado do das demais
+   rotas para não punir carteiras grandes. */
+async function withRateLimit(request, run, scan = false) {
   const bucket = rateBucket(clientIp(request));
-  bucket.count++;
-  if (bucket.count > RATE_MAX_REQUESTS) return tooMany(bucket);
+  const used = scan ? ++bucket.scanCount : ++bucket.count;
+  const max = scan ? RATE_MAX_SCAN_REQUESTS : RATE_MAX_REQUESTS;
+  if (used > max) {
+    return tooMany((scan ? bucket.scanSince : bucket.since) + RATE_WINDOW_MS);
+  }
   return await run();
 }
 
 /* Rate por IP + teto de varreduras simultâneas para as rotas que derivam
    endereços. O slot é liberado no finally, mesmo quando o handler falha. */
-async function withScanSlot(request, run) {
+async function withScanSlot(request, run, scan = false) {
   return await withRateLimit(request, async () => {
     const bucket = rateBucket(clientIp(request));
-    if (bucket.scans >= RATE_MAX_SCANS) return tooMany(bucket);
+    if (bucket.scans >= RATE_MAX_SCANS) {
+      return tooMany((scan ? bucket.scanSince : bucket.since) + RATE_WINDOW_MS);
+    }
     bucket.scans++;
     try {
       return await run();
     } finally {
       bucket.scans--;
     }
-  });
+  }, scan);
 }
 
 async function route(request, env) {
@@ -493,7 +513,7 @@ async function route(request, env) {
     }
     if (url.pathname === '/api/wallet') {
       if (request.method !== 'POST') return fail('use POST', 405);
-      return await withScanSlot(request, () => handleWallet(request, env));
+      return await withScanSlot(request, () => handleWallet(request, env), true);
     }
     if (url.pathname === '/api/psbt') {
       if (request.method !== 'POST') return fail('use POST', 405);

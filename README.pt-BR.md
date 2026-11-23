@@ -494,9 +494,10 @@ package.json
 - **Estimador de taxa.** O `estimatefee` é histórico: pode ficar acima ou
   abaixo da fila atual. Não há histograma, mediana nem piso econômico; só o
   piso de relay aparece como aviso.
-- **Freio de abuso.** 120 pedidos por minuto por IP e no máximo 6 varreduras
-  simultâneas. Cada passo da varredura conta como um pedido, então carteiras
-  muito grandes podem atingir o limite mesmo sem abuso.
+- **Freio de abuso.** 120 pedidos por minuto por IP fora da varredura e 600
+  passos de varredura por minuto por IP, com no máximo 6 varreduras
+  simultâneas. O orçamento próprio cobre cerca de 120 mil endereços por
+  minuto; uma carteira ainda maior pode atingir o teto.
 - **O Electrum vê os scripthashes consultados** (o TLS esconde do caminho da
   rede, não do servidor). O Cofre continua sendo o assinador que vale.
 - **Só rede principal.** O projeto trabalha com chaves e endereços da mainnet

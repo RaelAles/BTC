@@ -486,9 +486,10 @@ package.json
 - **Fee estimator.** `estimatefee` is historical: it may be above or below the
   current queue. There is no histogram, median or economic floor; only the
   relay floor is shown as a warning.
-- **Abuse brake.** 120 requests per minute per IP and at most 6 simultaneous
-  scans. Each scan step counts as a request, so very large wallets can hit the
-  limit even without abuse.
+- **Abuse brake.** 120 requests per minute per IP outside the scan and 600
+  scan steps per minute per IP, with at most 6 simultaneous scans. The
+  separate budget covers about 120k addresses per minute; an even larger
+  wallet can still hit the ceiling.
 - **Electrum sees the queried scripthashes** (TLS hides them from the network
   path, not from the server). The Cofre remains the authoritative signer.
 - **Mainnet only.** The project works with Bitcoin mainnet keys and addresses.
