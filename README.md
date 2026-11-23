@@ -192,14 +192,6 @@ seed, the accounts and the addresses. Editing or clearing the field reruns
 the derivation; empty, it is the empty passphrase. Whoever loses the secret
 phrase loses the wallet it defines.
 
-Earlier versions of the Cofre also recorded the tosses as coordinates
-(`a0`–`z5`) and told users to write that list down. That input was removed in
-favour of the 24-word phrase. A saved coordinate list still recovers the key,
-as long as the secret phrase is empty (as in the versions of that time):
-each `letter × 10 + digit` (with `a` = 0, …, `z` = 25) sets `1` at that
-position of the 256 bits and every other position is `0`; enter the 256 digits
-in any BIP39 tool with the English list to get the same 24 words.
-
 ## Requirements
 
 - Node.js **22 or newer** and npm.

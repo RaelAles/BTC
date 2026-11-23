@@ -194,15 +194,6 @@ os endereços. Editar ou apagar o campo refaz a derivação; vazio, vale a
 passphrase vazia. Quem perder a frase secreta perde a carteira que ela
 define.
 
-Versões anteriores do Cofre também gravavam as jogadas como coordenadas
-(`a0`–`z5`) e mandavam anotar essa lista. Essa entrada foi removida em favor
-da frase de 24 palavras. Uma lista de coordenadas guardada ainda recupera a
-chave, desde que a frase secreta esteja vazia (como nas versões daquela
-época): cada `letra × 10 + dígito` (com `a` = 0, …, `z` = 25) marca `1` naquela
-posição dos 256 bits e todas as outras posições valem `0`; informe os 256
-dígitos em qualquer ferramenta BIP39 com a lista em inglês para chegar às
-mesmas 24 palavras.
-
 ## Requisitos
 
 - Node.js **22 ou mais novo** e npm.
