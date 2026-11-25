@@ -31,9 +31,10 @@
   /* Cliente do proxy: o scanner do navegador fala JSON-RPC com o Electrum
      através do Worker, em lotes. O Worker vê scripthashes, txids e
      transações cruas; não vê endereços, scripts nem pubkeys. */
-  function ProxyClient() {
+  function ProxyClient(session) {
     this.queue = [];
     this.timer = 0;
+    this.session = session || '';
     this.dead = null;
   }
   ProxyClient.prototype.request = function (method, params) {
@@ -65,6 +66,7 @@
     var body = { items: items.map(function (item) {
       return { method: item.method, params: item.params };
     }) };
+    if (this.session) body.session = this.session;
     var res;
     try {
       res = await fetchJson('/api/proxy', {
@@ -2218,7 +2220,7 @@
   async function loadFees() {
     if (!state.xpub) return;
     var xpub = state.xpub;
-    var url = '/api/fees';
+    var url = '/api/fees' + (state.watchSession ? '?session=' + encodeURIComponent(state.watchSession) : '');
     try {
       var res = await fetchJson(url);
       var r = res.r;
@@ -3274,7 +3276,8 @@
     if (!sameWallet) {
       try { account = localWallet().parseXpub(xpub); }
       catch (e) { setStatus('error', errSpec(e)); return; }
-      proxy = new ProxyClient();
+      try { await watchSession(); } catch (e) { state.watchSession = ''; }
+      proxy = new ProxyClient(state.watchSession);
       scanner = new (localWallet().WalletScanner)({
         env: {},
         xpub: xpub,

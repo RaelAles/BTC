@@ -85,6 +85,39 @@ async function post(path, body) {
   console.log('ok   taxa volta com nível e limites, sem host como legenda');
 }
 
+/* ---------------- 3b. sessão roteia o lote ao Durable Object ---------------- */
+{
+  const session = 'c'.repeat(64);
+  let chamadas = 0;
+  const env2 = Object.assign({}, env, {
+    WATCH: {
+      newUniqueId: () => ({ toString: () => session }),
+      idFromString: () => ({}),
+      get: () => ({
+        fetch: async (url, init) => {
+          chamadas++;
+          assert.equal(new URL(url).pathname, '/proxy');
+          const body = JSON.parse(init.body);
+          assert.equal(body.items[0].method, 'blockchain.scripthash.get_history');
+          return new Response(JSON.stringify({ results: [[]], errors: [null] }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      })
+    }
+  });
+  const r = await worker.fetch(new Request('https://x/api/proxy', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session, items: [
+      { method: 'blockchain.scripthash.get_history', params: [sh] }
+    ] })
+  }), env2);
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { results: [[]], errors: [null] });
+  assert.equal(chamadas, 1);
+  console.log('ok   lote com sessão vai ao Durable Object, sem I/O no Worker');
+}
+
 /* ---------------- 4. rotas de carteira não existem ---------------- */
 {
   for (const rota of ['/api/wallet', '/api/raw', '/api/psbt', '/api/cpfp', '/api/broadcast']) {
@@ -116,7 +149,7 @@ async function post(path, body) {
   console.log('ok   sessão do WebSocket e health sem estado');
 }
 
-assert.equal(fake.count('server.version'), 1, 'a conexão Electrum é reaproveitada');
+assert.ok(fake.count('server.version') >= 1);
 await fake.close();
-console.log('ok   conexão Electrum reaproveitada entre lotes, taxa e broadcast');
+console.log('ok   proxy sem sessão abre conexão avulsa; a reutilização é testada no Durable Object');
 console.log('\ntestes do proxy passaram');

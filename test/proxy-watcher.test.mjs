@@ -65,6 +65,19 @@ await sleep(200);
 assert.ok(watcher.subs.has(sh), 'assinatura registrada');
 assert.equal(fake.count('blockchain.scripthash.subscribe'), 1);
 
+/* O DO também executa lotes do proxy na mesma conexão da assinatura. */
+const batch = await watcher.fetch(new Request('https://watch/proxy', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ items: [
+    { method: 'blockchain.scripthash.get_history', params: [sh] },
+    { method: 'blockchain.scripthash.get_mempool', params: [sh] }
+  ] })
+}));
+assert.equal(batch.status, 200);
+const batchJson = await batch.json();
+assert.equal(batchJson.results[0][0].tx_hash, tx.txid);
+assert.equal(fake.count('server.version'), 1, 'a mesma conexão serve assinatura e proxy');
+
 fake.notify(sh);
 await sleep(100);
 const messages = client.messages.map(m => JSON.parse(m));

@@ -97,8 +97,8 @@ D1/KV/R2 or private key.
 
 ### Real time
 
-The `ProxyWatcher` Durable Object stores only the **scripthash** set subscribed
-by the screen. When Electrum notifies a change it sends
+The `ProxyWatcher` Durable Object keeps the reused Electrum connection for the
+proxy and stores only the **scripthash** set subscribed by the screen. When Electrum notifies a change it sends
 `{ "type": "scripthash", "scripthash": "..." }`; the browser re-queries the
 proxy and recomputes everything. With no screen open, the connection and
 subscriptions are dropped. The object holds no xpub, addresses or scanner.
@@ -226,7 +226,7 @@ misconfigured).
 | --- | --- |
 | `POST /api/proxy` | Allowed Electrum JSON-RPC batch (scripthash/txid/fee/broadcast). |
 | `GET /api/fees` | Estimate from the primary source, with levels and a short cache. |
-| `POST /api/session` | Create the ephemeral notification WebSocket id. |
+| `POST /api/session` | Create the proxy/notification Durable Object id. |
 | `GET /api/events?session=…` | WebSocket that returns only changed scripthashes. |
 | `GET /api/health` | Effective configuration and proxy flags. |
 
@@ -257,8 +257,8 @@ show the source host; with no estimate it returns 502.
 
 ### `POST /api/session`
 
-Returns `{ "session": "<64 hex>" }`; it is only the notification Durable
-Object id, unrelated to the wallet.
+Returns `{ "session": "<64 hex>" }`; it is the Durable Object id that keeps
+the reused proxy connection and notifications. It contains no wallet.
 
 ### `GET /api/events?session=…`
 
@@ -287,10 +287,10 @@ Returns `{ "ok": true, "service": "monitor-btc-proxy", "source": "electrum",
   Local derivation protects against a server that receives requests, not
   against a server that controls the delivered code. That guarantee would
   require a client downloaded and verified outside the Worker.
-- The session id is a notification-only capability: whoever holds it while
-  the screen is open can subscribe scripthashes and see which changed, not
-  read balance, addresses or PSBT. It is random and disappears when the last
-  screen closes.
+- The session id is a proxy/notification capability: whoever holds it while
+  the screen is open can query scripthashes/txids and subscribe to changes,
+  not read balance, addresses or PSBT. It is random and disappears when the
+  last screen closes.
 - The Monitor never sees a private key. The PSBT leaves unsigned and the Cofre
   BTC performs the authoritative check before signing.
 - The send PSBT and the CPFP child are built in the browser from the raw

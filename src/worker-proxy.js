@@ -9,78 +9,14 @@
 import { openElectrum, estimateFees } from './electrum.js';
 import { electrumConfig, fail, json, SECURITY_HEADERS } from './config.js';
 import { ProxyWatcher } from './proxy-watcher.js';
+import { normalizeProxyItems, runProxyItems } from './proxy-rpc.js';
 
-const MAX_PROXY_ITEMS = 2500;
-const MAX_TX_HEX = 400000;
 const RATE_WINDOW_MS = 60000;
 const RATE_MAX_REQUESTS = 120;
 const RATE_MAX_PROXY_ITEMS = 20000;
 const RATE_REFILL_PER_MS = RATE_MAX_REQUESTS / RATE_WINDOW_MS;
 const RATE_ITEM_REFILL_PER_MS = RATE_MAX_PROXY_ITEMS / RATE_WINDOW_MS;
 const rateBuckets = new Map();
-
-/* Conexão Electrum reaproveitada entre pedidos do mesmo isolate. Sem isso
-   cada lote de scripthashes abria uma conexão e refazia o handshake, que era
-   o principal custo da consulta. O socket é fechado após 30 s sem uso; se o
-   isolate for despejado, a próxima chamada abre outro. */
-let sharedClient = null;
-let sharedKey = '';
-let sharedOpening = null;
-let sharedInFlight = 0;
-let sharedIdleTimer = null;
-const SHARED_IDLE_MS = 30000;
-
-function sharedConfigKey(cfg) {
-  return (cfg.servers || []).map(s => s.host + ':' + s.port + ':' + (s.secure ? 'tls' : 'tcp')).join(',') + '|' + cfg.timeoutMs;
-}
-
-function clearSharedIdle() {
-  if (sharedIdleTimer) clearTimeout(sharedIdleTimer);
-  sharedIdleTimer = null;
-}
-
-function armSharedIdle() {
-  clearSharedIdle();
-  sharedIdleTimer = setTimeout(() => {
-    sharedIdleTimer = null;
-    if (sharedInFlight || !sharedClient) return;
-    const client = sharedClient;
-    sharedClient = null;
-    sharedKey = '';
-    try { client.close(); } catch (e) {}
-  }, SHARED_IDLE_MS);
-  if (sharedIdleTimer && typeof sharedIdleTimer.unref === 'function') sharedIdleTimer.unref();
-}
-
-async function getSharedClient(cfg) {
-  const key = sharedConfigKey(cfg);
-  if (sharedClient && !sharedClient.dead && sharedKey === key) return sharedClient;
-  if (sharedOpening) return await sharedOpening;
-  sharedOpening = (async () => {
-    if (sharedClient) {
-      try { await sharedClient.close(); } catch (e) {}
-      sharedClient = null;
-    }
-    const client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
-    sharedClient = client;
-    sharedKey = key;
-    return client;
-  })();
-  try { return await sharedOpening; }
-  finally { sharedOpening = null; }
-}
-
-async function withShared(cfg, run) {
-  const client = await getSharedClient(cfg);
-  sharedInFlight++;
-  clearSharedIdle();
-  try {
-    return await run(client);
-  } finally {
-    sharedInFlight--;
-    if (!sharedInFlight) armSharedIdle();
-  }
-}
 
 function clientIp(request) {
   const h = request.headers;
@@ -140,85 +76,56 @@ async function withRate(request, items, run) {
   return await run();
 }
 
-const READ_METHODS = new Set([
-  'blockchain.scripthash.get_history',
-  'blockchain.scripthash.get_mempool',
-  'blockchain.transaction.get',
-  'blockchain.estimatefee'
-]);
-const BROADCAST_METHOD = 'blockchain.transaction.broadcast';
-const HEX64 = /^[0-9a-f]{64}$/;
-
-function proxyItem(raw) {
-  if (!raw || typeof raw !== 'object') throw new Error('item de proxy inválido');
-  const method = String(raw.method || '');
-  if (method !== BROADCAST_METHOD && !READ_METHODS.has(method)) {
-    throw new Error('método não permitido: ' + method);
-  }
-  const params = Array.isArray(raw.params) ? raw.params : [];
-  if (method === 'blockchain.scripthash.get_history' || method === 'blockchain.scripthash.get_mempool') {
-    if (params.length !== 1 || !HEX64.test(String(params[0] || '').toLowerCase())) {
-      throw new Error('scripthash inválido');
-    }
-    return { method, params: [String(params[0]).toLowerCase()] };
-  }
-  if (method === 'blockchain.transaction.get') {
-    if (params.length < 1 || !HEX64.test(String(params[0] || '').toLowerCase())) {
-      throw new Error('txid inválido');
-    }
-    return { method, params: [String(params[0]).toLowerCase()] };
-  }
-  if (method === 'blockchain.estimatefee') {
-    const target = Number(params[0]);
-    if (!Number.isInteger(target) || target < 1 || target > 1000) {
-      throw new Error('alvo de taxa inválido');
-    }
-    return { method, params: [target] };
-  }
-  const tx = String(params[0] || '').toLowerCase();
-  if (tx.length < 2 || tx.length > MAX_TX_HEX || tx.length % 2 || !/^[0-9a-f]+$/.test(tx)) {
-    throw new Error('transação inválida');
-  }
-  return { method, params: [tx] };
+function sessionId(value) {
+  const s = String(value || '').trim();
+  return /^[0-9a-f]{64}$/.test(s) ? s : '';
 }
 
-async function runProxyItems(client, items) {
-  const results = new Array(items.length);
-  const errors = new Array(items.length);
-  let cursor = 0;
-  const worker = async () => {
-    for (;;) {
-      const i = cursor++;
-      if (i >= items.length) return;
-      try { results[i] = await client.request(items[i].method, items[i].params); }
-      catch (e) { errors[i] = e && e.message ? e.message : String(e); results[i] = null; }
-    }
-  };
-  const workers = [];
-  for (let k = 0; k < Math.min(20, items.length); k++) workers.push(worker());
-  await Promise.all(workers);
-  return { results, errors };
+async function openOne(cfg, fn) {
+  let client;
+  try {
+    client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
+  } catch (e) {
+    throw new Error('Electrum indisponível: ' + (e && e.message ? e.message : e));
+  }
+  try { return await fn(client); }
+  finally { try { await client.close(); } catch (e) {} }
 }
 
 async function handleProxy(request, env) {
   let body;
   try { body = await request.json(); } catch (e) { return fail('json inválido'); }
-  const rawItems = Array.isArray(body && body.items) ? body.items : [body];
-  if (!rawItems.length || rawItems.length > MAX_PROXY_ITEMS) return fail('lote inválido');
   let items;
-  try { items = rawItems.map(proxyItem); }
+  try { items = normalizeProxyItems(body); }
   catch (e) { return fail(e.message); }
-  if (items.some(item => item.method === BROADCAST_METHOD) && items.length !== 1) {
-    return fail('broadcast precisa ser sozinho no lote');
-  }
   return await withRate(request, items.length, async () => {
     const cfg = electrumConfig(env);
     if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
     if (cfg.error) return fail(cfg.error, 503);
+    /* Com sessão, o ProxyWatcher segura a conexão Electrum e o lote é
+       executado dentro do objeto. Sem sessão (dev/testes), abre e fecha. */
+    const session = sessionId(body && body.session);
+    if (env.WATCH && session) {
+      try {
+        const stub = env.WATCH.get(env.WATCH.idFromString(session));
+        const res = await stub.fetch('https://watch/proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items })
+        });
+        return new Response(res.body, {
+          status: res.status,
+          statusText: res.statusText,
+          headers: res.headers
+        });
+      } catch (e) {
+        return fail('Electrum indisponível: ' + (e && e.message ? e.message : e), 502);
+      }
+    }
     try {
-      return await withShared(cfg, async client => json(await runProxyItems(client, items)));
+      return await openOne(cfg, async client => json(await runProxyItems(client, items)));
     } catch (e) {
-      return fail('Electrum indisponível: ' + (e && e.message ? e.message : e), 502);
+      return fail(e && e.message ? e.message : String(e), 502);
     }
   });
 }
@@ -226,15 +133,24 @@ async function handleProxy(request, env) {
 const feeCache = new Map();
 const FEE_CACHE_MS = 30000;
 
-async function handleFees(env) {
+async function handleFees(request, env, url) {
+  const session = sessionId(url && url.searchParams.get('session'));
+  if (env.WATCH && session) {
+    try {
+      const stub = env.WATCH.get(env.WATCH.idFromString(session));
+      return await stub.fetch('https://watch/fees');
+    } catch (e) {
+      return fail('Electrum indisponível: ' + (e && e.message ? e.message : e), 502);
+    }
+  }
   const cfg = electrumConfig(env);
   if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
   if (cfg.error) return fail(cfg.error, 503);
-  const key = sharedConfigKey(cfg);
+  const key = (cfg.servers || []).map(s => s.host + ':' + s.port).join(',') + '|' + cfg.timeoutMs;
   const cached = feeCache.get(key);
   if (cached && Date.now() - cached.at < FEE_CACHE_MS) return json(cached.data);
   try {
-    const data = await withShared(cfg, async client => {
+    const data = await openOne(cfg, async client => {
       const fees = await estimateFees(client);
       return {
         levels: fees.levels,
@@ -251,7 +167,7 @@ async function handleFees(env) {
     feeCache.set(key, { at: Date.now(), data });
     return json(data);
   } catch (e) {
-    return fail('Electrum indisponível: ' + (e && e.message ? e.message : e), 502);
+    return fail(e && e.message ? e.message : String(e), 502);
   }
 }
 
@@ -318,13 +234,15 @@ async function route(request, env) {
     }
     if (url.pathname === '/api/fees') {
       if (request.method !== 'GET' && request.method !== 'HEAD') return fail('use GET', 405);
-      return await withRate(request, 1, () => handleFees(env));
+      return await withRate(request, 1, () => handleFees(request, env, url));
     }
     if (url.pathname === '/api/session') {
       if (request.method !== 'POST') return fail('use POST', 405);
       return await withRate(request, 1, () => handleSession(env));
     }
-    if (url.pathname === '/api/events') return await withRate(request, 1, () => handleEvents(request, env));
+    if (url.pathname === '/api/events') {
+      return await withRate(request, 1, () => handleEvents(request, env));
+    }
     if (url.pathname.startsWith('/api/')) return fail('rota não encontrada', 404);
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD' } });

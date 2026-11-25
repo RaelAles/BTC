@@ -96,8 +96,8 @@ chave privada.
 
 ### Tempo real
 
-O Durable Object `ProxyWatcher` guarda apenas o conjunto de **scripthashes**
-assinado pela tela. Quando o Electrum avisa uma mudança, ele envia
+O Durable Object `ProxyWatcher` segura a conexão Electrum reaproveitada pelo
+proxy e guarda apenas o conjunto de **scripthashes** assinado pela tela. Quando o Electrum avisa uma mudança, ele envia
 `{ "type": "scripthash", "scripthash": "..." }`; o navegador reconsulta o
 histórico no proxy e recalcula tudo. Sem tela aberta, a conexão e as
 assinaturas são descartadas. Não há xpub, endereços ou scanner no objeto.
@@ -226,7 +226,7 @@ desligado ou mal configurado).
 | --- | --- |
 | `POST /api/proxy` | Lote JSON-RPC permitido do Electrum (scripthash/txid/taxa/broadcast). |
 | `GET /api/fees` | Estimativa da fonte principal, com níveis e cache curto. |
-| `POST /api/session` | Cria o id efêmero do WebSocket de notificações. |
+| `POST /api/session` | Cria o id do proxy/notificações (Durable Object). |
 | `GET /api/events?session=…` | WebSocket que devolve só scripthashes alterados. |
 | `GET /api/health` | Configuração efetiva e flags do proxy. |
 
@@ -256,8 +256,8 @@ fonte; sem estimativa, responde 502.
 
 ### `POST /api/session`
 
-Devolve `{ "session": "<64 hex>" }`; é só o id do Durable Object de
-notificações, sem relação com a carteira.
+Devolve `{ "session": "<64 hex>" }`; é o id do Durable Object que segura a
+conexão reaproveitada do proxy e as notificações. Não contém carteira.
 
 ### `GET /api/events?session=…`
 
@@ -286,10 +286,10 @@ Devolve `{ "ok": true, "service": "monitor-btc-proxy", "source": "electrum",
   derivação local protege contra o servidor que recebe as requisições, não
   contra o servidor que controla o código entregue. Para essa garantia seria
   preciso um cliente baixado e verificado fora do Worker.
-- O id da sessão é uma capacidade temporária só de notificações: quem tiver o
-  id enquanto a tela estiver aberta consegue assinar scripthashes e ver quais
-  mudaram, não ler saldo, endereços ou PSBT. Ele é aleatório e deixa de existir
-  quando a última tela fecha.
+- O id da sessão é uma capacidade temporária do proxy/notificações: quem tiver
+  o id enquanto a tela estiver aberta consegue consultar scripthashes/txids e
+  assinar/ver notificações, não ler saldo, endereços ou PSBT. Ele é aleatório e
+  deixa de existir quando a última tela fecha.
 - O Monitor nunca vê chave privada. O PSBT sai sem assinatura e o Cofre BTC
   faz a conferência que vale antes de assinar.
 - O PSBT de envio e o filho de CPFP são montados no navegador com as transações

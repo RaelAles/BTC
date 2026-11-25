@@ -5,8 +5,9 @@
    tela estiver aberta. Um aviso vira `{type:"scripthash",scripthash}`; o
    navegador reconsulta o histórico/transações no proxy e recalcula tudo
    localmente. Sem socket, fecha a conexão e esquece as assinaturas. */
-import { openElectrum } from './electrum.js';
+import { openElectrum, estimateFees } from './electrum.js';
 import { electrumConfig, json } from './config.js';
+import { normalizeProxyItems, runProxyItems } from './proxy-rpc.js';
 
 const KEEPALIVE_MS = 30000;
 const IDLE_CLOSE_MS = 60000;
@@ -43,6 +44,38 @@ export class ProxyWatcher {
     const url = new URL(request.url);
     if (url.pathname === '/events' || url.pathname === '/api/events') {
       return await this.events(request);
+    }
+    if (url.pathname === '/fees') {
+      try {
+        const client = await this.ensureClient();
+        const fees = await estimateFees(client);
+        return json({
+          levels: fees.levels,
+          targets: fees.targets,
+          sat_per_vb: fees.sat_per_vb,
+          sat_per_kvb: fees.sat_per_kvb,
+          floored: fees.floored,
+          relay_min_kvb: fees.relay_min_kvb,
+          unit: fees.unit,
+          sources: [{ source: 'electrum', levels: fees.levels }],
+          updated_at: new Date().toISOString()
+        });
+      } catch (e) {
+        return json({ error: e && e.message ? e.message : String(e) }, 502);
+      }
+    }
+    if (url.pathname === '/proxy' && request.method === 'POST') {
+      let body;
+      try { body = await request.json(); } catch (e) { return json({ error: 'json inválido' }, 400); }
+      let items;
+      try { items = normalizeProxyItems(body); }
+      catch (e) { return json({ error: e.message }, 400); }
+      try {
+        const client = await this.ensureClient();
+        return json(await runProxyItems(client, items));
+      } catch (e) {
+        return json({ error: e && e.message ? e.message : String(e) }, 502);
+      }
     }
     return json({ error: 'rota do proxy não encontrada' }, 404);
   }
