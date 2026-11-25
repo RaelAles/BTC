@@ -55,9 +55,8 @@ em segundo plano com a tela fechada.
    ajustado à área visível. A transação pendente que ainda tem uma saída
    própria não gasta ganha o botão **acelerar**, que monta um PSBT filho de
    CPFP sem assinatura.
-4. **Enviar BTC**: quantidade, destino e a taxa calculada ao vivo pela mediana
-   das fontes configuradas (alvo de 2 blocos), reconsultada a cada 60
-   segundos. A tela mostra a fonte usada. Não há escolha de taxa. A quantidade usa máscara de BTC: só
+4. **Enviar BTC**: quantidade, destino e a taxa calculada ao vivo pela fonte
+   principal (alvo de 2 blocos), reconsultada a cada 60 segundos. A tela não exibe o host da fonte. Não há escolha de taxa. A quantidade usa máscara de BTC: só
    dígitos, com o ponto entrando da direita para a esquerda. A nota abaixo do
    campo mostra o máximo enviável para aquele destino e aquela taxa. Um
    pedido válido monta o PSBT sozinho; abaixo do pó (0,00000546 BTC) ou acima
@@ -105,10 +104,10 @@ assinaturas são descartadas. Não há xpub, endereços ou scanner no objeto.
 
 ### Taxa
 
-`GET /api/fees` consulta os servidores configurados em paralelo e devolve a
-mediana por nível, a lista de fontes e o piso de relay. A tela mostra a fonte
-usada e os limites da estimativa; a taxa final e o PSBT continuam sendo
-calculados no navegador. O Worker ainda é uma fonte de dados e pode mentir.
+`GET /api/fees` usa a conexão Electrum principal, devolve os níveis, o piso de
+relay e `sources` no JSON (sem exibir host na tela), com cache curto para não
+reabrir conexão a cada minuto. A taxa final e o PSBT continuam sendo calculados
+no navegador. O Worker ainda é uma fonte de dados e pode mentir.
 
 ### PSBT e CPFP
 
@@ -226,7 +225,7 @@ desligado ou mal configurado).
 | Rota | Função |
 | --- | --- |
 | `POST /api/proxy` | Lote JSON-RPC permitido do Electrum (scripthash/txid/taxa/broadcast). |
-| `GET /api/fees` | Estimativa de uma ou mais fontes, com origem e níveis. |
+| `GET /api/fees` | Estimativa da fonte principal, com níveis e cache curto. |
 | `POST /api/session` | Cria o id efêmero do WebSocket de notificações. |
 | `GET /api/events?session=…` | WebSocket que devolve só scripthashes alterados. |
 | `GET /api/health` | Configuração efetiva e flags do proxy. |
@@ -251,10 +250,9 @@ O proxy não aceita xpub, endereços, scripts, pubkeys nem rotas de carteira.
 
 ### `GET /api/fees`
 
-Devolve `levels`, `sat_per_vb`, `floored`, `relay_min_kvb`, `source`,
-`sources[]` (cada uma com `source` e `levels` ou `error`) e `updated_at`. A
-mediana é calculada por nível entre as fontes que responderam; sem nenhuma
-fonte, responde 502.
+Devolve `levels`, `sat_per_vb`, `floored`, `relay_min_kvb`, `sources[]` e
+`updated_at`, com cache curto. A tela usa `levels.next` e não mostra o host da
+fonte; sem estimativa, responde 502.
 
 ### `POST /api/session`
 
@@ -419,8 +417,8 @@ package.json
 - **Polling de segurança.** Sem WebSocket em funcionamento, a tela recarrega
   a cada 30 segundos; cada recarga começa uma varredura completa nova.
 - **Estimador de taxa.** O `estimatefee` é histórico: pode ficar acima ou
-  abaixo da fila atual. A tela usa a mediana das fontes configuradas, mas não
-  há histograma nem piso econômico; só o piso de relay aparece como aviso.
+  abaixo da fila atual. A tela usa a fonte principal e um cache curto; não há
+  histograma nem piso econômico; só o piso de relay aparece como aviso.
 - **Freio de abuso.** 120 pedidos por minuto por IP e 20 000 itens de proxy por
   minuto por IP. O contador vive na memória do isolate e não é uma cota
   global: ele contém rajadas por instância. Um lote de varredura grande pode

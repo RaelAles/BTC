@@ -2209,15 +2209,8 @@
     if (!(rate > 0)) { line.textContent = ''; return; }
     var fee = feeQuotes()[rate];
     var amount = amountSats();
-    var fees = state.fees || {};
     line.textContent = t('taxa {rate} sat/vB', { rate: dec(rate) }) +
-      (fee > 0 && amount > 0 ? ' · ' + dec(fmtPercent(fee, amount)) + '%' : '') +
-      (fees.source ? ' · ' + String(fees.source).split(',')[0] : '');
-    if (Array.isArray(fees.sources) && fees.sources.length) {
-      line.title = fees.sources.map(function (s) {
-        return s.source + (s.error ? ': ' + s.error : '');
-      }).join('\n');
-    }
+      (fee > 0 && amount > 0 ? ' · ' + dec(fmtPercent(fee, amount)) + '%' : '');
   }
 
   /* Taxa ao vivo: a rota usa a conexão da sessão quando ela existe e o

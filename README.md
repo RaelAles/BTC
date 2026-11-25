@@ -55,8 +55,7 @@ background watch with the page closed.
    has an unspent wallet output gets the **accelerate** button, which builds
    an unsigned CPFP child PSBT.
 4. **Send BTC**: amount, destination and the fee calculated live from the
-   median of the configured sources (2-block target), refreshed every 60
-   seconds. The screen shows the source used.
+   primary source (2-block target), refreshed every 60 seconds. The screen does not show the source host.
    There is no fee picker. The amount uses a BTC mask: digits only, with the
    decimal point moving right to left. The note below the field shows the
    maximum sendable amount for that destination and fee. A valid request
@@ -106,10 +105,11 @@ subscriptions are dropped. The object holds no xpub, addresses or scanner.
 
 ### Fee
 
-`GET /api/fees` queries the configured servers in parallel and returns the
-median per level, the source list and the relay floor. The screen shows the
-source and the estimate limits; the final fee and PSBT are still computed in
-the browser. The Worker remains a data source and can lie.
+`GET /api/fees` uses the primary Electrum connection and returns the levels,
+the relay floor and `sources` in JSON (without showing the host on screen),
+with a short cache so it does not reopen a connection every minute. The final
+fee and PSBT are still computed in the browser. The Worker remains a data
+source and can lie.
 
 ### PSBT and CPFP
 
@@ -225,7 +225,7 @@ misconfigured).
 | Route | Function |
 | --- | --- |
 | `POST /api/proxy` | Allowed Electrum JSON-RPC batch (scripthash/txid/fee/broadcast). |
-| `GET /api/fees` | Estimate from one or more sources, with origin and levels. |
+| `GET /api/fees` | Estimate from the primary source, with levels and a short cache. |
 | `POST /api/session` | Create the ephemeral notification WebSocket id. |
 | `GET /api/events?session=…` | WebSocket that returns only changed scripthashes. |
 | `GET /api/health` | Effective configuration and proxy flags. |
@@ -251,10 +251,9 @@ routes.
 
 ### `GET /api/fees`
 
-Returns `levels`, `sat_per_vb`, `floored`, `relay_min_kvb`, `source`,
-`sources[]` (each with `source` and `levels`, or `error`) and `updated_at`.
-The median is computed per level across sources that answered; with no source
-it returns 502.
+Returns `levels`, `sat_per_vb`, `floored`, `relay_min_kvb`, `sources[]` and
+`updated_at`, with a short cache. The screen uses `levels.next` and does not
+show the source host; with no estimate it returns 502.
 
 ### `POST /api/session`
 
@@ -416,9 +415,8 @@ package.json
 - **Fallback polling.** Without a working WebSocket, the screen reloads every
   30 seconds; each reload starts a new full scan.
 - **Fee estimator.** `estimatefee` is historical: it may be above or below the
-  current queue. The screen uses the median of the configured sources, but
-  there is no histogram or economic floor; only the relay floor is shown as a
-  warning.
+  current queue. The screen uses the primary source and a short cache; there is
+  no histogram or economic floor; only the relay floor is shown as a warning.
 - **Abuse brake.** 120 requests per minute per IP and 20,000 proxy items per
   minute per IP. The counter lives in the isolate's memory and is not a global
   quota: it contains bursts per instance. A large scan batch may be refused

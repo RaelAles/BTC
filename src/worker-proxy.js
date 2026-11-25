@@ -19,6 +19,69 @@ const RATE_REFILL_PER_MS = RATE_MAX_REQUESTS / RATE_WINDOW_MS;
 const RATE_ITEM_REFILL_PER_MS = RATE_MAX_PROXY_ITEMS / RATE_WINDOW_MS;
 const rateBuckets = new Map();
 
+/* Conexão Electrum reaproveitada entre pedidos do mesmo isolate. Sem isso
+   cada lote de scripthashes abria uma conexão e refazia o handshake, que era
+   o principal custo da consulta. O socket é fechado após 30 s sem uso; se o
+   isolate for despejado, a próxima chamada abre outro. */
+let sharedClient = null;
+let sharedKey = '';
+let sharedOpening = null;
+let sharedInFlight = 0;
+let sharedIdleTimer = null;
+const SHARED_IDLE_MS = 30000;
+
+function sharedConfigKey(cfg) {
+  return (cfg.servers || []).map(s => s.host + ':' + s.port + ':' + (s.secure ? 'tls' : 'tcp')).join(',') + '|' + cfg.timeoutMs;
+}
+
+function clearSharedIdle() {
+  if (sharedIdleTimer) clearTimeout(sharedIdleTimer);
+  sharedIdleTimer = null;
+}
+
+function armSharedIdle() {
+  clearSharedIdle();
+  sharedIdleTimer = setTimeout(() => {
+    sharedIdleTimer = null;
+    if (sharedInFlight || !sharedClient) return;
+    const client = sharedClient;
+    sharedClient = null;
+    sharedKey = '';
+    try { client.close(); } catch (e) {}
+  }, SHARED_IDLE_MS);
+  if (sharedIdleTimer && typeof sharedIdleTimer.unref === 'function') sharedIdleTimer.unref();
+}
+
+async function getSharedClient(cfg) {
+  const key = sharedConfigKey(cfg);
+  if (sharedClient && !sharedClient.dead && sharedKey === key) return sharedClient;
+  if (sharedOpening) return await sharedOpening;
+  sharedOpening = (async () => {
+    if (sharedClient) {
+      try { await sharedClient.close(); } catch (e) {}
+      sharedClient = null;
+    }
+    const client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
+    sharedClient = client;
+    sharedKey = key;
+    return client;
+  })();
+  try { return await sharedOpening; }
+  finally { sharedOpening = null; }
+}
+
+async function withShared(cfg, run) {
+  const client = await getSharedClient(cfg);
+  sharedInFlight++;
+  clearSharedIdle();
+  try {
+    return await run(client);
+  } finally {
+    sharedInFlight--;
+    if (!sharedInFlight) armSharedIdle();
+  }
+}
+
 function clientIp(request) {
   const h = request.headers;
   const raw = h.get('cf-connecting-ip') || h.get('x-forwarded-for') || 'local';
@@ -152,72 +215,44 @@ async function handleProxy(request, env) {
     const cfg = electrumConfig(env);
     if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
     if (cfg.error) return fail(cfg.error, 503);
-    let client;
     try {
-      client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
+      return await withShared(cfg, async client => json(await runProxyItems(client, items)));
     } catch (e) {
       return fail('Electrum indisponível: ' + (e && e.message ? e.message : e), 502);
     }
-    try {
-      return json(await runProxyItems(client, items));
-    } finally {
-      try { await client.close(); } catch (e) {}
-    }
   });
 }
+
+const feeCache = new Map();
+const FEE_CACHE_MS = 30000;
 
 async function handleFees(env) {
   const cfg = electrumConfig(env);
   if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
   if (cfg.error) return fail(cfg.error, 503);
-  const sources = await Promise.all(cfg.servers.map(async server => {
-    try {
-      const client = await openElectrum({ servers: [server], timeoutMs: cfg.timeoutMs });
-      try {
-        const fees = await estimateFees(client);
-        return {
-          source: client.name,
-          levels: fees.levels,
-          sat_per_vb: fees.sat_per_vb,
-          floored: fees.floored
-        };
-      } finally {
-        try { await client.close(); } catch (e) {}
-      }
-    } catch (e) {
-      return { source: server.host + ':' + server.port, error: e && e.message ? e.message : String(e) };
-    }
-  }));
-  const ok = sources.filter(s => !s.error);
-  if (!ok.length) return fail('nenhum servidor Electrum respondeu: ' + sources.map(s => s.source + ': ' + s.error).join('; '), 502);
-  /* Mediana por nível entre as fontes que responderam. O cliente mostra
-     todas as fontes e o valor escolhido; nenhuma taxa é imposta pelo
-     servidor. */
-  const chosen = ok[0];
-  const levels = {};
-  const satPerVb = {};
-  const floored = {};
-  const keys = Object.keys(chosen.levels || {});
-  for (const key of keys) {
-    const values = ok.map(s => Number(s.sat_per_vb && s.sat_per_vb[key]))
-      .filter(v => Number.isFinite(v) && v > 0)
-      .sort((a, b) => a - b);
-    const value = values.length ? values[Math.floor(values.length / 2)] : null;
-    satPerVb[key] = value;
-    levels[key] = value;
-    floored[key] = value != null && value < 0.1;
+  const key = sharedConfigKey(cfg);
+  const cached = feeCache.get(key);
+  if (cached && Date.now() - cached.at < FEE_CACHE_MS) return json(cached.data);
+  try {
+    const data = await withShared(cfg, async client => {
+      const fees = await estimateFees(client);
+      return {
+        levels: fees.levels,
+        targets: fees.targets,
+        sat_per_vb: fees.sat_per_vb,
+        sat_per_kvb: fees.sat_per_kvb,
+        floored: fees.floored,
+        relay_min_kvb: fees.relay_min_kvb,
+        unit: fees.unit,
+        sources: [{ source: 'electrum', levels: fees.levels }],
+        updated_at: new Date().toISOString()
+      };
+    });
+    feeCache.set(key, { at: Date.now(), data });
+    return json(data);
+  } catch (e) {
+    return fail('Electrum indisponível: ' + (e && e.message ? e.message : e), 502);
   }
-  return json({
-    levels,
-    targets: { next: 2 },
-    sat_per_vb: satPerVb,
-    floored,
-    relay_min_kvb: 100,
-    unit: 'sat/vB',
-    source: ok.map(s => s.source).join(', '),
-    sources,
-    updated_at: new Date().toISOString()
-  });
 }
 
 function handleSession(env) {

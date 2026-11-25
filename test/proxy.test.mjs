@@ -80,8 +80,9 @@ async function post(path, body) {
   assert.equal(r.status, 200, JSON.stringify(j));
   assert.ok(j.levels.next > 0);
   assert.ok(Array.isArray(j.sources) && j.sources.length === 1);
-  assert.match(j.source, /:\d+/);
-  console.log('ok   taxa volta com nível, fonte e limites');
+  assert.equal(j.source, undefined, 'a taxa não publica host como legenda');
+  assert.equal(j.sources[0].source, 'electrum');
+  console.log('ok   taxa volta com nível e limites, sem host como legenda');
 }
 
 /* ---------------- 4. rotas de carteira não existem ---------------- */
@@ -115,5 +116,7 @@ async function post(path, body) {
   console.log('ok   sessão do WebSocket e health sem estado');
 }
 
+assert.equal(fake.count('server.version'), 1, 'a conexão Electrum é reaproveitada');
 await fake.close();
+console.log('ok   conexão Electrum reaproveitada entre lotes, taxa e broadcast');
 console.log('\ntestes do proxy passaram');
