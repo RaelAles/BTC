@@ -119,13 +119,15 @@ async function handleProxy(request, env) {
           headers: res.headers
         });
       } catch (e) {
-        return fail('Electrum indisponível: ' + (e && e.message ? e.message : e), 502);
+        console.error('[worker-proxy] falha no lote pela sessão:', e);
+        return fail('Electrum indisponível', 502);
       }
     }
     try {
       return await openOne(cfg, async client => json(await runProxyItems(client, items)));
     } catch (e) {
-      return fail(e && e.message ? e.message : String(e), 502);
+      console.error('[worker-proxy] falha no lote sem sessão:', e);
+      return fail('Electrum indisponível', 502);
     }
   });
 }
@@ -140,7 +142,8 @@ async function handleFees(request, env, url) {
       const stub = env.WATCH.get(env.WATCH.idFromString(session));
       return await stub.fetch('https://watch/fees');
     } catch (e) {
-      return fail('Electrum indisponível: ' + (e && e.message ? e.message : e), 502);
+      console.error('[worker-proxy] falha nas taxas pela sessão:', e);
+      return fail('Electrum indisponível', 502);
     }
   }
   const cfg = electrumConfig(env);
@@ -167,7 +170,8 @@ async function handleFees(request, env, url) {
     feeCache.set(key, { at: Date.now(), data });
     return json(data);
   } catch (e) {
-    return fail(e && e.message ? e.message : String(e), 502);
+    console.error('[worker-proxy] falha nas taxas sem sessão:', e);
+    return fail('Electrum indisponível', 502);
   }
 }
 
