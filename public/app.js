@@ -3862,6 +3862,40 @@
     // servidor), então não há nada para restaurar.
   }
 
+  /* --------------------------------------------------------------- fontes */
+  /* A fonte embutida não entra no caminho crítico: o CSS de @font-face é
+     buscado depois do load, para a primeira pintura usar a monoespaçada do
+     sistema. O font-display swap evita texto invisível enquanto o woff2
+     embutido é decodificado. Depois da troca, um resize refaz as medidas da
+     grade e do histórico com as métricas da fonte definitiva. */
+  var FONTES_SRI = '__FONTES_SRI__';
+  var fontsLoaded = false;
+  function loadFonts() {
+    if (fontsLoaded) return;
+    fontsLoaded = true;
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/dist/fontes.min.css';
+    if (FONTES_SRI.indexOf('sha384-') === 0) link.integrity = FONTES_SRI;
+    link.onload = function () {
+      var relayout = function () { window.dispatchEvent(new Event('resize')); };
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(relayout).catch(relayout);
+      } else {
+        relayout();
+      }
+    };
+    document.head.appendChild(link);
+  }
+  function scheduleFonts() {
+    ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(function (name) {
+      window.addEventListener(name, loadFonts, { once: true, passive: true });
+    });
+    setTimeout(loadFonts, 5000);
+  }
+  if (document.readyState === 'complete') scheduleFonts();
+  else window.addEventListener('load', scheduleFonts);
+
   /* ------------------------------------------------------------- instalar */
   /* Não há mais service worker: a instalação é definida pelo manifest e
      nenhuma navegação precisa passar por um worker. Desregistra o que tiver

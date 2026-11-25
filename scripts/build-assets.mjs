@@ -1,0 +1,124 @@
+#!/usr/bin/env node
+/* Gera os assets minificados de public/dist e atualiza o SRI no index.html.
+
+   O index publicado aponta para os arquivos de dist; as fontes em
+   public/fontes.css continuam sendo carregadas depois do load (pelo app.js)
+   para não entrarem no caminho crítico da primeira pintura. O hash do CSS de
+   fontes é injetado no app.js no lugar de __FONTES_SRI__.
+
+   Uso:
+     node scripts/build-assets.mjs
+     node scripts/build-assets.mjs --check */
+import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { transformSync } from 'esbuild';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const publicDir = path.join(root, 'public');
+const distDir = path.join(publicDir, 'dist');
+const indexPath = path.join(publicDir, 'index.html');
+
+const assets = [
+  { source: 'fontes.css', out: 'fontes.min.css', loader: 'css', kind: 'remove' },
+  { source: 'style.css', out: 'style.min.css', loader: 'css', kind: 'style' },
+  { source: 'wallet-local.js', out: 'wallet-local.min.js', loader: 'js', kind: 'script' },
+  { source: 'app.js', out: 'app.min.js', loader: 'js', kind: 'script' }
+];
+
+function minify(source, loader) {
+  return transformSync(source, {
+    loader,
+    minify: true,
+    legalComments: 'none',
+    ...(loader === 'js' ? { target: 'es2020' } : {})
+  }).code;
+}
+
+function sriOf(text) {
+  return 'sha384-' + createHash('sha384').update(text).digest('base64');
+}
+
+function read(file) {
+  return fs.readFileSync(path.join(publicDir, file), 'utf8');
+}
+
+function buildOutputs() {
+  const outputs = new Map();
+  for (const asset of assets) {
+    if (asset.out === 'fontes.min.css') {
+      outputs.set(asset.out, minify(read(asset.source), asset.loader));
+    }
+  }
+
+  const fontesSri = sriOf(outputs.get('fontes.min.css'));
+  for (const asset of assets) {
+    if (asset.out === 'fontes.min.css') continue;
+    let source = read(asset.source);
+    if (asset.out === 'app.min.js') {
+      source = source.replace('__FONTES_SRI__', fontesSri);
+    }
+    outputs.set(asset.out, minify(source, asset.loader));
+  }
+  return outputs;
+}
+
+function tagFor(asset, outputs) {
+  if (asset.kind === 'remove') return '';
+  const url = '/dist/' + asset.out;
+  const integrity = sriOf(outputs.get(asset.out));
+  if (asset.kind === 'style') {
+    return `<link rel="stylesheet" href="${url}" integrity="${integrity}">`;
+  }
+  return `<script src="${url}" defer integrity="${integrity}"></script>`;
+}
+
+function buildIndex(html, outputs) {
+  /* A folha de fontes é criada pelo app.js depois do load: sem link no HTML,
+     ela não disputa a primeira pintura. */
+  let out = html.replace(
+    /^[ \t]*<link\b[^>]*href="[^"]*fontes(?:\.min)?\.css"[^>]*>[ \t]*\r?\n?/gm,
+    ''
+  );
+  out = out.replace(/<link\b[^>]*>|<script\b[^>]*><\/script>/g, (tag) => {
+    const match = /\s(?:href|src)="([^"]+)"/.exec(tag);
+    if (!match) return tag;
+    const base = path.posix.basename(match[1]);
+    const asset = assets.find((item) => base === item.source || base === item.out);
+    return asset ? tagFor(asset, outputs) : tag;
+  });
+  return out;
+}
+
+const outputs = buildOutputs();
+const currentIndex = fs.readFileSync(indexPath, 'utf8');
+const nextIndex = buildIndex(currentIndex, outputs);
+const check = process.argv.includes('--check');
+
+if (check) {
+  let ok = true;
+  for (const [name, code] of outputs) {
+    const file = path.join(distDir, name);
+    if (!fs.existsSync(file) || fs.readFileSync(file, 'utf8') !== code) {
+      console.error('desatualizado: public/dist/' + name);
+      ok = false;
+    }
+  }
+  if (nextIndex !== currentIndex) {
+    console.error('desatualizado: public/index.html (caminhos ou SRI)');
+    ok = false;
+  }
+  if (!ok) {
+    console.error('rode npm run build');
+    process.exit(1);
+  }
+  console.log('ok   public/dist e SRI do index em dia');
+} else {
+  fs.mkdirSync(distDir, { recursive: true });
+  for (const [name, code] of outputs) {
+    fs.writeFileSync(path.join(distDir, name), code);
+  }
+  fs.writeFileSync(indexPath, nextIndex);
+  console.log('ok   public/dist gerado e SRI do index atualizado');
+}

@@ -144,8 +144,8 @@ for (const [nome, valor] of Object.entries(SECURITY_HEADERS)) ESPERADO[nome.toLo
     if (!url || !url.startsWith('/') || url.startsWith('//')) continue;
     alvos.push({ tag, url });
   }
-  assert.equal(alvos.length, 4,
-    'SRI cobre a derivação local, app.js e as duas folhas de estilo (achou ' + alvos.length + ')');
+  assert.equal(alvos.length, 3,
+    'SRI cobre a derivação local, app.js e a folha de estilo (achou ' + alvos.length + ')');
   for (const { tag, url } of alvos) {
     const file = path.join(root, 'public', url.slice(1));
     assert.ok(fs.existsSync(file), 'SRI: arquivo existe ' + url);
@@ -156,7 +156,7 @@ for (const [nome, valor] of Object.entries(SECURITY_HEADERS)) ESPERADO[nome.toLo
     assert.equal(m[1], esperado,
       'SRI: integrity de ' + url + ' acompanha o arquivo (novo hash: ' + esperado + ')');
   }
-  console.log('ok   SRI confere em wallet-local.js, app.js, style.css e fontes.css');
+  console.log('ok   SRI confere em wallet-local.js, app.js e style.css (fontes entra depois do load)');
 }
 
 /* ---------------- 5. o 101 do WebSocket passa intacto ---------------- */
