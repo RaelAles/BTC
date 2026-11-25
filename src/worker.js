@@ -21,12 +21,10 @@ const MAX_ADDRESS_LENGTH = 90;
                          Durable Object de tempo real (conexão Electrum
                          reaproveitada + assinaturas); sem ele, a consulta
                          é avulsa (dev/testes).
-   `POST /api/psbt`    → monta o PSBT de envio (sem assinatura) com os UTXOs
-                         da carteira e a taxa escolhida. A chave privada
-                         não passa por aqui; quem assina é o Cofre BTC.
-   `POST /api/cpfp`   → monta o PSBT da transação filha (CPFP) que gasta uma
-                         saída da transação pendente e devolve o resto para a
-                         carteira. Sem assinatura e sem transmitir.
+   `POST /api/raw`     → transações cruas do conjunto; o navegador monta o
+                         PSBT localmente.
+   `POST /api/psbt`    → legado: monta o PSBT no servidor. A tela não usa.
+   `POST /api/cpfp`   → legado: monta o CPFP no servidor. A tela não usa.
    `POST /api/broadcast` → confere o PSBT assinado contra a carteira e
                          (sem `preview`) publica a transação final no
                          Electrum. Só transmite o que gasta entradas desta
@@ -348,6 +346,46 @@ async function handleCpfp(request, env) {
   }
 }
 
+/* Transações cruas do conjunto observado: o navegador usa para conferir os
+   UTXOs e montar o PSBT localmente, sem o servidor escolher moedas. */
+async function handleRaw(request, env) {
+  let body;
+  try { body = await request.json(); } catch (e) { return fail('json inválido'); }
+  const input = walletInput(body);
+  if (input.error) return fail(input.error);
+  const session = sessionId(body.session);
+  if (env.WATCH && session) {
+    const stub = env.WATCH.get(env.WATCH.idFromString(session));
+    const res = await stub.fetch('https://watch/raw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(inputWire(input))
+    });
+    const payload = await res.json();
+    if (res.status !== 409 || (!input.wr && !input.xpub)) return json(payload, res.status);
+  }
+  if (!input.wr && !input.xpub) return fail('informe a xpub');
+
+  const cfg = electrumConfig(env);
+  if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
+  if (cfg.error) return fail(cfg.error, 503);
+  let client;
+  try {
+    client = await openElectrum({ servers: cfg.servers, timeoutMs: cfg.timeoutMs });
+  } catch (e) {
+    return fail('Electrum indisponível: ' + (e && e.message ? e.message : e), 502);
+  }
+  try {
+    const scanner = await scannerFor(env, input, client).init();
+    await scanner.fullSync();
+    return json({ raw: scanner.rawTransactions() });
+  } catch (e) {
+    return scanFailure(e, client);
+  } finally {
+    try { await client.close(); } catch (e) {}
+  }
+}
+
 async function handleBroadcast(request, env) {
   let body;
   try { body = await request.json(); } catch (e) { return fail('json inválido'); }
@@ -583,6 +621,10 @@ async function route(request, env) {
     if (url.pathname === '/api/cpfp') {
       if (request.method !== 'POST') return fail('use POST', 405);
       return await withScanSlot(request, () => handleCpfp(request, env));
+    }
+    if (url.pathname === '/api/raw') {
+      if (request.method !== 'POST') return fail('use POST', 405);
+      return await withScanSlot(request, () => handleRaw(request, env), true);
     }
     if (url.pathname === '/api/broadcast') {
       if (request.method !== 'POST') return fail('use POST', 405);

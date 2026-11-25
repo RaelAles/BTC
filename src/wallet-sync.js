@@ -728,6 +728,14 @@ export class WalletScanner {
     return 'bip86';
   }
 
+  /* Transações cruas conhecidas nesta sessão: é o que o navegador precisa
+     para conferir UTXOs, montar o PSBT e carregar o non_witness_utxo. */
+  rawTransactions() {
+    const out = {};
+    for (const [txid, raw] of this.txCache) out[txid] = raw;
+    return out;
+  }
+
   async payload() {
     const type = this.chooseType();
     const usedRows = [...this.byScript.values()].filter(r => r.used);

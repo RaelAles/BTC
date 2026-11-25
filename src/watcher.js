@@ -234,6 +234,19 @@ export class WalletWatcher {
         if (!this.sockets.size) this.armIdleClose();
         return json(fees);
       }
+      if (url.pathname === '/raw' && request.method === 'POST') {
+        let body = {};
+        try { body = await request.json(); } catch (e) {}
+        let scanner;
+        try { scanner = await this.resolveScanner(body); }
+        catch (e) { return this.routeError(e); }
+        try {
+          await this.refreshScanner(scanner, true);
+          return json({ raw: scanner.rawTransactions() });
+        } catch (e) {
+          return this.scanFailure(e);
+        }
+      }
       if (url.pathname === '/prepare' && request.method === 'POST') {
         let body = {};
         try { body = await request.json(); } catch (e) {}

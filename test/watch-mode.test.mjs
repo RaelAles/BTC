@@ -93,6 +93,16 @@ async function call(path, body, env) {
   assert.equal(second.j.detected_type, 'bip84');
   assert.equal(second.j.types.find(t => t.detected).path, "m/84'/0'/0'/0/4");
 
+  /* transações cruas: o navegador confere UTXOs e monta o PSBT local */
+  const raw = await call('/api/raw', {
+    watch: full,
+    wallet_id: WALLET_ID,
+    fingerprint: FINGERPRINT,
+    version_type: account.versionType
+  }, env);
+  assert.equal(raw.status, 200);
+  assert.equal(raw.j.raw[tx.txid], tx.raw);
+
   /* o PSBT é montado sem xpub: o fingerprint vem do cliente e os scripts do
      conjunto local */
   const external = await deriveChild('bip84', await chainNode(account, 0), 0, 100);
@@ -148,6 +158,15 @@ async function call(path, body, env) {
   assert.equal(watcher.xpub, null, 'o Durable Object não guarda xpub neste fluxo');
   assert.equal(watcher.watchMode, true);
 
+  /* transações cruas também saem só pela sessão */
+  const raw = await watcher.fetch(new Request('https://watch/raw', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
+  }));
+  assert.equal(raw.status, 200);
+  assert.equal((await raw.json()).raw[tx.txid], tx.raw);
+
   /* a próxima rota usa só a sessão: não manda xpub nem watch */
   const external = await deriveChild('bip84', await chainNode(account, 0), 0, 100);
   const prepare = await watcher.fetch(new Request('https://watch/prepare', {
@@ -188,7 +207,10 @@ async function call(path, body, env) {
   const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   assert.doesNotMatch(app, /body\s*=\s*\{\s*xpub\s*:/);
   assert.doesNotMatch(app, /xpub:\s*state\.xpub/);
-  console.log('ok   app.js não monta corpo de API com xpub');
+  assert.doesNotMatch(app, /fetchJson\('\/api\/psbt'/);
+  assert.doesNotMatch(app, /fetchJson\('\/api\/cpfp'/);
+  assert.match(app, /fetchJson\('\/api\/raw'/);
+  console.log('ok   app.js não monta corpo com xpub e monta o PSBT localmente');
 }
 
 console.log('\ntestes do modo watch passaram');

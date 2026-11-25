@@ -35,6 +35,10 @@
     walletId: '',       // identidade local da carteira na sessão
     fingerprint: '',    // conta, para a origem BIP32 do PSBT
     versionType: '',
+    rawTxs: null,       // txid -> hex cru, para conferir UTXOs e montar PSBT
+    rawPromise: null,
+    rawSeq: 0,
+    rawError: '',
     data: null,
     timer: 0,
     busy: false,
@@ -902,6 +906,290 @@
       out.push(row);
     });
     return out;
+  }
+
+  /* -------------------- UTXOs e PSBT locais -------------------- */
+
+  async function fetchRawTxs() {
+    var body = {};
+    walletAuth(body);
+    var res = await fetchJson('/api/raw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    var r = res.r;
+    var j = res.j;
+    if (!r.ok || j.error) throw apiFail(r, j);
+    if (!j.raw || typeof j.raw !== 'object') throw fail('resposta sem transações cruas');
+    return j.raw;
+  }
+
+  function invalidateRawTxs() {
+    state.rawSeq++;
+    state.rawTxs = null;
+    state.rawPromise = null;
+    state.rawError = '';
+  }
+
+  function ensureRawTxs() {
+    if (state.rawTxs) return Promise.resolve(state.rawTxs);
+    if (!state.rawPromise) {
+      var seq = state.rawSeq;
+      var pending = fetchRawTxs().then(function (raw) {
+        if (seq === state.rawSeq) {
+          state.rawTxs = raw;
+          state.rawError = '';
+        }
+        return raw;
+      }).catch(function (e) {
+        if (seq === state.rawSeq) {
+          state.rawTxs = null;
+          state.rawError = e && e.message ? e.message : String(e);
+        }
+        throw e;
+      });
+      state.rawPromise = pending;
+      pending.then(function () {
+        if (state.rawPromise === pending) state.rawPromise = null;
+      }, function () {
+        if (state.rawPromise === pending) state.rawPromise = null;
+      });
+    }
+    return state.rawPromise;
+  }
+
+  function localEntries() {
+    var lw = localWallet();
+    var heights = Object.create(null);
+    ((state.data && state.data.transactions) || []).forEach(function (tx) {
+      heights[tx.txid] = Number(tx.height) || 0;
+    });
+    var out = [];
+    Object.keys(state.rawTxs || {}).forEach(function (txid) {
+      var tx = lw.readTx(lw.hexToBytes(state.rawTxs[txid]));
+      out.push({
+        txid: txid,
+        height: heights[txid] || 0,
+        outputs: tx.outputs,
+        inputs: tx.inputs,
+        vsize: lw.vsizeOf(tx)
+      });
+    });
+    return out;
+  }
+
+  function localRowMaps() {
+    var byScript = new Map();
+    state.watchRows.forEach(function (row) { byScript.set(row.script, row); });
+    return byScript;
+  }
+
+  function localUtxos() {
+    var lw = localWallet();
+    var byScript = localRowMaps();
+    var utxos = lw.utxosForScripts(localEntries(), new Set(byScript.keys()))
+      .map(function (u) { return Object.assign({}, u, { row: byScript.get(u.script) }); })
+      .filter(function (u) { return !!u.row; });
+    /* A soma local é a mesma que o servidor usa para o disponível. Se não
+       bater, a transação crua veio incompleta: melhor recusar o PSBT do que
+       montar em cima de um retrato diferente. */
+    var available = utxos.filter(function (u) { return u.height > 0 || u.own; })
+      .reduce(function (sum, u) { return sum + u.value; }, 0);
+    var expected = state.data && state.data.balance
+      ? Number(state.data.balance.total) || 0 : available;
+    if (available !== expected) {
+      throw fail('saldo local não confere com o servidor; recarregue a carteira.');
+    }
+    return utxos;
+  }
+
+  function localChooseType() {
+    if (state.versionType === 'bip84' || state.versionType === 'bip49') {
+      return state.versionType;
+    }
+    var used = Object.create(null);
+    ((state.data && state.data.addresses) || []).forEach(function (a) {
+      used[a.account_type] = true;
+    });
+    var order = ['bip44', 'bip86', 'bip84', 'bip49'];
+    for (var i = 0; i < order.length; i++) if (used[order[i]]) return order[i];
+    return 'bip86';
+  }
+
+  function localChangeRow(type) {
+    var last = -1;
+    ((state.data && state.data.addresses) || []).forEach(function (a) {
+      if (a.account_type === type && a.chain === 1 && a.idx > last) last = a.idx;
+    });
+    var next = last + 1;
+    var row = null;
+    state.watchRows.forEach(function (r) {
+      if (r.account_type === type && r.chain === 1 && r.idx === next) row = r;
+    });
+    return row;
+  }
+
+  async function localLimits(address, rate, amount) {
+    await ensureRawTxs();
+    var lw = localWallet();
+    var change = localChangeRow(localChooseType());
+    if (!change) throw fail('endereço de troco indisponível; recarregue a carteira.');
+    return lw.sendLimits({
+      utxos: localUtxos(),
+      address: address,
+      feeRate: rate,
+      amountSats: amount,
+      changeScript: lw.hexToBytes(change.script),
+      quoteRates: [rate]
+    });
+  }
+
+  async function localPreparePsbt(address, amount, rate) {
+    await ensureRawTxs();
+    var lw = localWallet();
+    var change = localChangeRow(localChooseType());
+    if (!change) throw fail('endereço de troco indisponível; recarregue a carteira.');
+    var utxos = localUtxos();
+    var raw = state.rawTxs;
+    var ownScripts = localRowMaps();
+    return await lw.preparePsbt({
+      fingerprint: state.fingerprint,
+      utxos: utxos,
+      address: address,
+      amountSats: amount,
+      feeRate: rate,
+      changeRow: change,
+      ownScripts: ownScripts,
+      rawTxFor: async function (txid) {
+        if (!raw[txid]) throw fail('transação anterior não encontrada no conjunto local.');
+        return lw.hexToBytes(raw[txid]);
+      }
+    });
+  }
+
+  /* CPFP também é um PSBT: a filha gasta a maior saída própria ainda não
+     gasta do pai, e o pacote é calculado com as transações cruas locais. */
+  async function localPrepareCpfp(txid, rate) {
+    await ensureRawTxs();
+    var lw = localWallet();
+    var byScript = localRowMaps();
+    var entries = localEntries();
+    var byTxid = new Map();
+    entries.forEach(function (tx) { byTxid.set(tx.txid, tx); });
+    var entry = byTxid.get(String(txid || '').toLowerCase());
+    if (!entry) throw fail('transação não encontrada nesta carteira');
+    if (entry.height > 0) throw fail('a transação já foi confirmada; CPFP só vale para pendente');
+    var outpointIndex = new Map();
+    entries.forEach(function (tx) {
+      tx.outputs.forEach(function (out, vout) {
+        outpointIndex.set(tx.txid + ':' + vout, {
+          txid: tx.txid, vout, value: Number(out.value) || 0,
+          script: lw.bytesToHex(out.script), height: tx.height || 0
+        });
+      });
+    });
+    var spendableKeys = new Set(localUtxos().map(function (u) { return u.txid + ':' + u.vout; }));
+    var infoCache = new Map();
+    function infoOf(tx) {
+      var info = infoCache.get(tx.txid);
+      if (info) return info;
+      var ownInputs = [];
+      var allPrevKnown = true;
+      tx.inputs.forEach(function (input) {
+        var prev = outpointIndex.get(input.txid + ':' + input.vout);
+        if (!prev) { allPrevKnown = false; return; }
+        var row = byScript.get(prev.script);
+        if (row) ownInputs.push({
+          txid: input.txid, vout: input.vout, value: prev.value,
+          script: prev.script, row: row
+        });
+      });
+      var ownOutputs = [];
+      var externalOutputs = [];
+      tx.outputs.forEach(function (out, vout) {
+        var script = lw.bytesToHex(out.script);
+        var row = byScript.get(script);
+        var value = Number(out.value) || 0;
+        var item = { txid: tx.txid, vout: vout, value: value, script: script, row: row };
+        if (row) ownOutputs.push(item);
+        else externalOutputs.push(item);
+      });
+      var allInputsOwn = allPrevKnown && ownInputs.length === tx.inputs.length;
+      var totalIn = allInputsOwn
+        ? ownInputs.reduce(function (sum, i) { return sum + i.value; }, 0) : null;
+      var totalOut = tx.outputs.reduce(function (sum, o) { return sum + (Number(o.value) || 0); }, 0);
+      info = {
+        ownInputs: ownInputs, ownOutputs: ownOutputs,
+        externalOutputs: externalOutputs, all_inputs_own: allInputsOwn,
+        fee_sats: totalIn == null ? null : totalIn - totalOut
+      };
+      infoCache.set(tx.txid, info);
+      return info;
+    }
+    var info = infoOf(entry);
+    if (!info.ownInputs.length) throw fail('a transação não é um envio desta carteira');
+    if (!info.all_inputs_own) {
+      throw fail('nem todas as entradas da transação são desta carteira; não é possível assinar a filha');
+    }
+    if (info.fee_sats == null || info.fee_sats < 0) throw fail('taxa da transação pai indisponível');
+    var spend = info.ownOutputs
+      .filter(function (o) { return spendableKeys.has(o.txid + ':' + o.vout) && o.value >= lw.DUST_SATS; })
+      .sort(function (a, b) { return b.value - a.value; })[0];
+    if (!spend) throw fail('não há saída própria ainda não gasta para acelerar');
+    function packageOf(start) {
+      var seen = new Set();
+      var queue = [start];
+      var fee = 0;
+      var vsize = 0;
+      var count = 0;
+      while (queue.length) {
+        var tx = queue.pop();
+        if (seen.has(tx.txid)) continue;
+        seen.add(tx.txid);
+        var txInfo = infoOf(tx);
+        if (!txInfo.all_inputs_own || txInfo.fee_sats == null || txInfo.fee_sats < 0) {
+          return { fee_sats: null, vsize: null, count: null };
+        }
+        fee += txInfo.fee_sats;
+        vsize += Number(tx.vsize) || 0;
+        count++;
+        tx.inputs.forEach(function (input) {
+          var prev = byTxid.get(input.txid);
+          if (prev && !prev.height) queue.push(prev);
+        });
+      }
+      return { fee_sats: fee, vsize: vsize, count: count };
+    }
+    var pkg = packageOf(entry);
+    if (pkg.fee_sats == null || !(pkg.vsize > 0)) {
+      throw fail('há ancestral pendente com taxa que não é desta carteira; não é possível calcular o pacote com segurança');
+    }
+    var change = localChangeRow(localChooseType());
+    if (!change) throw fail('endereço de troco indisponível; recarregue a carteira.');
+    var childVsize = lw.estimateVsize([spend.row.kind], [lw.hexToBytes(change.script)]);
+    var targetFee = lw.feeSats(lw.feeRateKvb(rate), pkg.vsize + childVsize);
+    var childFee = targetFee - pkg.fee_sats;
+    if (!(childFee > 0)) throw fail('a transação já paga a taxa alvo; não há o que acelerar');
+    var raw = state.rawTxs;
+    return await lw.prepareCpfpPsbt({
+      fingerprint: state.fingerprint,
+      spend: spend,
+      changeRow: change,
+      childFee: childFee,
+      feeRate: rate,
+      parent: {
+        txid: entry.txid,
+        vsize: Number(entry.vsize) || 0,
+        fee_sats: info.fee_sats,
+        fee_rate: entry.vsize ? info.fee_sats / entry.vsize : 0
+      },
+      packageBefore: pkg,
+      rawTxFor: async function (id) {
+        if (!raw[id]) throw fail('transação pai não encontrada no conjunto local.');
+        return lw.hexToBytes(raw[id]);
+      }
+    });
   }
 
   function fmtBtc(sats) {
@@ -2110,8 +2398,8 @@
     section.hidden = !!addressProblem || !(amount > 0 && addressLooksValid(address));
   }
 
-  /* O máximo depende do destino (tamanho do script) e da taxa. A consulta é
-     curta, no mesmo Worker/sessão do envio, e o resultado vira o limite que
+  /* O máximo depende do destino (tamanho do script) e da taxa. A conta roda
+     no navegador com as transações cruas; o resultado vira o limite que
      bloqueia o botão antes de qualquer tentativa. */
   /* `keep` mantém o limite já carregado enquanto só o valor mudou: o máximo
      continua bloqueando o botão e a legenda troca para "calculando a taxa…". */
@@ -2138,35 +2426,9 @@
   async function loadLimits(address, rate, amount) {
     var seq = ++state.limitsSeq;
     var xpub = state.xpub;
-    var body = { address: address, fee_rate: rate, preview: true };
-    if (amount > 0) body.amount_sats = amount;
-    /* A taxa vai também em `quote_rates` para o servidor devolver o custo
-       dela em sats para o valor digitado, na mesma seleção de entradas. */
-    if (rate > 0) body.quote_rates = [rate];
-    walletAuth(body);
     try {
-      var res = await fetchJson('/api/psbt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      var r = res.r;
-      var j = res.j;
-      /* sessão do Durable Object caiu: refaz a consulta e tenta uma vez */
-      if (r.status === 409) {
-        await load(true);
-        if (seq !== state.limitsSeq || state.xpub !== xpub) return;
-        walletAuth(body);
-        res = await fetchJson('/api/psbt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        r = res.r;
-        j = res.j;
-      }
+      var j = await localLimits(address, rate, amount);
       if (seq !== state.limitsSeq || state.xpub !== xpub) return;
-      if (!r.ok || j.error) throw apiFail(r, j);
       if (!Number.isInteger(j.max_send_sats)) throw fail('resposta sem limite de envio');
       state.limits = j;
       state.limitsError = null;
@@ -2181,7 +2443,7 @@
     } catch (e) {
       if (seq !== state.limitsSeq) return;
       state.limits = null;
-      state.feeQuotes = null; // sem confirmação do servidor, as opções ficam em —
+      state.feeQuotes = null; // sem conta local fechada, as opções ficam em —
       var message = e && e.message ? e.message : String(e);
       /* Destino recusado na validação do servidor (checksum, rede, tipo) é
          erro de campo: vai para o recado, com o fio no campo, e não para a
@@ -2541,33 +2803,11 @@
     if (hasOld) $('#send-out').setAttribute('aria-busy', 'true');
     if (!hasOld) setSendStatus('', msg('montando o psbt...'));
     try {
-      var xpub = state.xpub;
-      var body = { address: address, amount_sats: amount, fee_rate: rate };
-      walletAuth(body);
-      var res = await fetchJson('/api/psbt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      var r = res.r;
-      var j = res.j;
-      // sessão do Durable Object caiu: refaz a derivação local (a tela já
-      // tem o conjunto) e tenta uma vez com a sessão nova
-      if (r.status === 409) {
-        await load(true);
-        if (state.xpub !== xpub) throw fail('a carteira mudou; tente de novo.');
-        if (!state.session) throw fail('sessão expirada; recarregue a carteira.');
-        walletAuth(body);
-        res = await fetchJson('/api/psbt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        r = res.r;
-        j = res.j;
-      }
-      if (!r.ok || j.error) throw apiFail(r, j);
-      // o formulário mudou enquanto o servidor montava: este retrato venceu
+      /* O PSBT nasce no navegador: UTXOs, escolha de moedas, troco e taxa
+         são calculados aqui; o servidor só confere a transação assinada no
+         fim. */
+      var j = await localPreparePsbt(address, amount, rate);
+      // o formulário mudou enquanto o PSBT era montado: este retrato venceu
       if (seq !== state.psbtSeq || key !== psbtKey()) return;
       state.psbt = j;
       state.psbtKey = key;
@@ -3161,6 +3401,7 @@
   async function startCpfp(txid) {
     if (!state.xpub) return;
     var seq = ++state.cpfpSeq;
+    var xpub = state.xpub;
     setCpfpStatus('', null);
     try {
       var rate = feeRateNow();
@@ -3169,33 +3410,9 @@
         rate = feeRateNow();
       }
       if (!feeRateOk(rate)) throw fail('taxa indisponível; tente de novo.');
-      var xpub = state.xpub;
-      var body = { txid: txid, fee_rate: rate };
-      walletAuth(body);
-      var res = await fetchJson('/api/cpfp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      var r = res.r;
-      var j = res.j;
-      // sessão do Durable Object caiu: refaz a derivação e tenta uma vez
-      if (r.status === 409) {
-        await load(true);
-        if (state.xpub !== xpub) throw fail('a carteira mudou; tente de novo.');
-        if (!state.session) throw fail('sessão expirada; recarregue a carteira.');
-        walletAuth(body);
-        res = await fetchJson('/api/cpfp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        r = res.r;
-        j = res.j;
-      }
-      if (!r.ok || j.error) throw apiFail(r, j);
+      var j = await localPrepareCpfp(txid, rate);
       if (seq !== state.cpfpSeq || state.xpub !== xpub) return;
-      if (!j.psbt) throw fail('o servidor não devolveu o psbt.');
+      if (!j.psbt) throw fail('não foi possível montar o psbt.');
       downloadPsbtText(j.psbt, 'cpfp-' + String(j.txid || txid).slice(0, 8) + '.psbt');
     } catch (e) {
       if (seq !== state.cpfpSeq) return;
@@ -3456,6 +3673,7 @@
           continue;
         }
         state.watchRows = rows;
+        invalidateRawTxs();
         stopScan();
         render(j);
         // a tela já mostra o resultado: o recado de "verificando" sai de cena
@@ -3570,7 +3788,11 @@
           if (!state.busy) load(true);
           return;
         }
+        invalidateRawTxs();
         render(frame.payload);
+        ensureRawTxs().then(function () {
+          if (!state.busy) scheduleLimits(true);
+        }).catch(function () {});
       } else if (frame.type === 'error') {
         setStatus('error', msg('tempo real: {message}', {
           message: serverSpec(frame.error) || rawMsg(frame.error)

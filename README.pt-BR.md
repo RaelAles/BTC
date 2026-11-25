@@ -10,8 +10,8 @@ Carteira Bitcoin **watch-only** em Cloudflare Workers. O navegador lê a
 **xpub** da conta (ou `zpub`/`ypub`), deriva os endereços localmente e envia ao
 Worker só o conjunto de endereços/scripthashes; o Worker consulta o saldo, os
 endereços de recebimento e o histórico de transações de um servidor
-**Electrum**. Ele também monta um PSBT sem assinatura e transmite a transação
-assinada que volta do **Cofre BTC**, o assinador offline.
+**Electrum**. O navegador monta o PSBT sem assinatura; o Worker só transmite a
+transação assinada que volta do **Cofre BTC**, o assinador offline.
 
 Nada fica guardado: nem dados da carteira no navegador, nem banco de dados na
 Cloudflare, e a xpub não é enviada ao Worker.
@@ -23,8 +23,9 @@ Cloudflare, e a xpub não é enviada ao Worker.
   sobre. A interface está traduzida em português, inglês, espanhol, francês,
   italiano, alemão, neerlandês, catalão e galego. O automático segue o
   navegador; a escolha manual vale só para a sessão.
-- Um **montador de PSBT**: valor, destino e a taxa estimada ao vivo bastam
-  para produzir um PSBT v0 sem assinatura, com troco.
+- Um **montador de PSBT no navegador**: valor, destino e a taxa estimada ao
+  vivo bastam para produzir um PSBT v0 sem assinatura, com troco, sem o
+  servidor escolher moedas.
 - Um **visualizador de histórico**: transações agrupadas pelo `txid`, do
   mempool para o bloco mais recente, com direção, valores, taxa e os
   endereços da carteira que participam. Uma transação pendente pode ser
@@ -130,7 +131,7 @@ outra fonte. `GET /api/health` mostra a configuração efetiva.
   (o Bitcoin Core se recusa a estimar 1 bloco). O valor vem em BTC/kvB e é
   convertido para sat/kvB exato; só a taxa final, em satoshis, é arredondada
   para cima.
-- O montador escolhe primeiro as saídas confirmadas e depois o seu próprio
+- O navegador escolhe primeiro as saídas confirmadas e depois o seu próprio
   troco pendente. Ele tenta a menor entrada que cobre sozinha, depois o menor
   par e, por fim, as maiores entradas. O resultado prefere menos entradas, sem
   troco quando a sobra seria pó, a menor sobra, o tipo de entrada mais barato,
@@ -150,17 +151,17 @@ outra fonte. `GET /api/health` mostra a configuração efetiva.
 ### CPFP
 
 Para uma transação pendente cujas entradas são todas desta carteira e que
-ainda tem uma saída própria não gasta, `POST /api/cpfp` monta o PSBT filho. O
-servidor soma a taxa e a vsize do pai e dos ancestrais ainda no mempool,
-calcula a taxa do filho para o pacote atingir a taxa pedida e manda o resto
-para o próximo endereço de troco. O pai não muda. Assine o filho no Cofre BTC
-e importe em **carteira → transmitir**, como um envio normal.
+ainda tem uma saída própria não gasta, o navegador monta o PSBT filho. Ele soma
+a taxa e a vsize do pai e dos ancestrais ainda no mempool, calcula a taxa do
+filho para o pacote atingir a taxa pedida e manda o resto para o próximo
+endereço de troco. O pai não muda. Assine o filho no Cofre BTC e importe em
+**carteira → transmitir**, como um envio normal.
 
 ### Transmissão
 
 `POST /api/broadcast` recebe o PSBT assinado (base64 ou hex) e confere:
 
-- cada entrada gasta um script derivado desta xpub;
+- cada entrada gasta um script do conjunto observado;
 - quando a saída está entre os UTXOs conhecidos, o valor declarado bate com o
   da carteira;
 - toda entrada está finalizada no formato exigido pelo tipo de script;
@@ -274,8 +275,9 @@ inválida), 404/405 (rota ou método desconhecido), 409 (sessão perdida), 429
 | Rota | Função |
 | --- | --- |
 | `POST /api/wallet` | Estado da carteira: saldo, os quatro tipos, endereços usados e transações. |
-| `POST /api/psbt` | Monta o PSBT de envio sem assinatura; com `preview`, devolve só limites/cotação. |
-| `POST /api/cpfp` | Monta o PSBT filho de CPFP para uma transação pendente. |
+| `POST /api/raw` | Devolve as transações cruas do conjunto; o navegador usa para conferir UTXOs e montar o PSBT. |
+| `POST /api/psbt` | **Legado:** monta o PSBT no servidor; a tela não usa. |
+| `POST /api/cpfp` | **Legado:** monta o CPFP no servidor; a tela não usa. |
 | `POST /api/broadcast` | Confere um PSBT assinado; com `preview`, não publica. |
 | `GET /api/fees` | Taxa estimada ao vivo para 2 blocos. |
 | `GET /api/events?session=…` | Upgrade de WebSocket para atualizações ao vivo. |
@@ -315,7 +317,20 @@ e elegibilidade de CPFP; `session` é o id aleatório do Durable Object.
 A rota ainda aceita o corpo antigo com `xpub` por compatibilidade, mas a tela
 não o envia. O fluxo documentado e testado é o `watch`.
 
+### `POST /api/raw`
+
+```json
+{ "session": "opcional" }
+```
+
+Sem sessão, mande o mesmo `watch` do `/api/wallet`. Devolve
+`{ "raw": { "<txid>": "<hex>", ... } }`; o navegador confere os UTXOs e monta
+o PSBT localmente. O servidor não escolhe moedas nem troco.
+
 ### `POST /api/psbt`
+
+Rota legada, mantida para compatibilidade: a tela monta o PSBT no navegador e
+não chama este endpoint.
 
 ```json
 { "session": "opcional", "address": "bc1...",
@@ -336,6 +351,9 @@ Com `preview: true` e sem `amount_sats`, devolve o limite de envio:
 valor. `quote_rates` acrescenta `quotes` com o custo de cada taxa pedida.
 
 ### `POST /api/cpfp`
+
+Rota legada, mantida para compatibilidade: a tela monta o filho de CPFP no
+navegador e não chama este endpoint.
 
 ```json
 { "session": "opcional", "txid": "...", "fee_rate": 11 }
@@ -400,6 +418,10 @@ Devolve `{ "ok": true, "service": "monitor-btc-electrum", "source":
   deixa de existir quando a última tela fecha.
 - O Monitor nunca vê chave privada. O PSBT sai sem assinatura e o Cofre BTC
   faz a conferência que vale antes de assinar.
+- O PSBT de envio e o filho de CPFP são montados no navegador com as transações
+  cruas; o Worker não escolhe moedas nem troco. O Worker ainda fornece as
+  transações cruas e a estimativa, e pode omitir dados ou mentir; a soma local
+  é conferida contra o saldo e o Cofre confere o PSBT antes de assinar.
 - O resumo da transmissão é estrutural: confere propriedade, valores e
   destinos, mas quem valida as assinaturas é a rede. A conferência do Cofre
   antes de assinar é a que importa.
@@ -432,8 +454,8 @@ projeto:
 | `cofre-ui.test.mjs` | Telas do Cofre, as nove colunas de i18n e o hash do CSS embutido. |
 | `broadcast.test.mjs` | Conferência e transmissão do PSBT assinado, inclusive pelo Durable Object. |
 | `watcher.test.mjs` | Assinaturas, avisos, reconexão, despejo e descarte total. |
-| `watch-mode.test.mjs` | Derivação local, margem de 50, PSBT e Durable Object sem xpub. |
-| `browser-core.test.mjs` | `wallet-local.js` em dia e paridade da derivação com o servidor. |
+| `watch-mode.test.mjs` | Derivação local, margem de 50, transações cruas, PSBT e Durable Object sem xpub. |
+| `browser-core.test.mjs` | `wallet-local.js` em dia e paridade de derivação/PSBT/CPFP com o servidor. |
 | `hardening.test.mjs` | Tetos de entrada, freio de abuso e Origin do WebSocket. |
 | `security-headers.test.mjs` | Cabeçalhos iguais, CSP, SRI e o hash do Cofre neste README. |
 | `http-surface.test.mjs` | Status 404 em caminho desconhecido e a superfície somente leitura dos estáticos. |
@@ -447,7 +469,7 @@ projeto:
 .github/workflows/       CI e publicação de releases do Cofre
 public/
   app.js                 cliente do navegador (derivação local, render, WebSocket)
-  wallet-local.js        derivação pública gerada para o navegador (SRI)
+  wallet-local.js        derivação, UTXOs e PSBT locais gerados para o navegador (SRI)
   apple-touch-icon.png   ícone da tela inicial do iOS
   cofre-btc.html         gerador de chave e assinador PSBT standalone e offline
   fontes.css             fonte embutida
@@ -474,7 +496,7 @@ src/
   derivation.js          CKDpub, parse da xpub e os quatro tipos de endereço
   electrum.js            cliente Electrum JSON-RPC sobre cloudflare:sockets
   address-totals.js      conta de UTXO por script
-  psbt.js                escolha de entradas, taxa, troco e PSBT de envio
+  psbt.js                escolha de entradas, taxa, troco e PSBT (fonte do bundle local)
   broadcast.js           conferência do PSBT assinado e transmissão
   wallet-sync.js         consulta do conjunto local, margem e payload
   watch-set.js           validação dos endereços derivados pelo cliente
@@ -529,12 +551,18 @@ package.json
 - **O Electrum vê os scripthashes consultados** (o TLS esconde do caminho da
   rede, não do servidor). O Cofre continua sendo o assinador que vale.
 - **O Worker vê o conjunto enviado**: endereços usados mais a cauda de 50 de
-  cada ramo, os UTXOs, os txids e o PSBT. A xpub fica no navegador, mas um
+  cada ramo, os UTXOs, os txids e o PSBT assinado no broadcast. A xpub fica
+  no navegador, mas um
   Worker comprometido ainda pode mentir sobre saldo, taxa ou censurar; a
   conferência no Cofre é a defesa final antes de assinar.
+- **Disponibilidade dos dados.** O navegador confere os UTXOs a partir das
+  transações cruas que o Worker devolve, mas não tem nó próprio: um Worker que
+  omita uma transação pode fazer o saldo local não fechar; a tela recusa o
+  PSBT nesse caso. Um Worker que omita um gasto e ajuste o saldo ainda pode
+  induzir um PSBT inválido, que a rede recusa.
 - **Só rede principal.** O projeto trabalha com chaves e endereços da mainnet
   do Bitcoin.
-- **Sem RBF.** O montador usa sequence final, então o resumo mostra
+- **Sem RBF.** O navegador usa sequence final, então o resumo mostra
   `rbf: false`; o caminho de aceleração é o CPFP.
 
 ## Apoie

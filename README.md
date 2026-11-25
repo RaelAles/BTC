@@ -9,9 +9,9 @@
 Watch-only Bitcoin wallet on Cloudflare Workers. The browser reads the
 account **xpub** (or `zpub`/`ypub`), derives the addresses locally and sends
 the Worker only the address/scripthash set; the Worker reads the balance, the
-receive addresses and the transaction history from an **Electrum** server. It
-can also build an unsigned PSBT and broadcast the signed transaction that
-comes back from the offline **Cofre BTC** signer.
+receive addresses and the transaction history from an **Electrum** server. The browser builds the unsigned PSBT; the Worker only
+broadcasts the signed transaction that comes back from the offline **Cofre
+BTC** signer.
 
 Nothing is stored: no wallet data in the browser, no database in Cloudflare,
 and the xpub is not sent to the Worker.
@@ -24,8 +24,9 @@ and the xpub is not sent to the Worker.
   The interface is translated into Portuguese, English, Spanish, French,
   Italian, German, Dutch, Catalan and Galician. The automatic choice follows
   the browser; a manual choice lasts only for the session.
-- A **PSBT builder**: amount, destination and the live fee estimate are enough
-  to produce an unsigned PSBT v0 with change.
+- A **browser PSBT builder**: amount, destination and the live fee estimate
+  are enough to produce an unsigned PSBT v0 with change, without the server
+  choosing coins.
 - A **history viewer**: transactions grouped by `txid`, from the mempool to
   the most recent block, with direction, values, fee and the wallet addresses
   involved. A pending transaction can be accelerated with CPFP.
@@ -130,8 +131,8 @@ configuration.
 - The only fee source is `blockchain.estimatefee` with a **2-block target**
   (Bitcoin Core refuses to estimate 1 block). The value comes in BTC/kvB and
   is converted to exact sat/kvB; only the final fee in satoshis is rounded up.
-- The PSBT builder selects confirmed outputs first, then your own pending
-  change. It tries the smallest single input that covers the amount, then the
+- The browser PSBT builder selects confirmed outputs first, then your own
+  pending change. It tries the smallest single input that covers the amount, then the
   smallest pair, then the largest inputs. The result favors fewer inputs, no
   change when the remainder would be dust, the smallest leftover, the cheapest
   input type, older confirmations and a stable derivation order.
@@ -150,10 +151,10 @@ configuration.
 ### CPFP
 
 For a pending transaction whose inputs all belong to this wallet and that
-still has an unspent wallet output, `POST /api/cpfp` builds the child PSBT.
-The server sums the fee and vsize of the parent and any pending ancestors,
-calculates the child fee needed to reach the requested package rate and sends
-the remainder to the next change address. The parent does not change. Sign the
+still has an unspent wallet output, the browser builds the child PSBT. It sums
+the fee and vsize of the parent and any pending ancestors, calculates the
+child fee needed to reach the requested package rate and sends the remainder
+to the next change address. The parent does not change. Sign the
 child in the Cofre BTC and import it in **wallet → broadcast**, like a normal
 send.
 
@@ -161,7 +162,7 @@ send.
 
 `POST /api/broadcast` receives the signed PSBT (base64 or hex) and checks:
 
-- every input spends a script derived from this xpub;
+- every input spends a script from the observed set;
 - when the output is a known UTXO, the declared value matches the wallet;
 - every input is finalized in the format required by its script type;
 - outputs are classified as change, own receive or external, and the fee and
@@ -272,8 +273,9 @@ disabled/misconfigured).
 | Route | Purpose |
 | --- | --- |
 | `POST /api/wallet` | Wallet state: balance, the four account types, used addresses and transactions. |
-| `POST /api/psbt` | Build the unsigned send PSBT; with `preview`, return limits/quote only. |
-| `POST /api/cpfp` | Build the unsigned CPFP child PSBT for a pending transaction. |
+| `POST /api/raw` | Return the set's raw transactions; the browser uses them to check UTXOs and build the PSBT. |
+| `POST /api/psbt` | **Legacy:** build the send PSBT on the server; the screen does not use it. |
+| `POST /api/cpfp` | **Legacy:** build CPFP on the server; the screen does not use it. |
 | `POST /api/broadcast` | Check a signed PSBT; with `preview`, do not publish. |
 | `GET /api/fees` | Live 2-block fee estimate. |
 | `GET /api/events?session=…` | WebSocket upgrade for live updates. |
@@ -314,7 +316,20 @@ addresses and CPFP eligibility; `session` is the random Durable Object id.
 The route still accepts the old `xpub` body for compatibility, but the screen
 does not send it. The documented and tested flow is `watch`.
 
+### `POST /api/raw`
+
+```json
+{ "session": "optional" }
+```
+
+Without a session, send the same `watch` as `/api/wallet`. It returns
+`{ "raw": { "<txid>": "<hex>", ... } }`; the browser checks the UTXOs and
+builds the PSBT locally. The server does not choose coins or change.
+
 ### `POST /api/psbt`
+
+Legacy route kept for compatibility: the screen builds the PSBT in the browser
+and does not call this endpoint.
 
 ```json
 { "session": "optional", "address": "bc1...",
@@ -337,6 +352,9 @@ amount. `quote_rates` adds a `quotes` array with the cost of each requested
 rate for the same amount.
 
 ### `POST /api/cpfp`
+
+Legacy route kept for compatibility: the screen builds the CPFP child in the
+browser and does not call this endpoint.
 
 ```json
 { "session": "optional", "txid": "...", "fee_rate": 11 }
@@ -402,6 +420,11 @@ Returns `{ "ok": true, "service": "monitor-btc-electrum", "source":
   last screen closes.
 - The Monitor never sees a private key. The PSBT leaves unsigned and the Cofre
   BTC performs the authoritative check before signing.
+- The send PSBT and the CPFP child are built in the browser from the raw
+  transactions; the Worker does not choose coins or change. The Worker
+  still supplies the raw transactions and the estimate, and can omit data or
+  lie; the local sum is checked against the balance and the Cofre checks the
+  PSBT before signing.
 - The broadcast summary is structural: it checks ownership, values and
   destinations, but the network validates the signatures. The Cofre check
   before signing is the one that matters.
@@ -433,8 +456,8 @@ own BTC core:
 | `cofre-ui.test.mjs` | Cofre screens, the nine i18n columns and the embedded CSS hash. |
 | `broadcast.test.mjs` | Signed PSBT checks and broadcast, including the Durable Object path. |
 | `watcher.test.mjs` | Subscriptions, notifications, reconnect, eviction and total discard. |
-| `watch-mode.test.mjs` | Local derivation, 50-address gap, PSBT and Durable Object without xpub. |
-| `browser-core.test.mjs` | `wallet-local.js` up to date and derivation parity with the server. |
+| `watch-mode.test.mjs` | Local derivation, 50-address gap, raw transactions, PSBT and Durable Object without xpub. |
+| `browser-core.test.mjs` | `wallet-local.js` up to date and derivation/PSBT/CPFP parity with the server. |
 | `hardening.test.mjs` | Input caps, abuse brake and WebSocket Origin. |
 | `security-headers.test.mjs` | Header parity, CSP, SRI hashes and the Cofre hash in this README. |
 | `http-surface.test.mjs` | 404 status for unknown paths and the read-only asset surface. |
@@ -448,7 +471,7 @@ own BTC core:
 .github/workflows/       CI and Cofre release automation
 public/
   app.js                 browser client (local derivation, render, WebSocket)
-  wallet-local.js        generated browser derivation (SRI)
+  wallet-local.js        generated browser derivation, UTXOs and PSBT (SRI)
   apple-touch-icon.png   iOS home-screen icon
   cofre-btc.html         standalone offline key generator and PSBT signer
   fontes.css             embedded font
@@ -475,7 +498,7 @@ src/
   derivation.js          CKDpub, xpub parsing and the four address types
   electrum.js            Electrum JSON-RPC client over cloudflare:sockets
   address-totals.js      UTXO accounting per script
-  psbt.js                coin selection, fee, change and send PSBT
+  psbt.js                coin selection, fee, change and send PSBT (source of the local bundle)
   broadcast.js           signed PSBT checks and broadcast
   wallet-sync.js         local-set query, gap and wallet payload
   watch-set.js           validation of client-derived addresses
@@ -527,11 +550,17 @@ package.json
 - **Electrum sees the queried scripthashes** (TLS hides them from the network
   path, not from the server). The Cofre remains the authoritative signer.
 - **The Worker sees the sent set**: used addresses plus the 50-address tail of
-  each branch, the UTXOs, the txids and the PSBT. The xpub stays in the
+  each branch, the UTXOs, the txids and the signed PSBT at broadcast. The
+  xpub stays in the
   browser, but a compromised Worker can still lie about balance, fee or
   censor; the Cofre check is the final defense before signing.
+- **Data availability.** The browser checks UTXOs from the raw transactions
+  returned by the Worker, but has no node of its own: a Worker that omits a
+  transaction can make the local balance fail to reconcile; the screen then
+  refuses the PSBT. A Worker that omits a spend and adjusts the balance can
+  still induce an invalid PSBT, which the network rejects.
 - **Mainnet only.** The project works with Bitcoin mainnet keys and addresses.
-- **No RBF.** The builder uses final sequence values, so the summary reports
+- **No RBF.** The browser uses final sequence values, so the summary reports
   `rbf: false`; the acceleration path is CPFP.
 
 ## Support
