@@ -28,22 +28,80 @@
   var reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   function prefersReducedMotion() { return reducedMotionQuery.matches; }
 
+  /* Cliente do proxy: o scanner do navegador fala JSON-RPC com o Electrum
+     através do Worker, em lotes. O Worker vê scripthashes, txids e
+     transações cruas; não vê endereços, scripts nem pubkeys. */
+  function ProxyClient() {
+    this.queue = [];
+    this.timer = 0;
+    this.dead = null;
+  }
+  ProxyClient.prototype.request = function (method, params) {
+    var self = this;
+    return new Promise(function (resolve, reject) {
+      self.queue.push({ method: method, params: params || [], resolve: resolve, reject: reject });
+      if (!self.timer) {
+        self.timer = setTimeout(function () { self.flush(); }, 0);
+      }
+    });
+  };
+  ProxyClient.prototype.requestMany = function (items, concurrency) {
+    var self = this;
+    return Promise.all((items || []).map(function (item) {
+      return self.request(item.method, item.params);
+    }));
+  };
+  ProxyClient.prototype.requestManySettled = function (items) {
+    var self = this;
+    return Promise.allSettled((items || []).map(function (item) {
+      return self.request(item.method, item.params);
+    }));
+  };
+  ProxyClient.prototype.flush = async function () {
+    var items = this.queue;
+    this.queue = [];
+    this.timer = 0;
+    if (!items.length) return;
+    var body = { items: items.map(function (item) {
+      return { method: item.method, params: item.params };
+    }) };
+    var res;
+    try {
+      res = await fetchJson('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    } catch (e) {
+      items.forEach(function (item) { item.reject(e); });
+      return;
+    }
+    var r = res.r;
+    var j = res.j;
+    if (!r.ok || j.error) {
+      var err = apiFail(r, j);
+      items.forEach(function (item) { item.reject(err); });
+      return;
+    }
+    var results = j.results || [];
+    var errors = j.errors || [];
+    items.forEach(function (item, i) {
+      if (errors[i]) item.reject(new Error(errors[i]));
+      else item.resolve(results[i]);
+    });
+  };
+  ProxyClient.prototype.close = function () {};
+
   var state = {
     xpub: '',
     account: null,      // xpub decodificada localmente
-    watchRows: [],      // endereços derivados no navegador
-    walletId: '',       // identidade local da carteira na sessão
-    fingerprint: '',    // conta, para a origem BIP32 do PSBT
-    versionType: '',
-    rawTxs: null,       // txid -> hex cru, para conferir UTXOs e montar PSBT
-    rawPromise: null,
-    rawSeq: 0,
-    rawError: '',
+    scanner: null,      // WalletScanner: deriva, consulta, calcula e monta
+    proxy: null,        // cliente JSON-RPC do Worker/Electrum
     data: null,
     timer: 0,
     busy: false,
-    watch: null,        // WebSocket do tempo real (Durable Object)
-    session: '',        // id efêmero da sessão no Durable Object
+    watch: null,        // WebSocket de notificações (só scripthashes)
+    watchSession: '',   // id efêmero do Durable Object de notificações
     watchRetry: 0,
     watchTimer: 0,      // timeout do handshake do WebSocket
     autoTimer: 0,       // debounce da consulta automática
@@ -136,7 +194,7 @@
     ["SOBRE","ABOUT","ACERCA DE","À PROPOS","INFORMAZIONI","ÜBER","OVER","SOBRE","SOBRE"],
     ["o que é esta ferramenta","what this tool is","qué es esta herramienta","ce qu'est cet outil","cos'è questo strumento","was dieses Werkzeug ist","wat deze tool is","què és aquesta eina","que é esta ferramenta"],
     ["O Monitor BTC é uma carteira de acompanhamento. Você cola a chave pública da sua carteira Bitcoin (<code>xpub</code>, <code>zpub</code> ou <code>ypub</code>) e ele mostra o saldo, os endereços para receber e o histórico de transações. Ele não pede senha, não guarda nada e não tem a chave privada: só lê o que já existe na rede.","Monitor BTC is a watch-only wallet. You paste your Bitcoin wallet's public key (<code>xpub</code>, <code>zpub</code> or <code>ypub</code>) and it shows the balance, the receiving addresses and the transaction history. It does not ask for a password, stores nothing and does not hold the private key: it only reads what already exists on the network.","Monitor BTC es una cartera de seguimiento. Pegas la clave pública de tu cartera Bitcoin (<code>xpub</code>, <code>zpub</code> o <code>ypub</code>) y muestra el saldo, las direcciones para recibir y el historial de transacciones. No pide contraseña, no guarda nada y no tiene la clave privada: solo lee lo que ya existe en la red.","Monitor BTC est un portefeuille de suivi. Vous collez la clé publique de votre portefeuille Bitcoin (<code>xpub</code>, <code>zpub</code> ou <code>ypub</code>) et il affiche le solde, les adresses de réception et l'historique des transactions. Il ne demande pas de mot de passe, ne conserve rien et ne détient pas la clé privée : il ne lit que ce qui existe déjà sur le réseau.","Monitor BTC è un portafoglio di sola osservazione. Incolli la chiave pubblica del tuo portafoglio Bitcoin (<code>xpub</code>, <code>zpub</code> o <code>ypub</code>) e mostra il saldo, gli indirizzi per ricevere e la cronologia delle transazioni. Non chiede una password, non salva nulla e non ha la chiave privata: legge solo ciò che esiste già nella rete.","Monitor BTC ist eine Nur-Lese-Wallet. Du fügst den öffentlichen Schlüssel deiner Bitcoin-Wallet ein (<code>xpub</code>, <code>zpub</code> oder <code>ypub</code>) und sie zeigt das Guthaben, die Empfangsadressen und den Transaktionsverlauf. Sie fragt nach keinem Passwort, speichert nichts und hat keinen privaten Schlüssel: Sie liest nur, was bereits im Netzwerk existiert.","Monitor BTC is een alleen-lezen portemonnee. Je plakt de openbare sleutel van je Bitcoin-portemonnee (<code>xpub</code>, <code>zpub</code> of <code>ypub</code>) en hij toont het saldo, de ontvangstadressen en de transactiegeschiedenis. Hij vraagt geen wachtwoord, bewaart niets en heeft de privésleutel niet: hij leest alleen wat al op het netwerk bestaat.","Monitor BTC és una cartera de seguiment. Enganxes la clau pública de la teva cartera Bitcoin (<code>xpub</code>, <code>zpub</code> o <code>ypub</code>) i mostra el saldo, les adreces per rebre i l'historial de transaccions. No demana contrasenya, no desa res i no té la clau privada: només llegeix el que ja existeix a la xarxa.","Monitor BTC é unha carteira de seguimento. Pegas a clave pública da túa carteira Bitcoin (<code>xpub</code>, <code>zpub</code> ou <code>ypub</code>) e mostra o saldo, os enderezos para recibir e o historial de transaccións. Non pide contrasinal, non garda nada e non ten a clave privada: só le o que xa existe na rede."],
-    ["A derivação acontece no navegador: a xpub não é enviada ao servidor; ele recebe só os endereços que precisam ser consultados.", "Derivation happens in the browser: the xpub is not sent to the server; it receives only the addresses that need to be queried.", "La derivación ocurre en el navegador: la xpub no se envía al servidor; solo recibe las direcciones que hay que consultar.", "La dérivation se fait dans le navigateur : la xpub n'est pas envoyée au serveur ; il ne reçoit que les adresses à consulter.", "La derivazione avviene nel browser: la xpub non viene inviata al server; riceve solo gli indirizzi da consultare.", "Die Ableitung erfolgt im Browser: Die xpub wird nicht an den Server gesendet; er erhält nur die abzufragenden Adressen.", "De afleiding gebeurt in de browser: de xpub wordt niet naar de server gestuurd; hij ontvangt alleen de adressen die moeten worden opgevraagd.", "La derivació es fa al navegador: la xpub no s'envia al servidor; només rep les adreces que cal consultar.", "A derivación faise no navegador: a xpub non se envía ao servidor; só recibe os enderezos que cómpre consultar."],
+    ["A derivação acontece no navegador: a xpub não é enviada ao servidor; ele recebe só scripthashes, txids e transações.", "Derivation happens in the browser: the xpub is not sent to the server; it receives only scripthashes, txids and transactions.", "La derivación ocurre en el navegador: la xpub no se envía al servidor; solo recibe scripthashes, txids y transacciones.", "La dérivation se fait dans le navigateur : la xpub n'est pas envoyée au serveur ; il ne reçoit que des scripthashes, txids et transactions.", "La derivazione avviene nel browser: la xpub non viene inviata al server; riceve solo scripthash, txid e transazioni.", "Die Ableitung erfolgt im Browser: Die xpub wird nicht an den Server gesendet; er erhält nur Scripthashes, Txids und Transaktionen.", "De afleiding gebeurt in de browser: de xpub wordt niet naar de server gestuurd; hij ontvangt alleen scripthashes, txids en transacties.", "La derivació es fa al navegador: la xpub no s'envia al servidor; només rep scripthashes, txids i transaccions.", "A derivación faise no navegador: a xpub non se envía ao servidor; só recibe scripthashes, txids e transaccións."],
     ["Ele também prepara o envio. Você informa o valor e o destino; a taxa é calculada ao vivo e a ferramenta monta um arquivo de transação (PSBT) para ser assinado em outro programa. Depois de assinado, o arquivo volta para cá e pode ser transmitido. Quem assina é você, no <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"baixar o Cofre BTC (arquivo standalone)\" aria-label=\"baixar o Cofre BTC (arquivo standalone)\">Cofre BTC</a>, offline; a chave privada nunca passa por esta tela.","It also prepares the send. You enter the amount and the destination; the fee is calculated live and the tool builds a transaction file (PSBT) to be signed in another program. Once signed, the file comes back here and can be broadcast. You are the one who signs, in <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"download Cofre BTC (standalone file)\" aria-label=\"download Cofre BTC (standalone file)\">Cofre BTC</a>, offline; the private key never passes through this screen.","También prepara el envío. Indicas el importe y el destino; la comisión se calcula en vivo y la herramienta arma un archivo de transacción (PSBT) para firmar en otro programa. Una vez firmado, el archivo vuelve aquí y se puede transmitir. Quien firma eres tú, en el <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"descargar el Cofre BTC (archivo standalone)\" aria-label=\"descargar el Cofre BTC (archivo standalone)\">Cofre BTC</a>, sin conexión; la clave privada nunca pasa por esta pantalla.","Il prépare aussi l'envoi. Vous indiquez le montant et la destination ; les frais sont calculés en direct et l'outil assemble un fichier de transaction (PSBT) à signer dans un autre programme. Une fois signé, le fichier revient ici et peut être diffusé. C'est vous qui signez, dans le <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"télécharger le Cofre BTC (fichier autonome)\" aria-label=\"télécharger le Cofre BTC (fichier autonome)\">Cofre BTC</a>, hors ligne ; la clé privée ne passe jamais par cet écran.","Prepara anche l'invio. Indichi l'importo e la destinazione; la commissione viene calcolata in tempo reale e lo strumento compone un file di transazione (PSBT) da firmare in un altro programma. Una volta firmato, il file torna qui e può essere trasmesso. A firmare sei tu, nel <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"scarica il Cofre BTC (file standalone)\" aria-label=\"scarica il Cofre BTC (file standalone)\">Cofre BTC</a>, offline; la chiave privata non passa mai da questa schermata.","Sie bereitet auch das Senden vor. Du gibst Betrag und Ziel ein; die Gebühr wird live berechnet und das Werkzeug erstellt eine Transaktionsdatei (PSBT), die in einem anderen Programm signiert wird. Nach der Signatur kommt die Datei hierher zurück und kann gesendet werden. Du signierst im <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"Cofre BTC herunterladen (Standalone-Datei)\" aria-label=\"Cofre BTC herunterladen (Standalone-Datei)\">Cofre BTC</a>, offline; der private Schlüssel läuft nie über diesen Bildschirm.","Hij bereidt ook het verzenden voor. Je voert het bedrag en de bestemming in; de kosten worden live berekend en de tool maakt een transactiebestand (PSBT) om in een ander programma te ondertekenen. Na ondertekening komt het bestand hier terug en kan het worden uitgezonden. Jij ondertekent, in de <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"Cofre BTC downloaden (standalone bestand)\" aria-label=\"Cofre BTC downloaden (standalone bestand)\">Cofre BTC</a>, offline; de privésleutel komt nooit door dit scherm.","També prepara l'enviament. Indiques l'import i la destinació; la comissió es calcula en directe i l'eina munta un fitxer de transacció (PSBT) per signar en un altre programa. Un cop signat, el fitxer torna aquí i es pot transmetre. Qui signa ets tu, al <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"descarregar el Cofre BTC (fitxer autònom)\" aria-label=\"descarregar el Cofre BTC (fitxer autònom)\">Cofre BTC</a>, sense connexió; la clau privada no passa mai per aquesta pantalla.","Tamén prepara o envío. Indicas o importe e o destino; a comisión calcúlase en vivo e a ferramenta monta un ficheiro de transacción (PSBT) para asinar noutro programa. Unha vez asinado, o ficheiro volve aquí e pódese transmitir. Quen asina es ti, no <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"descargar o Cofre BTC (ficheiro autónomo)\" aria-label=\"descargar o Cofre BTC (ficheiro autónomo)\">Cofre BTC</a>, sen conexión; a clave privada nunca pasa por esta pantalla."],
     ["baixar o Cofre BTC (arquivo standalone)","download Cofre BTC (standalone file)","descargar el Cofre BTC (archivo standalone)","télécharger le Cofre BTC (fichier autonome)","scarica il Cofre BTC (file standalone)","Cofre BTC herunterladen (Standalone-Datei)","Cofre BTC downloaden (standalone bestand)","descarregar el Cofre BTC (fitxer autònom)","descargar o Cofre BTC (ficheiro autónomo)"],
     ["Nada fica guardado: a chave, o saldo, os endereços e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma.","Nothing is kept: the key, the balance, the addresses and the files live only in the tab's memory and disappear when you close or reload the page; the browser stores neither the theme nor the language.","No se guarda nada: la clave, el saldo, las direcciones y los archivos quedan solo en la memoria de la pestaña y desaparecen al cerrar o recargar la página; el navegador no guarda ni el tema ni el idioma.","Rien n'est conservé : la clé, le solde, les adresses et les fichiers restent uniquement dans la mémoire de l'onglet et disparaissent à la fermeture ou au rechargement de la page ; le navigateur ne conserve ni le thème ni la langue.","Nulla viene salvato: la chiave, il saldo, gli indirizzi e i file restano solo nella memoria della scheda e spariscono alla chiusura o al ricaricamento della pagina; il browser non salva né il tema né la lingua.","Nichts wird gespeichert: Schlüssel, Guthaben, Adressen und Dateien liegen nur im Speicher des Tabs und verschwinden beim Schließen oder Neuladen der Seite; der Browser speichert weder Design noch Sprache.","Niets wordt bewaard: de sleutel, het saldo, de adressen en de bestanden staan alleen in het geheugen van het tabblad en verdwijnen bij het sluiten of herladen van de pagina; de browser bewaart noch het thema noch de taal.","No es desa res: la clau, el saldo, les adreces i els fitxers queden només a la memòria de la pestanya i desapareixen en tancar o recarregar la pàgina; el navegador no desa ni el tema ni l'idioma.","Non se garda nada: a clave, o saldo, os enderezos e os ficheiros quedan só na memoria da lapela e desaparecen ao pechar ou recargar a páxina; o navegador non garda nin o tema nin o idioma."],
@@ -461,26 +519,6 @@
      texto que vem do servidor como dado e não tem tradução aqui. */
   function msg(key, vars) { return key ? { key: key, vars: vars || null } : null; }
 
-  /* Credencial das rotas de envio: a sessão guarda o conjunto no Durable
-     Object; sem sessão (dev sem WATCH), o conjunto vai no corpo. A xpub não
-     entra em nenhuma das duas. */
-  function walletAuth(body) {
-    if (state.session) {
-      body.session = state.session;
-      delete body.watch;
-      delete body.watch_add;
-      delete body.wallet_id;
-      delete body.fingerprint;
-      delete body.version_type;
-    } else if (state.watchRows.length) {
-      delete body.session;
-      body.watch = state.watchRows;
-      body.wallet_id = state.walletId;
-      body.fingerprint = state.fingerprint;
-      body.version_type = state.versionType;
-    }
-    return body;
-  }
   function rawMsg(value) { return value == null || value === '' ? null : { raw: String(value) }; }
   function specText(spec) {
     if (!spec) return '';
@@ -836,360 +874,9 @@
     return null;
   }
 
-  /* -------------------- derivação local -------------------- */
-  var GAP = 50;
-  var LOCAL_TYPES = ['bip86', 'bip84', 'bip49', 'bip44'];
-
-  function randomWalletId() {
-    var b = new Uint8Array(32);
-    crypto.getRandomValues(b);
-    var s = '';
-    for (var i = 0; i < b.length; i++) s += (b[i] < 16 ? '0' : '') + b[i].toString(16);
-    return s;
-  }
-
   function localWallet() {
     if (!window.LocalWallet) throw fail('não foi possível carregar a derivação local; recarregue a página.');
     return window.LocalWallet;
-  }
-
-  /* Primeira cauda: 0..49 dos oito ramos. A regra de 50 endereços vazios
-     continua no servidor e no cliente; aqui só nasce o ponto de partida. */
-  async function initialWatchRows(account) {
-    var lw = localWallet();
-    var jobs = [];
-    LOCAL_TYPES.forEach(function (type) {
-      [0, 1].forEach(function (chain) {
-        jobs.push(lw.deriveRows(account, type, chain, 0, GAP));
-      });
-    });
-    var parts = await Promise.all(jobs);
-    var out = [];
-    parts.forEach(function (part) { out = out.concat(part); });
-    return out;
-  }
-
-  /* Depois da resposta do servidor, deriva só o que falta para cada ramo
-     voltar a ter 50 endereços vazios depois do último usado. */
-  async function missingWatchRows(account, status) {
-    var lw = localWallet();
-    var jobs = [];
-    Object.keys(status.branches || {}).forEach(function (key) {
-      var branch = status.branches[key];
-      var need = Number(branch.need) || 0;
-      if (need <= 0) return;
-      var sep = key.indexOf(':');
-      var type = key.slice(0, sep);
-      var chain = Number(key.slice(sep + 1));
-      var from = Number(branch.next);
-      var left = need;
-      while (left > 0) {
-        var take = Math.min(left, 500);
-        jobs.push(lw.deriveRows(account, type, chain, from, take));
-        from += take;
-        left -= take;
-      }
-    });
-    var parts = await Promise.all(jobs);
-    var out = [];
-    parts.forEach(function (part) { out = out.concat(part); });
-    return out;
-  }
-
-  function mergeWatchRows(base, extra) {
-    var seen = Object.create(null);
-    var out = [];
-    base.concat(extra).forEach(function (row) {
-      var key = row.account_type + ':' + row.chain + ':' + row.idx;
-      if (seen[key]) return;
-      seen[key] = true;
-      out.push(row);
-    });
-    return out;
-  }
-
-  /* -------------------- UTXOs e PSBT locais -------------------- */
-
-  async function fetchRawTxs() {
-    var body = {};
-    walletAuth(body);
-    var res = await fetchJson('/api/raw', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    var r = res.r;
-    var j = res.j;
-    if (!r.ok || j.error) throw apiFail(r, j);
-    if (!j.raw || typeof j.raw !== 'object') throw fail('resposta sem transações cruas');
-    return j.raw;
-  }
-
-  function invalidateRawTxs() {
-    state.rawSeq++;
-    state.rawTxs = null;
-    state.rawPromise = null;
-    state.rawError = '';
-  }
-
-  function ensureRawTxs() {
-    if (state.rawTxs) return Promise.resolve(state.rawTxs);
-    if (!state.rawPromise) {
-      var seq = state.rawSeq;
-      var pending = fetchRawTxs().then(function (raw) {
-        if (seq === state.rawSeq) {
-          state.rawTxs = raw;
-          state.rawError = '';
-        }
-        return raw;
-      }).catch(function (e) {
-        if (seq === state.rawSeq) {
-          state.rawTxs = null;
-          state.rawError = e && e.message ? e.message : String(e);
-        }
-        throw e;
-      });
-      state.rawPromise = pending;
-      pending.then(function () {
-        if (state.rawPromise === pending) state.rawPromise = null;
-      }, function () {
-        if (state.rawPromise === pending) state.rawPromise = null;
-      });
-    }
-    return state.rawPromise;
-  }
-
-  function localEntries() {
-    var lw = localWallet();
-    var heights = Object.create(null);
-    ((state.data && state.data.transactions) || []).forEach(function (tx) {
-      heights[tx.txid] = Number(tx.height) || 0;
-    });
-    var out = [];
-    Object.keys(state.rawTxs || {}).forEach(function (txid) {
-      var tx = lw.readTx(lw.hexToBytes(state.rawTxs[txid]));
-      out.push({
-        txid: txid,
-        height: heights[txid] || 0,
-        outputs: tx.outputs,
-        inputs: tx.inputs,
-        vsize: lw.vsizeOf(tx)
-      });
-    });
-    return out;
-  }
-
-  function localRowMaps() {
-    var byScript = new Map();
-    state.watchRows.forEach(function (row) { byScript.set(row.script, row); });
-    return byScript;
-  }
-
-  function localUtxos() {
-    var lw = localWallet();
-    var byScript = localRowMaps();
-    var utxos = lw.utxosForScripts(localEntries(), new Set(byScript.keys()))
-      .map(function (u) { return Object.assign({}, u, { row: byScript.get(u.script) }); })
-      .filter(function (u) { return !!u.row; });
-    /* A soma local é a mesma que o servidor usa para o disponível. Se não
-       bater, a transação crua veio incompleta: melhor recusar o PSBT do que
-       montar em cima de um retrato diferente. */
-    var available = utxos.filter(function (u) { return u.height > 0 || u.own; })
-      .reduce(function (sum, u) { return sum + u.value; }, 0);
-    var expected = state.data && state.data.balance
-      ? Number(state.data.balance.total) || 0 : available;
-    if (available !== expected) {
-      throw fail('saldo local não confere com o servidor; recarregue a carteira.');
-    }
-    return utxos;
-  }
-
-  function localChooseType() {
-    if (state.versionType === 'bip84' || state.versionType === 'bip49') {
-      return state.versionType;
-    }
-    var used = Object.create(null);
-    ((state.data && state.data.addresses) || []).forEach(function (a) {
-      used[a.account_type] = true;
-    });
-    var order = ['bip44', 'bip86', 'bip84', 'bip49'];
-    for (var i = 0; i < order.length; i++) if (used[order[i]]) return order[i];
-    return 'bip86';
-  }
-
-  function localChangeRow(type) {
-    var last = -1;
-    ((state.data && state.data.addresses) || []).forEach(function (a) {
-      if (a.account_type === type && a.chain === 1 && a.idx > last) last = a.idx;
-    });
-    var next = last + 1;
-    var row = null;
-    state.watchRows.forEach(function (r) {
-      if (r.account_type === type && r.chain === 1 && r.idx === next) row = r;
-    });
-    return row;
-  }
-
-  async function localLimits(address, rate, amount) {
-    await ensureRawTxs();
-    var lw = localWallet();
-    var change = localChangeRow(localChooseType());
-    if (!change) throw fail('endereço de troco indisponível; recarregue a carteira.');
-    return lw.sendLimits({
-      utxos: localUtxos(),
-      address: address,
-      feeRate: rate,
-      amountSats: amount,
-      changeScript: lw.hexToBytes(change.script),
-      quoteRates: [rate]
-    });
-  }
-
-  async function localPreparePsbt(address, amount, rate) {
-    await ensureRawTxs();
-    var lw = localWallet();
-    var change = localChangeRow(localChooseType());
-    if (!change) throw fail('endereço de troco indisponível; recarregue a carteira.');
-    var utxos = localUtxos();
-    var raw = state.rawTxs;
-    var ownScripts = localRowMaps();
-    return await lw.preparePsbt({
-      fingerprint: state.fingerprint,
-      utxos: utxos,
-      address: address,
-      amountSats: amount,
-      feeRate: rate,
-      changeRow: change,
-      ownScripts: ownScripts,
-      rawTxFor: async function (txid) {
-        if (!raw[txid]) throw fail('transação anterior não encontrada no conjunto local.');
-        return lw.hexToBytes(raw[txid]);
-      }
-    });
-  }
-
-  /* CPFP também é um PSBT: a filha gasta a maior saída própria ainda não
-     gasta do pai, e o pacote é calculado com as transações cruas locais. */
-  async function localPrepareCpfp(txid, rate) {
-    await ensureRawTxs();
-    var lw = localWallet();
-    var byScript = localRowMaps();
-    var entries = localEntries();
-    var byTxid = new Map();
-    entries.forEach(function (tx) { byTxid.set(tx.txid, tx); });
-    var entry = byTxid.get(String(txid || '').toLowerCase());
-    if (!entry) throw fail('transação não encontrada nesta carteira');
-    if (entry.height > 0) throw fail('a transação já foi confirmada; CPFP só vale para pendente');
-    var outpointIndex = new Map();
-    entries.forEach(function (tx) {
-      tx.outputs.forEach(function (out, vout) {
-        outpointIndex.set(tx.txid + ':' + vout, {
-          txid: tx.txid, vout, value: Number(out.value) || 0,
-          script: lw.bytesToHex(out.script), height: tx.height || 0
-        });
-      });
-    });
-    var spendableKeys = new Set(localUtxos().map(function (u) { return u.txid + ':' + u.vout; }));
-    var infoCache = new Map();
-    function infoOf(tx) {
-      var info = infoCache.get(tx.txid);
-      if (info) return info;
-      var ownInputs = [];
-      var allPrevKnown = true;
-      tx.inputs.forEach(function (input) {
-        var prev = outpointIndex.get(input.txid + ':' + input.vout);
-        if (!prev) { allPrevKnown = false; return; }
-        var row = byScript.get(prev.script);
-        if (row) ownInputs.push({
-          txid: input.txid, vout: input.vout, value: prev.value,
-          script: prev.script, row: row
-        });
-      });
-      var ownOutputs = [];
-      var externalOutputs = [];
-      tx.outputs.forEach(function (out, vout) {
-        var script = lw.bytesToHex(out.script);
-        var row = byScript.get(script);
-        var value = Number(out.value) || 0;
-        var item = { txid: tx.txid, vout: vout, value: value, script: script, row: row };
-        if (row) ownOutputs.push(item);
-        else externalOutputs.push(item);
-      });
-      var allInputsOwn = allPrevKnown && ownInputs.length === tx.inputs.length;
-      var totalIn = allInputsOwn
-        ? ownInputs.reduce(function (sum, i) { return sum + i.value; }, 0) : null;
-      var totalOut = tx.outputs.reduce(function (sum, o) { return sum + (Number(o.value) || 0); }, 0);
-      info = {
-        ownInputs: ownInputs, ownOutputs: ownOutputs,
-        externalOutputs: externalOutputs, all_inputs_own: allInputsOwn,
-        fee_sats: totalIn == null ? null : totalIn - totalOut
-      };
-      infoCache.set(tx.txid, info);
-      return info;
-    }
-    var info = infoOf(entry);
-    if (!info.ownInputs.length) throw fail('a transação não é um envio desta carteira');
-    if (!info.all_inputs_own) {
-      throw fail('nem todas as entradas da transação são desta carteira; não é possível assinar a filha');
-    }
-    if (info.fee_sats == null || info.fee_sats < 0) throw fail('taxa da transação pai indisponível');
-    var spend = info.ownOutputs
-      .filter(function (o) { return spendableKeys.has(o.txid + ':' + o.vout) && o.value >= lw.DUST_SATS; })
-      .sort(function (a, b) { return b.value - a.value; })[0];
-    if (!spend) throw fail('não há saída própria ainda não gasta para acelerar');
-    function packageOf(start) {
-      var seen = new Set();
-      var queue = [start];
-      var fee = 0;
-      var vsize = 0;
-      var count = 0;
-      while (queue.length) {
-        var tx = queue.pop();
-        if (seen.has(tx.txid)) continue;
-        seen.add(tx.txid);
-        var txInfo = infoOf(tx);
-        if (!txInfo.all_inputs_own || txInfo.fee_sats == null || txInfo.fee_sats < 0) {
-          return { fee_sats: null, vsize: null, count: null };
-        }
-        fee += txInfo.fee_sats;
-        vsize += Number(tx.vsize) || 0;
-        count++;
-        tx.inputs.forEach(function (input) {
-          var prev = byTxid.get(input.txid);
-          if (prev && !prev.height) queue.push(prev);
-        });
-      }
-      return { fee_sats: fee, vsize: vsize, count: count };
-    }
-    var pkg = packageOf(entry);
-    if (pkg.fee_sats == null || !(pkg.vsize > 0)) {
-      throw fail('há ancestral pendente com taxa que não é desta carteira; não é possível calcular o pacote com segurança');
-    }
-    var change = localChangeRow(localChooseType());
-    if (!change) throw fail('endereço de troco indisponível; recarregue a carteira.');
-    var childVsize = lw.estimateVsize([spend.row.kind], [lw.hexToBytes(change.script)]);
-    var targetFee = lw.feeSats(lw.feeRateKvb(rate), pkg.vsize + childVsize);
-    var childFee = targetFee - pkg.fee_sats;
-    if (!(childFee > 0)) throw fail('a transação já paga a taxa alvo; não há o que acelerar');
-    var raw = state.rawTxs;
-    return await lw.prepareCpfpPsbt({
-      fingerprint: state.fingerprint,
-      spend: spend,
-      changeRow: change,
-      childFee: childFee,
-      feeRate: rate,
-      parent: {
-        txid: entry.txid,
-        vsize: Number(entry.vsize) || 0,
-        fee_sats: info.fee_sats,
-        fee_rate: entry.vsize ? info.fee_sats / entry.vsize : 0
-      },
-      packageBefore: pkg,
-      rawTxFor: async function (id) {
-        if (!raw[id]) throw fail('transação pai não encontrada no conjunto local.');
-        return lw.hexToBytes(raw[id]);
-      }
-    });
   }
 
   function fmtBtc(sats) {
@@ -2427,7 +2114,13 @@
     var seq = ++state.limitsSeq;
     var xpub = state.xpub;
     try {
-      var j = await localLimits(address, rate, amount);
+      if (!state.scanner) throw fail('carteira não carregada');
+      var j = state.scanner.limits({
+        address: address,
+        feeRate: rate,
+        amountSats: amount > 0 ? amount : null,
+        quoteRates: [rate]
+      });
       if (seq !== state.limitsSeq || state.xpub !== xpub) return;
       if (!Number.isInteger(j.max_send_sats)) throw fail('resposta sem limite de envio');
       state.limits = j;
@@ -2516,8 +2209,15 @@
     if (!(rate > 0)) { line.textContent = ''; return; }
     var fee = feeQuotes()[rate];
     var amount = amountSats();
+    var fees = state.fees || {};
     line.textContent = t('taxa {rate} sat/vB', { rate: dec(rate) }) +
-      (fee > 0 && amount > 0 ? ' · ' + dec(fmtPercent(fee, amount)) + '%' : '');
+      (fee > 0 && amount > 0 ? ' · ' + dec(fmtPercent(fee, amount)) + '%' : '') +
+      (fees.source ? ' · ' + String(fees.source).split(',')[0] : '');
+    if (Array.isArray(fees.sources) && fees.sources.length) {
+      line.title = fees.sources.map(function (s) {
+        return s.source + (s.error ? ': ' + s.error : '');
+      }).join('\n');
+    }
   }
 
   /* Taxa ao vivo: a rota usa a conexão da sessão quando ela existe e o
@@ -2525,7 +2225,7 @@
   async function loadFees() {
     if (!state.xpub) return;
     var xpub = state.xpub;
-    var url = '/api/fees' + (state.session ? '?session=' + encodeURIComponent(state.session) : '');
+    var url = '/api/fees';
     try {
       var res = await fetchJson(url);
       var r = res.r;
@@ -2806,7 +2506,8 @@
       /* O PSBT nasce no navegador: UTXOs, escolha de moedas, troco e taxa
          são calculados aqui; o servidor só confere a transação assinada no
          fim. */
-      var j = await localPreparePsbt(address, amount, rate);
+      if (!state.scanner) throw fail('carteira não carregada');
+      var j = await state.scanner.prepare({ address: address, amountSats: amount, feeRate: rate });
       // o formulário mudou enquanto o PSBT era montado: este retrato venceu
       if (seq !== state.psbtSeq || key !== psbtKey()) return;
       state.psbt = j;
@@ -2859,12 +2560,12 @@
 
   /* ------------------------------ transmitir o psbt assinado (Cofre BTC) */
   /* O arquivo volta assinado do Cofre BTC. Escolher o arquivo NÃO
-     transmite: o servidor confere o PSBT contra esta carteira (entrada que
+     transmite: o navegador confere o PSBT contra esta carteira (entrada que
      não é sua, valor inventado, entrada não finalizada, taxa fora do padrão)
-     e devolve o resumo; publicar é o clique em confirmar, porque a
+     e mostra o resumo; publicar é o clique em confirmar, porque a
      transmissão não tem volta. O texto do arquivo fica só na memória da
      tela, como o PSBT do envio. A tela recusa pelo file.size antes de ler;
-     o servidor confere o texto de novo (MAX_PSBT_TEXT, em broadcast.js). */
+     o teto do texto é o mesmo de broadcast.js. */
 
   function setBroadcastStatus(kind, spec) {
     setStatusTo($('#broadcast-status'), kind, spec);
@@ -3006,42 +2707,22 @@
     updateBroadcastActions();
     setBroadcastStatus('', msg('conferindo o psbt...'));
     /* O arquivo é lido só depois do teto: escolher um vídeo ou um .psbt
-       inflado não pode congelar a aba. O servidor confere o mesmo teto
-       (MAX_PSBT_TEXT, em broadcast.js). */
+       inflado não pode congelar a aba. O teto é o mesmo de broadcast.js. */
     var MAX_PSBT_FILE_BYTES = 400000;
     try {
       if (file.size > MAX_PSBT_FILE_BYTES) throw fail('arquivo grande demais para conferir');
       var text = await file.text();
       if (seq !== state.broadcastSeq) return;
       if (!text.trim()) throw fail('o arquivo está vazio');
-      if (!state.xpub) throw fail('carregue a carteira antes de escolher o arquivo');
+      if (!state.scanner) throw fail('carregue a carteira antes de escolher o arquivo');
       state.broadcastText = text;
-      var xpub = state.xpub;
-      var body = { psbt: text, preview: true };
-      walletAuth(body);
-      var res = await fetchJson('/api/broadcast', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+      /* A conferência é local: entradas da carteira, valores, finalização e
+         taxa do PSBT assinado. O Worker só verá a transação final no
+         broadcast. */
+      var j = localWallet().previewSignedPsbt({
+        scanner: state.scanner,
+        psbtText: text
       });
-      var r = res.r;
-      var j = res.j;
-      /* sessão do Durable Object caiu: refaz a derivação local e tenta uma
-         vez com a sessão nova */
-      if (r.status === 409) {
-        await load(true);
-        if (state.xpub !== xpub) throw fail('a carteira mudou; tente de novo.');
-        if (!state.session) throw fail('sessão expirada; recarregue a carteira.');
-        walletAuth(body);
-        res = await fetchJson('/api/broadcast', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        r = res.r;
-        j = res.j;
-      }
-      if (!r.ok || j.error) throw apiFail(r, j);
       if (seq !== state.broadcastSeq) return;
       state.broadcast = j;
       renderBroadcast(j);
@@ -3075,33 +2756,20 @@
     state.broadcastBusy = true;
     updateBroadcastActions();
     setBroadcastStatus('', msg('transmitindo...'));
-    var body = { psbt: state.broadcastText };
-    walletAuth(body);
+    if (!state.scanner) {
+      setBroadcastStatus('error', errSpec(fail('carteira não carregada')));
+      state.broadcastBusy = false;
+      updateBroadcastActions();
+      return;
+    }
     try {
-      var xpub = state.xpub;
-      var res = await fetchJson('/api/broadcast', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+      /* A transação final é conferida localmente e só o hex assinado vai ao
+         proxy. O Worker não conhece a carteira. */
+      var j = await localWallet().broadcastSignedPsbt({
+        client: state.proxy,
+        scanner: state.scanner,
+        psbtText: state.broadcastText
       });
-      var r = res.r;
-      var j = res.j;
-      /* sessão do Durable Object caiu: refaz a derivação e tenta uma vez
-         (o resumo já revisado continua válido) */
-      if (r.status === 409) {
-        await load(true);
-        if (state.xpub !== xpub) throw fail('a carteira mudou; tente de novo.');
-        if (!state.session) throw fail('sessão expirada; recarregue a carteira.');
-        walletAuth(body);
-        res = await fetchJson('/api/broadcast', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        r = res.r;
-        j = res.j;
-      }
-      if (!r.ok || j.error) throw apiFail(r, j);
       if (seq !== state.broadcastSeq) return;
       state.broadcast = j;
       state.broadcastSent = true;
@@ -3410,7 +3078,8 @@
         rate = feeRateNow();
       }
       if (!feeRateOk(rate)) throw fail('taxa indisponível; tente de novo.');
-      var j = await localPrepareCpfp(txid, rate);
+      if (!state.scanner) throw fail('carteira não carregada');
+      var j = await state.scanner.prepareCpfp({ txid: txid, feeRate: rate });
       if (seq !== state.cpfpSeq || state.xpub !== xpub) return;
       if (!j.psbt) throw fail('não foi possível montar o psbt.');
       downloadPsbtText(j.psbt, 'cpfp-' + String(j.txid || txid).slice(0, 8) + '.psbt');
@@ -3596,7 +3265,6 @@
     var xpub = $('#xpub').value.trim();
     // nunca mostra o estado de uma xpub que não está mais no campo
     syncViewToInput();
-    // mesma chave já desenhada: a busca pode correr por baixo sem limpar a tela
     var keepView = !!(state.data && state.xpub === xpub);
     var problem = xpubProblem(xpub);
     if (problem) {
@@ -3606,13 +3274,20 @@
     }
     setFieldInvalid($('#xpub'), false);
     if (state.busy) return;
-    var account = state.account;
-    var rows = state.watchRows;
-    var sameWallet = !!(account && state.xpub === xpub && rows.length);
+    var account;
+    var scanner = state.scanner;
+    var proxy = state.proxy;
+    var sameWallet = !!(scanner && state.xpub === xpub);
     if (!sameWallet) {
       try { account = localWallet().parseXpub(xpub); }
       catch (e) { setStatus('error', errSpec(e)); return; }
-      rows = [];
+      proxy = new ProxyClient();
+      scanner = new (localWallet().WalletScanner)({
+        env: {},
+        xpub: xpub,
+        account: account,
+        client: proxy
+      });
     }
     state.busy = true;
     stopScan();
@@ -3623,71 +3298,26 @@
     }
     if (!quiet) setStatus('', scanText());
     try {
-      /* A xpub fica só neste objeto e na memória da aba. O corpo leva os
-         endereços derivados, nunca a chave estendida. */
-      if (!sameWallet) {
-        state.account = account;
-        state.walletId = randomWalletId();
-        state.fingerprint = localWallet().fingerprintOf(account);
-        state.versionType = account.versionType;
-        state.watchRows = [];
-        state.session = '';
-        rows = await initialWatchRows(account);
-        if ($('#xpub').value.trim() !== xpub) return;
-      }
-      while (true) {
-        var body = {
-          watch: rows,
-          wallet_id: state.walletId,
-          fingerprint: state.fingerprint,
-          version_type: state.versionType
-        };
-        if (state.session) body.session = state.session;
-        var res = await fetchJson('/api/wallet', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        var r = res.r;
-        var j = res.j;
-        if (r.status === 429) {
-          if ($('#xpub').value.trim() !== xpub) return;
-          setStatus('', errSpec(apiFail(r, j)));
-          await waitMs(retryAfterMs(r));
-          if ($('#xpub').value.trim() !== xpub) return;
-          continue;
-        }
-        if (!r.ok || j.error) throw apiFail(r, j);
-        // a xpub pode ter mudado enquanto a consulta corria: descarta a resposta
-        if ($('#xpub').value.trim() !== xpub) return;
-        state.xpub = xpub;
-        state.session = j.session || '';
-        /* O servidor fecha a margem com as linhas que recebeu. Se o último
-           usado encostou na cauda, deriva o que falta e repete; a regra de
-           50 vazios por ramo não muda. */
-        if (j.watch_status && !j.watch_status.complete) {
-          var extra = await missingWatchRows(account, j.watch_status);
-          if (!extra.length) throw fail('não foi possível fechar a margem de 50 endereços.');
-          rows = mergeWatchRows(rows, extra);
-          state.watchRows = rows;
-          continue;
-        }
-        state.watchRows = rows;
-        invalidateRawTxs();
-        stopScan();
-        render(j);
-        // a tela já mostra o resultado: o recado de "verificando" sai de cena
-        // sem virar uma legenda de sucesso permanente
-        setStatus('', null);
-        if (j.watch) openWatch();
-        else closeWatch();
-        loadFees();
-        startFeeTimer();
-        schedule();
-        break;
-      }
+      /* A derivação, a margem de 50, o histórico e a conta de UTXOs rodam
+         aqui. O Worker recebe só scripthashes/txids pelo proxy. */
+      await scanner.init();
+      await scanner.fullSync();
+      if ($('#xpub').value.trim() !== xpub) return;
+      state.xpub = xpub;
+      state.account = account || state.account;
+      state.scanner = scanner;
+      state.proxy = proxy;
+      var payload = await scanner.payload();
+      stopScan();
+      render(payload);
+      // a tela já mostra o resultado: o recado de "verificando" sai de cena
+      setStatus('', null);
+      loadFees();
+      startFeeTimer();
+      schedule();
+      openWatch();
     } catch (e) {
-      if (state.scanning && state.session) {
+      if (state.scanning && state.scanner) {
         scanIncomplete(msg('busca interrompida: o saldo pode estar incompleto. {message}', {
           message: errSpec(e)
         }));
@@ -3751,52 +3381,82 @@
     state.watchTimer = 0;
   }
 
-  /* Fechou sem abrir (409 de sessão expirada, proxy, rede): reenvia a xpub
-     em /api/wallet, que refaz a varredura, e reabre o canal. */
+  /* WebSocket de notificações: o cliente manda só scripthashes. O objeto
+     não guarda carteira; um aviso manda o scripthash e o scanner local
+     reconsulta pelo proxy. */
   function retryWatch(ws) {
     if (state.watch !== ws) return;
     state.watch = null;
     clearWatchTimer();
-    if (!state.xpub || document.hidden) return;
+    if (!state.scanner || document.hidden) return;
     var wait = Math.min(30000, 2000 * Math.pow(2, state.watchRetry++));
     setTimeout(function () {
-      if (!state.xpub || document.hidden) return;
-      // reenvia os endereços (nada fica guardado no servidor) e reabre o canal
-      load(true);
+      if (!state.scanner || document.hidden) return;
+      openWatch();
     }, wait);
   }
 
-  /* O WebSocket só leva o id da sessão (aleatório), nunca a xpub. Se o DO
-     foi despejado, ele responde 409 e a reconexão reenvia o conjunto local. */
-  function openWatch() {
-    if (!state.session || !window.WebSocket) return;
+  function subscribeWatch(ws) {
+    if (!state.scanner || !ws || ws.readyState !== 1) return;
+    var shs = state.scanner.scriptsForWatch();
+    if (!shs.length) return;
+    try {
+      ws.send(JSON.stringify({ type: 'subscribe', scripthashes: shs }));
+    } catch (e) {}
+  }
+
+  async function watchSession() {
+    if (state.watchSession) return state.watchSession;
+    var res = await fetchJson('/api/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}'
+    });
+    if (!res.r.ok || res.j.error) throw apiFail(res.r, res.j);
+    state.watchSession = res.j.session || '';
+    return state.watchSession;
+  }
+
+  async function openWatch() {
+    if (!state.scanner || !window.WebSocket) return;
     if (state.watch && (state.watch.readyState === 0 || state.watch.readyState === 1)) return;
     closeWatch();
+    var session;
+    try { session = await watchSession(); } catch (e) { return; }
+    if (!session) return;
     var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     var ws;
-    try { ws = new WebSocket(proto + '//' + location.host + '/api/events?session=' + encodeURIComponent(state.session)); }
+    try { ws = new WebSocket(proto + '//' + location.host + '/api/events?session=' + encodeURIComponent(session)); }
     catch (e) { return; }
     state.watch = ws;
-    ws.onopen = function () { state.watchRetry = 0; clearWatchTimer(); };
+    ws.onopen = function () {
+      state.watchRetry = 0;
+      clearWatchTimer();
+      subscribeWatch(ws);
+    };
     ws.onmessage = function (ev) {
       var frame;
       try { frame = JSON.parse(ev.data); } catch (e) { return; }
-      if (frame.type === 'payload' && frame.payload) {
-        /* um recebimento no fim da cauda exige mais endereços; o payload
-           incompleto não é desenhado e a tela refaz a varredura local */
-        if (frame.payload.watch_status && !frame.payload.watch_status.complete) {
-          if (!state.busy) load(true);
-          return;
-        }
-        invalidateRawTxs();
-        render(frame.payload);
-        ensureRawTxs().then(function () {
-          if (!state.busy) scheduleLimits(true);
-        }).catch(function () {});
+      if (frame.type === 'scripthash' && frame.scripthash) {
+        if (state.busy || !state.scanner) return;
+        state.busy = true;
+        state.scanner.refreshServices(new Set([frame.scripthash])).then(function (result) {
+          if (!state.scanner) return;
+          render(result.payload);
+          subscribeWatch(ws);
+          scheduleLimits(true);
+        }).catch(function (e) {
+          setStatus('error', msg('tempo real: {message}', {
+            message: errSpec(e)
+          }));
+        }).finally(function () {
+          state.busy = false;
+        });
       } else if (frame.type === 'error') {
         setStatus('error', msg('tempo real: {message}', {
           message: serverSpec(frame.error) || rawMsg(frame.error)
         }));
+        try { ws.close(); } catch (e) {}
       }
     };
     ws.onerror = function () {
@@ -3804,7 +3464,6 @@
       retryWatch(ws);
     };
     ws.onclose = function () { retryWatch(ws); };
-    // handshake que não abre nem fecha não pode deixar a tela presa
     state.watchTimer = setTimeout(function () {
       state.watchTimer = 0;
       if (state.watch === ws && ws.readyState === 0) {

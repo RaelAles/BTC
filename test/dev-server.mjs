@@ -7,7 +7,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import worker from '../src/worker.js';
+import worker from '../src/worker-proxy.js';
 import { SECURITY_HEADERS } from '../src/config.js';
 import { deriveAddress, parseXpub } from '../src/derivation.js';
 import { scripthash, setConnectOverride } from '../src/electrum.js';

@@ -14,11 +14,11 @@
      sem socket e sem storage é despejado pelo runtime.
    - como não há cache durável, cada abertura de tela refaz a varredura
      com margem de 50; é o preço de não guardar nada. */
-import { parseXpub } from './derivation.js';
-import { openElectrum, estimateFees } from './electrum.js';
-import { broadcastSignedPsbt, previewSignedPsbt } from './broadcast.js';
-import { WalletScanner } from './wallet-sync.js';
-import { electrumConfig, json } from './config.js';
+import { parseXpub } from '../../src/derivation.js';
+import { openElectrum, estimateFees } from '../../src/electrum.js';
+import { broadcastSignedPsbt, previewSignedPsbt } from '../../src/broadcast.js';
+import { WalletScanner } from '../../src/wallet-sync.js';
+import { electrumConfig, json } from '../../src/config.js';
 import { normalizeWatchRequest } from './watch-set.js';
 
 const KEEPALIVE_MS = 30000;

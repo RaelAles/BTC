@@ -7,11 +7,11 @@
 <!-- English · [Português (Brasil)](README.pt-BR.md) -->
 
 Watch-only Bitcoin wallet on Cloudflare Workers. The browser reads the
-account **xpub** (or `zpub`/`ypub`), derives the addresses locally and sends
-the Worker only the address/scripthash set; the Worker reads the balance, the
-receive addresses and the transaction history from an **Electrum** server. The browser builds the unsigned PSBT; the Worker only
-broadcasts the signed transaction that comes back from the offline **Cofre
-BTC** signer.
+account **xpub** (or `zpub`/`ypub`), derives addresses and **scripthashes**
+locally and queries histories/transactions through the Worker, which only acts
+as an **Electrum** proxy. The browser computes balance, history, UTXOs, PSBT and
+CPFP; the Worker only broadcasts the signed transaction that comes back from
+the offline **Cofre BTC** signer.
 
 Nothing is stored: no wallet data in the browser, no database in Cloudflare,
 and the xpub is not sent to the Worker.
@@ -55,123 +55,74 @@ background watch with the page closed.
    has an unspent wallet output gets the **accelerate** button, which builds
    an unsigned CPFP child PSBT.
 4. **Send BTC**: amount, destination and the fee calculated live from the
-   Bitcoin Core `estimatefee` (2-block target), refreshed every 60 seconds.
+   median of the configured sources (2-block target), refreshed every 60
+   seconds. The screen shows the source used.
    There is no fee picker. The amount uses a BTC mask: digits only, with the
    decimal point moving right to left. The note below the field shows the
    maximum sendable amount for that destination and fee. A valid request
    builds the PSBT automatically; below dust (0.00000546 BTC) or above the
    maximum, the note explains why.
-5. **Broadcast**: importing the signed PSBT does not publish it. The server
+5. **Broadcast**: importing the signed PSBT does not publish it. The browser
    checks that every input belongs to this wallet, that the values match, and
    that all inputs are finalized. Only then the review and the **confirm**
-   button appear. Only that click sends the final transaction to Electrum.
+   button appear. Only that click sends the final transaction to the proxy.
 
 ## How it works
 
-### Address discovery
+### Browser scanner
 
-- The accepted key is an extended **public account key** (`xpub`, `zpub` or
-  `ypub`, depth 3). Addresses, private keys (`xprv`/`yprv`/`zprv`) and loose
-  text are rejected before any lookup.
-- `zpub` maps to BIP84 and `ypub` to BIP49. A plain `xpub` scans all four
-  account types and marks the first one with history, in the order BIP44,
-  BIP86, BIP84, BIP49.
-- The scan walks both chains (`/0/i` receive, `/1/i` change) of the four
-  types, **in the browser**. Each branch stops after **50 consecutive unused
-  addresses**. The next address is always `last used + 1`.
-- The screen derives the 50-address tail of each branch and sends the set to
-  the Worker; the response says how many addresses are missing to close the
-  gap. The screen derives that tail and repeats, without the Worker ever
-  seeing the xpub. If the abuse brake answers **429**, the screen waits for
-  `Retry-After` and repeats the same step.
+- The **xpub** is read and derived only in the browser. The scanner walks the
+  four account types and both chains (`/0` receive, `/1` change), with the same
+  **50 consecutive unused addresses per branch** rule and next address
+  `last used + 1`.
+- The browser computes **scripthashes**, sends only them to the proxy and gets
+  histories and raw transactions back. It then computes balance, history,
+  UTXOs, fee, change, PSBT and CPFP locally.
+- The Worker never receives the xpub or the derived address/script/pubkey
+  list; it keeps no wallet state and does not choose coins. The raw
+  transactions it returns contain their public scripts.
 
-### Balance
+### Electrum proxy
 
-- The Worker downloads the raw transactions of the used addresses, parses
-  them locally and sums outputs that pay the wallet minus outputs already
-  spent.
-- `total` is the **available** balance: confirmed unspent outputs plus the
-  change of your own pending transaction. A third-party payment in the
-  mempool appears as `pending_in` and only counts after confirmation.
-  `pending_out` is what already left the wallet in a pending transaction
-  (destination plus fee), net of the change that comes back.
+`POST /api/proxy` accepts a small batch of Electrum JSON-RPC calls from a
+closed allowlist: `blockchain.scripthash.get_history`,
+`blockchain.scripthash.get_mempool`, `blockchain.transaction.get`,
+`blockchain.estimatefee` and `blockchain.transaction.broadcast`. Parameters are
+validated (64-hex scripthash/txid, transaction hex under a cap). The Worker
+opens the connection, relays the calls and closes it; it stores nothing.
 
-### Electrum as the only source
+Electrum sees the scripthashes, txids, IP and timing. The Worker sees the same
+plus raw transactions and the signed transaction at broadcast; raw
+transactions include their public scripts. There is no Esplora, database,
+D1/KV/R2 or private key.
 
-`src/electrum.js` speaks the Electrum JSON-RPC protocol over
-`cloudflare:sockets`. Derivation happens in the browser; the Worker receives
-the derived addresses and queries by `scripthash`
-(`blockchain.scripthash.get_history`, `blockchain.scripthash.get_mempool`,
-`blockchain.transaction.get`), doing the UTXO accounting itself. There is no
-Esplora, no blockchain.info and no private key anywhere.
+### Real time
 
-A one-off query opens a connection and closes it at the end. During a live
-session the connection is reused, with pipelining and a per-request timeout.
-If the server fails in the middle, the response is an explicit 502; there is
-no fallback to another source. `GET /api/health` shows the effective
-configuration.
+The `ProxyWatcher` Durable Object stores only the **scripthash** set subscribed
+by the screen. When Electrum notifies a change it sends
+`{ "type": "scripthash", "scripthash": "..." }`; the browser re-queries the
+proxy and recomputes everything. With no screen open, the connection and
+subscriptions are dropped. The object holds no xpub, addresses or scanner.
 
-### Real time (Durable Object)
+### Fee
 
-- One Durable Object per screen session, not per xpub. The Worker creates a
-  random 256-bit session id and returns it from `POST /api/wallet`.
-- The object holds the Electrum connection and the
-  `blockchain.scripthash.subscribe` subscriptions for the used addresses plus
-  the 50-address tail of each branch. When the server notifies a change, it
-  re-queries only that scripthash and pushes the new payload over WebSocket.
-- When the last screen closes, the object drops everything: socket,
-  subscriptions, addresses, transaction cache, last payload and the observed
-  set. There is no xpub in the object, no alarm and no storage to restore.
-- Session loss returns **409**; the screen re-derives locally and reopens the
-  channel. If the session is evicted or the Worker is redeployed, the next
-  request rebuilds the query.
+`GET /api/fees` queries the configured servers in parallel and returns the
+median per level, the source list and the relay floor. The screen shows the
+source and the estimate limits; the final fee and PSBT are still computed in
+the browser. The Worker remains a data source and can lie.
 
-### Fees and PSBT
+### PSBT and CPFP
 
-- The only fee source is `blockchain.estimatefee` with a **2-block target**
-  (Bitcoin Core refuses to estimate 1 block). The value comes in BTC/kvB and
-  is converted to exact sat/kvB; only the final fee in satoshis is rounded up.
-- The browser PSBT builder selects confirmed outputs first, then your own
-  pending change. It tries the smallest single input that covers the amount, then the
-  smallest pair, then the largest inputs. The result favors fewer inputs, no
-  change when the remainder would be dust, the smallest leftover, the cheapest
-  input type, older confirmations and a stable derivation order.
-- Dust is **546 sats**. When the remainder would be dust, no change output is
-  created and the remainder goes to the fee; the response separates
-  `fee_sats_at_rate` from `dust_sats`.
+- The browser selects confirmed UTXOs and its own pending change, computes
+  vsize, fee, change and dust, and writes the PSBT v0.
 - Every input carries `witness_utxo`, the BIP32 origin and the full previous
-  transaction (`non_witness_utxo`) so the offline signer can check the value.
-  Taproot inputs use `tap_bip32_derivation`; p2sh-p2wpkh inputs carry the
-  `redeem_script`. The fingerprint is the account fingerprint, which is all a
-  watch-only xpub can know.
-- The estimated vsize is an upper bound of the signed transaction, so the paid
-  fee never falls below the requested rate. The trade-off is at most about
-  1 vB of extra fee.
-
-### CPFP
-
-For a pending transaction whose inputs all belong to this wallet and that
-still has an unspent wallet output, the browser builds the child PSBT. It sums
-the fee and vsize of the parent and any pending ancestors, calculates the
-child fee needed to reach the requested package rate and sends the remainder
-to the next change address. The parent does not change. Sign the
-child in the Cofre BTC and import it in **wallet → broadcast**, like a normal
-send.
-
-### Broadcast
-
-`POST /api/broadcast` receives the signed PSBT (base64 or hex) and checks:
-
-- every input spends a script from the observed set;
-- when the output is a known UTXO, the declared value matches the wallet;
-- every input is finalized in the format required by its script type;
-- outputs are classified as change, own receive or external, and the fee and
-  vsize come from the final transaction, not from the estimate.
-
-With `preview: true` it only checks and returns the summary. Without preview,
-the final hex goes to `blockchain.transaction.broadcast`. Warnings cover zero
-or very low fees, very high fees, dust outputs, more than one external output
-and inputs the session has not seen. A broadcast cannot be undone.
+  transaction (`non_witness_utxo`); the Cofre checks value, script,
+  destination and fee before signing.
+- CPFP is also built in the browser: it adds the parent and pending ancestors,
+  computes the child fee and sends the remainder to the next change address.
+- The signed file returns to the screen; input, value, finalization and fee
+  checks are local. Only then is the final hex sent to the proxy for
+  `blockchain.transaction.broadcast`.
 
 ## The Cofre BTC
 
@@ -241,8 +192,9 @@ npm run deploy
 ```
 
 The repository root is the Worker project: `wrangler.jsonc`, `src/`,
-`public/`, `test/`. There is no database or schema; the only migration is the
-Durable Object class declaration `v1` in `wrangler.jsonc`.
+`public/`, `test/`. There is no database or schema. The production entry is
+`src/worker-proxy.js`; `wrangler.jsonc` declares the `WalletWatcher` class
+(implemented by `ProxyWatcher`) in migration `v1`.
 
 For **Workers Builds**, leave the root directory empty (the repository root),
 use `npm ci` as the build command and `npx wrangler deploy` as the deploy
@@ -258,166 +210,88 @@ Cloudflare.
 | `ELECTRUM_SERVERS` | `electrum.blockstream.info:50002:tls, blockstream.info:700:tls, electrum.diynodes.com:50022:tls` | `host:port[:tls\|:tcp]` list. `off` disables Electrum and the API answers 503. |
 | `ELECTRUM_TIMEOUT_MS` | `8000` | Per-request timeout in milliseconds. A non-positive or invalid value answers 503. |
 
-The binding `WATCH` points to `WalletWatcher`; migration `v1` declares it as a
-SQLite-backed Durable Object class, which is the only backend available on the
-free plan. The object does not call `storage`.
+The `WATCH` binding points to `WalletWatcher` (the exported `ProxyWatcher`);
+migration `v1` declares it as a SQLite-backed Durable Object class, the only
+backend available on the free plan. The object does not call `storage`; it
+keeps only scripthashes in memory.
 
 ## API
 
-API routes answer JSON (the events route upgrades to WebSocket). Errors use
-`{ "error": "..." }`; the common statuses are 400 (invalid request), 404/405
-(unknown route or method), 409 (lost session), 429 (rate limit), 500
-(unexpected failure), 502 (Electrum failure) and 503 (Electrum
-disabled/misconfigured).
+Routes return JSON. Errors use `{ "error": "..." }`; common statuses are 400
+(invalid request), 404/405 (unknown route or method), 429 (rate limit), 500
+(unexpected failure), 502 (Electrum failure) and 503 (service off or
+misconfigured).
 
-| Route | Purpose |
+| Route | Function |
 | --- | --- |
-| `POST /api/wallet` | Wallet state: balance, the four account types, used addresses and transactions. |
-| `POST /api/raw` | Return the set's raw transactions; the browser uses them to check UTXOs and build the PSBT. |
-| `POST /api/psbt` | **Legacy:** build the send PSBT on the server; the screen does not use it. |
-| `POST /api/cpfp` | **Legacy:** build CPFP on the server; the screen does not use it. |
-| `POST /api/broadcast` | Check a signed PSBT; with `preview`, do not publish. |
-| `GET /api/fees` | Live 2-block fee estimate. |
-| `GET /api/events?session=…` | WebSocket upgrade for live updates. |
-| `GET /api/health` | Effective Electrum configuration and service flags. |
+| `POST /api/proxy` | Allowed Electrum JSON-RPC batch (scripthash/txid/fee/broadcast). |
+| `GET /api/fees` | Estimate from one or more sources, with origin and levels. |
+| `POST /api/session` | Create the ephemeral notification WebSocket id. |
+| `GET /api/events?session=…` | WebSocket that returns only changed scripthashes. |
+| `GET /api/health` | Effective configuration and proxy flags. |
 
-### `POST /api/wallet`
+### `POST /api/proxy`
 
 ```json
-{ "watch": [{ "account_type": "bip84", "chain": 0, "idx": 0,
-  "address": "bc1...", "path": "m/84'/0'/0'/0/0",
-  "script": "0014...", "pub": "02..." }],
-  "wallet_id": "64 hex chars", "fingerprint": "8 hex chars",
-  "version_type": "xpub", "session": "optional" }
+{ "items": [
+  { "method": "blockchain.scripthash.get_history", "params": ["<64 hex>"] },
+  { "method": "blockchain.transaction.get", "params": ["<txid>"] }
+] }
 ```
 
-The body carries the addresses already derived by the browser; the xpub is not
-part of the request. `wallet_id` is the random wallet identity for that
-session and `fingerprint` is the account fingerprint used in the PSBT BIP32
-origin. The Worker queries the scripthashes, closes the **50-unused-address
-gap per branch** and returns `watch_status`:
+A single item is also accepted without `items`. The response is
+`{ "results": [...], "errors": [null|"..."], ... }`, in request order. Allowed
+methods: `blockchain.scripthash.get_history`,
+`blockchain.scripthash.get_mempool`, `blockchain.transaction.get`,
+`blockchain.estimatefee` and `blockchain.transaction.broadcast`. Broadcast must
+be alone in the batch and requires valid hex under the size cap.
 
-- `watch_status.gap`: always 50;
-- `watch_status.complete`: the gap is closed;
-- `watch_status.branches["bip84:0"]`: `last_used`, `max_idx`, `next` and
-  `need`. If `need > 0`, the screen derives `next .. next + need - 1` and
-  repeats.
+The proxy does not accept an xpub, addresses, scripts, pubkeys or wallet
+routes.
 
-After the first step, the screen may send only `session` to the send routes;
-the Durable Object keeps the set while the session exists. If the session is
-lost (**409**), the screen re-derives and calls `POST /api/wallet` again.
+### `GET /api/fees`
 
-The final payload contains `detected_type`, `balance`, `types`, `addresses`,
-`transactions`, `warnings`, `updated_at` and `watch_status`. `types` always has
-the four entries in BIP86, BIP84, BIP49, BIP44 order; `addresses` contains only
-used addresses; `transactions` has one entry per `txid` with fee, direction,
-addresses and CPFP eligibility; `session` is the random Durable Object id.
+Returns `levels`, `sat_per_vb`, `floored`, `relay_min_kvb`, `source`,
+`sources[]` (each with `source` and `levels`, or `error`) and `updated_at`.
+The median is computed per level across sources that answered; with no source
+it returns 502.
 
-The route still accepts the old `xpub` body for compatibility, but the screen
-does not send it. The documented and tested flow is `watch`.
+### `POST /api/session`
 
-### `POST /api/raw`
-
-```json
-{ "session": "optional" }
-```
-
-Without a session, send the same `watch` as `/api/wallet`. It returns
-`{ "raw": { "<txid>": "<hex>", ... } }`; the browser checks the UTXOs and
-builds the PSBT locally. The server does not choose coins or change.
-
-### `POST /api/psbt`
-
-Legacy route kept for compatibility: the screen builds the PSBT in the browser
-and does not call this endpoint.
-
-```json
-{ "session": "optional", "address": "bc1...",
-  "amount_sats": 50000, "fee_rate": 6 }
-```
-
-Without a session (dev without the Durable Object), send `watch`,
-`wallet_id`, `fingerprint` and `version_type` instead of `session`.
-`amount_sats` is an integer; `fee_rate` is in sat/vB and accepts the
-estimator's decimals (from 0.001 to 10000). Values below 546 sats are refused
-as dust. The response carries the base64 `psbt`, `txid`, `vsize`, `fee_sats`,
-`fee_sats_at_rate`, `dust_sats`, `fee_rate`, `total_in`, `total_out`,
-`amount_sats`, `recipient`, `change` and `inputs`/`outputs` with their BIP32
-paths and `own` classification.
-
-With `preview: true` and no `amount_sats`, it returns the send limit:
-`available_sats`, `min_sats`, `max_send_sats`, `fee_sats_at_max` and
-`vsize_at_max`. With `amount_sats`, it also returns the fee and change for that
-amount. `quote_rates` adds a `quotes` array with the cost of each requested
-rate for the same amount.
-
-### `POST /api/cpfp`
-
-Legacy route kept for compatibility: the screen builds the CPFP child in the
-browser and does not call this endpoint.
-
-```json
-{ "session": "optional", "txid": "...", "fee_rate": 11 }
-```
-
-The txid must be a pending transaction with all inputs from this wallet and a
-checkable parent fee. The body accepts the same `watch` as `/api/wallet` when
-there is no session. The response includes the child `psbt`, `txid`, `vsize`,
-`fee_sats`, `parent`, `package`, `input` and `output`. The child has no
-external destination; the remainder returns to the next change address.
-
-### `POST /api/broadcast`
-
-```json
-{ "session": "optional", "psbt": "cHNidP8...", "preview": true }
-```
-
-The PSBT must be v0 and signed by the Cofre. Without a session, send the same
-`watch`. The response summarizes the final transaction (`txid`, real `vsize`,
-`fee_sats`, `fee_rate`, `total_in`, `total_out`, `inputs`, `outputs`,
-`warnings`, `rbf`, `locktime`). Without `preview`, it also returns
-`broadcast: true` and `server_txid`; the final hex never goes back to the
-browser.
-
-### `GET /api/fees?session=…`
-
-Returns the live estimate with `levels.next`, `targets.next`,
-`sat_per_kvb`, `sat_per_vb`, `floored`, `relay_min_kvb`, `unit`, `source` and
-`updated_at`. A server without an estimate returns `null` for that level. The
-relay floor (`0.1 sat/vB` since Bitcoin Core v30) is only a warning; the
-estimated value is used as-is.
+Returns `{ "session": "<64 hex>" }`; it is only the notification Durable
+Object id, unrelated to the wallet.
 
 ### `GET /api/events?session=…`
 
-WebSocket upgrade. Messages are `{ "type": "payload", ... }`,
-`{ "type": "progress", ... }` while the scan is running, or
-`{ "type": "error", ... }` when Electrum fails. A session without a wallet
-answers 409.
+WebSocket upgrade. The client sends
+`{ "type": "subscribe", "scripthashes": ["<64 hex>", ...] }`; the object
+subscribes on Electrum and returns `{ "type": "scripthash", "scripthash":
+"..." }` on each change. There is no wallet payload, xpub, addresses or values.
 
 ### `GET /api/health`
 
-Returns `{ "ok": true, "service": "monitor-btc-electrum", "source":
-"electrum", "storage": "nenhum", "realtime": true, "electrum": [...],
-"time": "..." }`.
+Returns `{ "ok": true, "service": "monitor-btc-proxy", "source": "electrum",
+"storage": "nenhum", "realtime": true, "electrum": [...], "time": "..." }`.
 
 ## Security
 
 - The xpub is watch-only. **Never paste an `xprv`/`yprv`/`zprv`.** A leaked
   xpub costs privacy, not funds.
-- The xpub lives only in the tab's memory. The Worker receives the derived
-  address set (used addresses plus the 50-address tail), never the extended
-  key; it does not log the set, does not put it in a URL and has no database.
-  A compromised Worker still sees those addresses, the UTXOs and the queried
-  history, but cannot derive future addresses outside the sent gap.
+- The xpub lives only in the tab's memory. The Worker receives
+  **scripthashes**, txids, raw transactions and the signed transaction at
+  broadcast; never the extended key or the derived address/pubkey list. Raw
+  transactions contain their public scripts. It does not log that data, put
+  it in a URL or keep a database.
 - **The screen code also comes from the Worker.** A compromised Worker can
   serve altered `index.html`/`app.js` and capture the xpub before any local
   derivation; SRI and CSP do not help when the page itself is replaced.
   Local derivation protects against a server that receives requests, not
   against a server that controls the delivered code. That guarantee would
   require a client downloaded and verified outside the Worker.
-- The session id is a temporary capability. Whoever holds it while the screen
-  is open can read that wallet's state; it is random and disappears when the
-  last screen closes.
+- The session id is a notification-only capability: whoever holds it while
+  the screen is open can subscribe scripthashes and see which changed, not
+  read balance, addresses or PSBT. It is random and disappears when the last
+  screen closes.
 - The Monitor never sees a private key. The PSBT leaves unsigned and the Cofre
   BTC performs the authoritative check before signing.
 - The send PSBT and the CPFP child are built in the browser from the raw
@@ -425,9 +299,9 @@ Returns `{ "ok": true, "service": "monitor-btc-electrum", "source":
   still supplies the raw transactions and the estimate, and can omit data or
   lie; the local sum is checked against the balance and the Cofre checks the
   PSBT before signing.
-- The broadcast summary is structural: it checks ownership, values and
-  destinations, but the network validates the signatures. The Cofre check
-  before signing is the one that matters.
+- The broadcast summary is computed in the browser: it checks wallet inputs,
+  values, destinations and fee, but the network validates the signatures. The
+  Cofre check before signing is the one that matters.
 - All responses carry HSTS, CSP, `X-Frame-Options`, `X-Content-Type-Options`,
   `Referrer-Policy`, `Permissions-Policy`, COOP, COEP and CORP. The static
   `public/_headers` and `SECURITY_HEADERS` in `src/config.js` keep those nine
@@ -443,7 +317,9 @@ npm test
 ```
 
 The suite runs without network, using a fake Electrum server and the project's
-own BTC core:
+own BTC core. The `worker`, `watcher`, `watch-mode`, `broadcast`, `cpfp` and
+`hardening` tests use the old fixtures in `test/legacy/`; production is covered
+by `proxy.test.mjs`, `proxy-watcher.test.mjs` and `browser-core.test.mjs`.
 
 | File | Covers |
 | --- | --- |
@@ -456,7 +332,9 @@ own BTC core:
 | `cofre-ui.test.mjs` | Cofre screens, the nine i18n columns and the embedded CSS hash. |
 | `broadcast.test.mjs` | Signed PSBT checks and broadcast, including the Durable Object path. |
 | `watcher.test.mjs` | Subscriptions, notifications, reconnect, eviction and total discard. |
-| `watch-mode.test.mjs` | Local derivation, 50-address gap, raw transactions, PSBT and Durable Object without xpub. |
+| `watch-mode.test.mjs` | Local scanner, 50-address gap, raw transactions and PSBT; legacy routes under test. |
+| `proxy.test.mjs` | Proxy: allowed batch, broadcast, fees and no wallet routes. |
+| `proxy-watcher.test.mjs` | New Durable Object: scripthashes only, no wallet. |
 | `browser-core.test.mjs` | `wallet-local.js` up to date and derivation/PSBT/CPFP parity with the server. |
 | `hardening.test.mjs` | Input caps, abuse brake and WebSocket Origin. |
 | `security-headers.test.mjs` | Header parity, CSP, SRI hashes and the Cofre hash in this README. |
@@ -500,13 +378,13 @@ src/
   address-totals.js      UTXO accounting per script
   psbt.js                coin selection, fee, change and send PSBT (source of the local bundle)
   broadcast.js           signed PSBT checks and broadcast
-  wallet-sync.js         local-set query, gap and wallet payload
-  watch-set.js           validation of client-derived addresses
-  watcher.js             Durable Object: socket, subscriptions, WebSocket
+  wallet-sync.js         local scanner: derivation, gap, balance, PSBT and CPFP
+  worker-proxy.js        production: Electrum proxy + session + fees + assets
+  proxy-watcher.js       production: scripthash-only Durable Object
   config.js              environment, security headers and helpers
-  worker.js              routes
 test/
   *.test.mjs             automated tests
+  legacy/                old worker/watcher fixtures, tests only
   fake-electrum.mjs      fake Electrum server with notifications
   tx-fixture.mjs         raw transactions built with the BTC core
   dev-server.mjs         offline UI server with a fixed scenario
@@ -525,7 +403,7 @@ package.json
   scripthashes. The Durable Object only stays awake while a screen is open.
 - **Gap limit.** Addresses after 50 consecutive unused ones are invisible; an
   interrupted scan shows "incomplete search" instead of a final balance.
-- **Subscriptions cover used addresses and the gap tail**, not the whole
+- **Subscriptions cover used scripthashes and the gap tail**, not the whole
   wallet. A payment beyond the tail only appears in a new scan.
 - **No 24/7 watch.** Closing the page ends the session; there is no monitoring
   or notification with the screen closed.
@@ -538,22 +416,20 @@ package.json
 - **Fallback polling.** Without a working WebSocket, the screen reloads every
   30 seconds; each reload starts a new full scan.
 - **Fee estimator.** `estimatefee` is historical: it may be above or below the
-  current queue. There is no histogram, median or economic floor; only the
-  relay floor is shown as a warning.
-- **Abuse brake.** 120 requests per minute per IP outside the scan and 600
-  scan steps per minute per IP, with at most 6 simultaneous scans. The scan
-  has its own budget; when it answers 429, the screen waits for
-  `Retry-After` and resumes the same step, so even a very large wallet can
-  finish while the sustained rate stays limited. The counter lives in the
-  isolate's memory and is not a global quota: it contains bursts per Worker
-  instance.
+  current queue. The screen uses the median of the configured sources, but
+  there is no histogram or economic floor; only the relay floor is shown as a
+  warning.
+- **Abuse brake.** 120 requests per minute per IP and 20,000 proxy items per
+  minute per IP. The counter lives in the isolate's memory and is not a global
+  quota: it contains bursts per instance. A large scan batch may be refused
+  with 429; the screen retries after `Retry-After`.
 - **Electrum sees the queried scripthashes** (TLS hides them from the network
   path, not from the server). The Cofre remains the authoritative signer.
-- **The Worker sees the sent set**: used addresses plus the 50-address tail of
-  each branch, the UTXOs, the txids and the signed PSBT at broadcast. The
-  xpub stays in the
-  browser, but a compromised Worker can still lie about balance, fee or
-  censor; the Cofre check is the final defense before signing.
+- **The Worker sees scripthashes, txids, raw transactions and the signed
+  transaction at broadcast**; raw transactions contain their public scripts.
+  It does not receive the xpub or the derived address/pubkey list. A
+  compromised Worker can still lie about data, fee or censor; the
+  Cofre check is the final defense before signing.
 - **Data availability.** The browser checks UTXOs from the raw transactions
   returned by the Worker, but has no node of its own: a Worker that omits a
   transaction can make the local balance fail to reconcile; the screen then

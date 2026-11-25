@@ -5,7 +5,7 @@
 
    node test/cpfp.test.mjs */
 import assert from 'node:assert/strict';
-import worker from '../src/worker.js';
+import worker from './legacy/worker.js';
 import { deriveAddress, parseXpub } from '../src/derivation.js';
 import { scripthash, setConnectOverride } from '../src/electrum.js';
 import BTC from '../src/btc-core.js';

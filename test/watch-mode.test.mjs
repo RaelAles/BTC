@@ -5,8 +5,8 @@
    node test/watch-mode.test.mjs */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import worker from '../src/worker.js';
-import { WalletWatcher } from '../src/watcher.js';
+import worker from './legacy/worker.js';
+import { WalletWatcher } from './legacy/watcher.js';
 import { parseXpub, chainNode, deriveChild } from '../src/derivation.js';
 import { scripthash, setConnectOverride } from '../src/electrum.js';
 import BTC from '../src/btc-core.js';
@@ -209,8 +209,10 @@ async function call(path, body, env) {
   assert.doesNotMatch(app, /xpub:\s*state\.xpub/);
   assert.doesNotMatch(app, /fetchJson\('\/api\/psbt'/);
   assert.doesNotMatch(app, /fetchJson\('\/api\/cpfp'/);
-  assert.match(app, /fetchJson\('\/api\/raw'/);
-  console.log('ok   app.js não monta corpo com xpub e monta o PSBT localmente');
+  assert.doesNotMatch(app, /fetchJson\('\/api\/raw'/);
+  assert.doesNotMatch(app, /fetchJson\('\/api\/wallet'/);
+  assert.match(app, /fetchJson\('\/api\/proxy'/);
+  console.log('ok   app.js usa só o proxy e monta o PSBT localmente');
 }
 
 console.log('\ntestes do modo watch passaram');

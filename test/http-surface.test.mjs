@@ -5,7 +5,7 @@
 
    node test/http-surface.test.mjs */
 import assert from 'node:assert/strict';
-import worker from '../src/worker.js';
+import worker from '../src/worker-proxy.js';
 
 function envComAssets(chamadas) {
   return {
@@ -68,10 +68,12 @@ function envComAssets(chamadas) {
   assert.equal(nada.status, 404, 'rota de API desconhecida continua 404');
   assert.match((await nada.json()).error, /rota não encontrada/);
 
+  const proxy = await worker.fetch(new Request('https://x/api/proxy', { method: 'GET' }), {});
+  assert.equal(proxy.status, 405, 'GET em /api/proxy continua 405');
+  assert.match((await proxy.json()).error, /use POST/);
   const wallet = await worker.fetch(new Request('https://x/api/wallet', { method: 'GET' }), {});
-  assert.equal(wallet.status, 405, 'GET em /api/wallet continua 405');
-  assert.match((await wallet.json()).error, /use POST/);
-  console.log('ok   API preserva 404/405 existentes');
+  assert.equal(wallet.status, 404, 'rota de carteira antiga não existe');
+  console.log('ok   API preserva 404/405 existentes sem rotas de carteira');
 }
 
 /* ---------------- 5. cabeçalho de reescrita de caminho ---------------- */

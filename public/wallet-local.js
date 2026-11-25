@@ -1,5 +1,5 @@
 /* Gerado por scripts/sync-browser-core.mjs; não edite à mão.
-   Derivação, UTXOs e PSBT locais para o Worker não receber a xpub. */
+   Scanner, UTXOs, PSBT e CPFP locais; o Worker é só proxy. */
 (function (global) {
 'use strict';
 /* Núcleo BTC extraído da UI standalone antiga (projeto-2.html), sem DOM. */
@@ -1951,7 +1951,422 @@ var BTC = (function () {
 })();
 
 
-var __deriv = (function () {
+var __electrum = (function (BTC) {
+/* Cliente mínimo do protocolo Electrum (JSON-RPC 1.4) sobre TCP/TLS.
+   Usa `connect()` de `cloudflare:sockets`; o transporte é injetável
+   (setConnectOverride) para os testes rodarem em Node.
+
+   Sem chave privada: a consulta é por scripthash = sha256(scriptPubKey)
+   com os bytes invertidos. Métodos usados:
+     server.version
+     server.ping
+     blockchain.scripthash.get_history
+     blockchain.scripthash.get_mempool
+     blockchain.scripthash.subscribe
+     blockchain.estimatefee
+     blockchain.transaction.get
+     blockchain.transaction.broadcast (só no proxy, com a transação já
+       conferida pelo navegador)
+   Uma conexão responde a muitas consultas (pipelining), então não há o
+   limite de subrequests do fetch. */
+
+/* Verificados em 2026-11: TLS 50002 e texto puro 50001 respondem
+   `server.version` e `get_balance`. O TLS é o padrão; o texto puro só
+   entra quando pedido explicitamente com `:tcp` (o caminho da rede vê os
+   endereços consultados). */
+const DEFAULT_SERVERS = [
+  { host: 'electrum.blockstream.info', port: 50002, secure: true }
+];
+
+const DEFAULT_TIMEOUT = 8000;
+const DEFAULT_CONNECT_TIMEOUT = 6000;
+const DEFAULT_CONCURRENCY = 20;
+const MAX_BUFFER = 8 * 1024 * 1024;
+
+function scripthash(script) {
+  if (!script || typeof script.length !== 'number' || !script.length) {
+    throw new Error('script inválido para scripthash');
+  }
+  const bytes = script instanceof Uint8Array ? script : new Uint8Array(script);
+  const h = BTC.sha256(bytes);
+  let out = '';
+  for (let i = h.length - 1; i >= 0; i--) out += h[i].toString(16).padStart(2, '0');
+  return out;
+}
+
+/* "host:porta[:tls|:tcp],..." — TLS por padrão; texto puro só com `:tcp`
+   explícito. IPv6 entra entre colchetes: "[::1]:50002:tls". */
+function parseServerList(text) {
+  const out = [];
+  for (const raw of String(text || '').split(',')) {
+    const item = raw.trim();
+    if (!item) continue;
+    let host, portText, modeText;
+    if (item[0] === '[') {
+      const close = item.indexOf(']');
+      if (close < 0) throw new Error('servidor Electrum inválido: ' + item);
+      host = item.slice(1, close);
+      const rest = item.slice(close + 1);
+      const parts = rest[0] === ':' ? rest.slice(1).split(':') : [];
+      if (!parts.length || parts.length > 2) {
+        throw new Error('servidor Electrum inválido: ' + item);
+      }
+      portText = parts[0];
+      modeText = parts[1];
+    } else {
+      const parts = item.split(':');
+      if (parts.length > 3) throw new Error('servidor Electrum inválido: ' + item);
+      host = parts[0];
+      portText = parts[1];
+      modeText = parts[2];
+    }
+    const port = Number(portText);
+    if (!host || !portText || !Number.isInteger(port) || port <= 0 || port > 65535) {
+      throw new Error('servidor Electrum inválido: ' + item);
+    }
+    const mode = String(modeText || 'tls').toLowerCase();
+    if (mode !== 'tls' && mode !== 'tcp') {
+      throw new Error('transporte inválido em ' + item + ' (use tls ou tcp)');
+    }
+    out.push({ host, port, secure: mode === 'tls' });
+  }
+  if (!out.length) throw new Error('lista de servidores Electrum vazia');
+  return out;
+}
+
+let connectOverride = null;
+/* Seam de teste: em Node não existe `cloudflare:sockets`. */
+function setConnectOverride(fn) { connectOverride = fn || null; }
+
+async function loadConnect() {
+  if (connectOverride) return connectOverride;
+  const mod = await import('cloudflare:sockets');
+  return mod.connect;
+}
+
+function withDeadline(promise, ms, message) {
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer !== null) clearTimeout(timer);
+  });
+}
+
+class ElectrumClient {
+  constructor(socket, info, opts) {
+    const o = opts || {};
+    this.socket = socket;
+    this.server = { host: info.host, port: info.port, secure: !!info.secure };
+    this.timeoutMs = Number(o.timeoutMs) || DEFAULT_TIMEOUT;
+    this.version = null;
+    this.nextId = 0;
+    this.pending = new Map();
+    this.buffer = '';
+    this.dead = null;
+    this.decoder = new TextDecoder();
+    this.encoder = new TextEncoder();
+    this.writer = socket.writable.getWriter();
+    this.reader = socket.readable.getReader();
+    this.writeQueue = Promise.resolve();
+    this.onNotification = null;
+    this.pump = this._read();
+  }
+
+  get name() { return this.server.host + ':' + this.server.port; }
+
+  _fail(err) {
+    if (this.dead) return;
+    this.dead = err instanceof Error ? err : new Error('' + err);
+    for (const [, p] of this.pending) {
+      clearTimeout(p.timer);
+      p.reject(this.dead);
+    }
+    this.pending.clear();
+    try { if (this.socket.close) this.socket.close(); } catch (e) {}
+    try { this.reader.cancel().catch(() => {}); } catch (e) {}
+    try { this.writer.close().catch(() => {}); } catch (e) {}
+  }
+
+  _line(line) {
+    let msg;
+    try { msg = JSON.parse(line); } catch (e) { return this._fail(new Error('resposta não-JSON do Electrum')); }
+    const list = Array.isArray(msg) ? msg : [msg];
+    for (const m of list) {
+      if (!m || typeof m !== 'object') continue;
+      if (m.method && m.id === undefined) {
+        if (this.onNotification) {
+          try { this.onNotification(m.method, m.params || []); } catch (e) {}
+        }
+        continue; // notificação (scripthash.subscribe, headers.subscribe)
+      }
+      const p = this.pending.get(m.id);
+      if (!p) continue; // notificação ou resposta já expirada
+      this.pending.delete(m.id);
+      clearTimeout(p.timer);
+      if (m.error) {
+        p.reject(new Error((p.method || 'electrum') + ': ' + (m.error.message || JSON.stringify(m.error))));
+      } else {
+        p.resolve(m.result);
+      }
+    }
+  }
+
+  async _read() {
+    try {
+      for (;;) {
+        const chunk = await this.reader.read();
+        if (chunk.done) break;
+        this.buffer += this.decoder.decode(chunk.value, { stream: true });
+        if (this.buffer.length > MAX_BUFFER) throw new Error('resposta grande demais do Electrum');
+        let cut;
+        while ((cut = this.buffer.indexOf('\n')) >= 0) {
+          const line = this.buffer.slice(0, cut).trim();
+          this.buffer = this.buffer.slice(cut + 1);
+          if (line) this._line(line);
+        }
+      }
+      this._fail(new Error('conexão Electrum encerrada pelo servidor'));
+    } catch (e) {
+      this._fail(e);
+    }
+  }
+
+  _write(text) {
+    const data = this.encoder.encode(text);
+    this.writeQueue = this.writeQueue.then(() => this.writer.write(data));
+    return this.writeQueue;
+  }
+
+  request(method, params) {
+    if (this.dead) return Promise.reject(this.dead);
+    const id = ++this.nextId;
+    const promise = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        /* só este pedido falha: derrubar a conexão por um timeout de
+           consulta matava todos os pedidos em voo de um lote. O socket
+           continua válido; uma resposta atrasada cai no `pending` vazio.
+           Falha de socket é outra coisa: _read/_write chamam _fail. */
+        this.pending.delete(id);
+        reject(new Error('timeout de ' + this.timeoutMs + ' ms em ' + method));
+      }, this.timeoutMs);
+      this.pending.set(id, { resolve, reject, timer, method });
+    });
+    this._write(JSON.stringify({ id, method, params: params || [] }) + '\n')
+      .catch(e => this._fail(e));
+    return promise;
+  }
+
+  /* Pipelining com janela: mantém `concurrency` pedidos em voo, devolve na ordem. */
+  async requestMany(items, concurrency) {
+    const limit = Math.max(1, Number(concurrency) || DEFAULT_CONCURRENCY);
+    const out = new Array(items.length);
+    let cursor = 0;
+    const worker = async () => {
+      for (;;) {
+        const i = cursor++;
+        if (i >= items.length) return;
+        out[i] = await this.request(items[i].method, items[i].params);
+      }
+    };
+    const workers = [];
+    for (let k = 0; k < Math.min(limit, items.length); k++) workers.push(worker());
+    await Promise.all(workers);
+    return out;
+  }
+
+  async serverVersion(label) {
+    this.version = await this.request('server.version', [label || 'btc/1.0', '1.4']);
+    return this.version;
+  }
+
+  async ping() {
+    return await this.request('server.ping', []);
+  }
+
+  async close() {
+    if (this.dead) {
+      this.dead = this.dead || new Error('fechado');
+      return;
+    }
+    this.dead = new Error('conexão Electrum fechada pelo cliente');
+    for (const [, p] of this.pending) {
+      clearTimeout(p.timer);
+      p.reject(this.dead);
+    }
+    this.pending.clear();
+    try { await this.socket.close(); } catch (e) {}
+  }
+}
+
+/* Abre a primeira conexão que responder, na ordem da lista. */
+async function openElectrum(opts) {
+  const o = opts || {};
+  const servers = o.servers && o.servers.length ? o.servers : DEFAULT_SERVERS;
+  const connectTimeoutMs = Number(o.connectTimeoutMs) || DEFAULT_CONNECT_TIMEOUT;
+  const timeoutMs = Number(o.timeoutMs) || DEFAULT_TIMEOUT;
+  const label = o.label || 'btc/1.0';
+
+  let connectFn;
+  try {
+    connectFn = await loadConnect();
+  } catch (e) {
+    throw new Error('TCP indisponível neste runtime (cloudflare:sockets): ' +
+      (e && e.message ? e.message : e));
+  }
+  if (typeof connectFn !== 'function') throw new Error('connect() TCP indisponível neste runtime');
+
+  const failures = [];
+  for (const server of servers) {
+    let socket = null;
+    let client = null;
+    try {
+      const address = { hostname: server.host, port: server.port };
+      const options = server.secure ? { secureTransport: 'on' } : {};
+      socket = connectFn(address, options);
+      await withDeadline(Promise.resolve(socket.opened), connectTimeoutMs,
+        'timeout de conexão com ' + server.host + ':' + server.port);
+      client = new ElectrumClient(socket, server, { timeoutMs });
+      await client.serverVersion(label);
+      return client;
+    } catch (e) {
+      failures.push(server.host + ':' + server.port + ' → ' + (e && e.message ? e.message : e));
+      if (client) { try { await client.close(); } catch (_) {} }
+      else if (socket) { try { await socket.close(); } catch (_) {} }
+    }
+  }
+  const err = new Error('nenhum servidor Electrum respondeu: ' + failures.join('; '));
+  err.failures = failures;
+  throw err;
+}
+
+/* Histórico + mempool de vários scripts numa conexão só.
+   Devolve, por script, um Map txid → altura (0 = mempool). */
+async function historiesMany(client, scripts, opts) {
+  const o = opts || {};
+  const shs = scripts.map(s => scripthash(s));
+  const items = [];
+  for (const sh of shs) {
+    items.push({ method: 'blockchain.scripthash.get_history', params: [sh] });
+    items.push({ method: 'blockchain.scripthash.get_mempool', params: [sh] });
+  }
+  const out = await client.requestMany(items, o.concurrency);
+  return shs.map((sh, i) => {
+    const heights = new Map();
+    for (const h of (out[i * 2] || [])) {
+      if (h && h.tx_hash) heights.set(h.tx_hash, Number(h.height) > 0 ? Number(h.height) : 0);
+    }
+    for (const m of (out[i * 2 + 1] || [])) {
+      if (m && m.tx_hash && !heights.has(m.tx_hash)) heights.set(m.tx_hash, 0);
+    }
+    return { scripthash: sh, heights, txids: [...heights.keys()], txCount: heights.size };
+  });
+}
+
+/* Transações cruas (hex) em lote. Tolera txid que sumiu (mempool que caiu,
+   reorg): devolve o que veio e o erro por txid, sem derrubar o lote. */
+async function transactionsMany(client, txids, opts) {
+  const o = opts || {};
+  const limit = Math.max(1, Number(o.concurrency) || 8);
+  const raw = new Map();
+  const errors = new Map();
+  if (typeof client.requestManySettled === 'function') {
+    const settled = await client.requestManySettled(txids.map(txid => ({
+      method: 'blockchain.transaction.get', params: [txid]
+    })));
+    settled.forEach((item, i) => {
+      const txid = txids[i];
+      if (item.status === 'fulfilled') raw.set(txid, item.value);
+      else errors.set(txid, item.reason && item.reason.message ? item.reason.message : '' + item.reason);
+    });
+    return { raw, errors };
+  }
+  let cursor = 0;
+  const worker = async () => {
+    for (;;) {
+      const i = cursor++;
+      if (i >= txids.length) return;
+      const txid = txids[i];
+      try { raw.set(txid, await client.request('blockchain.transaction.get', [txid])); }
+      catch (e) { errors.set(txid, e && e.message ? e.message : '' + e); }
+    }
+  };
+  const workers = [];
+  for (let k = 0; k < Math.min(limit, txids.length); k++) workers.push(worker());
+  await Promise.all(workers);
+  return { raw, errors };
+}
+
+/* Taxa ao vivo: só o `blockchain.estimatefee` do Bitcoin Core.
+
+   O valor vem em BTC/kvB e é usado como veio, sem histograma, mediana,
+   corte de fila ou passo de arredondamento. O alvo é 2 blocos porque o Core
+   se recusa a estimar 1 ("It's not possible to get reasonable estimates for
+   confTarget of 1").
+
+   O estimador é histórico: olha o que os blocos já minerados cobraram, não a
+   fila atual. Por isso pode ficar acima da fila quando ela está baixa e
+   abaixo quando ela sobe. É a única fonte de taxa do projeto; não há
+   fallback para histograma.
+
+   O valor NÃO é arredondado: BTC/kvB × 1e8 dá sat/kvB inteiro exato (é a
+   unidade em que o servidor de fato responde: 1926, 970, 112), e `sat_per_vb`
+   é só a leitura ÷1000. Arredondar a taxa antes de multiplicar pela vsize
+   erra sempre para cima, então o PSBT recebe o valor exato e arredonda
+   apenas a taxa final, em satoshis (ver `feeSats` em psbt.js).
+
+   `levels` (o que a tela escolhe e o PSBT usa) pode ficar abaixo de 1 sat/vB:
+   não há piso econômico na carteira, só o piso de relay. `floored` marca o
+   nível abaixo do piso padrão atual do Bitcoin Core (`-minrelaytxfee` =
+   0,1 sat/vB desde a v30) e a tela mostra o aviso para o nível escolhido. */
+const ESTIMATE_TARGETS = { next: 2 };
+
+/* Piso de relay padrão do Bitcoin Core (`-minrelaytxfee`): 100 sat/kvB =
+   0,1 sat/vB desde a v30 (nas versões anteriores era 1000 sat/kvB). */
+const RELAY_MIN_KVB = 100;
+
+async function estimateFees(client) {
+  const keys = Object.keys(ESTIMATE_TARGETS);
+  // um nível que o servidor não estima vira null (a tela desabilita aquele
+  // nível); não há outra fonte de taxa.
+  const values = await Promise.all(keys.map(k =>
+    client.request('blockchain.estimatefee', [ESTIMATE_TARGETS[k]]).catch(() => null)
+  ));
+  const levels = {};
+  const satPerKvb = {};
+  const satPerVb = {};
+  const floored = {};
+  keys.forEach((k, i) => {
+    const v = Number(values[i]);
+    // × 1e8 em vez de × 1e5: sat/kvB é inteiro e exato; 0.0000097 * 1e5 daria
+    // 0.9700000000000001, e sat/vB só existe para a tela
+    const kvb = Number.isFinite(v) && v > 0 ? Math.round(v * 1e8) : null;
+    satPerKvb[k] = kvb;
+    satPerVb[k] = kvb === null ? null : kvb / 1000;
+    floored[k] = kvb !== null && kvb < RELAY_MIN_KVB;
+    levels[k] = kvb === null ? null : kvb / 1000;
+  });
+  return {
+    levels,
+    targets: { ...ESTIMATE_TARGETS },
+    sat_per_kvb: satPerKvb,
+    sat_per_vb: satPerVb,
+    floored,
+    relay_min_kvb: RELAY_MIN_KVB,
+    unit: 'sat/vB',
+    source: 'electrum',
+    updated_at: new Date().toISOString()
+  };
+}
+
+return {
+  historiesMany: historiesMany, transactionsMany: transactionsMany,
+  estimateFees: estimateFees, scripthash: scripthash,
+  RELAY_MIN_KVB: RELAY_MIN_KVB
+};
+})(BTC);
+var __deriv = (function (BTC) {
 
 /* Derivação pública (CKDpub) e endereços dos quatro tipos de conta.
    Tudo local; a xpub é a única entrada. */
@@ -2121,8 +2536,8 @@ return {
   deriveAddress: deriveAddress, addressForType: addressForType,
   scriptForType: scriptForType, pathFor: pathFor, TYPE_INFO: TYPE_INFO
 };
-})();
-var __totals = (function () {
+})(BTC);
+var __totals = (function (BTC) {
 /* Totais por endereço a partir das transações cruas.
 
    É a mesma conta que o Electrum e o Sparrow fazem: o saldo de um script é
@@ -2271,8 +2686,8 @@ function utxosForScripts(entries, scripts) {
 }
 
 return { totalsForScripts: totalsForScripts, utxosForScripts: utxosForScripts };
-})();
-var __psbt = (function () {
+})(BTC);
+var __psbt = (function (BTC) {
 /* Montagem do PSBT de envio (v0, sem assinatura).
 
    O lado watch-only só tem chaves públicas/scripts derivados: escolhe UTXOs, calcula a taxa pela vsize
@@ -2844,7 +3259,1130 @@ return {
   selectCoins: selectCoins, sendLimits: sendLimits,
   preparePsbt: preparePsbt, prepareCpfpPsbt: prepareCpfpPsbt
 };
-})();
+})(BTC);
+var __broadcast = (function (BTC, DUST_SATS, RELAY_MIN_KVB) {
+/* Transmissão do PSBT assinado (fecha o ciclo do Monitor BTC).
+
+   O Cofre BTC assina offline e devolve um PSBT v0 com todas
+   as entradas finalizadas. Aqui ele é conferido contra a carteira watch-only
+   antes de qualquer coisa sair para a rede:
+
+   - toda entrada tem de gastar um script DERIVADO DESTA CARTEIRA (o scanner
+     já tem os scripts em `byScript`) — um PSBT de outra carteira não passa;
+   - quando a saída está entre os UTXOs conhecidos, o valor declarado no PSBT
+     tem de bater com o da carteira (o p2pkh não assina o valor, então essa
+     comparação é o que impede um valor inventado de virar taxa falsa na tela);
+   - cada entrada tem de estar finalizada, com o scriptSig/witness no formato
+     do tipo de script, e a transação final é escrita a partir dos campos
+     finais (BIP174);
+   - as saídas são classificadas em troco, recebimento e externo, e a taxa é
+     a diferença real entre entradas e saídas da transação final.
+
+   O navegador não faz conta nenhuma: a resposta é o resumo que o servidor
+   conferiu, mais os avisos. A transmissão em si é
+   `blockchain.transaction.broadcast` no Electrum, feito pelo Worker ou pelo
+   Durable Object (que reaproveita a conexão e as assinaturas da sessão). */
+
+
+
+/* Piso de relay padrão do Bitcoin Core (`-minrelaytxfee`):
+   RELAY_MIN_KVB sat/kvB = 0,1 sat/vB desde a v30. */
+const RELAY_MIN_RATE = RELAY_MIN_KVB / 1000;
+
+/* Um PSBT de várias entradas fica na casa de dezenas de KB em base64; o teto
+   existe para uma colagem gigante não virar trabalho à toa no Worker. */
+const MAX_PSBT_TEXT = 400000;
+
+/* Limite de padrão da rede para uma transação (peso 400 000 = 100 000 vB). */
+const MAX_TX_VSIZE = 100000;
+
+const KIND_LABEL = { p2pkh: 'pkh', 'p2sh-p2wpkh': 'sh(wpkh)', p2wpkh: 'wpkh', p2tr: 'tr' };
+
+function mapFind(map, type) {
+  for (let i = 0; i < map.length; i++) {
+    if (map[i].key.length === 1 && map[i].key[0] === type) return map[i];
+  }
+  return null;
+}
+
+function normalizeKind(kind) {
+  return kind === 'p2sh' ? 'p2sh-p2wpkh' : kind;
+}
+
+/* O formato final depende do tipo de script: p2pkh leva assinatura no
+   scriptSig e nenhum witness; p2sh-p2wpkh leva os dois; p2wpkh e p2tr levam
+   só o witness. Um witness em entrada não-segwit invalida a transação. */
+function checkFinalization(input, map) {
+  const fs = mapFind(map, 0x07);
+  const fw = mapFind(map, 0x08);
+  const scriptSig = fs ? fs.value : new Uint8Array(0);
+  const witness = fw ? BTC.readWitness(fw.value) : [];
+  const i = input.index;
+  if (input.kind === 'p2pkh' && (!scriptSig.length || witness.length)) {
+    throw new Error('entrada ' + i + ' p2pkh não está finalizada como esperado');
+  }
+  if (input.kind === 'p2sh-p2wpkh' && (!scriptSig.length || !witness.length)) {
+    throw new Error('entrada ' + i + ' p2sh-p2wpkh não está finalizada como esperado');
+  }
+  if ((input.kind === 'p2wpkh' || input.kind === 'p2tr') &&
+      (scriptSig.length || !witness.length)) {
+    throw new Error('entrada ' + i + ' ' + input.kind + ' não está finalizada como esperado');
+  }
+}
+
+/* Confere um PSBT assinado e devolve o resumo da transação final. Não
+   transmite nada: quem chama decide (o Worker e o DO usam o `hex` daqui).
+   `byScript` é o Map do scanner (script → linha derivada) e `utxos` a lista
+   de saídas não gastas conhecidas na sessão. */
+function inspectSignedPsbt({ psbtText, byScript, utxos }) {
+  const text = String(psbtText == null ? '' : psbtText).trim();
+  if (!text) throw new Error('informe o psbt assinado');
+  if (text.length > MAX_PSBT_TEXT) {
+    throw new Error('psbt grande demais (' + text.length + ' caracteres; o teto é ' +
+      MAX_PSBT_TEXT + ')');
+  }
+  let bytes, psbt;
+  try {
+    bytes = BTC.psbtParseInput(text);
+    psbt = BTC.parsePsbt(bytes);
+  } catch (e) {
+    throw new Error('psbt ilegível: ' + (e && e.message ? e.message : e));
+  }
+  if (!psbt.tx.inputs.length) throw new Error('a transação não tem entradas');
+  if (!psbt.tx.outputs.length) throw new Error('a transação não tem saídas');
+
+  const owned = byScript instanceof Map ? byScript : new Map();
+  const known = new Map();
+  for (const u of utxos || []) known.set(u.txid + ':' + u.vout, u);
+
+  const seen = new Set();
+  const inputs = [];
+  let totalIn = 0;
+  for (let i = 0; i < psbt.tx.inputs.length; i++) {
+    const outpoint = psbt.tx.inputs[i].txid + ':' + psbt.tx.inputs[i].vout;
+    if (seen.has(outpoint)) throw new Error('a entrada ' + outpoint + ' aparece duas vezes');
+    seen.add(outpoint);
+    let prev;
+    try {
+      prev = BTC.prevoutOf(psbt.inputs[i], psbt.tx.inputs[i]);
+    } catch (e) {
+      throw new Error('entrada ' + i + ': ' + (e && e.message ? e.message : e));
+    }
+    const script = BTC.bytesToHex(prev.script);
+    const row = owned.get(script);
+    if (!row) {
+      throw new Error('o psbt não pertence a esta carteira');
+    }
+    const kind = normalizeKind(BTC.scriptKind(prev.script));
+    if (kind === 'p2wsh' || kind === 'witness' || kind === 'outro') {
+      throw new Error('entrada ' + i + ' tem script não suportado (' + kind + ')');
+    }
+    const mine = known.get(outpoint);
+    if (mine) {
+      if (mine.script !== script) {
+        throw new Error('entrada ' + i + ': o script do psbt difere do da carteira');
+      }
+      if (Number(prev.value) !== Number(mine.value)) {
+        throw new Error('entrada ' + i + ': o psbt declara ' + Number(prev.value) +
+          ' sats, mas a carteira tem ' + Number(mine.value) + ' sats nessa saída');
+      }
+    }
+    totalIn += Number(prev.value);
+    inputs.push({
+      index: i, outpoint, txid: psbt.tx.inputs[i].txid, vout: psbt.tx.inputs[i].vout,
+      value: Number(prev.value), kind,
+      label: KIND_LABEL[kind] || kind, script,
+      address: row.address, path: row.path, type: row.account_type,
+      known: !!mine
+    });
+  }
+
+  let fin;
+  try {
+    fin = BTC.psbtFinalTx(psbt);
+  } catch (e) {
+    /* Arquivo que ainda não passou pelo assinante: nenhuma entrada tem o
+       campo final. É o erro mais comum, e o nome do campo BIP174 só
+       atrapalha na tela; o restante das recusas mantém o detalhe. */
+    let semFinal = 0;
+    for (let i = 0; i < psbt.inputs.length; i++) {
+      if (!mapFind(psbt.inputs[i], 0x07) && !mapFind(psbt.inputs[i], 0x08)) semFinal++;
+    }
+    if (psbt.inputs.length && semFinal === psbt.inputs.length) throw new Error('o psbt não está assinado');
+    throw new Error('entrada não finalizada: ' + (e && e.message ? e.message : e));
+  }
+  if (fin.vsize > MAX_TX_VSIZE) {
+    throw new Error('transação com ' + fin.vsize + ' vB; acima de ' + MAX_TX_VSIZE +
+      ' vB a rede recusa');
+  }
+  inputs.forEach(inp => checkFinalization(inp, psbt.inputs[inp.index]));
+
+  let totalOut = 0;
+  const outputs = fin.tx.outputs.map((out, index) => {
+    const value = Number(out.value);
+    if (!Number.isSafeInteger(value)) throw new Error('saída ' + index + ' com valor inválido');
+    totalOut += value;
+    const script = BTC.bytesToHex(out.script);
+    const row = owned.get(script);
+    return {
+      index, value, script,
+      address: BTC.addressFromScript(out.script),
+      own: row ? (row.chain === 1 ? 'troco' : 'recebimento') : 'externo',
+      path: row ? row.path : '',
+      type: row ? row.account_type : ''
+    };
+  });
+  if (totalOut > totalIn) throw new Error('as saídas somam mais que as entradas');
+
+  const fee = totalIn - totalOut;
+  const feeRate = fin.vsize > 0 ? fee / fin.vsize : 0;
+  const locktime = fin.tx.locktime >>> 0;
+  const rbf = (fin.tx.version >>> 0) >= 2 && fin.tx.inputs.some(inp => (inp.sequence >>> 0) < 0xfffffffe);
+  const warnings = [];
+  if (!fee) warnings.push('taxa zero: a rede pode recusar a transação');
+  if (fee > 0 && feeRate < RELAY_MIN_RATE) {
+    warnings.push('taxa de ' + feeRate.toFixed(2) +
+      ' sat/vB, abaixo do piso de relay padrão (0,1 sat/vB): a transação pode ser recusada');
+  }
+  if (feeRate > 500) {
+    warnings.push('taxa de ' + Math.round(feeRate) + ' sat/vB, acima de 500: confira o valor');
+  }
+  outputs.forEach(out => {
+    if (out.value > 0 && out.value < DUST_SATS) {
+      warnings.push('a saída ' + out.index + ' (' + out.address + ') está abaixo do pó de ' +
+        DUST_SATS + ' sats e pode ser recusada');
+    }
+  });
+  const externos = outputs.filter(out => out.own === 'externo');
+  if (externos.length > 1) {
+    warnings.push(externos.length + ' saídas pagam endereços externos: confira a lista');
+  }
+  inputs.forEach(inp => {
+    if (!inp.known) {
+      warnings.push('a entrada ' + inp.outpoint +
+        ' não está entre as saídas não gastas que esta sessão conhece');
+    }
+  });
+
+  return {
+    hex: fin.hex,
+    txid: fin.txid,
+    vsize: fin.vsize,
+    locktime,
+    rbf,
+    fee_sats: fee,
+    fee_rate: feeRate,
+    total_in: totalIn,
+    total_out: totalOut,
+    psbt_bytes: bytes.length,
+    inputs, outputs, warnings
+  };
+}
+
+/* Só a conferência (a tela mostra o resumo e espera o clique em transmitir).
+   O `hex` fica no servidor: o navegador não precisa dele. */
+function previewSignedPsbt({ scanner, psbtText }) {
+  const inspected = inspectSignedPsbt({
+    psbtText,
+    byScript: scanner && scanner.byScript,
+    utxos: scanner && scanner.utxos
+  });
+  const out = Object.assign({}, inspected, { preview: true });
+  delete out.hex;
+  return out;
+}
+
+/* Confere e transmite. O resumo devolvido é o que a tela mostra; o `hex` não
+   sai daqui (o navegador não precisa dele e ele não é prova de nada). */
+async function broadcastSignedPsbt({ client, scanner, psbtText }) {
+  const inspected = inspectSignedPsbt({
+    psbtText,
+    byScript: scanner && scanner.byScript,
+    utxos: scanner && scanner.utxos
+  });
+  let serverTxid = '';
+  try {
+    const result = await client.request('blockchain.transaction.broadcast', [inspected.hex]);
+    if (typeof result === 'string') serverTxid = result.trim().toLowerCase();
+  } catch (e) {
+    throw new Error('o servidor recusou a transação: ' + (e && e.message ? e.message : e));
+  }
+  const warnings = inspected.warnings.slice();
+  if (serverTxid && serverTxid !== inspected.txid) {
+    warnings.push('o servidor devolveu txid diferente do calculado (' + serverTxid + ')');
+  }
+  const out = Object.assign({}, inspected, {
+    broadcast: true,
+    server_txid: serverTxid,
+    warnings
+  });
+  delete out.hex;
+  return out;
+}
+
+return {
+  inspectSignedPsbt: inspectSignedPsbt, previewSignedPsbt: previewSignedPsbt,
+  broadcastSignedPsbt: broadcastSignedPsbt
+};
+})(BTC, __psbt.DUST_SATS, __electrum.RELAY_MIN_KVB);
+var __wallet = (function (BTC, chainNode, deriveChild, TYPE_INFO,
+  historiesMany, transactionsMany, totalsForScripts, utxosForScripts,
+  preparePsbt, sendLimits, prepareCpfpPsbt, feeRateKvb, feeSats, DUST_SATS) {
+/* Varredura e estado de uma carteira — usado pelo Worker (consulta avulsa)
+   e pelo Durable Object (tempo real com assinaturas). No modo watch, o
+   conjunto de endereços vem pronto do navegador; no modo legado, ainda
+   aceita xpub para os testes/compatibilidade.
+
+   Fonte única: servidor Electrum, por scripthash, como Electrum e Sparrow:
+   get_history + get_mempool + transaction.get (crua), parse local, conta de
+   UTXO. Endereços e transações vivem só na memória desta varredura: nada é
+   gravado, nem em D1 nem no Durable Object. Ao fechar a tela, tudo se perde
+   e a próxima abertura refaz a varredura do zero. */
+
+
+
+
+
+const DEFAULT_GAP = 50;
+const TYPES = ['bip86', 'bip84', 'bip49', 'bip44'];
+
+/* A varredura não tem teto de endereços: o fim de cada ramo é a margem de
+   `gap` endereços vazios. O lote limita só quanto trabalho uma requisição
+   faz por vez, para a tela mostrar progresso e continuar depois. */
+const SCAN_BATCH = 200;
+const HIST_CONCURRENCY = 100;
+const TX_CONCURRENCY = 20;
+
+function now() { return new Date().toISOString(); }
+function hex(bytes) { return BTC.bytesToHex(bytes); }
+
+function rowKey(type, chain) { return type + ':' + chain; }
+
+/* Altura da atividade mais recente de uma linha: o maior bloco em que o
+   endereço aparece. O mempool (altura 0) é atividade pendente e vale como a
+   mais recente de todas, à frente de qualquer bloco confirmado. */
+function activityOf(row) {
+  let height = 0;
+  let pending = 0;
+  for (const h of row.heights.values()) {
+    if (h > 0) {
+      if (h > height) height = h;
+    } else {
+      pending = 1;
+    }
+  }
+  return { height, pending };
+}
+
+/* ---------- scanner ---------- */
+
+class WalletScanner {
+  constructor({ env, xpub, account, client, gap, watch, walletId, fingerprint, versionType }) {
+    this.env = env;
+    this.xpub = xpub;
+    this.account = account;
+    this.client = client;
+    this.gap = Math.max(1, Number(gap) || DEFAULT_GAP);
+    /* Modo watch: o cliente já derivou os endereços; o servidor nunca vê a
+       xpub. `watch` é a lista normalizada por watch-set.js. */
+    this.watchMode = watch != null;
+    this.initialWatch = watch || null;
+    this.walletId = walletId || null;
+    this.fingerprint = fingerprint || null;
+    this.versionType = versionType || null;
+    this.pendingRows = [];
+    this.rows = new Map();
+    this.txCache = new Map();   // txid -> hex cru, só nesta sessão
+    this.infoCache = new Map(); // txid -> resumo da transação, invalidado por aviso
+    this.chainNodes = new Map();
+    this.byScript = new Map();
+    this.bySh = new Map();
+    this.shCache = new Map();
+  }
+
+  async init() {
+    for (const type of TYPES) for (const chain of [0, 1]) {
+      if (!this.rows.has(rowKey(type, chain))) this.rows.set(rowKey(type, chain), new Map());
+    }
+    if (this.watchMode) {
+      this.addWatchRows(this.initialWatch || [], true);
+      this.initialWatch = null;
+      return this;
+    }
+    this.fingerprint = this.account
+      ? BTC.bytesToHex(BTC.hash160(this.account.pub)).slice(0, 8)
+      : null;
+    this.reindex();
+    return this;
+  }
+
+  /* Converte uma linha já derivada pelo cliente para a linha interna do
+     scanner, sem chamar CKDpub. `replace` reinicia o conjunto (primeira
+     consulta ou troca de carteira); sem ele, só a cauda nova entra. */
+  addWatchRows(rows, replace) {
+    if (!this.watchMode) throw new Error('scanner não está em modo watch');
+    if (replace) {
+      this.rows = new Map();
+      for (const type of TYPES) for (const chain of [0, 1]) {
+        this.rows.set(rowKey(type, chain), new Map());
+      }
+      this.pendingRows = [];
+      this.infoCache.clear();
+    }
+    for (const r of rows || []) {
+      const key = rowKey(r.account_type, r.chain);
+      let branch = this.rows.get(key);
+      if (!branch) { branch = new Map(); this.rows.set(key, branch); }
+      if (branch.has(r.idx)) continue;
+      const row = {
+        account_type: r.account_type, chain: r.chain, idx: r.idx,
+        address: r.address, path: r.path, script: r.script, pub: r.pub,
+        kind: r.kind,
+        used: 0, balance: 0, received: 0, spent: 0, tx_count: 0,
+        confirmed: 0, pendingIn: 0, pendingOut: 0, thirdIn: 0,
+        heights: new Map(), txids: [], stale: false
+      };
+      branch.set(r.idx, row);
+      this.pendingRows.push(row);
+    }
+    this.reindex();
+    return this;
+  }
+
+  /* Estado da margem por ramo: o cliente usa `next`/`need` para derivar a
+     próxima cauda. A regra continua sendo 50 endereços vazios depois do
+     último usado. */
+  watchStatus() {
+    const branches = {};
+    let complete = true;
+    for (const type of TYPES) {
+      for (const chain of [0, 1]) {
+        const rows = this.rows.get(rowKey(type, chain)) || new Map();
+        const { lastUsed, maxIdx } = this.lastUsedOf(rows);
+        const target = lastUsed + this.gap;
+        const need = Math.max(0, target - maxIdx);
+        if (need > 0) complete = false;
+        branches[rowKey(type, chain)] = {
+          last_used: lastUsed,
+          max_idx: maxIdx,
+          next: maxIdx + 1,
+          need
+        };
+      }
+    }
+    return { gap: this.gap, complete, branches };
+  }
+
+  reindex() {
+    this.byScript = new Map();
+    this.bySh = new Map();
+    for (const rows of this.rows.values()) {
+      for (const r of rows.values()) {
+        if (!r.script) continue;
+        this.byScript.set(r.script, r);
+        this.bySh.set(this.sh(r.script), r);
+      }
+    }
+  }
+
+  sh(script) {
+    let sh = this.shCache.get(script);
+    if (!sh) {
+      sh = shOf(script);
+      this.shCache.set(script, sh);
+    }
+    return sh;
+  }
+
+  /* Scripthashes que precisam ser observados: os usados (para detectar
+     gastos) e a cauda de gap de cada ramo (para detectar novos
+     recebimentos). Endereços vazios fora da cauda não são assinados. */
+  scriptsForWatch() {
+    const out = [];
+    for (const rows of this.rows.values()) {
+      const { lastUsed, maxIdx } = this.lastUsedOf(rows);
+      for (const r of rows.values()) {
+        if (r.used || (r.idx > lastUsed && r.idx <= maxIdx)) out.push(this.sh(r.script));
+      }
+    }
+    return out;
+  }
+
+  async chainNodeFor(chain) {
+    if (!this.chainNodes.has(chain)) this.chainNodes.set(chain, await chainNode(this.account, chain));
+    return this.chainNodes.get(chain);
+  }
+
+  async makeRow(type, chain, idx) {
+    const cn = await this.chainNodeFor(chain);
+    const a = await deriveChild(type, cn, chain, idx);
+    return {
+      account_type: type, chain, idx, address: a.address, path: a.path,
+      script: BTC.bytesToHex(a.script), pub: BTC.bytesToHex(a.pub),
+      kind: (TYPE_INFO[type] || {}).kind || 'p2wpkh',
+      used: 0, balance: 0, received: 0, spent: 0, tx_count: 0,
+      confirmed: 0, pendingIn: 0, pendingOut: 0, thirdIn: 0,
+      heights: new Map(), txids: [], stale: false
+    };
+  }
+
+  async queryRows(rows) {
+    if (!rows.length) return;
+    const hist = await historiesMany(this.client, rows.map(r => BTC.hexToBytes(r.script)),
+      { concurrency: HIST_CONCURRENCY });
+    rows.forEach((r, i) => {
+      const h = hist[i];
+      r.heights = h.heights;
+      r.txids = h.txids;
+      r.tx_count = h.txCount;
+      r.used = h.txCount > 0 ? 1 : 0;
+    });
+  }
+
+  lastUsedOf(rows) {
+    let lastUsed = -1;
+    let maxIdx = -1;
+    for (const r of rows.values()) {
+      if (r.idx > maxIdx) maxIdx = r.idx;
+      if (r.used && r.idx > lastUsed) lastUsed = r.idx;
+    }
+    return { lastUsed, maxIdx };
+  }
+
+  /* Conta de UTXO a partir das transações cruas (cache em memória). */
+  async recompute() {
+    const heights = new Map();
+    const scripts = new Set();
+    for (const r of this.byScript.values()) {
+      if (!r.txids.length) continue;
+      scripts.add(r.script);
+      for (const [txid, h] of r.heights) if (!heights.has(txid)) heights.set(txid, h);
+    }
+
+    let totals = new Map();
+    const errors = new Map();
+    let entries = [];
+    if (heights.size) {
+      const cached = new Map();
+      for (const txid of heights.keys()) {
+        const raw = this.txCache.get(txid);
+        if (raw) cached.set(txid, raw);
+      }
+      const missing = [...heights.keys()].filter(t => !cached.has(t));
+      const fetched = missing.length
+        ? await transactionsMany(this.client, missing, { concurrency: TX_CONCURRENCY })
+        : { raw: new Map(), errors: new Map() };
+      for (const [txid, raw] of fetched.raw) this.txCache.set(txid, raw);
+      for (const [txid, msg] of fetched.errors) errors.set(txid, msg);
+      /* transação nova muda o índice de saídas e a conta das vizinhas:
+         zera o resumo em cache para o payload recalcular tudo uma vez */
+      if (fetched.raw.size) this.infoCache.clear();
+
+      for (const [txid, raw] of [...cached, ...fetched.raw]) {
+        try {
+          const tx = BTC.readTx(BTC.hexToBytes(raw));
+          entries.push({
+            txid, height: heights.get(txid) || 0, outputs: tx.outputs, inputs: tx.inputs,
+            vsize: BTC.vsizeOf(tx)
+          });
+        } catch (e) {
+          errors.set(txid, 'transação ilegível');
+        }
+      }
+      /* confirmação de uma transação já conhecida muda a altura (e o
+         pendente) sem baixar nada novo: o resumo em cache tem de cair */
+      for (const tx of entries) {
+        const info = this.infoCache.get(tx.txid);
+        if (info && Number(info.height) !== (Number(tx.height) || 0)) this.infoCache.delete(tx.txid);
+      }
+      totals = totalsForScripts(entries, scripts);
+    }
+    /* UTXOs = saídas nossas que nenhuma transação conhecida gastou. Só são
+       usados para montar PSBT; se faltou transação, prepare() recusa. */
+    this.utxos = utxosForScripts(entries, scripts);
+    /* Índices em memória para o extrato por transação e para o CPFP. O mapa
+       de saídas cobre TODAS as saídas conhecidas (inclusive as externas),
+       porque o valor de uma entrada nossa vem da transação anterior. */
+    this.entries = entries;
+    this.entryByTxid = new Map(entries.map(tx => [tx.txid, tx]));
+    this.outpointIndex = new Map();
+    for (const tx of entries) {
+      for (let vout = 0; vout < tx.outputs.length; vout++) {
+        const out = tx.outputs[vout];
+        this.outpointIndex.set(tx.txid + ':' + vout, {
+          txid: tx.txid, vout, value: Number(out.value) || 0,
+          script: hex(out.script), height: tx.height || 0
+        });
+      }
+    }
+    this.utxoByKey = new Map(this.utxos.map(u => [u.txid + ':' + u.vout, u]));
+
+    /* Disponível = saída confirmada não gasta + troco de transação nossa
+       ainda pendente. O troco é uma saída da mesma transação do envio e some
+       do saldo até confirmar, então ele entra aqui: pode ser gasto antes
+       (gasto encadeado). Pagamento de terceiro no mempool (height 0, own
+       false) não entra: fica como pendente de entrada e só conta depois da
+       confirmação. É a mesma base que o envio usa. */
+    const availableByScript = new Map();
+    const thirdInByScript = new Map();
+    for (const u of this.utxos) {
+      if (u.height > 0 || u.own) {
+        availableByScript.set(u.script, (availableByScript.get(u.script) || 0) + u.value);
+      } else {
+        thirdInByScript.set(u.script, (thirdInByScript.get(u.script) || 0) + u.value);
+      }
+    }
+
+    for (const r of this.byScript.values()) {
+      if (r.txids.some(t => errors.has(t))) {
+        // sem a transação não fecha a conta: mantém o último valor calculado
+        r.stale = true;
+        r.used = r.txids.length ? 1 : 0;
+        r.tx_count = r.txids.length;
+        continue;
+      }
+      const t = totals.get(r.script);
+      /* `received` e `spent` são o confirmado; `balance` é o disponível
+         (confirmado não gasto + troco nosso ainda pendente). O mempool fica
+         em pendingIn/pendingOut (brutos, para a tela do extrato) e
+         thirdIn (entrada de terceiro que ainda não conta). */
+      r.received = t ? t.receivedConfirmed : 0;
+      r.spent = t ? t.spentConfirmed : 0;
+      r.balance = availableByScript.get(r.script) || 0;
+      r.tx_count = t ? t.txCount : 0;
+      r.confirmed = t ? t.confirmed : 0;
+      r.pendingIn = t ? t.unconfirmedIn : 0;
+      r.pendingOut = t ? t.unconfirmedOut : 0;
+      r.thirdIn = thirdInByScript.get(r.script) || 0;
+      r.used = r.tx_count ? 1 : 0;
+      r.stale = false;
+    }
+
+    if (errors.size) this.errors = errors;
+    else this.errors = null;
+    return totals;
+  }
+
+  /* Resumo de uma transação para o extrato por txid. `own_inputs` e
+     `own_outputs` guardam a linha derivada (com pub/chave) só para o CPFP;
+     `publicTransaction` remove o que não precisa ir ao navegador. O
+     resultado fica em `infoCache` (por txid) até um aviso do Electrum tocar
+     um scripthash dessa transação: sem isso, cada payload refazia
+     `addressFromScript` para todas as saídas de todas as transações. */
+  infoOf(entry) {
+    let info = this.infoCache.get(entry.txid);
+    if (!info) {
+      info = this.transactionInfo(entry);
+      this.infoCache.set(entry.txid, info);
+    }
+    return info;
+  }
+
+  transactionInfo(entry) {
+    const addressOf = script => {
+      try { return BTC.addressFromScript(script) || ''; } catch (e) { return ''; }
+    };
+    const ownInputs = [];
+    let allPrevKnown = true;
+    for (const input of entry.inputs) {
+      const prev = this.outpointIndex.get(input.txid + ':' + input.vout);
+      if (!prev) { allPrevKnown = false; continue; }
+      const row = this.byScript.get(prev.script);
+      if (row) ownInputs.push({
+        txid: input.txid, vout: input.vout, value: prev.value,
+        script: prev.script, row
+      });
+    }
+    const outputs = entry.outputs.map((out, vout) => {
+      const script = hex(out.script);
+      const row = this.byScript.get(script);
+      const key = entry.txid + ':' + vout;
+      const value = Number(out.value) || 0;
+      return {
+        txid: entry.txid, vout, value, script, row,
+        address: row ? row.address : addressOf(out.script),
+        own: !!row,
+        spendable: this.utxoByKey.has(key)
+      };
+    });
+    const ownOutputs = outputs.filter(o => o.own);
+    const externalOutputs = outputs.filter(o => !o.own);
+    const allInputsOwn = allPrevKnown && ownInputs.length === entry.inputs.length;
+    const totalIn = allInputsOwn
+      ? ownInputs.reduce((sum, i) => sum + i.value, 0)
+      : null;
+    const totalOut = outputs.reduce((sum, o) => sum + o.value, 0);
+    const fee = totalIn == null ? null : totalIn - totalOut;
+    const received = ownOutputs.reduce((sum, o) => sum + o.value, 0);
+    const sent = externalOutputs.reduce((sum, o) => sum + o.value, 0);
+    const direction = ownInputs.length
+      ? (externalOutputs.length ? 'out' : 'self')
+      : 'in';
+
+    const addresses = [];
+    const seen = new Set();
+    const addAddress = (row, role) => {
+      if (!row || seen.has(row.address)) return;
+      seen.add(row.address);
+      addresses.push({
+        address: row.address, role, chain: row.chain, idx: row.idx,
+        account_type: row.account_type, path: row.path
+      });
+    };
+    ownInputs.forEach(i => addAddress(i.row, 'entrada'));
+    ownOutputs.forEach(o => addAddress(o.row, o.row.chain === 1 ? 'troco' : 'recebimento'));
+
+    const candidates = ownOutputs
+      .filter(o => o.spendable && o.value >= DUST_SATS)
+      .sort((a, b) => b.value - a.value);
+    const cpfpOutput = candidates[0] || null;
+
+    return {
+      txid: entry.txid,
+      height: Number(entry.height) || 0,
+      pending: !entry.height,
+      vsize: Number(entry.vsize) || 0,
+      direction,
+      received_sats: received,
+      sent_sats: sent,
+      fee_sats: fee,
+      total_in_sats: totalIn,
+      total_out_sats: totalOut,
+      input_count: entry.inputs.length,
+      output_count: entry.outputs.length,
+      addresses,
+      own_inputs: ownInputs,
+      own_outputs: ownOutputs,
+      all_inputs_own: allInputsOwn,
+      cpfp: {
+        eligible: !entry.height && ownInputs.length > 0 && allInputsOwn &&
+          fee != null && fee >= 0 && !!cpfpOutput,
+        output: cpfpOutput ? {
+          txid: cpfpOutput.txid, vout: cpfpOutput.vout,
+          outpoint: cpfpOutput.txid + ':' + cpfpOutput.vout,
+          value: cpfpOutput.value, address: cpfpOutput.address,
+          path: cpfpOutput.row.path, chain: cpfpOutput.row.chain,
+          idx: cpfpOutput.row.idx
+        } : null
+      }
+    };
+  }
+
+  /* O que vai no payload: sem as linhas derivadas nem os Map internos. */
+  publicTransaction(t) {
+    return {
+      txid: t.txid,
+      height: t.height,
+      pending: t.pending,
+      vsize: t.vsize,
+      direction: t.direction,
+      received_sats: t.received_sats,
+      sent_sats: t.sent_sats,
+      fee_sats: t.fee_sats,
+      total_in_sats: t.total_in_sats,
+      total_out_sats: t.total_out_sats,
+      input_count: t.input_count,
+      output_count: t.output_count,
+      addresses: t.addresses,
+      cpfp: t.cpfp
+    };
+  }
+
+  /* Soma taxa e vsize do pai e de todos os ancestrais ainda no mempool. Se
+     algum deles não for inteiramente desta carteira, a taxa não pode ser
+     conferida e o CPFP é recusado (não há como garantir o pacote). */
+  cpfpPackage(entry) {
+    const seen = new Set();
+    const queue = [entry];
+    let fee = 0;
+    let vsize = 0;
+    let count = 0;
+    while (queue.length) {
+      const tx = queue.pop();
+      if (seen.has(tx.txid)) continue;
+      seen.add(tx.txid);
+      const info = this.infoOf(tx);
+      if (!info.all_inputs_own || info.fee_sats == null || info.fee_sats < 0) {
+        return { fee_sats: null, vsize: null, count: null };
+      }
+      fee += info.fee_sats;
+      vsize += Number(tx.vsize) || 0;
+      count++;
+      for (const input of tx.inputs) {
+        const prev = this.entryByTxid.get(input.txid);
+        if (prev && !prev.height) queue.push(prev);
+      }
+    }
+    return { fee_sats: fee, vsize, count };
+  }
+
+  /* CPFP: monta o PSBT da filha que gasta a maior saída própria ainda não
+     gasta do pai e devolve o resto para o próximo endereço de troco. A taxa
+     do filho é a diferença entre a taxa-alvo do pacote e o que o pai (e os
+     ancestrais pendentes) já paga. */
+  async prepareCpfp({ txid, feeRate }) {
+    if (this.errors && this.errors.size) {
+      throw new Error('histórico incompleto (faltou transação do servidor); atualize a carteira e tente de novo');
+    }
+    if (!this.utxos) throw new Error('carteira ainda não sincronizada');
+    const entry = this.entryByTxid && this.entryByTxid.get(String(txid || '').toLowerCase());
+    if (!entry) throw new Error('transação não encontrada nesta carteira');
+    if (entry.height > 0) throw new Error('a transação já foi confirmada; CPFP só vale para pendente');
+    const info = this.infoOf(entry);
+    if (!info.own_inputs.length) throw new Error('a transação não é um envio desta carteira');
+    if (!info.all_inputs_own) throw new Error('nem todas as entradas da transação são desta carteira; não é possível assinar a filha');
+    if (info.fee_sats == null || info.fee_sats < 0) throw new Error('taxa da transação pai indisponível');
+    const spend = info.own_outputs
+      .filter(o => o.spendable && o.value >= DUST_SATS)
+      .sort((a, b) => b.value - a.value)[0];
+    if (!spend) throw new Error('não há saída própria ainda não gasta para acelerar');
+    const pkg = this.cpfpPackage(entry);
+    if (pkg.fee_sats == null || !(pkg.vsize > 0)) {
+      throw new Error('há ancestral pendente com taxa que não é desta carteira; não é possível calcular o pacote com segurança');
+    }
+    const rateKvb = feeRateKvb(feeRate);
+    const changeRow = this.nextChangeRow(this.chooseType());
+    if (!changeRow) throw new Error('endereço de troco indisponível');
+    const childVsize = BTC.estimateVsize([spend.row.kind], [BTC.hexToBytes(changeRow.script)]);
+    const targetFee = feeSats(rateKvb, pkg.vsize + childVsize);
+    const childFee = targetFee - pkg.fee_sats;
+    if (!(childFee > 0)) {
+      throw new Error('a transação já paga a taxa alvo; não há o que acelerar');
+    }
+    const rawTxFor = async id => {
+      const cached = this.txCache.get(id);
+      if (cached) return BTC.hexToBytes(cached);
+      const got = await transactionsMany(this.client, [id], { concurrency: 1 });
+      const raw = got.raw.get(id);
+      if (raw) this.txCache.set(id, raw);
+      return raw ? BTC.hexToBytes(raw) : null;
+    };
+    const parent = {
+      txid: entry.txid,
+      vsize: Number(entry.vsize) || 0,
+      fee_sats: info.fee_sats,
+      fee_rate: entry.vsize ? info.fee_sats / entry.vsize : 0
+    };
+    return await prepareCpfpPsbt({
+      fingerprint: this.fingerprint, spend, changeRow, childFee, feeRate, rawTxFor,
+      parent, packageBefore: pkg
+    });
+  }
+
+  /* Caminha a varredura em um lote de no máximo SCAN_BATCH endereços novos.
+     Não existe teto de carteira: cada ramo só termina quando já tem `gap`
+     endereços seguidos sem uso. `requery` reconsulta o que já existe (o
+     primeiro passo de uma sessão nova). */
+  async scanStep(requery) {
+    if (this.watchMode) {
+      const fresh = this.pendingRows;
+      this.pendingRows = [];
+      if (requery) await this.queryRows([...this.byScript.values()]);
+      else await this.queryRows(fresh);
+      if (fresh.length) this.infoCache.clear();
+      return { added: fresh, more: false };
+    }
+    if (requery) await this.queryRows([...this.byScript.values()]);
+    const added = [];
+    let budget = SCAN_BATCH;
+    let extended = true;
+    while (budget > 0 && extended) {
+      extended = false;
+      for (const type of TYPES) {
+        for (const chain of [0, 1]) {
+          if (budget <= 0) break;
+          const rows = this.rows.get(rowKey(type, chain));
+          const { lastUsed, maxIdx } = this.lastUsedOf(rows);
+          if (maxIdx - lastUsed >= this.gap) continue;
+          const from = maxIdx + 1;
+          const target = lastUsed + this.gap;
+          const to = Math.min(target, from + budget - 1);
+          if (from > to) continue;
+          const fresh = [];
+          for (let i = from; i <= to; i++) {
+            const row = await this.makeRow(type, chain, i);
+            rows.set(i, row);
+            this.byScript.set(row.script, row);
+            this.bySh.set(this.sh(row.script), row);
+            fresh.push(row);
+          }
+          budget -= fresh.length;
+          await this.queryRows(fresh);
+          /* endereço novo pode tornar interna uma saída antes externa */
+          if (fresh.length) this.infoCache.clear();
+          added.push(...fresh);
+          extended = true;
+        }
+      }
+    }
+    return { added, more: this.scanPending() };
+  }
+
+  /* Ainda falta derivar/consultar algum endereço para fechar a margem? */
+  scanPending() {
+    if (this.watchMode) return !this.watchStatus().complete;
+    for (const type of TYPES) {
+      for (const chain of [0, 1]) {
+        const rows = this.rows.get(rowKey(type, chain));
+        const { lastUsed, maxIdx } = this.lastUsedOf(rows);
+        if (maxIdx - lastUsed < this.gap) return true;
+      }
+    }
+    return false;
+  }
+
+  progress() {
+    let used = 0;
+    for (const r of this.byScript.values()) if (r.used) used++;
+    return { scanned: this.byScript.size, used, gap: this.gap };
+  }
+
+  /* Modo watch: consulta só a cauda pendente e recalcula. Não deriva nada;
+     a próxima cauda vem do cliente depois que `watchStatus` aponta o que
+     falta. */
+  async watchSync() {
+    const fresh = this.pendingRows;
+    this.pendingRows = [];
+    if (fresh.length) await this.queryRows(fresh);
+    await this.recompute();
+    return this.payload();
+  }
+
+  async fullSync() {
+    if (this.watchMode) return await this.watchSync();
+    let requery = true;
+    let step;
+    do { step = await this.scanStep(requery); requery = false; } while (step.more);
+    await this.recompute();
+    return this.payload();
+  }
+
+  /* Atualização incremental: só os scripthashes avisados pelo servidor. */
+  async refreshServices(scriptsHash) {
+    const rows = [];
+    for (const sh of scriptsHash) {
+      const r = this.bySh.get(sh);
+      if (r) rows.push(r);
+    }
+    if (!rows.length) return { payload: await this.payload(), added: [] };
+    /* aviso novo pode mudar o resumo dessas transações */
+    for (const r of rows) for (const id of r.txids) this.infoCache.delete(id);
+    await this.queryRows(rows);
+    for (const r of rows) for (const id of r.txids) this.infoCache.delete(id);
+    let step = await this.scanStep(false);
+    const added = [...step.added];
+    while (step.more) {
+      step = await this.scanStep(false);
+      added.push(...step.added);
+    }
+    await this.recompute();
+    return { payload: await this.payload(), added };
+  }
+
+  branch(type, chain) {
+    const rows = this.rows.get(rowKey(type, chain));
+    const { lastUsed } = this.lastUsedOf(rows);
+    const next = lastUsed + 1;
+    const row = rows.get(next);
+    return { chain, next, lastUsed, address: row ? row.address : null, path: row ? row.path : null };
+  }
+
+  /* Próxima linha do ramo de troco (já derivada pela varredura): é o
+     endereço que recebe o troco do PSBT. */
+  nextChangeRow(type) {
+    const rows = this.rows.get(rowKey(type, 1));
+    if (!rows) return null;
+    const { lastUsed } = this.lastUsedOf(rows);
+    return rows.get(lastUsed + 1) || null;
+  }
+
+  /* Monta o PSBT de envio com os UTXOs desta sessão. A transação não é
+     assinada nem enviada; o resultado é o arquivo para o Cofre BTC. */
+  prepareUtxos() {
+    return this.utxos
+      .map(u => ({ ...u, row: this.byScript.get(u.script) }))
+      .filter(u => u.row);
+  }
+
+  /* Maior valor que a carteira consegue enviar para este destino e taxa.
+     Com `amountSats`, devolve também a taxa (e o troco) daquele valor; com
+     `quoteRates`, o custo de cada nível para esse mesmo valor. */
+  limits({ address, feeRate, amountSats, quoteRates }) {
+    if (this.errors && this.errors.size) {
+      throw new Error('histórico incompleto (faltou transação do servidor); atualize a carteira e tente de novo');
+    }
+    if (!this.utxos) throw new Error('carteira ainda não sincronizada');
+    const changeRow = this.nextChangeRow(this.chooseType());
+    return sendLimits({
+      utxos: this.prepareUtxos(),
+      address,
+      feeRate,
+      amountSats,
+      quoteRates,
+      changeScript: changeRow ? BTC.hexToBytes(changeRow.script) : null
+    });
+  }
+
+  async prepare({ address, amountSats, feeRate }) {
+    if (this.errors && this.errors.size) {
+      throw new Error('histórico incompleto (faltou transação do servidor); atualize a carteira e tente de novo');
+    }
+    if (!this.utxos) throw new Error('carteira ainda não sincronizada');
+    const type = this.chooseType();
+    const changeRow = this.nextChangeRow(type);
+    const utxos = this.prepareUtxos();
+    const rawTxFor = async txid => {
+      const cached = this.txCache.get(txid);
+      if (cached) return BTC.hexToBytes(cached);
+      const got = await transactionsMany(this.client, [txid], { concurrency: 1 });
+      const raw = got.raw.get(txid);
+      if (raw) this.txCache.set(txid, raw);
+      return raw ? BTC.hexToBytes(raw) : null;
+    };
+    return await preparePsbt({
+      fingerprint: this.fingerprint, utxos, address, amountSats, feeRate, changeRow, rawTxFor,
+      ownScripts: this.byScript
+    });
+  }
+
+  typeUsed(type) {
+    for (const r of this.byScript.values()) if (r.used && r.account_type === type) return true;
+    return false;
+  }
+
+  chooseType() {
+    const hint = this.watchMode ? this.versionType : this.account.versionType;
+    if (hint === 'bip84' || hint === 'bip49') return hint;
+    for (const type of ['bip44', 'bip86', 'bip84', 'bip49']) if (this.typeUsed(type)) return type;
+    return 'bip86';
+  }
+
+  /* Transações cruas conhecidas nesta sessão: é o que o navegador precisa
+     para conferir UTXOs, montar o PSBT e carregar o non_witness_utxo. */
+  rawTransactions() {
+    const out = {};
+    for (const [txid, raw] of this.txCache) out[txid] = raw;
+    return out;
+  }
+
+  async payload() {
+    const type = this.chooseType();
+    const usedRows = [...this.byScript.values()].filter(r => r.used);
+    const totalOf = t => usedRows.filter(r => r.account_type === t).reduce((s, r) => s + r.balance, 0);
+
+    /* Um item por tipo de conta, na ordem de TYPES (do BIP mais alto para o
+       mais baixo: a tecnologia mais recente primeiro), cada um com o saldo
+       disponível do tipo e o próximo endereço livre do ramo de recebimento.
+       O tipo detectado vem marcado, sem mudar de posição. A tela exibe os
+       quatro no bloco receber; o saldo total é a soma das linhas. */
+    const types = TYPES.map(t => {
+      const br = this.branch(t, 0);
+      const ch = this.branch(t, 1);
+      return {
+        type: t,
+        label: (TYPE_INFO[t] || { label: t }).label,
+        address: br.address,
+        path: br.path,
+        change_address: ch.address,
+        change_path: ch.path,
+        balance: totalOf(t),
+        tx_count: usedRows.filter(r => r.account_type === t).reduce((s, r) => s + r.tx_count, 0),
+        detected: t === type
+      };
+    });
+
+    const detected = totalOf(type);
+    const extraTotal = types.reduce((s, t) => t.type === type ? s : s + t.balance, 0);
+    const availableTotal = detected + extraTotal;
+    /* O que a linha "pendente" da carteira mostra é só o que ainda não está
+       no disponível: entrada de terceiro que não conta (pending_in) e o que
+       já saiu de fato numa transação pendente, isto é, a diferença para o
+       saldo confirmado descontado o troco que volta (pending_out). O troco
+       pendente já está em `total`, então não aparece como entrada. */
+    const confirmedTotal = usedRows.reduce((s, r) => s + r.confirmed, 0);
+    const thirdIn = usedRows.reduce((s, r) => s + r.thirdIn, 0);
+    const netOut = Math.max(0, confirmedTotal - availableTotal);
+
+    /* Extrato na ordem do uso mais recente: a altura do bloco é a data que a
+       varredura já tem, sem pedir cabeçalho ao servidor, e o mempool vem
+       antes de tudo. O índice (maior primeiro) desempata o mesmo bloco e,
+       por último, o tipo, para a ordem não mudar entre consultas iguais. */
+    const addresses = usedRows
+      .map(r => ({ r, act: activityOf(r) }))
+      .sort((a, b) =>
+        (b.act.pending - a.act.pending) ||
+        (b.act.height - a.act.height) ||
+        (b.r.idx - a.r.idx) ||
+        a.r.account_type.localeCompare(b.r.account_type) ||
+        (a.r.chain - b.r.chain)
+      )
+      .map(({ r, act }) => ({
+        account_type: r.account_type,
+        chain: r.chain,
+        idx: r.idx,
+        address: r.address,
+        used: r.used,
+        balance: r.balance,
+        received: r.received,
+        spent: r.spent,
+        tx_count: r.tx_count,
+        last_height: act.height,
+        pending: act.pending === 1,
+        pending_in: r.pendingIn,
+        pending_out: r.pendingOut
+      }));
+
+    /* Extrato agrupado por txid: uma linha por transação, do mempool para o
+       bloco mais recente. A ordem é estável (txid desempata) para a lista não
+       dançar entre duas consultas iguais. */
+    const transactions = (this.entries || [])
+      .map(e => this.publicTransaction(this.infoOf(e)))
+      .sort((a, b) =>
+        (Number(b.pending) - Number(a.pending)) ||
+        (b.height - a.height) ||
+        (a.txid < b.txid ? -1 : a.txid > b.txid ? 1 : 0)
+      );
+
+    const warnings = [];
+    if (this.errors) {
+      warnings.push('Transações não obtidas do servidor: ' + [...this.errors.keys()].join(', ') +
+        '. Os endereços afetados mantêm o último valor calculado nesta sessão.');
+    }
+    const stale = [...this.byScript.values()].filter(r => r.stale).length;
+    if (stale) warnings.push(stale + ' endereço(s) com valor antigo por falta de transação.');
+    const out = {
+      detected_type: type,
+      balance: {
+        detected,
+        total: availableTotal,
+        pending_in: thirdIn,
+        pending_out: netOut
+      },
+      types,
+      addresses,
+      transactions,
+      warnings,
+      updated_at: now()
+    };
+    if (this.watchMode) out.watch_status = this.watchStatus();
+    return out;
+  }
+}
+
+function shOf(script) {
+  const bytes = BTC.hexToBytes(script);
+  const h = BTC.sha256(bytes);
+  let out = '';
+  for (let i = h.length - 1; i >= 0; i--) out += h[i].toString(16).padStart(2, '0');
+  return out;
+}
+
+return { WalletScanner: WalletScanner };
+})(BTC, __deriv.chainNode, __deriv.deriveChild, __deriv.TYPE_INFO,
+  __electrum.historiesMany, __electrum.transactionsMany,
+  __totals.totalsForScripts, __totals.utxosForScripts,
+  __psbt.preparePsbt, __psbt.sendLimits, __psbt.prepareCpfpPsbt,
+  __psbt.feeRateKvb, __psbt.feeSats, __psbt.DUST_SATS);
 function hex(value) { return BTC.bytesToHex(value); }
 function fingerprintOf(account) {
   return hex(BTC.hash160(account.pub)).slice(0, 8);
@@ -2857,8 +4395,6 @@ function rowOf(type, chain, index, derived) {
     kind: (__deriv.TYPE_INFO[type] || {}).kind || 'p2wpkh'
   };
 }
-/* Deriva uma cauda de cada vez: a UI mantém a margem de 50 e pede mais
-   quando o servidor informa que o último usado chegou perto do fim. */
 async function deriveRows(account, type, chain, from, count) {
   if (!Number.isInteger(from) || from < 0 || from >= 0x80000000) {
     throw new Error('índice inválido');
@@ -2878,6 +4414,10 @@ async function deriveRows(account, type, chain, from, count) {
 global.LocalWallet = {
   parseXpub: __deriv.parseXpub, deriveRows: deriveRows,
   fingerprintOf: fingerprintOf, TYPE_INFO: __deriv.TYPE_INFO,
+  scripthash: __electrum.scripthash, WalletScanner: __wallet.WalletScanner,
+  inspectSignedPsbt: __broadcast.inspectSignedPsbt,
+  previewSignedPsbt: __broadcast.previewSignedPsbt,
+  broadcastSignedPsbt: __broadcast.broadcastSignedPsbt,
   totalsForScripts: __totals.totalsForScripts,
   utxosForScripts: __totals.utxosForScripts,
   DUST_SATS: __psbt.DUST_SATS, feeRateKvb: __psbt.feeRateKvb,

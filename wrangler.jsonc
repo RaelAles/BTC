@@ -6,7 +6,7 @@
   // preview URLs <versão>-<nome>.raelales.workers.dev a cada publicação.
   "workers_dev": false,
   "preview_urls": false,
-  "main": "src/worker.js",
+  "main": "src/worker-proxy.js",
   "compatibility_date": "2025-01-01",
   "assets": {
     "directory": "./public",
@@ -44,8 +44,9 @@
   ],
   // Nada de D1/KV/R2: o projeto não guarda estado. O Durable Object abaixo
   // também não usa storage (sem put/alarm); ele só vive enquanto a tela
-  // estiver aberta, com conexão Electrum, assinaturas e o conjunto de
-  // endereços derivado pelo navegador em memória. A xpub não entra nele.
+  // estiver aberta, com a conexão Electrum e as assinaturas de scripthash
+  // enviadas pelo navegador. Não há xpub nem lista derivada de endereços/pubkeys;
+  // as transações cruas contêm os scripts públicos delas.
   "durable_objects": {
     "bindings": [
       {

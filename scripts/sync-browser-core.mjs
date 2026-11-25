@@ -1,11 +1,11 @@
-/* Gera public/wallet-local.js a partir do núcleo BTC, da derivação, da conta
-   de UTXO e do montador de PSBT.
+/* Gera public/wallet-local.js a partir dos módulos puros do projeto.
 
-   O navegador precisa derivar a xpub e montar o PSBT localmente para o Worker
-   não receber nem a chave estendida nem a escolha de moedas. O núcleo já é
-   browser-compatible (Web Crypto, sem DOM); este script remove as bordas ESM
-   e expõe uma API pequena em window.LocalWallet. O arquivo gerado é commitado
-   e um teste confere que ele continua igual às fontes.
+   O navegador roda o scanner completo (derivação, gap, saldo, histórico,
+   UTXOs, PSBT e CPFP) e usa o Worker só como proxy do Electrum. O núcleo já
+   é browser-compatible (Web Crypto, sem DOM); este script remove as bordas
+   ESM, injeta as dependências entre módulos e expõe window.LocalWallet. O
+   arquivo gerado é commitado e um teste confere que ele continua igual às
+   fontes.
 
    node scripts/sync-browser-core.mjs [--check] */
 import fs from 'node:fs';
@@ -13,10 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const corePath = path.join(root, 'src/btc-core.js');
-const derivPath = path.join(root, 'src/derivation.js');
-const totalsPath = path.join(root, 'src/address-totals.js');
-const psbtPath = path.join(root, 'src/psbt.js');
+const read = name => path.join(root, 'src', name);
 const outPath = path.join(root, 'public/wallet-local.js');
 
 function moduleSource(file) {
@@ -26,28 +23,51 @@ function moduleSource(file) {
 }
 
 export function buildBrowserCore() {
-  const core = fs.readFileSync(corePath, 'utf8')
+  const core = fs.readFileSync(read('btc-core.js'), 'utf8')
     .replace(/\nexport default BTC;\s*$/, '\n');
-  const deriv = moduleSource(derivPath);
-  const totals = moduleSource(totalsPath);
-  const psbt = moduleSource(psbtPath);
+  const electrum = moduleSource(read('electrum.js'));
+  const deriv = moduleSource(read('derivation.js'));
+  const totals = moduleSource(read('address-totals.js'));
+  const psbt = moduleSource(read('psbt.js'));
+  const broadcast = moduleSource(read('broadcast.js'));
+  const wallet = moduleSource(read('wallet-sync.js'));
   return `/* Gerado por scripts/sync-browser-core.mjs; não edite à mão.\n` +
-    `   Derivação, UTXOs e PSBT locais para o Worker não receber a xpub. */\n` +
+    `   Scanner, UTXOs, PSBT e CPFP locais; o Worker é só proxy. */\n` +
     `(function (global) {\n'use strict';\n${core}\n` +
-    `var __deriv = (function () {\n${deriv}\n` +
+    `var __electrum = (function (BTC) {\n${electrum}\n` +
+    `return {\n` +
+    `  historiesMany: historiesMany, transactionsMany: transactionsMany,\n` +
+    `  estimateFees: estimateFees, scripthash: scripthash,\n` +
+    `  RELAY_MIN_KVB: RELAY_MIN_KVB\n` +
+    `};\n})(BTC);\n` +
+    `var __deriv = (function (BTC) {\n${deriv}\n` +
     `return {\n` +
     `  parseXpub: parseXpub, chainNode: chainNode, deriveChild: deriveChild,\n` +
     `  deriveAddress: deriveAddress, addressForType: addressForType,\n` +
     `  scriptForType: scriptForType, pathFor: pathFor, TYPE_INFO: TYPE_INFO\n` +
-    `};\n})();\n` +
-    `var __totals = (function () {\n${totals}\n` +
-    `return { totalsForScripts: totalsForScripts, utxosForScripts: utxosForScripts };\n})();\n` +
-    `var __psbt = (function () {\n${psbt}\n` +
+    `};\n})(BTC);\n` +
+    `var __totals = (function (BTC) {\n${totals}\n` +
+    `return { totalsForScripts: totalsForScripts, utxosForScripts: utxosForScripts };\n})(BTC);\n` +
+    `var __psbt = (function (BTC) {\n${psbt}\n` +
     `return {\n` +
     `  DUST_SATS: DUST_SATS, feeRateKvb: feeRateKvb, feeSats: feeSats,\n` +
     `  selectCoins: selectCoins, sendLimits: sendLimits,\n` +
     `  preparePsbt: preparePsbt, prepareCpfpPsbt: prepareCpfpPsbt\n` +
-    `};\n})();\n` +
+    `};\n})(BTC);\n` +
+    `var __broadcast = (function (BTC, DUST_SATS, RELAY_MIN_KVB) {\n${broadcast}\n` +
+    `return {\n` +
+    `  inspectSignedPsbt: inspectSignedPsbt, previewSignedPsbt: previewSignedPsbt,\n` +
+    `  broadcastSignedPsbt: broadcastSignedPsbt\n` +
+    `};\n})(BTC, __psbt.DUST_SATS, __electrum.RELAY_MIN_KVB);\n` +
+    `var __wallet = (function (BTC, chainNode, deriveChild, TYPE_INFO,\n` +
+    `  historiesMany, transactionsMany, totalsForScripts, utxosForScripts,\n` +
+    `  preparePsbt, sendLimits, prepareCpfpPsbt, feeRateKvb, feeSats, DUST_SATS) {\n${wallet}\n` +
+    `return { WalletScanner: WalletScanner };\n` +
+    `})(BTC, __deriv.chainNode, __deriv.deriveChild, __deriv.TYPE_INFO,\n` +
+    `  __electrum.historiesMany, __electrum.transactionsMany,\n` +
+    `  __totals.totalsForScripts, __totals.utxosForScripts,\n` +
+    `  __psbt.preparePsbt, __psbt.sendLimits, __psbt.prepareCpfpPsbt,\n` +
+    `  __psbt.feeRateKvb, __psbt.feeSats, __psbt.DUST_SATS);\n` +
     `function hex(value) { return BTC.bytesToHex(value); }\n` +
     `function fingerprintOf(account) {\n` +
     `  return hex(BTC.hash160(account.pub)).slice(0, 8);\n` +
@@ -60,8 +80,6 @@ export function buildBrowserCore() {
     `    kind: (__deriv.TYPE_INFO[type] || {}).kind || 'p2wpkh'\n` +
     `  };\n` +
     `}\n` +
-    `/* Deriva uma cauda de cada vez: a UI mantém a margem de 50 e pede mais\n` +
-    `   quando o servidor informa que o último usado chegou perto do fim. */\n` +
     `async function deriveRows(account, type, chain, from, count) {\n` +
     `  if (!Number.isInteger(from) || from < 0 || from >= 0x80000000) {\n` +
     `    throw new Error('índice inválido');\n` +
@@ -81,6 +99,10 @@ export function buildBrowserCore() {
     `global.LocalWallet = {\n` +
     `  parseXpub: __deriv.parseXpub, deriveRows: deriveRows,\n` +
     `  fingerprintOf: fingerprintOf, TYPE_INFO: __deriv.TYPE_INFO,\n` +
+    `  scripthash: __electrum.scripthash, WalletScanner: __wallet.WalletScanner,\n` +
+    `  inspectSignedPsbt: __broadcast.inspectSignedPsbt,\n` +
+    `  previewSignedPsbt: __broadcast.previewSignedPsbt,\n` +
+    `  broadcastSignedPsbt: __broadcast.broadcastSignedPsbt,\n` +
     `  totalsForScripts: __totals.totalsForScripts,\n` +
     `  utxosForScripts: __totals.utxosForScripts,\n` +
     `  DUST_SATS: __psbt.DUST_SATS, feeRateKvb: __psbt.feeRateKvb,\n` +

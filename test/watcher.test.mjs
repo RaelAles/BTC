@@ -6,7 +6,7 @@
 
    node test/watcher.test.mjs */
 import assert from 'node:assert/strict';
-import { WalletWatcher } from '../src/watcher.js';
+import { WalletWatcher } from './legacy/watcher.js';
 import { WalletScanner } from '../src/wallet-sync.js';
 import { deriveAddress, parseXpub } from '../src/derivation.js';
 import { scripthash, setConnectOverride, openElectrum } from '../src/electrum.js';
@@ -263,7 +263,7 @@ assert.equal(watcher.idleTimer, null, 'tela aberta cancela o descarte');
 
 /* 8. o Worker amarra a consulta a uma sessão aleatória, não à xpub */
 {
-  const worker = (await import('../src/worker.js')).default;
+  const worker = (await import('./legacy/worker.js')).default;
   const env2 = {
     ELECTRUM_SERVERS: '127.0.0.1:' + fake.port + ':tcp',
     ELECTRUM_TIMEOUT_MS: '5000'

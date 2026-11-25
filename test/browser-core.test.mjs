@@ -10,7 +10,12 @@ import vm from 'node:vm';
 import { buildBrowserCore } from '../scripts/sync-browser-core.mjs';
 import { parseXpub, deriveAddress } from '../src/derivation.js';
 import { preparePsbt, prepareCpfpPsbt } from '../src/psbt.js';
+import { previewSignedPsbt } from '../src/broadcast.js';
 import { makeTx } from './tx-fixture.mjs';
+import { startFakeElectrum, nodeConnect } from './fake-electrum.mjs';
+import { scripthash, openElectrum, setConnectOverride } from '../src/electrum.js';
+import { WalletScanner } from '../src/wallet-sync.js';
+import BTC from '../src/btc-core.js';
 
 const USER = 'xpub6CivfTixRRqAcvALesYmkkL7JHMkbjuM3dKtgUDiWzNcmpovevhPbGUisjFXVM6pWojHnYXMs4HUM8S6qTekRWatk43dGMxCt7mdY82DzDo';
 
@@ -116,4 +121,55 @@ assert.equal(local.fingerprintOf(account).length, 8);
   assert.equal(browserCpfp.txid, nodeCpfp.txid);
   assert.equal(browserCpfp.fee_sats, nodeCpfp.fee_sats);
 }
-console.log('ok   wallet-local.js em dia, deriva e monta os mesmos PSBTs do servidor');
+/* A conferência e o broadcast do PSBT assinado também são locais. */
+{
+  setConnectOverride(nodeConnect);
+  const hd = await BTC.deriveHD('1' + '0'.repeat(255));
+  const acct = parseXpub(hd.accounts.bip84.xpub);
+  const recv = await deriveAddress('bip84', acct, 0, 0);
+  const tx = makeTx([{ txid: 'ef'.repeat(32), vout: 0 }],
+    [{ value: 100000, script: recv.script }]);
+  const fake = await startFakeElectrum({
+    histories: { [scripthash(recv.script)]: [{ height: 800000, tx_hash: tx.txid }] },
+    txs: { [tx.txid]: tx.raw }
+  });
+  const client = await openElectrum({
+    servers: [{ host: '127.0.0.1', port: fake.port, secure: false }],
+    timeoutMs: 5000
+  });
+  const scanner = await new WalletScanner({ xpub: hd.accounts.bip84.xpub, account: acct, client }).init();
+  await scanner.fullSync();
+  const dest = BTC.derive('10' + '0'.repeat(254)).addresses.p2wpkh;
+  const prepared = await scanner.prepare({ address: dest, amountSats: 70000, feeRate: 3 });
+  const signed = await BTC.signPsbt(BTC.psbtParseInput(prepared.psbt), hd, new Uint8Array(32));
+  assert.ok(scanner.byScript && scanner.byScript.size > 0, 'scanner tem byScript');
+  const nodePreview = previewSignedPsbt({ scanner, psbtText: signed.psbtBase64 });
+  assert.equal(nodePreview.preview, true);
+  /* O Map precisa ser do mesmo realm do bundle para o `instanceof Map`; em
+     produção scanner e bundle vivem na mesma aba. */
+  const vmMap = vm.runInNewContext('new Map()', context);
+  scanner.byScript.forEach((value, key) => vmMap.set(key, value));
+  const preview = local.previewSignedPsbt({
+    scanner: { byScript: vmMap, utxos: scanner.utxos },
+    psbtText: signed.psbtBase64
+  });
+  assert.equal(preview.preview, true);
+  assert.equal(preview.txid, signed.txid);
+  assert.equal(preview.hex, undefined);
+  const broadcast = await local.broadcastSignedPsbt({
+    client: {
+      request: async method => {
+        assert.equal(method, 'blockchain.transaction.broadcast');
+        return signed.txid;
+      }
+    },
+    scanner: { byScript: vmMap, utxos: scanner.utxos },
+    psbtText: signed.psbtBase64
+  });
+  assert.equal(broadcast.broadcast, true);
+  assert.equal(broadcast.txid, signed.txid);
+  assert.equal(broadcast.hex, undefined);
+  await client.close();
+  await fake.close();
+}
+console.log('ok   wallet-local.js em dia, deriva, monta, confere e transmite localmente');

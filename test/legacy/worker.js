@@ -1,12 +1,12 @@
-import { parseXpub } from './derivation.js';
-import { openElectrum, estimateFees } from './electrum.js';
-import { WalletScanner } from './wallet-sync.js';
-import { electrumConfig, fail, json, SECURITY_HEADERS } from './config.js';
-import { feeRateKvb } from './psbt.js';
-import { broadcastSignedPsbt, previewSignedPsbt, MAX_PSBT_TEXT } from './broadcast.js';
+import { parseXpub } from '../../src/derivation.js';
+import { openElectrum, estimateFees } from '../../src/electrum.js';
+import { WalletScanner } from '../../src/wallet-sync.js';
+import { electrumConfig, fail, json, SECURITY_HEADERS } from '../../src/config.js';
+import { feeRateKvb } from '../../src/psbt.js';
+import { broadcastSignedPsbt, previewSignedPsbt, MAX_PSBT_TEXT } from '../../src/broadcast.js';
 import { WalletWatcher } from './watcher.js';
 import { normalizeWatchRequest } from './watch-set.js';
-import BTC from './btc-core.js';
+import BTC from '../../src/btc-core.js';
 
 /* Tetos de entrada antes de qualquer decodificação custosa: uma xpub válida
    tem 111 caracteres e um endereço mainnet cabe em 90. */

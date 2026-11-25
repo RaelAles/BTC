@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import worker from '../src/worker.js';
+import worker from '../src/worker-proxy.js';
 import { SECURITY_HEADERS } from '../src/config.js';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');

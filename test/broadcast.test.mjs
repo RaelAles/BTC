@@ -5,8 +5,8 @@
 
    node test/broadcast.test.mjs */
 import assert from 'node:assert/strict';
-import worker from '../src/worker.js';
-import { WalletWatcher } from '../src/watcher.js';
+import worker from './legacy/worker.js';
+import { WalletWatcher } from './legacy/watcher.js';
 import { deriveAddress, parseXpub } from '../src/derivation.js';
 import { scripthash, setConnectOverride } from '../src/electrum.js';
 import { inspectSignedPsbt } from '../src/broadcast.js';

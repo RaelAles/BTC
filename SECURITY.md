@@ -22,14 +22,14 @@ Please do not disclose the issue publicly before a fix is available.
 
 ## Trust Model
 
-The browser derives the addresses from the xpub; the Worker receives only the
-derived address set (used addresses plus the 50-address gap tail), never the
-extended public key. The send PSBT and the CPFP child are built in the browser
-from the raw transactions; the Worker does not choose coins or change. A
-compromised Worker or hosting layer can still see those addresses, the UTXOs
-and the queried history, and can omit data or lie about balance, fee or
-censorship. The local balance check and the Cofre BTC check before signing are
-the defenses.
+The browser derives addresses and scripthashes from the xpub and runs the
+wallet scanner (gap, balance, history, UTXOs, send PSBT and CPFP). The Worker
+is an Electrum proxy: it receives scripthashes, txids, raw transactions and the
+signed transaction at broadcast; it never receives the xpub or the derived
+address/pubkey list. Raw transactions contain their public scripts. A compromised Worker or hosting layer can still see the
+queried scripthashes/txids/transactions and can omit data or lie about balance,
+fee or censorship. The local reconciliation and the Cofre BTC check before
+signing are the defenses.
 
 The screen code itself is served by the Worker. A compromised Worker can
 serve altered JavaScript and capture the xpub before local derivation; SRI

@@ -6,7 +6,7 @@
 
    node test/worker.test.mjs */
 import assert from 'node:assert/strict';
-import worker from '../src/worker.js';
+import worker from './legacy/worker.js';
 import { deriveAddress, parseXpub } from '../src/derivation.js';
 import { scripthash, setConnectOverride, openElectrum } from '../src/electrum.js';
 import { WalletScanner } from '../src/wallet-sync.js';

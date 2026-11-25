@@ -11,8 +11,8 @@
      blockchain.scripthash.subscribe
      blockchain.estimatefee
      blockchain.transaction.get
-     blockchain.transaction.broadcast (só na rota /api/broadcast, com o PSBT
-       assinado já conferido contra a carteira)
+     blockchain.transaction.broadcast (só no proxy, com a transação já
+       conferida pelo navegador)
    Uma conexão responde a muitas consultas (pipelining), então não há o
    limite de subrequests do fetch. */
 import BTC from './btc-core.js';
@@ -318,6 +318,17 @@ export async function transactionsMany(client, txids, opts) {
   const limit = Math.max(1, Number(o.concurrency) || 8);
   const raw = new Map();
   const errors = new Map();
+  if (typeof client.requestManySettled === 'function') {
+    const settled = await client.requestManySettled(txids.map(txid => ({
+      method: 'blockchain.transaction.get', params: [txid]
+    })));
+    settled.forEach((item, i) => {
+      const txid = txids[i];
+      if (item.status === 'fulfilled') raw.set(txid, item.value);
+      else errors.set(txid, item.reason && item.reason.message ? item.reason.message : '' + item.reason);
+    });
+    return { raw, errors };
+  }
   let cursor = 0;
   const worker = async () => {
     for (;;) {

@@ -2,10 +2,10 @@
    e validação da configuração do Electrum. Tudo sem rede.
    node test/hardening.test.mjs */
 import assert from 'node:assert/strict';
-import worker from '../src/worker.js';
+import worker from './legacy/worker.js';
 import { parseXpub } from '../src/derivation.js';
 import { electrumConfig } from '../src/config.js';
-import { WalletWatcher } from '../src/watcher.js';
+import { WalletWatcher } from './legacy/watcher.js';
 import { setConnectOverride } from '../src/electrum.js';
 import BTC from '../src/btc-core.js';
 import { startFakeElectrum, nodeConnect } from './fake-electrum.mjs';
