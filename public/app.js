@@ -3292,7 +3292,22 @@
       state.historyState = 'loading';
       syncHistoryState();
     }
-    if (!quiet) setStatus('', scanText());
+    /* A contagem de endereços vive no scanner local: sem consultá-lo, a
+       legenda ficaria parada em zero até o fim da varredura. */
+    var progressTimer = 0;
+    if (!quiet) {
+      var shown = -1;
+      var paintProgress = function () {
+        var p = null;
+        try { p = scanner.progress ? scanner.progress() : null; } catch (e) { return; }
+        var n = (p && p.scanned) || 0;
+        if (n === shown) return;
+        shown = n;
+        setStatus('', scanText(p));
+      };
+      paintProgress();
+      progressTimer = setInterval(paintProgress, 250);
+    }
     try {
       /* A derivação, a margem de 50, o histórico e a conta de UTXOs rodam
          aqui. O Worker recebe só scripthashes/txids pelo proxy. */
@@ -3325,6 +3340,7 @@
         }
       }
     } finally {
+      if (progressTimer) clearInterval(progressTimer);
       state.busy = false;
     }
   }
