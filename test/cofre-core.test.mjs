@@ -177,6 +177,16 @@ for (const c of cases) {
 }
 console.log('ok   PSBTs p2pkh, p2sh-p2wpkh, p2wpkh e p2tr assinados igual ao btc-core');
 
+/* ---------------- entrada sem a transação anterior ---------------- */
+{
+  /* SegWit sem non_witness_utxo não pode ter o valor conferido: recusa. */
+  const psbt = C.parsePsbt(p2wBytes);
+  psbt.inputs[0] = psbt.inputs[0].filter(e => !(e.key.length === 1 && e.key[0] === 0x00));
+  await assert.rejects(C.analyzePsbt(C.writePsbt(psbt), ehd),
+    /sem non_witness_utxo/);
+  console.log('ok   entrada sem non_witness_utxo é recusada');
+}
+
 /* ---------------- PSBT assinado: exibe, não assina ---------------- */
 {
   /* o próprio PSBT finalizado (campos finais) é exibido com txid real */

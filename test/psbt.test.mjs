@@ -245,13 +245,12 @@ function mapFind(map, type) {
   const review = await BTC.analyzePsbt(bytes, hd);
   assert.equal(review.outputs[1].own, 'troco', 'o assinante reconhece o troco');
 
-  /* Entrada segwit sem non_witness_utxo (PSBT de fora): avisa em vez de
-     recusar, porque a chave (origem) continua conferível mas o valor não. */
+  /* Entrada segwit sem non_witness_utxo (PSBT de fora): recusa, porque
+     sem a transação anterior o valor não pode ser conferido. */
   const semPrev = BTC.parsePsbt(bytes);
   semPrev.inputs = semPrev.inputs.map(m => m.filter(e => !(e.key.length === 1 && e.key[0] === 0x00)));
-  const warned = await BTC.analyzePsbt(BTC.writePsbt(semPrev), hd);
-  assert.ok(warned.warnings.some(w => /é segwit e veio sem non_witness_utxo/.test(w)),
-    'entrada segwit sem a transação anterior gera aviso');
+  await assert.rejects(BTC.analyzePsbt(BTC.writePsbt(semPrev), hd),
+    /veio sem non_witness_utxo/);
 
   /* O PSBT já finalizado não tem mais a origem BIP32, mas conserva UTXO e
      campos finais: dá para exibir e recusar nova assinatura. */

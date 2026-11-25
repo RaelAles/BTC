@@ -119,8 +119,9 @@ source and can lie.
 - The browser selects confirmed UTXOs and its own pending change, computes
   vsize, fee, change and dust, and writes the PSBT v0.
 - Every input carries `witness_utxo`, the BIP32 origin and the full previous
-  transaction (`non_witness_utxo`); the Cofre checks value, script,
-  destination and fee before signing.
+  transaction (`non_witness_utxo`); the Cofre requires the previous
+  transaction, checks value, script, destination and fee, and refuses an
+  input without it.
 - CPFP is also built in the browser: it adds the parent and pending ancestors,
   computes the child fee and sends the remainder to the next change address.
 - The signed file returns to the screen; input, value, finalization and fee
@@ -141,7 +142,7 @@ the outputs and the fee before signing. The private key never reaches the
 Monitor.
 
 Before opening it, compare the published hash: the sha256 of the published
-file is `c6e233ad0e33de6f33d4c6983ccfe226c6330939038e31e834b1ed33f884167f` —
+file is `f4c557b90a27114ffcfa59f38d94fd23ab9551f392814bd8b6d1fd84cdb3d9e8` —
 run `sha256sum cofre-btc.html` on the downloaded file; the release asset
 always has this fixed name. The Cofre's about
 screen asks for the same check. Any edit to the Cofre requires updating this
@@ -452,9 +453,11 @@ package.json
   wallet. A payment beyond the tail only appears in a new scan.
 - **No 24/7 watch.** Closing the page ends the session; there is no monitoring
   or notification with the screen closed.
-- **Change reuse.** The next change address only advances when the transaction
-  is seen in the mempool, so two PSBTs built before the first broadcast use
-  the same change address. This is a privacy limitation, not a balance one.
+- **Change reserved per PSBT.** The change address advances with each PSBT
+  built in the same session, so two pending PSBTs use different addresses.
+  The reservation lives only in memory: after reloading the page, a pending
+  PSBT and a new one may reuse the address. This is a privacy limitation, not
+  a balance one.
 - **PSBT is a snapshot.** There is no coin reservation. If another wallet
   spends an input before signing/broadcasting, the network refuses the
   transaction and a new PSBT is needed.

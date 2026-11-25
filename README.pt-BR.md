@@ -117,8 +117,8 @@ no navegador. O Worker ainda é uma fonte de dados e pode mentir.
 - O navegador escolhe UTXOs confirmados e o próprio troco pendente, calcula a
   vsize, a taxa, o troco e o pó, e escreve o PSBT v0.
 - Toda entrada leva `witness_utxo`, origem BIP32 e a transação anterior inteira
-  (`non_witness_utxo`); o Cofre confere valor, script, destino e taxa antes de
-  assinar.
+  (`non_witness_utxo`); o Cofre exige a transação anterior, confere valor,
+  script, destino e taxa e recusa a entrada sem ela.
 - O CPFP também é montado no navegador: ele soma pai e ancestrais pendentes,
   calcula a taxa do filho e manda o resto para o próximo troco.
 - O arquivo assinado volta para a tela; a conferência de entradas, valores,
@@ -138,7 +138,7 @@ PSBT, ele confere a conta, a derivação, a chave pública, o script, as saídas
 a taxa antes de assinar. A chave privada nunca passa pelo Monitor.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
-`c6e233ad0e33de6f33d4c6983ccfe226c6330939038e31e834b1ed33f884167f` — rode
+`f4c557b90a27114ffcfa59f38d94fd23ab9551f392814bd8b6d1fd84cdb3d9e8` — rode
 `sha256sum cofre-btc.html` no arquivo baixado; o asset do release tem sempre
 esse nome fixo. A tela “sobre” do Cofre
 pede a mesma conferência. Qualquer edição no Cofre exige atualizar este
@@ -449,10 +449,10 @@ package.json
   carteira inteira. Um pagamento além da cauda só aparece numa nova varredura.
 - **Sem vigilância 24/7.** Fechar a página encerra a sessão; não há
   monitoramento nem aviso com a tela fechada.
-- **Troco reutilizado.** O próximo endereço de troco só avança quando a
-  transação é vista no mempool, então dois PSBTs montados antes da primeira
-  transmissão usam o mesmo endereço de troco. É um limite de privacidade, não
-  de saldo.
+- **Troco reservado por PSBT.** O endereço de troco avança a cada PSBT montado
+  na mesma sessão, então dois PSBTs pendentes usam endereços diferentes. A
+  reserva vive só na memória: depois de recarregar a página, um PSBT pendente
+  e um novo podem repetir o endereço. É um limite de privacidade, não de saldo.
 - **O PSBT é um retrato.** Não há reserva de moeda. Se outra carteira gastar
   uma entrada antes da assinatura/transmissão, a rede recusa a transação e é
   preciso criar outro PSBT.

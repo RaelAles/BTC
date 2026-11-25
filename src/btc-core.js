@@ -1769,18 +1769,14 @@ var BTC = (function () {
     if (feerate > 0 && feerate < 0.1) warnings.push('taxa abaixo de 0,1 sat/vB: a transação pode ser recusada pelo piso de relay padrão');
     if (feerate > 500) warnings.push('taxa acima de 500 sat/vB: confira o valor da taxa');
     if (fee === 0n) warnings.push('taxa zero: a rede pode recusar a transação');
-    /* No p2pkh o valor não entra no sighash: aceitar só o witness_utxo
-       deixaria o coordenador mentir sobre a taxa. Exigimos a transação
-       anterior inteira e conferimos o txid em prevoutOf. */
+    /* O valor da entrada só pode ser conferido contra a transação anterior.
+       Em p2pkh ele não entra no sighash; em segwit entra, mas com só o
+       witness_utxo o coordenador pode mentir sobre a taxa exibida. Exigimos
+       a transação anterior inteira em todas as entradas e conferimos o txid
+       em prevoutOf. */
     inputs.forEach(function (inp) {
-      if (inp.kind === 'p2pkh' && !mapFind(psbt.inputs[inp.index], 0x00)) {
-        throw new Error('entrada ' + inp.index + ' é p2pkh e veio sem non_witness_utxo; o valor da entrada não pode ser conferido');
-      }
-      /* No segwit o valor entra no sighash: com só witness_utxo, o
-         coordenador pode mentir sobre o valor e a taxa exibida não é
-         conferível. A assinatura resultante seria recusada na rede. */
-      if (inp.kind !== 'p2pkh' && !mapFind(psbt.inputs[inp.index], 0x00)) {
-        warnings.push('a entrada ' + inp.index + ' é segwit e veio sem non_witness_utxo; o valor da entrada não pode ser conferido.');
+      if (!mapFind(psbt.inputs[inp.index], 0x00)) {
+        throw new Error('entrada ' + inp.index + ' veio sem non_witness_utxo; o valor da entrada não pode ser conferido');
       }
     });
     outputs.forEach(function (out) {

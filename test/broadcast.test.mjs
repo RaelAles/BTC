@@ -270,7 +270,8 @@ async function fixture({ acct = account, hd: signer = hd, xpub = hd.accounts.bip
     inputs: [{
       txid: tx.txid, vout: 0, value: 40000, script: a.script,
       kind: 'p2wpkh', pub: a.pub, path: "m/84'/0'/0'/0/0",
-      fingerprint: BTC.bytesToHex(BTC.hash160(account.pub)).slice(0, 8)
+      fingerprint: BTC.bytesToHex(BTC.hash160(account.pub)).slice(0, 8),
+      rawTx: BTC.hexToBytes(tx.raw)
     }],
     outputs: [{ value: 39000, script: BTC.scriptFromAddress(BTC.derive('0'.repeat(255) + '1').addresses.p2wpkh) }]
   });

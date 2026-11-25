@@ -1773,18 +1773,14 @@ var BTC = (function () {
     if (feerate > 0 && feerate < 0.1) warnings.push('taxa abaixo de 0,1 sat/vB: a transação pode ser recusada pelo piso de relay padrão');
     if (feerate > 500) warnings.push('taxa acima de 500 sat/vB: confira o valor da taxa');
     if (fee === 0n) warnings.push('taxa zero: a rede pode recusar a transação');
-    /* No p2pkh o valor não entra no sighash: aceitar só o witness_utxo
-       deixaria o coordenador mentir sobre a taxa. Exigimos a transação
-       anterior inteira e conferimos o txid em prevoutOf. */
+    /* O valor da entrada só pode ser conferido contra a transação anterior.
+       Em p2pkh ele não entra no sighash; em segwit entra, mas com só o
+       witness_utxo o coordenador pode mentir sobre a taxa exibida. Exigimos
+       a transação anterior inteira em todas as entradas e conferimos o txid
+       em prevoutOf. */
     inputs.forEach(function (inp) {
-      if (inp.kind === 'p2pkh' && !mapFind(psbt.inputs[inp.index], 0x00)) {
-        throw new Error('entrada ' + inp.index + ' é p2pkh e veio sem non_witness_utxo; o valor da entrada não pode ser conferido');
-      }
-      /* No segwit o valor entra no sighash: com só witness_utxo, o
-         coordenador pode mentir sobre o valor e a taxa exibida não é
-         conferível. A assinatura resultante seria recusada na rede. */
-      if (inp.kind !== 'p2pkh' && !mapFind(psbt.inputs[inp.index], 0x00)) {
-        warnings.push('a entrada ' + inp.index + ' é segwit e veio sem non_witness_utxo; o valor da entrada não pode ser conferido.');
+      if (!mapFind(psbt.inputs[inp.index], 0x00)) {
+        throw new Error('entrada ' + inp.index + ' veio sem non_witness_utxo; o valor da entrada não pode ser conferido');
       }
     });
     outputs.forEach(function (out) {
@@ -3598,6 +3594,9 @@ class WalletScanner {
     this.byScript = new Map();
     this.bySh = new Map();
     this.shCache = new Map();
+    /* Endereços de troco já reservados por PSBTs pendentes nesta sessão:
+       dois PSBTs montados antes da transmissão não repetem o mesmo troco. */
+    this.changeReservations = new Set();
   }
 
   async init() {
@@ -3628,6 +3627,7 @@ class WalletScanner {
       }
       this.pendingRows = [];
       this.infoCache.clear();
+      this.changeReservations.clear();
     }
     for (const r of rows || []) {
       const key = rowKey(r.account_type, r.chain);
@@ -4041,32 +4041,38 @@ class WalletScanner {
       throw new Error('há ancestral pendente com taxa que não é desta carteira; não é possível calcular o pacote com segurança');
     }
     const rateKvb = feeRateKvb(feeRate);
-    const changeRow = this.nextChangeRow(this.chooseType());
+    const type = this.chooseType();
+    const changeRow = this.reserveChangeRow(type);
     if (!changeRow) throw new Error('endereço de troco indisponível');
-    const childVsize = BTC.estimateVsize([spend.row.kind], [BTC.hexToBytes(changeRow.script)]);
-    const targetFee = feeSats(rateKvb, pkg.vsize + childVsize);
-    const childFee = targetFee - pkg.fee_sats;
-    if (!(childFee > 0)) {
-      throw new Error('a transação já paga a taxa alvo; não há o que acelerar');
+    try {
+      const childVsize = BTC.estimateVsize([spend.row.kind], [BTC.hexToBytes(changeRow.script)]);
+      const targetFee = feeSats(rateKvb, pkg.vsize + childVsize);
+      const childFee = targetFee - pkg.fee_sats;
+      if (!(childFee > 0)) {
+        throw new Error('a transação já paga a taxa alvo; não há o que acelerar');
+      }
+      const rawTxFor = async id => {
+        const cached = this.txCache.get(id);
+        if (cached) return BTC.hexToBytes(cached);
+        const got = await transactionsMany(this.client, [id], { concurrency: 1 });
+        const raw = got.raw.get(id);
+        if (raw) this.txCache.set(id, raw);
+        return raw ? BTC.hexToBytes(raw) : null;
+      };
+      const parent = {
+        txid: entry.txid,
+        vsize: Number(entry.vsize) || 0,
+        fee_sats: info.fee_sats,
+        fee_rate: entry.vsize ? info.fee_sats / entry.vsize : 0
+      };
+      return await prepareCpfpPsbt({
+        fingerprint: this.fingerprint, spend, changeRow, childFee, feeRate, rawTxFor,
+        parent, packageBefore: pkg
+      });
+    } catch (e) {
+      this.releaseChangeRow(type, changeRow);
+      throw e;
     }
-    const rawTxFor = async id => {
-      const cached = this.txCache.get(id);
-      if (cached) return BTC.hexToBytes(cached);
-      const got = await transactionsMany(this.client, [id], { concurrency: 1 });
-      const raw = got.raw.get(id);
-      if (raw) this.txCache.set(id, raw);
-      return raw ? BTC.hexToBytes(raw) : null;
-    };
-    const parent = {
-      txid: entry.txid,
-      vsize: Number(entry.vsize) || 0,
-      fee_sats: info.fee_sats,
-      fee_rate: entry.vsize ? info.fee_sats / entry.vsize : 0
-    };
-    return await prepareCpfpPsbt({
-      fingerprint: this.fingerprint, spend, changeRow, childFee, feeRate, rawTxFor,
-      parent, packageBefore: pkg
-    });
   }
 
   /* Caminha a varredura em um lote de no máximo SCAN_BATCH endereços novos.
@@ -4187,13 +4193,30 @@ class WalletScanner {
     return { chain, next, lastUsed, address: row ? row.address : null, path: row ? row.path : null };
   }
 
-  /* Próxima linha do ramo de troco (já derivada pela varredura): é o
-     endereço que recebe o troco do PSBT. */
+  changeKey(type, idx) { return rowKey(type, 1) + ':' + idx; }
+
+  /* Próxima linha livre do ramo de troco (já derivada pela varredura).
+     Reservas de PSBTs pendentes são puladas; `limits` usa esta consulta
+     sem reservar, e `prepare`/`prepareCpfp` reservam antes de montar. */
   nextChangeRow(type) {
     const rows = this.rows.get(rowKey(type, 1));
     if (!rows) return null;
-    const { lastUsed } = this.lastUsedOf(rows);
-    return rows.get(lastUsed + 1) || null;
+    const { lastUsed, maxIdx } = this.lastUsedOf(rows);
+    for (let idx = lastUsed + 1; idx <= maxIdx; idx++) {
+      const row = rows.get(idx);
+      if (row && !this.changeReservations.has(this.changeKey(type, idx))) return row;
+    }
+    return null;
+  }
+
+  reserveChangeRow(type) {
+    const row = this.nextChangeRow(type);
+    if (row) this.changeReservations.add(this.changeKey(type, row.idx));
+    return row;
+  }
+
+  releaseChangeRow(type, row) {
+    if (row) this.changeReservations.delete(this.changeKey(type, row.idx));
   }
 
   /* Monta o PSBT de envio com os UTXOs desta sessão. A transação não é
@@ -4229,7 +4252,7 @@ class WalletScanner {
     }
     if (!this.utxos) throw new Error('carteira ainda não sincronizada');
     const type = this.chooseType();
-    const changeRow = this.nextChangeRow(type);
+    const changeRow = this.reserveChangeRow(type);
     const utxos = this.prepareUtxos();
     const rawTxFor = async txid => {
       const cached = this.txCache.get(txid);
@@ -4239,10 +4262,18 @@ class WalletScanner {
       if (raw) this.txCache.set(txid, raw);
       return raw ? BTC.hexToBytes(raw) : null;
     };
-    return await preparePsbt({
-      fingerprint: this.fingerprint, utxos, address, amountSats, feeRate, changeRow, rawTxFor,
-      ownScripts: this.byScript
-    });
+    try {
+      const prepared = await preparePsbt({
+        fingerprint: this.fingerprint, utxos, address, amountSats, feeRate, changeRow, rawTxFor,
+        ownScripts: this.byScript
+      });
+      /* Sem saída de troco a reserva não é usada: devolve a linha. */
+      if (!prepared.change) this.releaseChangeRow(type, changeRow);
+      return prepared;
+    } catch (e) {
+      this.releaseChangeRow(type, changeRow);
+      throw e;
+    }
   }
 
   typeUsed(type) {

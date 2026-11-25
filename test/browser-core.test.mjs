@@ -141,6 +141,10 @@ assert.equal(local.fingerprintOf(account).length, 8);
   await scanner.fullSync();
   const dest = BTC.derive('10' + '0'.repeat(254)).addresses.p2wpkh;
   const prepared = await scanner.prepare({ address: dest, amountSats: 70000, feeRate: 3 });
+  const preparedAgain = await scanner.prepare({ address: dest, amountSats: 70000, feeRate: 3 });
+  assert.ok(prepared.change && preparedAgain.change, 'as duas montagens têm troco');
+  assert.notEqual(preparedAgain.change.address, prepared.change.address,
+    'dois PSBTs pendentes usam endereços de troco diferentes');
   const signed = await BTC.signPsbt(BTC.psbtParseInput(prepared.psbt), hd, new Uint8Array(32));
   assert.ok(scanner.byScript && scanner.byScript.size > 0, 'scanner tem byScript');
   const nodePreview = previewSignedPsbt({ scanner, psbtText: signed.psbtBase64 });
