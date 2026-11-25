@@ -174,35 +174,58 @@ assert.equal(local.fingerprintOf(account).length, 8);
   assert.equal(broadcast.txid, signed.txid);
   assert.equal(broadcast.hex, undefined);
 
-  /* Prévia descartada devolve o endereço; o baixado mantém a reserva. */
+  /* Prévia descartada devolve o endereço; liberar duas vezes a mesma prévia
+     não apaga a reserva que outro retrato passou a usar. */
   scanner.changeReservations.clear();
-  const firstReserved = scanner.reserveChangeRow('bip84');
-  assert.ok(firstReserved, 'reserva inicial');
-  scanner.releasePreparedChange({ change: { address: firstReserved.address } });
-  const reusedFree = scanner.reserveChangeRow('bip84');
-  assert.equal(reusedFree.idx, firstReserved.idx, 'prévia descartada devolve o troco');
+  const firstPreview = await scanner.prepare({ address: dest, amountSats: 70000, feeRate: 3 });
+  assert.ok(firstPreview.change, 'a prévia tem troco');
+  const firstIdx = firstPreview.change.reservation.index;
+  scanner.releasePreparedChange(firstPreview);
+  const secondPreview = await scanner.prepare({ address: dest, amountSats: 70000, feeRate: 3 });
+  assert.equal(secondPreview.change.reservation.index, firstIdx, 'prévia descartada devolve o troco');
+  scanner.releasePreparedChange(firstPreview); // idempotente: o índice já é de outro retrato
+  assert.ok(scanner.changeReservations.has(scanner.changeKey('bip84', firstIdx)),
+    'liberar a mesma prévia de novo não apaga a reserva da nova');
+  scanner.releasePreparedChange(secondPreview);
 
   /* Esgotada a margem, a reserva mais antiga entra no rodízio; não falha e
      não pula para um índice que a próxima varredura não alcançaria. */
   scanner.changeReservations.clear();
+  const gap = scanner.gap;
+  const previews = [];
   const seen = new Set();
-  let last = null;
-  for (let i = 0; i < 51; i++) {
-    last = scanner.reserveChangeRow('bip84');
-    assert.ok(last, 'reserva ' + i + ' tem endereço');
-    seen.add(last.idx);
+  for (let i = 0; i < gap + 1; i++) {
+    const prepared = await scanner.prepare({ address: dest, amountSats: 70000, feeRate: 3 });
+    assert.ok(prepared.change, 'reserva ' + i + ' tem troco');
+    previews.push(prepared);
+    seen.add(prepared.change.reservation.index);
   }
-  assert.equal(seen.size, 50, '51 reservas usam no máximo 50 endereços');
-  assert.equal(last.idx, 0, 'a 51ª reutiliza a reserva mais antiga');
+  assert.equal(seen.size, gap, (gap + 1) + ' reservas usam no máximo ' + gap + ' endereços');
+  assert.equal(previews.at(-1).change.reservation.index, previews[0].change.reservation.index,
+    'a última reutiliza a reserva mais antiga');
 
-  /* Descartar uma prévia que reutilizou endereço não apaga a reserva do PSBT
-     que já era dono dele. */
+  /* Baixar confirma a reserva e manda a linha reutilizada para o fim do
+     rodízio; descartar a prévia compartilhada não apaga a reserva baixada. */
+  for (let i = 0; i < gap; i++) scanner.commitPreparedChange(previews[i]);
+  assert.equal(scanner.changeReservations.size, gap, 'commit não duplica a chave');
+  scanner.releasePreparedChange(previews[0]);
+  assert.ok(scanner.changeReservations.has(scanner.changeKey('bip84', previews[0].change.reservation.index)),
+    'PSBT baixado não devolve a reserva');
+  const sharedPreview = previews.at(-1);
+  const sharedIdx = sharedPreview.change.reservation.index;
   const beforeReuseRelease = scanner.changeReservations.size;
-  const reused = scanner.takeChangeRow('bip84');
-  assert.equal(reused.fresh, false, 'a linha reutilizada não é reserva nova');
-  scanner.releasePreparedChange({ change: { address: reused.row.address, fresh: false } });
+  scanner.releasePreparedChange(sharedPreview);
   assert.equal(scanner.changeReservations.size, beforeReuseRelease,
     'liberar a prévia reutilizada mantém a reserva original');
+  assert.ok(scanner.changeReservations.has(scanner.changeKey('bip84', sharedIdx)),
+    'a chave reutilizada continua reservada');
+  const reused = await scanner.prepare({ address: dest, amountSats: 70000, feeRate: 3 });
+  assert.equal(reused.change.reservation.index, previews[0].change.reservation.index,
+    'o rodízio usa a reserva baixada mais antiga');
+  scanner.commitPreparedChange(reused);
+  const rotated = await scanner.prepare({ address: dest, amountSats: 70000, feeRate: 3 });
+  assert.equal(rotated.change.reservation.index, previews[1].change.reservation.index,
+    'depois do commit a próxima reutilização pega a reserva seguinte');
   await client.close();
   await fake.close();
 }

@@ -454,12 +454,12 @@ package.json
 - **No 24/7 watch.** Closing the page ends the session; there is no monitoring
   or notification with the screen closed.
 - **Change reserved per downloaded PSBT.** An undownloaded preview returns
-  the address; only the downloaded file keeps the reservation. Up to 50
-  pending downloaded PSBTs use different addresses; on the 51st, the oldest
-  is reused so the gap does not grow beyond the 50-address limit. The
-  reservation lives only in memory: after reloading the page, a pending PSBT
-  and a new one may reuse the address. This is a privacy limitation, not a
-  balance one.
+  the address; only the downloaded file keeps the reservation. Each pending
+  downloaded PSBT keeps its own address up to the scan gap (50 by default,
+  configurable); once that margin is full, the oldest downloaded PSBT's
+  address is reused so the gap does not grow. The reservation lives only in
+  memory: after reloading the page, a pending PSBT and a new one may reuse
+  the address. This is a privacy limitation, not a balance one.
 - **PSBT is a snapshot.** There is no coin reservation. If another wallet
   spends an input before signing/broadcasting, the network refuses the
   transaction and a new PSBT is needed.

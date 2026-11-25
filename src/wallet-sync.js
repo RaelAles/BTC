@@ -70,8 +70,10 @@ export class WalletScanner {
     this.bySh = new Map();
     this.shCache = new Map();
     /* Endereços de troco já reservados por PSBTs pendentes nesta sessão:
-       dois PSBTs montados antes da transmissão não repetem o mesmo troco. */
-    this.changeReservations = new Set();
+       dois PSBTs montados antes da transmissão não repetem o mesmo troco.
+       Cada chave tem dono/refcount: uma prévia que reutiliza a linha de um
+       PSBT baixado não pode apagar a reserva dele ao ser descartada. */
+    this.changeReservations = new Map();
   }
 
   async init() {
@@ -517,10 +519,9 @@ export class WalletScanner {
     }
     const rateKvb = feeRateKvb(feeRate);
     const type = this.chooseType();
-    const reserved = this.takeChangeRow(type);
-    const changeRow = reserved.row;
-    if (!changeRow) throw new Error('endereço de troco indisponível');
+    const changeRow = this.takeChangeRow(type).row;
     try {
+      if (!changeRow) throw new Error('endereço de troco indisponível');
       const childVsize = BTC.estimateVsize([spend.row.kind], [BTC.hexToBytes(changeRow.script)]);
       const targetFee = feeSats(rateKvb, pkg.vsize + childVsize);
       const childFee = targetFee - pkg.fee_sats;
@@ -546,13 +547,15 @@ export class WalletScanner {
         parent, packageBefore: pkg
       });
       if (prepared.output) {
-        prepared.output.type = type;
-        prepared.output.index = changeRow.idx;
-        prepared.output.fresh = reserved.fresh;
+        prepared.output.reservation = {
+          type, index: changeRow.idx, committed: false, released: false
+        };
+      } else {
+        this.releaseChangeRow(type, changeRow);
       }
       return prepared;
     } catch (e) {
-      if (reserved.fresh) this.releaseChangeRow(type, changeRow);
+      this.releaseChangeRow(type, changeRow);
       throw e;
     }
   }
@@ -691,88 +694,108 @@ export class WalletScanner {
     return null;
   }
 
-  /* Separa a linha nova (`fresh`) da reutilizada. Só a nova criou uma
-     reserva; liberar uma reutilizada não pode apagar a reserva do PSBT que já
-     era dono dela. */
+  parseChangeKey(type, key) {
+    const prefix = rowKey(type, 1) + ':';
+    if (!key.startsWith(prefix)) return NaN;
+    const idx = Number(key.slice(prefix.length));
+    return Number.isInteger(idx) ? idx : NaN;
+  }
+
+  /* Refcount por chave: cada PSBT (prévia ou baixado) que aponta para a linha
+     detém uma referência. Só a última liberação remove a reserva. */
+  addChangeReservation(key) {
+    const entry = this.changeReservations.get(key);
+    if (entry) entry.refs++;
+    else this.changeReservations.set(key, { refs: 1, committed: false });
+  }
+
+  dropChangeReservation(key) {
+    const entry = this.changeReservations.get(key);
+    if (!entry) return;
+    entry.refs--;
+    if (entry.refs <= 0) this.changeReservations.delete(key);
+  }
+
+  /* Separa a linha nova da reutilizada. As duas criam uma referência: a
+     reutilizada pertence também a quem já a reservou, então liberar esta
+     prévia não pode apagar a reserva do PSBT baixado. */
   takeChangeRow(type) {
     const fresh = this.nextChangeRow(type);
     if (fresh) {
-      this.changeReservations.add(this.changeKey(type, fresh.idx));
-      return { row: fresh, fresh: true };
+      const key = this.changeKey(type, fresh.idx);
+      this.addChangeReservation(key);
+      return { row: fresh, key };
     }
     /* Toda a margem já está reservada. Em vez de falhar, reutiliza a reserva
        mais antiga em rodízio: um índice novo aqui abriria um buraco maior que
        a margem e o saldo poderia ficar fora da próxima varredura. */
     const branch = rowKey(type, 1);
     const rows = this.rows.get(branch);
-    if (!rows) return { row: null, fresh: false };
+    if (!rows) return { row: null, key: '' };
     const { lastUsed } = this.lastUsedOf(rows);
     const prefix = branch + ':';
     /* Reservas de endereços já vistos na rede não voltam ao rodízio. */
-    for (const key of [...this.changeReservations]) {
+    for (const key of [...this.changeReservations.keys()]) {
       if (!key.startsWith(prefix)) continue;
-      const idx = Number(key.slice(prefix.length));
+      const idx = this.parseChangeKey(type, key);
       if (!Number.isInteger(idx) || idx <= lastUsed || !rows.has(idx)) {
         this.changeReservations.delete(key);
       }
     }
-    for (const key of this.changeReservations) {
-      if (!key.startsWith(prefix)) continue;
-      const idx = Number(key.slice(prefix.length));
-      const reuse = rows.get(idx);
-      if (!reuse) { this.changeReservations.delete(key); continue; }
-      /* A ordem só muda no download (commit); prévia não mexe no rodízio. */
-      return { row: reuse, fresh: false };
-    }
-    return { row: null, fresh: false };
-  }
-
-  reserveChangeRow(type) {
-    return this.takeChangeRow(type).row;
+    /* O rodízio prefere as reservas de PSBTs baixados; uma prévia só é
+       reutilizada quando não há nenhuma baixada no ramo, porque ela será
+       descartada antes do download. */
+    const keys = [...this.changeReservations.keys()]
+      .filter(key => key.startsWith(prefix));
+    if (!keys.length) return { row: null, key: '' };
+    const key = keys.find(candidate => this.changeReservations.get(candidate).committed) || keys[0];
+    const idx = this.parseChangeKey(type, key);
+    const row = rows.get(idx);
+    if (!row) return { row: null, key: '' };
+    /* A ordem só muda no download (commit); prévia não mexe no rodízio. */
+    this.addChangeReservation(key);
+    return { row, key };
   }
 
   releaseChangeRow(type, row) {
-    if (row) this.changeReservations.delete(this.changeKey(type, row.idx));
+    if (!row) return;
+    this.dropChangeReservation(this.changeKey(type, row.idx));
   }
 
   changeKeyForRow(row) {
-    if (!row) return '';
-    if (row.type != null && row.index != null) return this.changeKey(row.type, row.index);
-    const address = row.address;
-    if (!address) return '';
-    for (const type of TYPES) {
-      const branch = this.rows.get(rowKey(type, 1));
-      if (!branch) continue;
-      for (const candidate of branch.values()) {
-        if (candidate.address === address) return this.changeKey(type, candidate.idx);
-      }
-    }
-    return '';
+    const meta = row && row.reservation;
+    if (!meta || meta.type == null || meta.index == null) return '';
+    return this.changeKey(meta.type, meta.index);
   }
 
   /* Baixar confirma a reserva. Só aqui uma linha reutilizada vai para o fim
      do rodízio; prévias descartadas não mexem na ordem dos PSBTs baixados. */
   commitPreparedChange(prepared) {
     const row = prepared && (prepared.change || prepared.output);
-    if (!row || row.committed) return;
+    const meta = row && row.reservation;
+    if (!meta || meta.committed) return;
     const key = this.changeKeyForRow(row);
     if (!key) return;
-    row.committed = true;
-    if (row.fresh === false) {
-      if (this.changeReservations.delete(key)) this.changeReservations.add(key);
-    } else {
-      this.changeReservations.add(key);
-    }
+    meta.committed = true;
+    const entry = this.changeReservations.get(key) || { refs: 0, committed: false };
+    entry.committed = true;
+    if (!entry.refs) entry.refs = 1;
+    /* Sempre delete + add: uma linha reutilizada vai para o fim do rodízio
+       mesmo que a chave tenha sido removida por uma liberação anterior. */
+    this.changeReservations.delete(key);
+    this.changeReservations.set(key, entry);
   }
 
   /* Prévia descartada não é PSBT pendente: devolve o troco reservado.
      O app chama isto quando o retrato sai da tela sem ter sido baixado. */
   releasePreparedChange(prepared) {
     const row = prepared && (prepared.change || prepared.output);
-    /* Reutilizada: a reserva pertence a outro PSBT, não a esta prévia. */
-    if (!row || row.fresh === false) return;
-    const key = this.changeKeyForRow(row);
-    if (key) this.changeReservations.delete(key);
+    const meta = row && row.reservation;
+    /* Baixado mantém a reserva; a mesma prévia liberada duas vezes não pode
+       apagar a reserva que outro retrato passou a usar. */
+    if (!meta || meta.committed || meta.released) return;
+    meta.released = true;
+    this.dropChangeReservation(this.changeKeyForRow(row));
   }
 
   /* Monta o PSBT de envio com os UTXOs desta sessão. A transação não é
@@ -808,33 +831,32 @@ export class WalletScanner {
     }
     if (!this.utxos) throw new Error('carteira ainda não sincronizada');
     const type = this.chooseType();
-    const reserved = this.takeChangeRow(type);
-    const changeRow = reserved.row;
-    const utxos = this.prepareUtxos();
-    const rawTxFor = async txid => {
-      const cached = this.txCache.get(txid);
-      if (cached) return BTC.hexToBytes(cached);
-      const got = await transactionsMany(this.client, [txid], { concurrency: 1 });
-      const raw = got.raw.get(txid);
-      if (raw) this.txCache.set(txid, raw);
-      return raw ? BTC.hexToBytes(raw) : null;
-    };
+    const changeRow = this.takeChangeRow(type).row;
     try {
+      const utxos = this.prepareUtxos();
+      const rawTxFor = async txid => {
+        const cached = this.txCache.get(txid);
+        if (cached) return BTC.hexToBytes(cached);
+        const got = await transactionsMany(this.client, [txid], { concurrency: 1 });
+        const raw = got.raw.get(txid);
+        if (raw) this.txCache.set(txid, raw);
+        return raw ? BTC.hexToBytes(raw) : null;
+      };
       const prepared = await preparePsbt({
         fingerprint: this.fingerprint, utxos, address, amountSats, feeRate, changeRow, rawTxFor,
         ownScripts: this.byScript
       });
       /* Sem saída de troco a reserva não é usada: devolve a linha. */
       if (!prepared.change) {
-        if (reserved.fresh) this.releaseChangeRow(type, changeRow);
+        this.releaseChangeRow(type, changeRow);
       } else {
-        prepared.change.type = type;
-        prepared.change.index = changeRow.idx;
-        prepared.change.fresh = reserved.fresh;
+        prepared.change.reservation = {
+          type, index: changeRow.idx, committed: false, released: false
+        };
       }
       return prepared;
     } catch (e) {
-      if (reserved.fresh) this.releaseChangeRow(type, changeRow);
+      this.releaseChangeRow(type, changeRow);
       throw e;
     }
   }

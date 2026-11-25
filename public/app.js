@@ -2514,13 +2514,16 @@
          são calculados aqui; o servidor só confere a transação assinada no
          fim. */
       if (!state.scanner) throw fail('carteira não carregada');
+      /* A prévia anterior sai da reserva ANTES de montar a nova: liberar
+         depois apagaria a reserva recém-criada quando o mesmo índice fosse
+         reaproveitado (a chave é a mesma). */
+      releasePsbtPreview();
       var j = await state.scanner.prepare({ address: address, amountSats: amount, feeRate: rate });
       // o formulário mudou enquanto o PSBT era montado: este retrato venceu
       if (seq !== state.psbtSeq || key !== psbtKey()) {
         state.scanner.releasePreparedChange(j);
         return;
       }
-      releasePsbtPreview();
       state.psbt = j;
       state.psbtDownloaded = false;
       state.psbtKey = key;
@@ -2566,10 +2569,17 @@
 
   function downloadPsbt() {
     if (!state.psbt || state.psbtStale) return;
-    if (state.scanner) state.scanner.commitPreparedChange(state.psbt);
-    downloadPsbtText(state.psbt.psbt,
-      'psbt-' + String(state.psbt.txid || 'psbt').slice(0, 8) + '.psbt');
+    /* Só confirma a reserva depois que o arquivo saiu: se o download falhar,
+       o retrato continua sendo uma prévia e a reserva pode ser devolvida. */
+    try {
+      downloadPsbtText(state.psbt.psbt,
+        'psbt-' + String(state.psbt.txid || 'psbt').slice(0, 8) + '.psbt');
+    } catch (e) {
+      setSendStatus('error', errSpec(e));
+      return;
+    }
     state.psbtDownloaded = true;
+    if (state.scanner) state.scanner.commitPreparedChange(state.psbt);
   }
 
   /* ------------------------------ transmitir o psbt assinado (Cofre BTC) */
@@ -3102,8 +3112,13 @@
         state.scanner.releasePreparedChange(j);
         throw fail('não foi possível montar o psbt.');
       }
+      try {
+        downloadPsbtText(j.psbt, 'cpfp-' + String(j.txid || txid).slice(0, 8) + '.psbt');
+      } catch (e) {
+        state.scanner.releasePreparedChange(j);
+        throw e;
+      }
       state.scanner.commitPreparedChange(j);
-      downloadPsbtText(j.psbt, 'cpfp-' + String(j.txid || txid).slice(0, 8) + '.psbt');
     } catch (e) {
       if (seq !== state.cpfpSeq) return;
       setCpfpStatus('error', errSpec(e));
