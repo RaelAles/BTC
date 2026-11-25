@@ -166,16 +166,22 @@ phrase loses the wallet it defines.
 
 ```bash
 npm install
-npm run dev             # wrangler dev, with the real Electrum configuration
+npm run dev             # build + wrangler dev, with the real Electrum configuration
 npm test                # all *.test.mjs, no network
+npm run build           # minify into public/dist and update the index.html SRI
+npm run check:assets    # check dist and SRI without writing
 npm run icons           # render the PWA icons from icon.svg (needs Chromium)
 npm run sync:cofre-css  # re-inject the embedded style into the Cofre (maintainer)
-npm run sync:browser-core # generate the local derivation used by the screen (SRI)
+npm run sync:browser-core # generate the local derivation used by the screen
 ```
 
 `sync:cofre-css` reads the ascii-ui skill's `estilo.css` by default; pass a
 path to use another file. It rewrites only the marked block and its hash in
 `public/cofre-btc.html`, and `npm test` fails when the copy is out of sync.
+`sync:browser-core` generates `public/wallet-local.js` from the `src/` modules
+listed in `scripts/sync-browser-core.mjs`; after running it, run
+`npm run build` to regenerate `public/dist` and the SRI. `npm test` fails on a
+stale bundle or hash.
 
 For a fully offline UI with a fake Electrum and a fixed scenario:
 
@@ -188,6 +194,20 @@ The optional `test/cdp-ui.mjs` drives a headless Chromium (it expects
 Chromium installed and the dev server running) and writes a screenshot to
 `/tmp/cloud-ui.png`.
 
+### Assets and performance
+
+`npm run build` minifies `public/app.js`, `public/wallet-local.js`,
+`public/style.css` and `public/fontes.css` into `public/dist/` and rewrites
+the SRI in `public/index.html`. The published page points only to the `dist`
+bundles; the sources in `public/` stay versioned.
+
+The `@font-face` CSS is kept out of the critical path: `app.js` loads it
+after `load`, or on the first `pointerdown`/`keydown`/`touchstart`/`wheel`,
+with a 5 s fallback. The first paint uses the system monospace; when the
+embedded font arrives, `font-display: swap` applies it and a `resize` redoes
+the grid and history measurements. Keep Cloudflare minification and Rocket
+Loader off: the SRI is computed over the `dist` bytes.
+
 ## Deploy
 
 ```bash
@@ -195,14 +215,17 @@ npx wrangler login
 npm run deploy
 ```
 
+`npm run deploy` runs `npm run build` before `wrangler deploy`.
+
 The repository root is the Worker project: `wrangler.jsonc`, `src/`,
 `public/`, `test/`. There is no database or schema. The production entry is
 `src/worker-proxy.js`; `wrangler.jsonc` declares the `WalletWatcher` class
 (implemented by `ProxyWatcher`) in migration `v1`.
 
 For **Workers Builds**, leave the root directory empty (the repository root),
-use `npm ci` as the build command and `npx wrangler deploy` as the deploy
-command. `routes` declares the project's custom domain, and
+use `npm ci && npm run build` as the build command and
+`npx wrangler deploy` as the deploy command (or `npm run deploy`, which runs
+the build first). `routes` declares the project's custom domain, and
 `workers_dev` and `preview_urls` are disabled, so the Worker responds only on
 that domain. Observability is disabled to avoid keeping invocation logs in
 Cloudflare.
@@ -316,9 +339,12 @@ Returns `{ "ok": true, "service": "monitor-btc-proxy", "source": "electrum",
   `Referrer-Policy`, `Permissions-Policy`, COOP, COEP and CORP. The static
   `public/_headers` and `SECURITY_HEADERS` in `src/config.js` keep those nine
   values identical; a test enforces it.
-- `wallet-local.js`, `app.js`, `fontes.css` and `style.css` use SRI. Any edit requires updating
-  the hash in `public/index.html`, and `npm test` fails on a stale hash. Keep
-  Cloudflare minification and Rocket Loader off for the same reason.
+- The `public/dist/app.min.js`, `wallet-local.min.js` and `style.min.css`
+  bundles use SRI in `public/index.html`; `dist/fontes.min.css` is loaded by
+  `app.js` after load and carries the hash injected at build time. Run
+  `npm run build` after editing `app.js`, `style.css` or `fontes.css` (or after
+  running `sync:browser-core`); `npm test` fails on a stale bundle or hash.
+  Keep Cloudflare minification and Rocket Loader off for the same reason.
 
 ## Tests
 
@@ -347,8 +373,9 @@ production is covered by `proxy.test.mjs`, `proxy-watcher.test.mjs` and
 | `proxy.test.mjs` | Proxy: allowed batch, broadcast, fees and no wallet routes. |
 | `proxy-watcher.test.mjs` | New Durable Object: scripthashes only, no wallet. |
 | `browser-core.test.mjs` | `wallet-local.js` up to date and derivation/PSBT/CPFP parity with the server. |
+| `assets-build.test.mjs` | `public/dist` and the `index.html` SRI up to date with the sources. |
 | `hardening.test.mjs` | Input caps, abuse brake and WebSocket Origin. |
-| `security-headers.test.mjs` | Header parity, CSP, SRI hashes and the Cofre hash in both READMEs. |
+| `security-headers.test.mjs` | Header parity, CSP, bundle SRI and the Cofre hash in both READMEs. |
 | `http-surface.test.mjs` | 404 status for unknown paths and the read-only asset surface. |
 | `well-known-manifest.test.mjs` | ARD/ai-catalog manifests, `rel="ard"` and the `.well-known` route. |
 | `cofre-core.test.mjs` / `cofre-core-parity.test.mjs` | The embedded Cofre core and its parity with `src/btc-core.js`. |
@@ -359,11 +386,11 @@ production is covered by `proxy.test.mjs`, `proxy-watcher.test.mjs` and
 .github/assets/          support buttons used by this README
 .github/workflows/       CI and Cofre release automation
 public/
-  app.js                 browser client (local derivation, render, WebSocket)
-  wallet-local.js        generated browser derivation, UTXOs and PSBT (SRI)
+  app.js                 browser client (bundle source)
+  wallet-local.js        generated browser derivation, UTXOs and PSBT (bundle source)
   apple-touch-icon.png   iOS home-screen icon
   cofre-btc.html         standalone offline key generator and PSBT signer
-  fontes.css             embedded font
+  fontes.css             embedded @font-face (loaded after load)
   index.html             published page
   llms.txt               guidance for language models
   manifest.webmanifest   installable PWA metadata
@@ -372,12 +399,18 @@ public/
   LICENCAS-FONTES.txt    font license (Liberation Mono)
   og-image.png           link preview image
   robots.txt             crawler rules (the API is blocked)
-  style.css              interface styles
+  style.css              interface styles (bundle source)
   _headers               security headers for static assets
+  dist/
+    app.min.js           minified app.js (SRI)
+    wallet-local.min.js  minified wallet-local.js (SRI)
+    style.min.css        minified style.css (SRI)
+    fontes.min.css       minified @font-face (loaded after load)
   .well-known/
     ard.json             ARD manifest (empty agent catalog)
     ai-catalog.json      previous name, same manifest
 scripts/
+  build-assets.mjs       minifies into public/dist and updates the index.html SRI
   build-icons.mjs        renders the PWA icons from icon.svg
   sync-cofre-core.mjs    extracts the Cofre core for parity tests
   sync-cofre-css.mjs     reinjects the skill's style.css into the Cofre
