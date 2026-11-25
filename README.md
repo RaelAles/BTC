@@ -20,8 +20,9 @@ and the xpub is not sent to the Worker.
 
 - A **watch-only** wallet: it never sees a private key and cannot spend on its
   own.
-- A **single-page interface** with three screens: wallet, history and about.
-  The interface is translated into Portuguese, English, Spanish, French,
+- A **single-page interface** with three main screens: wallet, history and
+  about, plus the language picker and the 404 screen. The interface is
+  translated into Portuguese, English, Spanish, French,
   Italian, German, Dutch, Catalan and Galician. The automatic choice follows
   the browser; a manual choice lasts only for the session.
 - A **browser PSBT builder**: amount, destination and the live fee estimate
@@ -83,12 +84,13 @@ background watch with the page closed.
 
 ### Electrum proxy
 
-`POST /api/proxy` accepts a small batch of Electrum JSON-RPC calls from a
-closed allowlist: `blockchain.scripthash.get_history`,
+`POST /api/proxy` accepts a batch of up to 2,500 Electrum JSON-RPC calls from
+a closed allowlist: `blockchain.scripthash.get_history`,
 `blockchain.scripthash.get_mempool`, `blockchain.transaction.get`,
 `blockchain.estimatefee` and `blockchain.transaction.broadcast`. Parameters are
-validated (64-hex scripthash/txid, transaction hex under a cap). The Worker
-opens the connection, relays the calls and closes it; it stores nothing.
+validated (64-hex scripthash/txid, transaction hex under a cap). Without a
+session, the Worker opens the connection, relays the calls and closes it; with
+a session, the Durable Object reuses the connection. It stores nothing.
 
 Electrum sees the scripthashes, txids, IP and timing. The Worker sees the same
 plus raw transactions and the signed transaction at broadcast; raw
@@ -100,8 +102,9 @@ D1/KV/R2 or private key.
 The `ProxyWatcher` Durable Object keeps the reused Electrum connection for the
 proxy and stores only the **scripthash** set subscribed by the screen. When Electrum notifies a change it sends
 `{ "type": "scripthash", "scripthash": "..." }`; the browser re-queries the
-proxy and recomputes everything. With no screen open, the connection and
-subscriptions are dropped. The object holds no xpub, addresses or scanner.
+proxy and recomputes everything. When the last screen closes, the object drops
+the connection and subscriptions after a short idle period. The object holds
+no xpub, addresses or scanner.
 
 ### Fee
 
@@ -129,8 +132,9 @@ source and can lie.
 The Cofre is a single standalone HTML file, `public/cofre-btc.html`, served
 as a download at `/cofre-btc` (or `/cofre-btc.html`). It runs offline, in the
 browser, without a server. The **generate** screen records 256 bits of entropy
-using the method you choose; tossing a coin is just one suggestion (heads = 1,
-tails = 0). The bits become a 24-word phrase and derive the four accounts; the
+using the method you choose; the two buttons enter `1` and `0` directly, and
+rolling a die is just one suggestion (1–3 = `0`, 4–6 = `1`). The bits become a
+24-word phrase and derive the four accounts; the
 **key** screen also accepts the 24 words typed by hand. When a PSBT is
 imported, it checks the account, the derivation, the public key, the script,
 the outputs and the fee before signing. The private key never reaches the
@@ -239,8 +243,10 @@ misconfigured).
 ] }
 ```
 
-A single item is also accepted without `items`. The response is
-`{ "results": [...], "errors": [null|"..."], ... }`, in request order. Allowed
+A single item is also accepted without `items`. An optional `session` field
+routes the batch through the Durable Object that holds the reused connection.
+A batch accepts at most 2,500 items. The response is
+`{ "results": [...], "errors": [null|"..."] }`, in request order. Allowed
 methods: `blockchain.scripthash.get_history`,
 `blockchain.scripthash.get_mempool`, `blockchain.transaction.get`,
 `blockchain.estimatefee` and `blockchain.transaction.broadcast`. Broadcast must
@@ -251,9 +257,11 @@ routes.
 
 ### `GET /api/fees`
 
-Returns `levels`, `sat_per_vb`, `floored`, `relay_min_kvb`, `sources[]` and
-`updated_at`, with a short cache. The screen uses `levels.next` and does not
-show the source host; with no estimate it returns 502.
+Returns `levels`, `targets`, `sat_per_vb`, `sat_per_kvb`, `floored`,
+`relay_min_kvb`, `unit`, `sources[]` and `updated_at`. The Worker path caches
+the answer for 30 seconds; `?session=…` uses the Durable Object's reused
+connection. The screen uses `levels.next` and does not show the source host. An
+unavailable level comes back as `null`; a failed Electrum request returns 502.
 
 ### `POST /api/session`
 
@@ -263,9 +271,12 @@ the reused proxy connection and notifications. It contains no wallet.
 ### `GET /api/events?session=…`
 
 WebSocket upgrade. The client sends
-`{ "type": "subscribe", "scripthashes": ["<64 hex>", ...] }`; the object
-subscribes on Electrum and returns `{ "type": "scripthash", "scripthash":
-"..." }` on each change. There is no wallet payload, xpub, addresses or values.
+`{ "type": "subscribe", "scripthashes": ["<64 hex>", ...] }` with up to 2,500
+scripthashes; the object subscribes on Electrum and answers
+`{ "type": "subscribed", "count": n }`. Each change then arrives as
+`{ "type": "scripthash", "scripthash": "..." }`, and a failure as
+`{ "type": "error", "error": "..." }`. There is no wallet payload, xpub,
+addresses or values.
 
 ### `GET /api/health`
 
@@ -316,9 +327,10 @@ npm test
 ```
 
 The suite runs without network, using a fake Electrum server and the project's
-own BTC core. The `worker`, `watcher`, `watch-mode`, `broadcast`, `cpfp` and
-`hardening` tests use the old fixtures in `test/legacy/`; production is covered
-by `proxy.test.mjs`, `proxy-watcher.test.mjs` and `browser-core.test.mjs`.
+own BTC core. The `worker`, `watcher`, `watch-mode`, `broadcast`, `cpfp`,
+`psbt` and `hardening` tests use the old fixtures in `test/legacy/`;
+production is covered by `proxy.test.mjs`, `proxy-watcher.test.mjs` and
+`browser-core.test.mjs`.
 
 | File | Covers |
 | --- | --- |
@@ -336,7 +348,7 @@ by `proxy.test.mjs`, `proxy-watcher.test.mjs` and `browser-core.test.mjs`.
 | `proxy-watcher.test.mjs` | New Durable Object: scripthashes only, no wallet. |
 | `browser-core.test.mjs` | `wallet-local.js` up to date and derivation/PSBT/CPFP parity with the server. |
 | `hardening.test.mjs` | Input caps, abuse brake and WebSocket Origin. |
-| `security-headers.test.mjs` | Header parity, CSP, SRI hashes and the Cofre hash in this README. |
+| `security-headers.test.mjs` | Header parity, CSP, SRI hashes and the Cofre hash in both READMEs. |
 | `http-surface.test.mjs` | 404 status for unknown paths and the read-only asset surface. |
 | `well-known-manifest.test.mjs` | ARD/ai-catalog manifests, `rel="ard"` and the `.well-known` route. |
 | `cofre-core.test.mjs` / `cofre-core-parity.test.mjs` | The embedded Cofre core and its parity with `src/btc-core.js`. |
@@ -380,6 +392,7 @@ src/
   wallet-sync.js         local scanner: derivation, gap, balance, PSBT and CPFP
   worker-proxy.js        production: Electrum proxy + session + fees + assets
   proxy-watcher.js       production: scripthash-only Durable Object
+  proxy-rpc.js           shared proxy batch validation and execution
   config.js              environment, security headers and helpers
 test/
   *.test.mjs             automated tests
@@ -417,10 +430,11 @@ package.json
 - **Fee estimator.** `estimatefee` is historical: it may be above or below the
   current queue. The screen uses the primary source and a short cache; there is
   no histogram or economic floor; only the relay floor is shown as a warning.
-- **Abuse brake.** 120 requests per minute per IP and 20,000 proxy items per
-  minute per IP. The counter lives in the isolate's memory and is not a global
-  quota: it contains bursts per instance. A large scan batch may be refused
-  with 429; the screen retries after `Retry-After`.
+- **Abuse brake.** A per-IP token bucket refills at 120 requests per minute
+  and 20,000 proxy items per minute. The bucket lives in the isolate's memory
+  and is not a global quota: it contains bursts per instance. A batch is capped
+  at 2,500 items, and a large scan batch may be refused with 429; the screen
+  retries after `Retry-After`.
 - **Electrum sees the queried scripthashes** (TLS hides them from the network
   path, not from the server). The Cofre remains the authoritative signer.
 - **The Worker sees scripthashes, txids, raw transactions and the signed

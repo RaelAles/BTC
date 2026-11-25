@@ -19,10 +19,11 @@ Cloudflare, e a xpub não é enviada ao Worker.
 ## O que é
 
 - Uma carteira **watch-only**: nunca vê chave privada e não gasta sozinha.
-- Uma **interface de página única** com três telas: carteira, histórico e
-  sobre. A interface está traduzida em português, inglês, espanhol, francês,
-  italiano, alemão, neerlandês, catalão e galego. O automático segue o
-  navegador; a escolha manual vale só para a sessão.
+- Uma **interface de página única** com três telas principais: carteira,
+  histórico e sobre, além do seletor de idioma e da tela 404. A interface está
+  traduzida em português, inglês, espanhol, francês, italiano, alemão,
+  neerlandês, catalão e galego. O automático segue o navegador; a escolha
+  manual vale só para a sessão.
 - Um **montador de PSBT no navegador**: valor, destino e a taxa estimada ao
   vivo bastam para produzir um PSBT v0 sem assinatura, com troco, sem o
   servidor escolher moedas.
@@ -82,12 +83,13 @@ em segundo plano com a tela fechada.
 
 ### Proxy do Electrum
 
-`POST /api/proxy` aceita um lote pequeno de chamadas JSON-RPC do Electrum, com
-uma lista fechada de métodos: `blockchain.scripthash.get_history`,
+`POST /api/proxy` aceita um lote de até 2 500 chamadas JSON-RPC do Electrum,
+com uma lista fechada de métodos: `blockchain.scripthash.get_history`,
 `blockchain.scripthash.get_mempool`, `blockchain.transaction.get`,
 `blockchain.estimatefee` e `blockchain.transaction.broadcast`. Os parâmetros
-são validados (scripthash/txid de 64 hex, hex de transação com teto). O Worker
-abre a conexão, repassa as chamadas e fecha; não grava nada.
+são validados (scripthash/txid de 64 hex, hex de transação com teto). Sem
+sessão, o Worker abre a conexão, repassa as chamadas e fecha; com sessão, o
+Durable Object reaproveita a conexão. Não grava nada.
 
 O Electrum vê os scripthashes, txids, IP e horário. O Worker vê a mesma coisa
 mais as transações cruas e a transação assinada no broadcast; as transações
@@ -99,8 +101,9 @@ chave privada.
 O Durable Object `ProxyWatcher` segura a conexão Electrum reaproveitada pelo
 proxy e guarda apenas o conjunto de **scripthashes** assinado pela tela. Quando o Electrum avisa uma mudança, ele envia
 `{ "type": "scripthash", "scripthash": "..." }`; o navegador reconsulta o
-histórico no proxy e recalcula tudo. Sem tela aberta, a conexão e as
-assinaturas são descartadas. Não há xpub, endereços ou scanner no objeto.
+histórico no proxy e recalcula tudo. Quando a última tela fecha, o objeto
+descarta a conexão e as assinaturas depois de um curto período ocioso. Não há
+xpub, endereços ou scanner no objeto.
 
 ### Taxa
 
@@ -127,8 +130,9 @@ no navegador. O Worker ainda é uma fonte de dados e pode mentir.
 O Cofre é um arquivo HTML único, `public/cofre-btc.html`, servido como
 download em `/cofre-btc` (ou `/cofre-btc.html`). Ele funciona offline, no
 navegador, sem servidor. A tela **gerar** registra 256 bits de entropia pelo
-método que você escolher; jogar uma moeda é só uma sugestão (cara = 1,
-coroa = 0). Os bits viram uma frase de 24 palavras e derivam as quatro contas;
+método que você escolher; os dois botões registram `1` e `0` diretamente, e rolar um
+dado é só uma sugestão (1–3 = `0`, 4–6 = `1`). Os bits viram uma frase de 24
+palavras e derivam as quatro contas;
 a tela **chave** também aceita as 24 palavras digitadas à mão. Ao importar um
 PSBT, ele confere a conta, a derivação, a chave pública, o script, as saídas e
 a taxa antes de assinar. A chave privada nunca passa pelo Monitor.
@@ -239,8 +243,10 @@ desligado ou mal configurado).
 ] }
 ```
 
-Também aceita um item só, sem `items`. A resposta é
-`{ "results": [...], "errors": [null|"..."], ... }`, na ordem pedida. Métodos
+Também aceita um item só, sem `items`. O campo opcional `session` manda o lote
+pelo Durable Object que segura a conexão reaproveitada. O lote aceita no máximo
+2 500 itens. A resposta é `{ "results": [...], "errors": [null|"..."] }`, na
+ordem pedida. Métodos
 permitidos: `blockchain.scripthash.get_history`,
 `blockchain.scripthash.get_mempool`, `blockchain.transaction.get`,
 `blockchain.estimatefee` e `blockchain.transaction.broadcast`. Broadcast vai
@@ -250,9 +256,11 @@ O proxy não aceita xpub, endereços, scripts, pubkeys nem rotas de carteira.
 
 ### `GET /api/fees`
 
-Devolve `levels`, `sat_per_vb`, `floored`, `relay_min_kvb`, `sources[]` e
-`updated_at`, com cache curto. A tela usa `levels.next` e não mostra o host da
-fonte; sem estimativa, responde 502.
+Devolve `levels`, `targets`, `sat_per_vb`, `sat_per_kvb`, `floored`,
+`relay_min_kvb`, `unit`, `sources[]` e `updated_at`. O caminho do Worker guarda
+a resposta por 30 segundos; `?session=…` usa a conexão reaproveitada do Durable
+Object. A tela usa `levels.next` e não mostra o host da fonte. Nível
+indisponível volta como `null`; falha na consulta ao Electrum responde 502.
 
 ### `POST /api/session`
 
@@ -262,9 +270,12 @@ conexão reaproveitada do proxy e as notificações. Não contém carteira.
 ### `GET /api/events?session=…`
 
 Upgrade de WebSocket. O cliente envia
-`{ "type": "subscribe", "scripthashes": ["<64 hex>", ...] }`; o objeto assina
-no Electrum e devolve `{ "type": "scripthash", "scripthash": "..." }` a cada
-mudança. Não há payload de carteira, xpub, endereços ou valores.
+`{ "type": "subscribe", "scripthashes": ["<64 hex>", ...] }` com até 2 500
+scripthashes; o objeto assina no Electrum e responde
+`{ "type": "subscribed", "count": n }`. Cada mudança chega depois como
+`{ "type": "scripthash", "scripthash": "..." }`, e uma falha como
+`{ "type": "error", "error": "..." }`. Não há payload de carteira, xpub,
+endereços ou valores.
 
 ### `GET /api/health`
 
@@ -315,9 +326,10 @@ npm test
 ```
 
 A suíte roda sem rede, com servidor Electrum falso e o núcleo BTC do próprio
-projeto. Os testes de `worker`, `watcher`, `watch-mode`, `broadcast`, `cpfp` e
-`hardening` usam os fixtures antigos de `test/legacy/`; a produção é coberta
-por `proxy.test.mjs`, `proxy-watcher.test.mjs` e `browser-core.test.mjs`.
+projeto. Os testes de `worker`, `watcher`, `watch-mode`, `broadcast`, `cpfp`,
+`psbt` e `hardening` usam os fixtures antigos de `test/legacy/`; a produção é
+coberta por `proxy.test.mjs`, `proxy-watcher.test.mjs` e
+`browser-core.test.mjs`.
 
 | Arquivo | Cobre |
 | --- | --- |
@@ -335,7 +347,7 @@ por `proxy.test.mjs`, `proxy-watcher.test.mjs` e `browser-core.test.mjs`.
 | `proxy-watcher.test.mjs` | Durable Object novo: só scripthashes, sem carteira. |
 | `browser-core.test.mjs` | `wallet-local.js` em dia e paridade de derivação/PSBT/CPFP com o servidor. |
 | `hardening.test.mjs` | Tetos de entrada, freio de abuso e Origin do WebSocket. |
-| `security-headers.test.mjs` | Cabeçalhos iguais, CSP, SRI e o hash do Cofre neste README. |
+| `security-headers.test.mjs` | Cabeçalhos iguais, CSP, SRI e o hash do Cofre nos dois READMEs. |
 | `http-surface.test.mjs` | Status 404 em caminho desconhecido e a superfície somente leitura dos estáticos. |
 | `well-known-manifest.test.mjs` | Manifestos ARD/ai-catalog, `rel="ard"` e a rota `.well-known`. |
 | `cofre-core.test.mjs` / `cofre-core-parity.test.mjs` | Núcleo embutido do Cofre e paridade com `src/btc-core.js`. |
@@ -379,6 +391,7 @@ src/
   wallet-sync.js         scanner local: derivação, margem, saldo, PSBT e CPFP
   worker-proxy.js        produção: proxy Electrum + sessão + fees + assets
   proxy-watcher.js       produção: Durable Object só de scripthashes
+  proxy-rpc.js           validação e execução do lote do proxy (compartilhado)
   config.js              ambiente, cabeçalhos de segurança e helpers
 test/
   *.test.mjs             testes automatizados
@@ -419,10 +432,11 @@ package.json
 - **Estimador de taxa.** O `estimatefee` é histórico: pode ficar acima ou
   abaixo da fila atual. A tela usa a fonte principal e um cache curto; não há
   histograma nem piso econômico; só o piso de relay aparece como aviso.
-- **Freio de abuso.** 120 pedidos por minuto por IP e 20 000 itens de proxy por
-  minuto por IP. O contador vive na memória do isolate e não é uma cota
-  global: ele contém rajadas por instância. Um lote de varredura grande pode
-  ser recusado com 429; a tela tenta de novo depois do `Retry-After`.
+- **Freio de abuso.** Um balde de fichas por IP repõe 120 pedidos por minuto e
+  20 000 itens de proxy por minuto. O balde vive na memória do isolate e não é
+  uma cota global: ele contém rajadas por instância. Um lote é limitado a
+  2 500 itens, e um lote de varredura grande pode ser recusado com 429; a tela
+  tenta de novo depois do `Retry-After`.
 - **O Electrum vê os scripthashes consultados** (o TLS esconde do caminho da
   rede, não do servidor). O Cofre continua sendo o assinador que vale.
 - **O Worker vê scripthashes, txids, transações cruas e a transação assinada
