@@ -74,21 +74,86 @@ function tagFor(asset, outputs) {
   return `<script src="${url}" defer integrity="${integrity}"></script>`;
 }
 
+/* O index é arquivo do repositório, mas o build não precisa apostar nisso
+   para achar as tags: um regex de tag corta errado um atributo que contenha
+   ">" e ignora variações aceitas pelo navegador. O leitor abaixo vai até o
+   ">" fora de aspas e só então extrai o atributo. */
+function tagEnd(html, start) {
+  let quote = '';
+  for (let i = start + 1; i < html.length; i += 1) {
+    const char = html[i];
+    if (quote) {
+      if (char === quote) quote = '';
+    } else if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === '>') {
+      return i + 1;
+    }
+  }
+  return -1;
+}
+
+function findTag(html, from) {
+  const lower = html.toLowerCase();
+  let best = -1;
+  let name = '';
+  for (const candidate of ['<link', '<script']) {
+    let at = lower.indexOf(candidate, from);
+    /* <linkage> e <scriptsrc> não são as tags que interessam. */
+    while (at >= 0 && /[a-z0-9-]/.test(lower[at + candidate.length] || '')) {
+      at = lower.indexOf(candidate, at + candidate.length);
+    }
+    if (at >= 0 && (best < 0 || at < best)) {
+      best = at;
+      name = candidate;
+    }
+  }
+  if (best < 0) return null;
+  const end = tagEnd(html, best);
+  if (end < 0) return null;
+  return { start: best, end, name, tag: html.slice(best, end) };
+}
+
+const ATTRIBUTE = /([^\s"'=<>/]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g;
+
+function attribute(tag, name) {
+  ATTRIBUTE.lastIndex = 0;
+  let match;
+  while ((match = ATTRIBUTE.exec(tag)) !== null) {
+    if (match[1].toLowerCase() === name) return match[2] ?? match[3] ?? match[4];
+  }
+  return null;
+}
+
 function buildIndex(html, outputs) {
   /* A folha de fontes é criada pelo app.js depois do load: sem link no HTML,
      ela não disputa a primeira pintura. */
-  let out = html.replace(
-    /^[ \t]*<link\b[^>]*href="[^"]*fontes(?:\.min)?\.css"[^>]*>[ \t]*\r?\n?/gm,
-    ''
-  );
-  out = out.replace(/<link\b[^>]*>|<script\b[^>]*><\/script>/g, (tag) => {
-    const match = /\s(?:href|src)="([^"]+)"/.exec(tag);
-    if (!match) return tag;
-    const base = path.posix.basename(match[1]);
+  let out = '';
+  let at = 0;
+  const lower = html.toLowerCase();
+  for (let tag = findTag(html, 0); tag; tag = findTag(html, tag.end)) {
+    const url = attribute(tag.tag, 'href') ?? attribute(tag.tag, 'src');
+    const base = url ? path.posix.basename(url) : '';
     const asset = assets.find((item) => base === item.source || base === item.out);
-    return asset ? tagFor(asset, outputs) : tag;
-  });
-  return out;
+    if (!asset) continue;
+    /* tagFor já devolve o </script>: só o script vazio, como antes. */
+    if (tag.name === '<script' && lower.slice(tag.end, tag.end + 9) !== '</script>') continue;
+
+    const replacement = tagFor(asset, outputs);
+    let from = tag.start;
+    let to = tag.name === '<script' ? tag.end + 9 : tag.end;
+    if (!replacement) {
+      /* Tag removida sozinha na linha: leva o recuo e a quebra junto. */
+      while (from > 0 && (html[from - 1] === ' ' || html[from - 1] === '\t')) from -= 1;
+      if (from > 0 && html[from - 1] !== '\n') from = tag.start;
+      while (to < html.length && (html[to] === ' ' || html[to] === '\t')) to += 1;
+      if (html.startsWith('\r\n', to)) to += 2;
+      else if (html[to] === '\n') to += 1;
+    }
+    out += html.slice(at, from) + replacement;
+    at = to;
+  }
+  return out + html.slice(at);
 }
 
 const outputs = buildOutputs();
