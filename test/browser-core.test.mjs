@@ -173,6 +173,36 @@ assert.equal(local.fingerprintOf(account).length, 8);
   assert.equal(broadcast.broadcast, true);
   assert.equal(broadcast.txid, signed.txid);
   assert.equal(broadcast.hex, undefined);
+
+  /* Prévia descartada devolve o endereço; o baixado mantém a reserva. */
+  scanner.changeReservations.clear();
+  const firstReserved = scanner.reserveChangeRow('bip84');
+  assert.ok(firstReserved, 'reserva inicial');
+  scanner.releasePreparedChange({ change: { address: firstReserved.address } });
+  const reusedFree = scanner.reserveChangeRow('bip84');
+  assert.equal(reusedFree.idx, firstReserved.idx, 'prévia descartada devolve o troco');
+
+  /* Esgotada a margem, a reserva mais antiga entra no rodízio; não falha e
+     não pula para um índice que a próxima varredura não alcançaria. */
+  scanner.changeReservations.clear();
+  const seen = new Set();
+  let last = null;
+  for (let i = 0; i < 51; i++) {
+    last = scanner.reserveChangeRow('bip84');
+    assert.ok(last, 'reserva ' + i + ' tem endereço');
+    seen.add(last.idx);
+  }
+  assert.equal(seen.size, 50, '51 reservas usam no máximo 50 endereços');
+  assert.equal(last.idx, 0, 'a 51ª reutiliza a reserva mais antiga');
+
+  /* Descartar uma prévia que reutilizou endereço não apaga a reserva do PSBT
+     que já era dono dele. */
+  const beforeReuseRelease = scanner.changeReservations.size;
+  const reused = scanner.takeChangeRow('bip84');
+  assert.equal(reused.fresh, false, 'a linha reutilizada não é reserva nova');
+  scanner.releasePreparedChange({ change: { address: reused.row.address, fresh: false } });
+  assert.equal(scanner.changeReservations.size, beforeReuseRelease,
+    'liberar a prévia reutilizada mantém a reserva original');
   await client.close();
   await fake.close();
 }

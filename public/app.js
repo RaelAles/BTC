@@ -123,6 +123,7 @@
     limitsSeq: 0,
     sendBusy: false,
     psbt: null,         // PSBT montado (texto e resumo)
+    psbtDownloaded: false, // o PSBT na tela já foi baixado: a reserva fica
     psbtStale: false,   // o PSBT na tela é de um pedido anterior ao formulário
     psbtKey: '',        // destino|valor|taxa do PSBT na tela
     psbtTimer: 0,       // debounce da montagem automática
@@ -2267,7 +2268,17 @@
      ficar na tela depois de o campo mudar. A montagem agendada não é
      cancelada aqui: quando ela disparar, a chave e o `psbtReady` já são os do
      formulário novo (e fora do intervalo válido ela não monta nada). */
+  /* Prévia que nunca foi baixada não é PSBT pendente. Devolve o endereço de
+     troco reservado para que o próximo retrato possa usá-lo. PSBT baixado
+     mantém a reserva até a sessão terminar. */
+  function releasePsbtPreview() {
+    if (state.psbt && !state.psbtDownloaded && state.scanner) {
+      state.scanner.releasePreparedChange(state.psbt);
+    }
+  }
+
   function invalidatePsbt() {
+    releasePsbtPreview();
     state.psbtSeq++;
     state.sendBusy = false;
     if (state.psbtPending) {
@@ -2306,6 +2317,7 @@
   function dropPsbt() {
     invalidatePsbt();
     state.psbt = null;
+    state.psbtDownloaded = false;
     state.psbtStale = false;
     var out = $('#send-out');
     if (out) {
@@ -2504,8 +2516,13 @@
       if (!state.scanner) throw fail('carteira não carregada');
       var j = await state.scanner.prepare({ address: address, amountSats: amount, feeRate: rate });
       // o formulário mudou enquanto o PSBT era montado: este retrato venceu
-      if (seq !== state.psbtSeq || key !== psbtKey()) return;
+      if (seq !== state.psbtSeq || key !== psbtKey()) {
+        state.scanner.releasePreparedChange(j);
+        return;
+      }
+      releasePsbtPreview();
       state.psbt = j;
+      state.psbtDownloaded = false;
       state.psbtKey = key;
       state.psbtStale = false;
       state.psbtFailKey = '';
@@ -2549,8 +2566,10 @@
 
   function downloadPsbt() {
     if (!state.psbt || state.psbtStale) return;
+    if (state.scanner) state.scanner.commitPreparedChange(state.psbt);
     downloadPsbtText(state.psbt.psbt,
       'psbt-' + String(state.psbt.txid || 'psbt').slice(0, 8) + '.psbt');
+    state.psbtDownloaded = true;
   }
 
   /* ------------------------------ transmitir o psbt assinado (Cofre BTC) */
@@ -3075,8 +3094,15 @@
       if (!feeRateOk(rate)) throw fail('taxa indisponível; tente de novo.');
       if (!state.scanner) throw fail('carteira não carregada');
       var j = await state.scanner.prepareCpfp({ txid: txid, feeRate: rate });
-      if (seq !== state.cpfpSeq || state.xpub !== xpub) return;
-      if (!j.psbt) throw fail('não foi possível montar o psbt.');
+      if (seq !== state.cpfpSeq || state.xpub !== xpub) {
+        state.scanner.releasePreparedChange(j);
+        return;
+      }
+      if (!j.psbt) {
+        state.scanner.releasePreparedChange(j);
+        throw fail('não foi possível montar o psbt.');
+      }
+      state.scanner.commitPreparedChange(j);
       downloadPsbtText(j.psbt, 'cpfp-' + String(j.txid || txid).slice(0, 8) + '.psbt');
     } catch (e) {
       if (seq !== state.cpfpSeq) return;

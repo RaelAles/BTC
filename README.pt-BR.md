@@ -449,10 +449,12 @@ package.json
   carteira inteira. Um pagamento além da cauda só aparece numa nova varredura.
 - **Sem vigilância 24/7.** Fechar a página encerra a sessão; não há
   monitoramento nem aviso com a tela fechada.
-- **Troco reservado por PSBT.** O endereço de troco avança a cada PSBT montado
-  na mesma sessão, então dois PSBTs pendentes usam endereços diferentes. A
-  reserva vive só na memória: depois de recarregar a página, um PSBT pendente
-  e um novo podem repetir o endereço. É um limite de privacidade, não de saldo.
+- **Troco reservado por PSBT baixado.** A prévia não baixada devolve o
+  endereço; só o arquivo baixado mantém a reserva. Até 50 PSBTs baixados
+  pendentes usam endereços diferentes; no 51º, o mais antigo é reutilizado
+  para não abrir um buraco maior que a margem de 50. A reserva vive só na
+  memória: depois de recarregar a página, um PSBT pendente e um novo podem
+  repetir o endereço. É um limite de privacidade, não de saldo.
 - **O PSBT é um retrato.** Não há reserva de moeda. Se outra carteira gastar
   uma entrada antes da assinatura/transmissão, a rede recusa a transação e é
   preciso criar outro PSBT.

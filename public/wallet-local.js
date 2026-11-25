@@ -4042,7 +4042,8 @@ class WalletScanner {
     }
     const rateKvb = feeRateKvb(feeRate);
     const type = this.chooseType();
-    const changeRow = this.reserveChangeRow(type);
+    const reserved = this.takeChangeRow(type);
+    const changeRow = reserved.row;
     if (!changeRow) throw new Error('endereço de troco indisponível');
     try {
       const childVsize = BTC.estimateVsize([spend.row.kind], [BTC.hexToBytes(changeRow.script)]);
@@ -4065,12 +4066,18 @@ class WalletScanner {
         fee_sats: info.fee_sats,
         fee_rate: entry.vsize ? info.fee_sats / entry.vsize : 0
       };
-      return await prepareCpfpPsbt({
+      const prepared = await prepareCpfpPsbt({
         fingerprint: this.fingerprint, spend, changeRow, childFee, feeRate, rawTxFor,
         parent, packageBefore: pkg
       });
+      if (prepared.output) {
+        prepared.output.type = type;
+        prepared.output.index = changeRow.idx;
+        prepared.output.fresh = reserved.fresh;
+      }
+      return prepared;
     } catch (e) {
-      this.releaseChangeRow(type, changeRow);
+      if (reserved.fresh) this.releaseChangeRow(type, changeRow);
       throw e;
     }
   }
@@ -4209,14 +4216,88 @@ class WalletScanner {
     return null;
   }
 
+  /* Separa a linha nova (`fresh`) da reutilizada. Só a nova criou uma
+     reserva; liberar uma reutilizada não pode apagar a reserva do PSBT que já
+     era dono dela. */
+  takeChangeRow(type) {
+    const fresh = this.nextChangeRow(type);
+    if (fresh) {
+      this.changeReservations.add(this.changeKey(type, fresh.idx));
+      return { row: fresh, fresh: true };
+    }
+    /* Toda a margem já está reservada. Em vez de falhar, reutiliza a reserva
+       mais antiga em rodízio: um índice novo aqui abriria um buraco maior que
+       a margem e o saldo poderia ficar fora da próxima varredura. */
+    const branch = rowKey(type, 1);
+    const rows = this.rows.get(branch);
+    if (!rows) return { row: null, fresh: false };
+    const { lastUsed } = this.lastUsedOf(rows);
+    const prefix = branch + ':';
+    /* Reservas de endereços já vistos na rede não voltam ao rodízio. */
+    for (const key of [...this.changeReservations]) {
+      if (!key.startsWith(prefix)) continue;
+      const idx = Number(key.slice(prefix.length));
+      if (!Number.isInteger(idx) || idx <= lastUsed || !rows.has(idx)) {
+        this.changeReservations.delete(key);
+      }
+    }
+    for (const key of this.changeReservations) {
+      if (!key.startsWith(prefix)) continue;
+      const idx = Number(key.slice(prefix.length));
+      const reuse = rows.get(idx);
+      if (!reuse) { this.changeReservations.delete(key); continue; }
+      /* A ordem só muda no download (commit); prévia não mexe no rodízio. */
+      return { row: reuse, fresh: false };
+    }
+    return { row: null, fresh: false };
+  }
+
   reserveChangeRow(type) {
-    const row = this.nextChangeRow(type);
-    if (row) this.changeReservations.add(this.changeKey(type, row.idx));
-    return row;
+    return this.takeChangeRow(type).row;
   }
 
   releaseChangeRow(type, row) {
     if (row) this.changeReservations.delete(this.changeKey(type, row.idx));
+  }
+
+  changeKeyForRow(row) {
+    if (!row) return '';
+    if (row.type != null && row.index != null) return this.changeKey(row.type, row.index);
+    const address = row.address;
+    if (!address) return '';
+    for (const type of TYPES) {
+      const branch = this.rows.get(rowKey(type, 1));
+      if (!branch) continue;
+      for (const candidate of branch.values()) {
+        if (candidate.address === address) return this.changeKey(type, candidate.idx);
+      }
+    }
+    return '';
+  }
+
+  /* Baixar confirma a reserva. Só aqui uma linha reutilizada vai para o fim
+     do rodízio; prévias descartadas não mexem na ordem dos PSBTs baixados. */
+  commitPreparedChange(prepared) {
+    const row = prepared && (prepared.change || prepared.output);
+    if (!row || row.committed) return;
+    const key = this.changeKeyForRow(row);
+    if (!key) return;
+    row.committed = true;
+    if (row.fresh === false) {
+      if (this.changeReservations.delete(key)) this.changeReservations.add(key);
+    } else {
+      this.changeReservations.add(key);
+    }
+  }
+
+  /* Prévia descartada não é PSBT pendente: devolve o troco reservado.
+     O app chama isto quando o retrato sai da tela sem ter sido baixado. */
+  releasePreparedChange(prepared) {
+    const row = prepared && (prepared.change || prepared.output);
+    /* Reutilizada: a reserva pertence a outro PSBT, não a esta prévia. */
+    if (!row || row.fresh === false) return;
+    const key = this.changeKeyForRow(row);
+    if (key) this.changeReservations.delete(key);
   }
 
   /* Monta o PSBT de envio com os UTXOs desta sessão. A transação não é
@@ -4252,7 +4333,8 @@ class WalletScanner {
     }
     if (!this.utxos) throw new Error('carteira ainda não sincronizada');
     const type = this.chooseType();
-    const changeRow = this.reserveChangeRow(type);
+    const reserved = this.takeChangeRow(type);
+    const changeRow = reserved.row;
     const utxos = this.prepareUtxos();
     const rawTxFor = async txid => {
       const cached = this.txCache.get(txid);
@@ -4268,10 +4350,16 @@ class WalletScanner {
         ownScripts: this.byScript
       });
       /* Sem saída de troco a reserva não é usada: devolve a linha. */
-      if (!prepared.change) this.releaseChangeRow(type, changeRow);
+      if (!prepared.change) {
+        if (reserved.fresh) this.releaseChangeRow(type, changeRow);
+      } else {
+        prepared.change.type = type;
+        prepared.change.index = changeRow.idx;
+        prepared.change.fresh = reserved.fresh;
+      }
       return prepared;
     } catch (e) {
-      this.releaseChangeRow(type, changeRow);
+      if (reserved.fresh) this.releaseChangeRow(type, changeRow);
       throw e;
     }
   }
