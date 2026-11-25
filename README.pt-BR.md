@@ -138,7 +138,7 @@ PSBT, ele confere a conta, a derivação, a chave pública, o script, as saídas
 a taxa antes de assinar. A chave privada nunca passa pelo Monitor.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
-`78b46710dfa8404eddc2b0c54d55445c35242a7b5bce18a5ac940aed59f047ef` — rode
+`c6e233ad0e33de6f33d4c6983ccfe226c6330939038e31e834b1ed33f884167f` — rode
 `sha256sum cofre-btc.html` no arquivo baixado; o asset do release tem sempre
 esse nome fixo. A tela “sobre” do Cofre
 pede a mesma conferência. Qualquer edição no Cofre exige atualizar este
