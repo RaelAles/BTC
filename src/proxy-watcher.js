@@ -61,7 +61,7 @@ export class ProxyWatcher {
           updated_at: new Date().toISOString()
         });
       } catch (e) {
-        return json({ error: e && e.message ? e.message : String(e) }, 502);
+        return json({ error: 'Electrum indisponível' }, 502);
       }
     }
     if (url.pathname === '/proxy' && request.method === 'POST') {
@@ -74,7 +74,7 @@ export class ProxyWatcher {
         const client = await this.ensureClient();
         return json(await runProxyItems(client, items));
       } catch (e) {
-        return json({ error: e && e.message ? e.message : String(e) }, 502);
+        return json({ error: 'Electrum indisponível' }, 502);
       }
     }
     return json({ error: 'rota do proxy não encontrada' }, 404);
