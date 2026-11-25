@@ -11,7 +11,8 @@
     "deploy": "wrangler deploy",
     "icons": "node scripts/build-icons.mjs",
     "sync:cofre-css": "node scripts/sync-cofre-css.mjs",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "sync:browser-core": "node scripts/sync-browser-core.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

@@ -5,6 +5,7 @@ import { electrumConfig, fail, json, SECURITY_HEADERS } from './config.js';
 import { feeRateKvb } from './psbt.js';
 import { broadcastSignedPsbt, previewSignedPsbt, MAX_PSBT_TEXT } from './broadcast.js';
 import { WalletWatcher } from './watcher.js';
+import { normalizeWatchRequest } from './watch-set.js';
 import BTC from './btc-core.js';
 
 /* Tetos de entrada antes de qualquer decodificação custosa: uma xpub válida
@@ -15,6 +16,7 @@ const MAX_ADDRESS_LENGTH = 90;
 /* Monitor BTC — rotas HTTP.
 
    `POST /api/wallet`  → estado da carteira (saldo, endereços usados).
+                         Recebe o conjunto já derivado pelo navegador.
                          Com o binding WATCH, quem faz o trabalho é o
                          Durable Object de tempo real (conexão Electrum
                          reaproveitada + assinaturas); sem ele, a consulta
@@ -35,9 +37,10 @@ const MAX_ADDRESS_LENGTH = 90;
                          o estado novo quando um scripthash muda.
    `GET  /api/health`  → configuração efetiva.
 
-   Nada é gravado: o D1 não existe mais. A xpub só vive na memória do
-   Durable Object durante a sessão e é descartada quando a última tela
-   fecha. Sem chave privada em lugar nenhum. */
+   Nada é gravado: o D1 não existe mais. A tela deriva a xpub localmente e
+   manda só o conjunto de endereços; ele vive na memória do Durable Object
+   durante a sessão e é descartado quando a última tela fecha. Sem chave
+   privada em lugar nenhum. */
 
 /* Mensagem melhor para o que costuma ser colado no lugar da xpub. */
 function xpubHint(value) {
@@ -54,15 +57,66 @@ function xpubHint(value) {
   return null;
 }
 
+/* Corpo que o Worker manda ao Durable Object: o fluxo novo leva só o
+   conjunto derivado, nunca a xpub. */
+function watchWire(wr) {
+  const out = {
+    wallet_id: wr.walletId,
+    fingerprint: wr.fingerprint,
+    version_type: wr.versionType
+  };
+  if (wr.watch) out.watch = wr.watch;
+  else out.watch_add = wr.watchAdd;
+  return out;
+}
+
+/* Lê a carteira de uma rota: conjunto watch, xpub legado ou nenhum (sessão
+   já aberta no Durable Object). */
+function walletInput(body) {
+  let wr = null;
+  try { wr = normalizeWatchRequest(body); }
+  catch (e) { return { error: e.message }; }
+  if (wr) return { wr, xpub: '', account: null };
+  const xpub = String(body.xpub || '').trim();
+  if (!xpub) return { wr: null, xpub: '', account: null };
+  if (xpub.length > MAX_XPUB_LENGTH) return { error: 'xpub grande demais' };
+  try { return { wr: null, xpub, account: parseXpub(xpub) }; }
+  catch (e) { return { error: xpubHint(xpub) || e.message }; }
+}
+
+function inputWire(input) {
+  return input.wr ? watchWire(input.wr) : { xpub: input.xpub };
+}
+
+function scannerFor(env, input, client) {
+  if (input.wr) {
+    return new WalletScanner({
+      env,
+      watch: input.wr.watch || input.wr.watchAdd,
+      walletId: input.wr.walletId,
+      fingerprint: input.wr.fingerprint,
+      versionType: input.wr.versionType,
+      client
+    });
+  }
+  return new WalletScanner({ env, xpub: input.xpub, account: input.account, client });
+}
+
 async function handleWallet(request, env) {
   let body;
   try { body = await request.json(); } catch (e) { return fail('json inválido'); }
-  const xpub = String(body.xpub || '').trim();
-  if (!xpub) return fail('informe a xpub');
-  if (xpub.length > MAX_XPUB_LENGTH) return fail('xpub grande demais');
-  let account;
-  try { account = parseXpub(xpub); }
-  catch (e) { return fail(xpubHint(xpub) || e.message); }
+  let wr = null;
+  try { wr = normalizeWatchRequest(body); }
+  catch (e) { return fail(e.message); }
+  let xpub = '';
+  let account = null;
+  if (!wr) {
+    xpub = String(body.xpub || '').trim();
+    if (!xpub) return fail('informe a xpub');
+    if (xpub.length > MAX_XPUB_LENGTH) return fail('xpub grande demais');
+    try { account = parseXpub(xpub); }
+    catch (e) { return fail(xpubHint(xpub) || e.message); }
+  }
 
   if (env.WATCH) {
     // sessão = id aleatório do Durable Object; nunca derivado da xpub.
@@ -72,7 +126,9 @@ async function handleWallet(request, env) {
     const hasSession = /^[0-9a-f]{64}$/.test(session);
     const id = hasSession ? env.WATCH.idFromString(session) : env.WATCH.newUniqueId();
     const stub = env.WATCH.get(id);
-    const text = JSON.stringify({ xpub, scan: body.scan === 'step' ? 'step' : '' });
+    const text = JSON.stringify(wr
+      ? watchWire(wr)
+      : { xpub, scan: body.scan === 'step' ? 'step' : '' });
     const post = (target) => target.fetch('https://watch/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -80,8 +136,8 @@ async function handleWallet(request, env) {
     });
     let res = await post(stub);
     let payload = await res.json();
-    // o DO fixa a xpub por sessão: o id que veio do cliente era de outra
-    // carteira. Sessão de tela não vale como credencial; começa outra.
+    // o DO fixa a carteira por sessão: o id que veio do cliente era de
+    // outra carteira. Sessão de tela não vale como credencial; começa outra.
     if (res.status === 409 && hasSession) {
       const fresh = env.WATCH.newUniqueId();
       res = await post(env.WATCH.get(fresh));
@@ -107,7 +163,16 @@ async function handleWallet(request, env) {
   }
   try {
     const scanner = await new WalletScanner({
-      env, xpub, account, client
+      env,
+      ...(wr
+        ? {
+          watch: wr.watch || wr.watchAdd,
+          walletId: wr.walletId,
+          fingerprint: wr.fingerprint,
+          versionType: wr.versionType
+        }
+        : { xpub, account }),
+      client
     }).init();
     const payload = await scanner.fullSync();
     return json(Object.assign({}, payload, { watch: false }));
@@ -191,12 +256,8 @@ function scanFailure(e, client) {
 async function handlePsbt(request, env) {
   let body;
   try { body = await request.json(); } catch (e) { return fail('json inválido'); }
-  const xpub = String(body.xpub || '').trim();
-  if (!xpub) return fail('informe a xpub');
-  if (xpub.length > MAX_XPUB_LENGTH) return fail('xpub grande demais');
-  let account;
-  try { account = parseXpub(xpub); }
-  catch (e) { return fail(xpubHint(xpub) || e.message); }
+  const input = walletInput(body);
+  if (input.error) return fail(input.error);
   const preview = body.preview === true;
   let params;
   try { params = preview ? sendTarget(body) : sendParams(body); }
@@ -208,12 +269,14 @@ async function handlePsbt(request, env) {
     const res = await stub.fetch('https://watch/prepare', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ xpub, preview, ...params })
+      body: JSON.stringify({ ...inputWire(input), preview, ...params })
     });
     const payload = await res.json();
-    // sessão despejada: refaz a varredura avulsa e monta o PSBT do mesmo jeito
-    if (res.status !== 409) return json(payload, res.status);
+    // sem carteira no corpo, a sessão é a única credencial: deixa o 409
+    // chegar à tela, que refaz o /api/wallet e tenta de novo
+    if (res.status !== 409 || (!input.wr && !input.xpub)) return json(payload, res.status);
   }
+  if (!input.wr && !input.xpub) return fail('informe a xpub');
 
   const cfg = electrumConfig(env);
   if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
@@ -225,7 +288,7 @@ async function handlePsbt(request, env) {
     return fail('Electrum indisponível: ' + (e && e.message ? e.message : e), 502);
   }
   try {
-    const scanner = await new WalletScanner({ env, xpub, account, client }).init();
+    const scanner = await scannerFor(env, input, client).init();
     await scanner.fullSync();
     return json(preview ? scanner.limits(params) : await scanner.prepare(params));
   } catch (e) {
@@ -235,22 +298,17 @@ async function handlePsbt(request, env) {
   }
 }
 
-/* O PSBT assinado vem do Cofre BTC. A xpub é exigida porque a conferência
-   cruza cada entrada com os scripts/UTXOs da carteira; sem ela não há como
-   dizer que a transação é sua. Com sessão, o DO reaproveita a conexão e, ao
-   transmitir, as assinaturas já avisam a tela do estado novo. */
+/* O PSBT assinado vem do Cofre BTC. A conferência cruza cada entrada com os
+   scripts/UTXOs do conjunto observado; com sessão, o DO reaproveita a
+   conexão e, ao transmitir, as assinaturas já avisam a tela do estado novo. */
 /* CPFP: a filha gasta uma saída da transação pendente. O corpo é só o txid
    do pai e a taxa-alvo; o servidor escolhe a saída, calcula o pacote e monta
    o PSBT sem assinatura. A chave privada continua no Cofre BTC. */
 async function handleCpfp(request, env) {
   let body;
   try { body = await request.json(); } catch (e) { return fail('json inválido'); }
-  const xpub = String(body.xpub || '').trim();
-  if (!xpub) return fail('informe a xpub');
-  if (xpub.length > MAX_XPUB_LENGTH) return fail('xpub grande demais');
-  let account;
-  try { account = parseXpub(xpub); }
-  catch (e) { return fail(xpubHint(xpub) || e.message); }
+  const input = walletInput(body);
+  if (input.error) return fail(input.error);
   const txid = String(body.txid || '').trim().toLowerCase();
   if (!/^[0-9a-f]{64}$/.test(txid)) return fail('txid inválido');
   const feeRate = Number(body.fee_rate);
@@ -263,12 +321,12 @@ async function handleCpfp(request, env) {
     const res = await stub.fetch('https://watch/cpfp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ xpub, txid, feeRate })
+      body: JSON.stringify({ ...inputWire(input), txid, feeRate })
     });
     const payload = await res.json();
-    // sessão despejada: refaz a varredura avulsa e monta do mesmo jeito
-    if (res.status !== 409) return json(payload, res.status);
+    if (res.status !== 409 || (!input.wr && !input.xpub)) return json(payload, res.status);
   }
+  if (!input.wr && !input.xpub) return fail('informe a xpub');
 
   const cfg = electrumConfig(env);
   if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
@@ -280,7 +338,7 @@ async function handleCpfp(request, env) {
     return fail('Electrum indisponível: ' + (e && e.message ? e.message : e), 502);
   }
   try {
-    const scanner = await new WalletScanner({ env, xpub, account, client }).init();
+    const scanner = await scannerFor(env, input, client).init();
     await scanner.fullSync();
     return json(await scanner.prepareCpfp({ txid, feeRate }));
   } catch (e) {
@@ -293,12 +351,8 @@ async function handleCpfp(request, env) {
 async function handleBroadcast(request, env) {
   let body;
   try { body = await request.json(); } catch (e) { return fail('json inválido'); }
-  const xpub = String(body.xpub || '').trim();
-  if (!xpub) return fail('informe a xpub');
-  if (xpub.length > MAX_XPUB_LENGTH) return fail('xpub grande demais');
-  let account;
-  try { account = parseXpub(xpub); }
-  catch (e) { return fail(xpubHint(xpub) || e.message); }
+  const input = walletInput(body);
+  if (input.error) return fail(input.error);
   const psbt = String(body.psbt || '');
   if (!psbt.trim()) return fail('informe o psbt assinado');
   if (psbt.length > MAX_PSBT_TEXT) return fail('psbt grande demais para conferir');
@@ -310,12 +364,12 @@ async function handleBroadcast(request, env) {
     const res = await stub.fetch('https://watch/broadcast', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ xpub, psbt, preview })
+      body: JSON.stringify({ ...inputWire(input), psbt, preview })
     });
     const payload = await res.json();
-    // sessão despejada: refaz a varredura avulsa e transmite do mesmo jeito
-    if (res.status !== 409) return json(payload, res.status);
+    if (res.status !== 409 || (!input.wr && !input.xpub)) return json(payload, res.status);
   }
+  if (!input.wr && !input.xpub) return fail('informe a xpub');
 
   const cfg = electrumConfig(env);
   if (!cfg) return fail('Electrum desligado (ELECTRUM_SERVERS=off); ele é a única fonte', 503);
@@ -327,7 +381,7 @@ async function handleBroadcast(request, env) {
     return fail('Electrum indisponível: ' + (e && e.message ? e.message : e), 502);
   }
   try {
-    const scanner = await new WalletScanner({ env, xpub, account, client }).init();
+    const scanner = await scannerFor(env, input, client).init();
     await scanner.fullSync();
     return json(preview
       ? previewSignedPsbt({ scanner, psbtText: psbt })

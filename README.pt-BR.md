@@ -6,14 +6,15 @@
 
 <!-- Português (Brasil) · [English](README.md) -->
 
-Carteira Bitcoin **watch-only** em Cloudflare Workers. Você entrega a **xpub**
-da conta (ou `zpub`/`ypub`), o Worker deriva os endereços públicos e lê o
-saldo, os endereços de recebimento e o histórico de transações de um servidor
+Carteira Bitcoin **watch-only** em Cloudflare Workers. O navegador lê a
+**xpub** da conta (ou `zpub`/`ypub`), deriva os endereços localmente e envia ao
+Worker só o conjunto de endereços/scripthashes; o Worker consulta o saldo, os
+endereços de recebimento e o histórico de transações de um servidor
 **Electrum**. Ele também monta um PSBT sem assinatura e transmite a transação
 assinada que volta do **Cofre BTC**, o assinador offline.
 
 Nada fica guardado: nem dados da carteira no navegador, nem banco de dados na
-Cloudflare.
+Cloudflare, e a xpub não é enviada ao Worker.
 
 ## O que é
 
@@ -77,13 +78,12 @@ em segundo plano com a tela fechada.
   quatro tipos e marca o primeiro com histórico, na ordem BIP44, BIP86, BIP84,
   BIP49.
 - A varredura percorre as duas cadeias (`/0/i` recebimento, `/1/i` troco) dos
-  quatro tipos. Cada ramo para depois de **50 endereços consecutivos sem
-  uso**. O próximo endereço é sempre `último usado + 1`.
-- A varredura acontece em passos: cada requisição deriva no máximo **200
-  endereços novos** e devolve o progresso; a tela pede o próximo passo. Só o
-  último passo devolve o payload final. Se o freio de abuso responder **429**,
-  a tela espera o `Retry-After` e repete o mesmo passo, então uma carteira
-  muito grande termina ao longo de várias janelas de orçamento.
+  quatro tipos, **no navegador**. Cada ramo para depois de **50 endereços
+  consecutivos sem uso**. O próximo endereço é sempre `último usado + 1`.
+- A tela deriva a cauda de 50 de cada ramo e manda o conjunto ao Worker; a
+  resposta diz quantos endereços faltam para fechar a margem. A tela deriva
+  essa cauda e repete, sem que o Worker veja a xpub. Se o freio de abuso
+  responder **429**, a tela espera o `Retry-After` e repete o mesmo passo.
 
 ### Saldo
 
@@ -98,11 +98,11 @@ em segundo plano com a tela fechada.
 ### Electrum como fonte única
 
 `src/electrum.js` fala o protocolo JSON-RPC do Electrum sobre
-`cloudflare:sockets`. O Worker deriva cada script localmente, então consulta
-por `scripthash` (`blockchain.scripthash.get_history`,
-`blockchain.scripthash.get_mempool`, `blockchain.transaction.get`) e faz a
-conta de UTXO aqui. Não há Esplora, nem blockchain.info, nem chave privada em
-lugar nenhum.
+`cloudflare:sockets`. A derivação acontece no navegador; o Worker recebe os
+endereços já derivados e consulta por `scripthash`
+(`blockchain.scripthash.get_history`, `blockchain.scripthash.get_mempool`,
+`blockchain.transaction.get`), fazendo a conta de UTXO aqui. Não há Esplora,
+nem blockchain.info, nem chave privada em lugar nenhum.
 
 Uma consulta avulsa abre a conexão e fecha ao terminar. Durante uma sessão
 viva a conexão é reaproveitada, com pipelining e timeout por pedido. Se o
@@ -118,11 +118,11 @@ outra fonte. `GET /api/health` mostra a configuração efetiva.
   cada ramo. Quando o servidor avisa de uma mudança, ele reconsulta só aquele
   scripthash e empurra o payload novo por WebSocket.
 - Quando a última tela fecha, o objeto descarta tudo: socket, assinaturas,
-  endereços derivados, cache de transações, último payload e a xpub. Não há
-  alarme nem storage para restaurar.
-- Sessão perdida responde **409**; a tela reenvia a xpub e reabre o canal. Se o
-  objeto for despejado ou o Worker for republicado, a próxima requisição
-  refaz a varredura.
+  endereços, cache de transações, último payload e o conjunto observado. Não
+  há xpub no objeto, alarme nem storage para restaurar.
+- Sessão perdida responde **409**; a tela refaz a derivação local e reabre o
+  canal. Se o objeto for despejado ou o Worker for republicado, a próxima
+  requisição refaz a consulta.
 
 ### Taxa e PSBT
 
@@ -213,11 +213,15 @@ npm run dev             # wrangler dev, com a configuração real do Electrum
 npm test                # todos os *.test.mjs, sem rede
 npm run icons           # gera os ícones da PWA a partir do icon.svg (precisa do Chromium)
 npm run sync:cofre-css  # reinjeta o estilo embutido no Cofre (mantenedor)
+npm run sync:browser-core # gera a derivação local usada pela tela (SRI)
 ```
 
 O `sync:cofre-css` lê por padrão o `estilo.css` da skill ascii-ui; passe um
 caminho para usar outro arquivo. Ele regrava só o bloco marcado e o hash em
 `public/cofre-btc.html`, e o `npm test` acusa a cópia fora de sincronia.
+O `sync:browser-core` gera `public/wallet-local.js` a partir de
+`src/btc-core.js` e `src/derivation.js`; qualquer mudança nessas fontes exige
+rodar o script e recalcular o SRI em `public/index.html`.
 
 Para uma interface totalmente offline, com Electrum falso e cenário fixo:
 
@@ -280,74 +284,80 @@ inválida), 404/405 (rota ou método desconhecido), 409 (sessão perdida), 429
 ### `POST /api/wallet`
 
 ```json
-{ "xpub": "xpub...", "session": "opcional", "scan": "step" }
+{ "watch": [{ "account_type": "bip84", "chain": 0, "idx": 0,
+  "address": "bc1...", "path": "m/84'/0'/0'/0/0",
+  "script": "0014...", "pub": "02..." }],
+  "wallet_id": "64 caracteres hex", "fingerprint": "8 caracteres hex",
+  "version_type": "xpub", "session": "opcional" }
 ```
 
-Sem `scan`, varre tudo e devolve o payload final. Com `scan: "step"`, deriva no
-máximo 200 endereços novos e devolve o progresso (`scanning`, `has_more`,
-`progress`, `watch`, `session`); a tela repete a chamada até `has_more` ser
-falso.
+O corpo leva os endereços já derivados pelo navegador; a xpub não entra na
+requisição. `wallet_id` é a identidade aleatória da carteira naquela sessão e
+`fingerprint` é a da conta, usada na origem BIP32 do PSBT. O Worker consulta
+os scripthashes, fecha a margem de **50 endereços vazios por ramo** e devolve
+`watch_status`:
 
-O payload final contém:
+- `watch_status.gap`: sempre 50;
+- `watch_status.complete`: a margem já está fechada;
+- `watch_status.branches["bip84:0"]`: `last_used`, `max_idx`, `next` e `need`.
+  Se `need > 0`, a tela deriva `next .. next + need - 1` e repete.
 
-- `detected_type`, `balance` (`detected`, `total`, `pending_in`,
-  `pending_out`), `types`, `addresses`, `transactions`, `warnings` e
-  `updated_at`;
-- `types` sempre tem os quatro itens na ordem BIP86, BIP84, BIP49, BIP44,
-  cada um com o próximo endereço de recebimento, o próximo de troco, o saldo
-  do tipo e `detected`;
-- `addresses` traz só endereços usados, da atividade mais recente para a mais
-  antiga;
-- `transactions` tem uma entrada por `txid`, com `pending`, `height`,
-  `direction`, valores recebidos/enviados/taxa, contagem de entradas e saídas,
-  `addresses` da carteira e a elegibilidade/saída do CPFP;
-- `session` é o id aleatório do Durable Object usado nas próximas
-  requisições.
+Depois do primeiro passo, a tela pode mandar só `session` nas rotas de envio;
+o Durable Object guarda o conjunto enquanto a sessão existir. Se a sessão
+cair (**409**), a tela refaz a derivação e o `POST /api/wallet`.
+
+O payload final contém `detected_type`, `balance`, `types`, `addresses`,
+`transactions`, `warnings`, `updated_at` e `watch_status`. `types` sempre tem
+os quatro itens na ordem BIP86, BIP84, BIP49, BIP44; `addresses` traz só os
+usados; `transactions` tem uma entrada por `txid`, com taxa, direção, endereços
+e elegibilidade de CPFP; `session` é o id aleatório do Durable Object.
+
+A rota ainda aceita o corpo antigo com `xpub` por compatibilidade, mas a tela
+não o envia. O fluxo documentado e testado é o `watch`.
 
 ### `POST /api/psbt`
 
 ```json
-{ "xpub": "xpub...", "session": "opcional", "address": "bc1...",
+{ "session": "opcional", "address": "bc1...",
   "amount_sats": 50000, "fee_rate": 6 }
 ```
 
-`amount_sats` é inteiro; `fee_rate` é em sat/vB e aceita as casas do estimador
-(de 0,001 a 10 000). Valor abaixo de 546 sats é recusado como pó. A resposta
-traz o `psbt` em base64, `txid`, `vsize`, `fee_sats`, `fee_sats_at_rate`,
-`dust_sats`, `fee_rate`, `total_in`, `total_out`, `amount_sats`, `recipient`,
-`change` e `inputs`/`outputs` com os caminhos BIP32 e a classificação `own`
-(`externo`, `recebimento` ou `troco`).
+Sem sessão (dev sem Durable Object), mande `watch`, `wallet_id`,
+`fingerprint` e `version_type` no lugar de `session`. `amount_sats` é inteiro;
+`fee_rate` é em sat/vB e aceita as casas do estimador (de 0,001 a 10 000).
+Valor abaixo de 546 sats é recusado como pó. A resposta traz o `psbt` em
+base64, `txid`, `vsize`, `fee_sats`, `fee_sats_at_rate`, `dust_sats`,
+`fee_rate`, `total_in`, `total_out`, `amount_sats`, `recipient`, `change` e
+`inputs`/`outputs` com os caminhos BIP32 e a classificação `own`.
 
 Com `preview: true` e sem `amount_sats`, devolve o limite de envio:
 `available_sats`, `min_sats`, `max_send_sats`, `fee_sats_at_max` e
 `vsize_at_max`. Com `amount_sats`, devolve também a taxa e o troco daquele
-valor. `quote_rates` acrescenta um array `quotes` com o custo de cada taxa
-pedida para o mesmo valor.
+valor. `quote_rates` acrescenta `quotes` com o custo de cada taxa pedida.
 
 ### `POST /api/cpfp`
 
 ```json
-{ "xpub": "xpub...", "session": "opcional",
-  "txid": "...", "fee_rate": 11 }
+{ "session": "opcional", "txid": "...", "fee_rate": 11 }
 ```
 
 O txid precisa ser de uma transação pendente, com todas as entradas desta
-carteira e taxa do pai conferível. A resposta inclui o `psbt` do filho,
+carteira e taxa do pai conferível. O corpo aceita o mesmo `watch` do
+`/api/wallet` quando não há sessão. A resposta inclui o `psbt` do filho,
 `txid`, `vsize`, `fee_sats`, `parent`, `package`, `input` e `output`. O filho
 não tem destino externo; o resto volta para o próximo endereço de troco.
 
 ### `POST /api/broadcast`
 
 ```json
-{ "xpub": "xpub...", "session": "opcional",
-  "psbt": "cHNidP8...", "preview": true }
+{ "session": "opcional", "psbt": "cHNidP8...", "preview": true }
 ```
 
-O PSBT precisa ser v0 e estar assinado pelo Cofre. A resposta resume a
-transação final (`txid`, `vsize` real, `fee_sats`, `fee_rate`, `total_in`,
-`total_out`, `inputs`, `outputs`, `warnings`, `rbf`, `locktime`). Sem
-`preview`, devolve também `broadcast: true` e `server_txid`; o hex final nunca
-volta para o navegador.
+O PSBT precisa ser v0 e estar assinado pelo Cofre. Sem sessão, mande o mesmo
+`watch`. A resposta resume a transação final (`txid`, `vsize` real, `fee_sats`,
+`fee_rate`, `total_in`, `total_out`, `inputs`, `outputs`, `warnings`, `rbf`,
+`locktime`). Sem `preview`, devolve também `broadcast: true` e `server_txid`;
+o hex final nunca volta para o navegador.
 
 ### `GET /api/fees?session=…`
 
@@ -361,7 +371,7 @@ usado como veio.
 
 Upgrade de WebSocket. As mensagens são `{ "type": "payload", ... }`,
 `{ "type": "progress", ... }` enquanto a varredura roda, ou
-`{ "type": "error", ... }` quando o Electrum falha. Sessão sem a xpub responde
+`{ "type": "error", ... }` quando o Electrum falha. Sessão sem carteira responde
 409.
 
 ### `GET /api/health`
@@ -374,9 +384,17 @@ Devolve `{ "ok": true, "service": "monitor-btc-electrum", "source":
 
 - A xpub é watch-only. **Nunca cole uma `xprv`/`yprv`/`zprv`.** Um vazamento
   da xpub custa privacidade, não fundos.
-- A xpub é a credencial. Ela vive só na memória da aba e no Durable Object
-  enquanto a sessão está aberta. O Worker não a registra em log, não a coloca
-  em URL e não tem banco.
+- A xpub vive só na memória da aba. O Worker recebe o conjunto de endereços
+  derivados (usados mais a cauda de 50), nunca a chave estendida; não registra
+  o conjunto em log, não o coloca em URL e não tem banco. Um Worker
+  comprometido ainda vê esses endereços, os UTXOs e o histórico consultado,
+  mas não consegue derivar endereços futuros fora da margem enviada.
+- **O código da tela também vem do Worker.** Um Worker comprometido pode
+  servir `index.html`/`app.js` alterados e capturar a xpub antes de qualquer
+  derivação local; SRI e CSP não ajudam quando a própria página é trocada. A
+  derivação local protege contra o servidor que recebe as requisições, não
+  contra o servidor que controla o código entregue. Para essa garantia seria
+  preciso um cliente baixado e verificado fora do Worker.
 - O id da sessão é uma capacidade temporária. Quem tiver o id enquanto a tela
   estiver aberta consegue ler o estado daquela carteira; ele é aleatório e
   deixa de existir quando a última tela fecha.
@@ -389,7 +407,7 @@ Devolve `{ "ok": true, "service": "monitor-btc-electrum", "source":
   `Referrer-Policy`, `Permissions-Policy`, COOP, COEP e CORP. O
   `public/_headers` dos estáticos e o `SECURITY_HEADERS` de `src/config.js`
   mantêm esses nove valores iguais; um teste confere.
-- `app.js`, `fontes.css` e `style.css` usam SRI. Qualquer edição exige
+- `wallet-local.js`, `app.js`, `fontes.css` e `style.css` usam SRI. Qualquer edição exige
   recalcular o hash em `public/index.html`, e o `npm test` acusa hash vencido.
   Mantenha a minificação e o Rocket Loader da Cloudflare desligados pelo mesmo
   motivo.
@@ -414,6 +432,8 @@ projeto:
 | `cofre-ui.test.mjs` | Telas do Cofre, as nove colunas de i18n e o hash do CSS embutido. |
 | `broadcast.test.mjs` | Conferência e transmissão do PSBT assinado, inclusive pelo Durable Object. |
 | `watcher.test.mjs` | Assinaturas, avisos, reconexão, despejo e descarte total. |
+| `watch-mode.test.mjs` | Derivação local, margem de 50, PSBT e Durable Object sem xpub. |
+| `browser-core.test.mjs` | `wallet-local.js` em dia e paridade da derivação com o servidor. |
 | `hardening.test.mjs` | Tetos de entrada, freio de abuso e Origin do WebSocket. |
 | `security-headers.test.mjs` | Cabeçalhos iguais, CSP, SRI e o hash do Cofre neste README. |
 | `http-surface.test.mjs` | Status 404 em caminho desconhecido e a superfície somente leitura dos estáticos. |
@@ -426,7 +446,8 @@ projeto:
 .github/assets/          botões de apoio usados por este README
 .github/workflows/       CI e publicação de releases do Cofre
 public/
-  app.js                 cliente do navegador (xpub, varredura, render, WebSocket)
+  app.js                 cliente do navegador (derivação local, render, WebSocket)
+  wallet-local.js        derivação pública gerada para o navegador (SRI)
   apple-touch-icon.png   ícone da tela inicial do iOS
   cofre-btc.html         gerador de chave e assinador PSBT standalone e offline
   fontes.css             fonte embutida
@@ -447,6 +468,7 @@ scripts/
   build-icons.mjs        gera os ícones da PWA a partir do icon.svg
   sync-cofre-core.mjs    extrai o núcleo do Cofre para os testes de paridade
   sync-cofre-css.mjs     reinjeta o estilo da skill no Cofre
+  sync-browser-core.mjs  gera public/wallet-local.js a partir do núcleo
 src/
   btc-core.js            núcleo BTC (chaves, endereços, tx, PSBT, assinatura)
   derivation.js          CKDpub, parse da xpub e os quatro tipos de endereço
@@ -454,7 +476,8 @@ src/
   address-totals.js      conta de UTXO por script
   psbt.js                escolha de entradas, taxa, troco e PSBT de envio
   broadcast.js           conferência do PSBT assinado e transmissão
-  wallet-sync.js         varredura por margem, em passos, e payload da carteira
+  wallet-sync.js         consulta do conjunto local, margem e payload
+  watch-set.js           validação dos endereços derivados pelo cliente
   watcher.js             Durable Object: socket, assinaturas, WebSocket
   config.js              ambiente, cabeçalhos de segurança e helpers
   worker.js              rotas
@@ -474,9 +497,9 @@ package.json
   sessão nova refaz a margem de 50 e baixa de novo as transações usadas.
   Enquanto a sessão está viva, as consultas e os avisos seguintes
   reaproveitam a memória.
-- **CPU e custo.** Abrir uma tela deriva cerca de 400 endereços (8 ramos ×
-  50) e pesa na CPU; use um plano de Workers cujo limite de CPU cubra a
-  varredura. O Durable Object só fica acordado enquanto uma tela está aberta.
+- **CPU no navegador.** Abrir a tela deriva cerca de 400 endereços (8 ramos ×
+  50) localmente e pesa na CPU da aba; o Worker só consulta os scripthashes.
+  O Durable Object só fica acordado enquanto uma tela está aberta.
 - **Limite da margem.** Endereços depois de 50 vazios seguidos ficam
   invisíveis; uma varredura interrompida mostra “busca incompleta” em vez de
   apresentar o saldo como final.
@@ -505,6 +528,10 @@ package.json
   instância do Worker.
 - **O Electrum vê os scripthashes consultados** (o TLS esconde do caminho da
   rede, não do servidor). O Cofre continua sendo o assinador que vale.
+- **O Worker vê o conjunto enviado**: endereços usados mais a cauda de 50 de
+  cada ramo, os UTXOs, os txids e o PSBT. A xpub fica no navegador, mas um
+  Worker comprometido ainda pode mentir sobre saldo, taxa ou censurar; a
+  conferência no Cofre é a defesa final antes de assinar.
 - **Só rede principal.** O projeto trabalha com chaves e endereços da mainnet
   do Bitcoin.
 - **Sem RBF.** O montador usa sequence final, então o resumo mostra

@@ -269,6 +269,7 @@
           <div class="prose">
             <h3><span class="prompt" aria-hidden="true">##</span> o que é esta ferramenta</h3>
             <p>O Monitor BTC é uma carteira de acompanhamento. Você cola a chave pública da sua carteira Bitcoin (<code>xpub</code>, <code>zpub</code> ou <code>ypub</code>) e ele mostra o saldo, os endereços para receber e o histórico de transações. Ele não pede senha, não guarda nada e não tem a chave privada: só lê o que já existe na rede.</p>
+            <p>A derivação acontece no navegador: a xpub não é enviada ao servidor; ele recebe só os endereços que precisam ser consultados.</p>
             <p>Ele também prepara o envio. Você informa o valor e o destino; a taxa é calculada ao vivo e a ferramenta monta um arquivo de transação (PSBT) para ser assinado em outro programa. Depois de assinado, o arquivo volta para cá e pode ser transmitido. Quem assina é você, no <a class="prose-link" href="https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html" download="cofre-btc.html" title="baixar o Cofre BTC (arquivo standalone)" aria-label="baixar o Cofre BTC (arquivo standalone)">Cofre BTC</a>, offline; a chave privada nunca passa por esta tela.</p>
             <p>Nada fica guardado: a chave, o saldo, os endereços e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma.</p>
 
@@ -364,6 +365,7 @@
   </main>
 </div>
 
-<script src="/app.js" defer integrity="sha384-vdYtv2O7xrfiN9ztp4sxMs/g+K69t5xqEdzv9NZFCwJA0ZjyOcBDgu80yqJi6guT"></script>
+<script src="/wallet-local.js" defer integrity="sha384-nvc844dpaQ0vgT71fFk9HGn6vsE1su3H+rZCb4gD2BjooY3POsm5iWzucBWNIjev"></script>
+<script src="/app.js" defer integrity="sha384-pj2Zs6SGkujq+uBh1GBd5A4TdoBocJex8a+X5uDFqrHCa35n0Vgq6nT9sImF2DIw"></script>
 </body>
 </html>

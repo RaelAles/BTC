@@ -1,5 +1,7 @@
-/* Varredura e estado de uma carteira xpub — usado pelo Worker (consulta
-   avulsa) e pelo Durable Object (tempo real com assinaturas).
+/* Varredura e estado de uma carteira — usado pelo Worker (consulta avulsa)
+   e pelo Durable Object (tempo real com assinaturas). No modo watch, o
+   conjunto de endereços vem pronto do navegador; no modo legado, ainda
+   aceita xpub para os testes/compatibilidade.
 
    Fonte única: servidor Electrum, por scripthash, como Electrum e Sparrow:
    get_history + get_mempool + transaction.get (crua), parse local, conta de
@@ -46,12 +48,20 @@ function activityOf(row) {
 /* ---------- scanner ---------- */
 
 export class WalletScanner {
-  constructor({ env, xpub, account, client, gap }) {
+  constructor({ env, xpub, account, client, gap, watch, walletId, fingerprint, versionType }) {
     this.env = env;
     this.xpub = xpub;
     this.account = account;
     this.client = client;
     this.gap = Math.max(1, Number(gap) || DEFAULT_GAP);
+    /* Modo watch: o cliente já derivou os endereços; o servidor nunca vê a
+       xpub. `watch` é a lista normalizada por watch-set.js. */
+    this.watchMode = watch != null;
+    this.initialWatch = watch || null;
+    this.walletId = walletId || null;
+    this.fingerprint = fingerprint || null;
+    this.versionType = versionType || null;
+    this.pendingRows = [];
     this.rows = new Map();
     this.txCache = new Map();   // txid -> hex cru, só nesta sessão
     this.infoCache = new Map(); // txid -> resumo da transação, invalidado por aviso
@@ -65,8 +75,73 @@ export class WalletScanner {
     for (const type of TYPES) for (const chain of [0, 1]) {
       if (!this.rows.has(rowKey(type, chain))) this.rows.set(rowKey(type, chain), new Map());
     }
+    if (this.watchMode) {
+      this.addWatchRows(this.initialWatch || [], true);
+      this.initialWatch = null;
+      return this;
+    }
+    this.fingerprint = this.account
+      ? BTC.bytesToHex(BTC.hash160(this.account.pub)).slice(0, 8)
+      : null;
     this.reindex();
     return this;
+  }
+
+  /* Converte uma linha já derivada pelo cliente para a linha interna do
+     scanner, sem chamar CKDpub. `replace` reinicia o conjunto (primeira
+     consulta ou troca de carteira); sem ele, só a cauda nova entra. */
+  addWatchRows(rows, replace) {
+    if (!this.watchMode) throw new Error('scanner não está em modo watch');
+    if (replace) {
+      this.rows = new Map();
+      for (const type of TYPES) for (const chain of [0, 1]) {
+        this.rows.set(rowKey(type, chain), new Map());
+      }
+      this.pendingRows = [];
+      this.infoCache.clear();
+    }
+    for (const r of rows || []) {
+      const key = rowKey(r.account_type, r.chain);
+      let branch = this.rows.get(key);
+      if (!branch) { branch = new Map(); this.rows.set(key, branch); }
+      if (branch.has(r.idx)) continue;
+      const row = {
+        account_type: r.account_type, chain: r.chain, idx: r.idx,
+        address: r.address, path: r.path, script: r.script, pub: r.pub,
+        kind: r.kind,
+        used: 0, balance: 0, received: 0, spent: 0, tx_count: 0,
+        confirmed: 0, pendingIn: 0, pendingOut: 0, thirdIn: 0,
+        heights: new Map(), txids: [], stale: false
+      };
+      branch.set(r.idx, row);
+      this.pendingRows.push(row);
+    }
+    this.reindex();
+    return this;
+  }
+
+  /* Estado da margem por ramo: o cliente usa `next`/`need` para derivar a
+     próxima cauda. A regra continua sendo 50 endereços vazios depois do
+     último usado. */
+  watchStatus() {
+    const branches = {};
+    let complete = true;
+    for (const type of TYPES) {
+      for (const chain of [0, 1]) {
+        const rows = this.rows.get(rowKey(type, chain)) || new Map();
+        const { lastUsed, maxIdx } = this.lastUsedOf(rows);
+        const target = lastUsed + this.gap;
+        const need = Math.max(0, target - maxIdx);
+        if (need > 0) complete = false;
+        branches[rowKey(type, chain)] = {
+          last_used: lastUsed,
+          max_idx: maxIdx,
+          next: maxIdx + 1,
+          need
+        };
+      }
+    }
+    return { gap: this.gap, complete, branches };
   }
 
   reindex() {
@@ -460,7 +535,7 @@ export class WalletScanner {
       fee_rate: entry.vsize ? info.fee_sats / entry.vsize : 0
     };
     return await prepareCpfpPsbt({
-      account: this.account, spend, changeRow, childFee, feeRate, rawTxFor,
+      fingerprint: this.fingerprint, spend, changeRow, childFee, feeRate, rawTxFor,
       parent, packageBefore: pkg
     });
   }
@@ -470,6 +545,14 @@ export class WalletScanner {
      endereços seguidos sem uso. `requery` reconsulta o que já existe (o
      primeiro passo de uma sessão nova). */
   async scanStep(requery) {
+    if (this.watchMode) {
+      const fresh = this.pendingRows;
+      this.pendingRows = [];
+      if (requery) await this.queryRows([...this.byScript.values()]);
+      else await this.queryRows(fresh);
+      if (fresh.length) this.infoCache.clear();
+      return { added: fresh, more: false };
+    }
     if (requery) await this.queryRows([...this.byScript.values()]);
     const added = [];
     let budget = SCAN_BATCH;
@@ -508,6 +591,7 @@ export class WalletScanner {
 
   /* Ainda falta derivar/consultar algum endereço para fechar a margem? */
   scanPending() {
+    if (this.watchMode) return !this.watchStatus().complete;
     for (const type of TYPES) {
       for (const chain of [0, 1]) {
         const rows = this.rows.get(rowKey(type, chain));
@@ -524,7 +608,19 @@ export class WalletScanner {
     return { scanned: this.byScript.size, used, gap: this.gap };
   }
 
+  /* Modo watch: consulta só a cauda pendente e recalcula. Não deriva nada;
+     a próxima cauda vem do cliente depois que `watchStatus` aponta o que
+     falta. */
+  async watchSync() {
+    const fresh = this.pendingRows;
+    this.pendingRows = [];
+    if (fresh.length) await this.queryRows(fresh);
+    await this.recompute();
+    return this.payload();
+  }
+
   async fullSync() {
+    if (this.watchMode) return await this.watchSync();
     let requery = true;
     let step;
     do { step = await this.scanStep(requery); requery = false; } while (step.more);
@@ -615,7 +711,7 @@ export class WalletScanner {
       return raw ? BTC.hexToBytes(raw) : null;
     };
     return await preparePsbt({
-      account: this.account, utxos, address, amountSats, feeRate, changeRow, rawTxFor,
+      fingerprint: this.fingerprint, utxos, address, amountSats, feeRate, changeRow, rawTxFor,
       ownScripts: this.byScript
     });
   }
@@ -626,7 +722,7 @@ export class WalletScanner {
   }
 
   chooseType() {
-    const hint = this.account.versionType;
+    const hint = this.watchMode ? this.versionType : this.account.versionType;
     if (hint === 'bip84' || hint === 'bip49') return hint;
     for (const type of ['bip44', 'bip86', 'bip84', 'bip49']) if (this.typeUsed(type)) return type;
     return 'bip86';
@@ -717,7 +813,7 @@ export class WalletScanner {
     }
     const stale = [...this.byScript.values()].filter(r => r.stale).length;
     if (stale) warnings.push(stale + ' endereço(s) com valor antigo por falta de transação.');
-    return {
+    const out = {
       detected_type: type,
       balance: {
         detected,
@@ -731,6 +827,8 @@ export class WalletScanner {
       warnings,
       updated_at: now()
     };
+    if (this.watchMode) out.watch_status = this.watchStatus();
+    return out;
   }
 }
 

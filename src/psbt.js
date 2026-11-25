@@ -1,6 +1,6 @@
 /* Montagem do PSBT de envio (v0, sem assinatura).
 
-   O lado watch-only só tem a xpub: escolhe UTXOs, calcula a taxa pela vsize
+   O lado watch-only só tem chaves públicas/scripts derivados: escolhe UTXOs, calcula a taxa pela vsize
    estimada, deriva o troco e escreve o PSBT com a origem BIP32 de cada
    entrada. A chave privada nunca chega aqui; quem assina é o Cofre BTC,
    offline.
@@ -43,6 +43,15 @@ export function feeSats(kvb, vsize) {
 }
 
 function hex(bytes) { return BTC.bytesToHex(bytes); }
+
+/* No modo watch o cliente manda a impressão digital já calculada; no modo
+   legado ela sai da chave pública da conta. */
+function accountFingerprint(account, fingerprint) {
+  const fp = String(fingerprint || '').toLowerCase();
+  if (/^[0-9a-f]{8}$/.test(fp)) return fp;
+  if (account && account.pub) return hex(BTC.hash160(account.pub)).slice(0, 8);
+  throw new Error('impressão digital da conta indisponível');
+}
 
 /* Endereço de troco → linha do scanner (já derivada), no mesmo formato das
    entradas. */
@@ -391,11 +400,11 @@ export function sendLimits({ utxos, address, feeRate, amountSats, changeScript, 
    `changeRow` é o próximo endereço livre do ramo de troco; `rawTxFor` devolve
    a transação anterior crua, obrigatória em toda entrada: ela vai como
    `non_witness_utxo` para o assinante conferir o valor. `ownScripts` é o mapa
-   de scripts derivados da xpub (`script -> linha`): é o que distingue um
+   de scripts derivados da carteira (`script -> linha`): é o que distingue um
    destino externo de um recebimento para a própria carteira e fornece a
    origem BIP32 quando o destino também é nosso. */
 export async function preparePsbt({
-  account, utxos, address, amountSats, feeRate, changeRow, rawTxFor, ownScripts
+  account, fingerprint, utxos, address, amountSats, feeRate, changeRow, rawTxFor, ownScripts
 }) {
   if (!Number.isInteger(amountSats) || amountSats <= 0) {
     throw new Error('valor inválido');
@@ -413,13 +422,13 @@ export async function preparePsbt({
   const recipientKind = recipientOwn ? 'recebimento' : 'externo';
   if (!changeRow) throw new Error('endereço de troco indisponível');
   const changeScript = BTC.hexToBytes(changeRow.script);
-  const fingerprint = hex(BTC.hash160(account.pub)).slice(0, 8);
+  const fp = accountFingerprint(account, fingerprint);
 
   const pick = selectCoins(utxos, amountSats, feeRate, recipientScript, changeScript);
 
   const inputs = [];
   for (const utxo of pick.selected) {
-    const origin = utxoInput(utxo, fingerprint);
+    const origin = utxoInput(utxo, fp);
     if (!rawTxFor) throw new Error('entrada sem acesso à transação anterior (non_witness_utxo)');
     const raw = await rawTxFor(utxo.txid);
     if (!raw) throw new Error('transação anterior da entrada ' + utxo.txid + ' não encontrada');
@@ -431,12 +440,12 @@ export async function preparePsbt({
   /* Destino da própria carteira: leva a origem BIP32 na saída, como o troco.
      O assinador reconhece o endereço pela derivação que o PSBT traz, sem
      varrer as contas. A origem é conferida (chave e script) no assinador. */
-  if (recipientRow) outputs[0].origin = rowOrigin(recipientRow, fingerprint);
+  if (recipientRow) outputs[0].origin = rowOrigin(recipientRow, fp);
   if (pick.withChange) {
     outputs.push({
       value: pick.change,
       script: changeScript,
-      origin: rowOrigin(changeRow, fingerprint)
+      origin: rowOrigin(changeRow, fp)
     });
   }
 
@@ -490,7 +499,7 @@ export async function preparePsbt({
    quem escolhe a saída e calcula a taxa do pacote é o chamador (wallet-sync),
    que tem a transação crua e os valores das entradas. */
 export async function prepareCpfpPsbt({
-  account, spend, changeRow, childFee, feeRate, rawTxFor, parent, packageBefore
+  account, fingerprint, spend, changeRow, childFee, feeRate, rawTxFor, parent, packageBefore
 }) {
   if (!spend || !spend.row) throw new Error('saída do pai indisponível');
   if (!changeRow) throw new Error('endereço de troco indisponível');
@@ -503,7 +512,7 @@ export async function prepareCpfpPsbt({
   }
   const rawTx = rawTxFor ? await rawTxFor(spend.txid) : null;
   if (!rawTx) throw new Error('transação pai não encontrada para o non_witness_utxo');
-  const fingerprint = hex(BTC.hash160(account.pub)).slice(0, 8);
+  const fp = accountFingerprint(account, fingerprint);
   const changeScript = BTC.hexToBytes(changeRow.script);
   const inputs = [{
     txid: spend.txid,
@@ -513,13 +522,13 @@ export async function prepareCpfpPsbt({
     kind: spend.row.kind,
     pub: BTC.hexToBytes(spend.row.pub),
     path: spend.row.path,
-    fingerprint,
+    fingerprint: fp,
     rawTx
   }];
   const outputs = [{
     value,
     script: changeScript,
-    origin: rowOrigin(changeRow, fingerprint)
+    origin: rowOrigin(changeRow, fp)
   }];
   const built = BTC.buildPsbt({ inputs, outputs });
   const tx = built.tx;

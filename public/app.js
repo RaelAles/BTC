@@ -1,7 +1,8 @@
 /* Monitor BTC — Worker + Durable Object, fonte única Electrum.
-   O navegador não deriva nem consulta saldo: só manda a chave estendida
-   pública (xpub, zpub ou ypub) e mostra o
-   estado que o Worker devolve. A xpub é a credencial; não há senha. Nada
+   O navegador deriva os endereços da chave estendida pública (xpub, zpub ou
+   ypub) e manda ao Worker só o conjunto observado; a xpub não é enviada
+   ao Worker.
+   O servidor consulta saldo/histórico e monta o PSBT; não há senha e nada
    é gravado: nem no navegador (sem localStorage), nem no servidor. */
 (function () {
   'use strict';
@@ -29,6 +30,11 @@
 
   var state = {
     xpub: '',
+    account: null,      // xpub decodificada localmente
+    watchRows: [],      // endereços derivados no navegador
+    walletId: '',       // identidade local da carteira na sessão
+    fingerprint: '',    // conta, para a origem BIP32 do PSBT
+    versionType: '',
     data: null,
     timer: 0,
     busy: false,
@@ -126,6 +132,7 @@
     ["SOBRE","ABOUT","ACERCA DE","À PROPOS","INFORMAZIONI","ÜBER","OVER","SOBRE","SOBRE"],
     ["o que é esta ferramenta","what this tool is","qué es esta herramienta","ce qu'est cet outil","cos'è questo strumento","was dieses Werkzeug ist","wat deze tool is","què és aquesta eina","que é esta ferramenta"],
     ["O Monitor BTC é uma carteira de acompanhamento. Você cola a chave pública da sua carteira Bitcoin (<code>xpub</code>, <code>zpub</code> ou <code>ypub</code>) e ele mostra o saldo, os endereços para receber e o histórico de transações. Ele não pede senha, não guarda nada e não tem a chave privada: só lê o que já existe na rede.","Monitor BTC is a watch-only wallet. You paste your Bitcoin wallet's public key (<code>xpub</code>, <code>zpub</code> or <code>ypub</code>) and it shows the balance, the receiving addresses and the transaction history. It does not ask for a password, stores nothing and does not hold the private key: it only reads what already exists on the network.","Monitor BTC es una cartera de seguimiento. Pegas la clave pública de tu cartera Bitcoin (<code>xpub</code>, <code>zpub</code> o <code>ypub</code>) y muestra el saldo, las direcciones para recibir y el historial de transacciones. No pide contraseña, no guarda nada y no tiene la clave privada: solo lee lo que ya existe en la red.","Monitor BTC est un portefeuille de suivi. Vous collez la clé publique de votre portefeuille Bitcoin (<code>xpub</code>, <code>zpub</code> ou <code>ypub</code>) et il affiche le solde, les adresses de réception et l'historique des transactions. Il ne demande pas de mot de passe, ne conserve rien et ne détient pas la clé privée : il ne lit que ce qui existe déjà sur le réseau.","Monitor BTC è un portafoglio di sola osservazione. Incolli la chiave pubblica del tuo portafoglio Bitcoin (<code>xpub</code>, <code>zpub</code> o <code>ypub</code>) e mostra il saldo, gli indirizzi per ricevere e la cronologia delle transazioni. Non chiede una password, non salva nulla e non ha la chiave privata: legge solo ciò che esiste già nella rete.","Monitor BTC ist eine Nur-Lese-Wallet. Du fügst den öffentlichen Schlüssel deiner Bitcoin-Wallet ein (<code>xpub</code>, <code>zpub</code> oder <code>ypub</code>) und sie zeigt das Guthaben, die Empfangsadressen und den Transaktionsverlauf. Sie fragt nach keinem Passwort, speichert nichts und hat keinen privaten Schlüssel: Sie liest nur, was bereits im Netzwerk existiert.","Monitor BTC is een alleen-lezen portemonnee. Je plakt de openbare sleutel van je Bitcoin-portemonnee (<code>xpub</code>, <code>zpub</code> of <code>ypub</code>) en hij toont het saldo, de ontvangstadressen en de transactiegeschiedenis. Hij vraagt geen wachtwoord, bewaart niets en heeft de privésleutel niet: hij leest alleen wat al op het netwerk bestaat.","Monitor BTC és una cartera de seguiment. Enganxes la clau pública de la teva cartera Bitcoin (<code>xpub</code>, <code>zpub</code> o <code>ypub</code>) i mostra el saldo, les adreces per rebre i l'historial de transaccions. No demana contrasenya, no desa res i no té la clau privada: només llegeix el que ja existeix a la xarxa.","Monitor BTC é unha carteira de seguimento. Pegas a clave pública da túa carteira Bitcoin (<code>xpub</code>, <code>zpub</code> ou <code>ypub</code>) e mostra o saldo, os enderezos para recibir e o historial de transaccións. Non pide contrasinal, non garda nada e non ten a clave privada: só le o que xa existe na rede."],
+    ["A derivação acontece no navegador: a xpub não é enviada ao servidor; ele recebe só os endereços que precisam ser consultados.", "Derivation happens in the browser: the xpub is not sent to the server; it receives only the addresses that need to be queried.", "La derivación ocurre en el navegador: la xpub no se envía al servidor; solo recibe las direcciones que hay que consultar.", "La dérivation se fait dans le navigateur : la xpub n'est pas envoyée au serveur ; il ne reçoit que les adresses à consulter.", "La derivazione avviene nel browser: la xpub non viene inviata al server; riceve solo gli indirizzi da consultare.", "Die Ableitung erfolgt im Browser: Die xpub wird nicht an den Server gesendet; er erhält nur die abzufragenden Adressen.", "De afleiding gebeurt in de browser: de xpub wordt niet naar de server gestuurd; hij ontvangt alleen de adressen die moeten worden opgevraagd.", "La derivació es fa al navegador: la xpub no s'envia al servidor; només rep les adreces que cal consultar.", "A derivación faise no navegador: a xpub non se envía ao servidor; só recibe os enderezos que cómpre consultar."],
     ["Ele também prepara o envio. Você informa o valor e o destino; a taxa é calculada ao vivo e a ferramenta monta um arquivo de transação (PSBT) para ser assinado em outro programa. Depois de assinado, o arquivo volta para cá e pode ser transmitido. Quem assina é você, no <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"baixar o Cofre BTC (arquivo standalone)\" aria-label=\"baixar o Cofre BTC (arquivo standalone)\">Cofre BTC</a>, offline; a chave privada nunca passa por esta tela.","It also prepares the send. You enter the amount and the destination; the fee is calculated live and the tool builds a transaction file (PSBT) to be signed in another program. Once signed, the file comes back here and can be broadcast. You are the one who signs, in <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"download Cofre BTC (standalone file)\" aria-label=\"download Cofre BTC (standalone file)\">Cofre BTC</a>, offline; the private key never passes through this screen.","También prepara el envío. Indicas el importe y el destino; la comisión se calcula en vivo y la herramienta arma un archivo de transacción (PSBT) para firmar en otro programa. Una vez firmado, el archivo vuelve aquí y se puede transmitir. Quien firma eres tú, en el <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"descargar el Cofre BTC (archivo standalone)\" aria-label=\"descargar el Cofre BTC (archivo standalone)\">Cofre BTC</a>, sin conexión; la clave privada nunca pasa por esta pantalla.","Il prépare aussi l'envoi. Vous indiquez le montant et la destination ; les frais sont calculés en direct et l'outil assemble un fichier de transaction (PSBT) à signer dans un autre programme. Une fois signé, le fichier revient ici et peut être diffusé. C'est vous qui signez, dans le <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"télécharger le Cofre BTC (fichier autonome)\" aria-label=\"télécharger le Cofre BTC (fichier autonome)\">Cofre BTC</a>, hors ligne ; la clé privée ne passe jamais par cet écran.","Prepara anche l'invio. Indichi l'importo e la destinazione; la commissione viene calcolata in tempo reale e lo strumento compone un file di transazione (PSBT) da firmare in un altro programma. Una volta firmato, il file torna qui e può essere trasmesso. A firmare sei tu, nel <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"scarica il Cofre BTC (file standalone)\" aria-label=\"scarica il Cofre BTC (file standalone)\">Cofre BTC</a>, offline; la chiave privata non passa mai da questa schermata.","Sie bereitet auch das Senden vor. Du gibst Betrag und Ziel ein; die Gebühr wird live berechnet und das Werkzeug erstellt eine Transaktionsdatei (PSBT), die in einem anderen Programm signiert wird. Nach der Signatur kommt die Datei hierher zurück und kann gesendet werden. Du signierst im <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"Cofre BTC herunterladen (Standalone-Datei)\" aria-label=\"Cofre BTC herunterladen (Standalone-Datei)\">Cofre BTC</a>, offline; der private Schlüssel läuft nie über diesen Bildschirm.","Hij bereidt ook het verzenden voor. Je voert het bedrag en de bestemming in; de kosten worden live berekend en de tool maakt een transactiebestand (PSBT) om in een ander programma te ondertekenen. Na ondertekening komt het bestand hier terug en kan het worden uitgezonden. Jij ondertekent, in de <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"Cofre BTC downloaden (standalone bestand)\" aria-label=\"Cofre BTC downloaden (standalone bestand)\">Cofre BTC</a>, offline; de privésleutel komt nooit door dit scherm.","També prepara l'enviament. Indiques l'import i la destinació; la comissió es calcula en directe i l'eina munta un fitxer de transacció (PSBT) per signar en un altre programa. Un cop signat, el fitxer torna aquí i es pot transmetre. Qui signa ets tu, al <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"descarregar el Cofre BTC (fitxer autònom)\" aria-label=\"descarregar el Cofre BTC (fitxer autònom)\">Cofre BTC</a>, sense connexió; la clau privada no passa mai per aquesta pantalla.","Tamén prepara o envío. Indicas o importe e o destino; a comisión calcúlase en vivo e a ferramenta monta un ficheiro de transacción (PSBT) para asinar noutro programa. Unha vez asinado, o ficheiro volve aquí e pódese transmitir. Quen asina es ti, no <a class=\"prose-link\" href=\"https://github.com/RaelAles/BTC/releases/latest/download/cofre-btc.html\" download=\"cofre-btc.html\" title=\"descargar o Cofre BTC (ficheiro autónomo)\" aria-label=\"descargar o Cofre BTC (ficheiro autónomo)\">Cofre BTC</a>, sen conexión; a clave privada nunca pasa por esta pantalla."],
     ["baixar o Cofre BTC (arquivo standalone)","download Cofre BTC (standalone file)","descargar el Cofre BTC (archivo standalone)","télécharger le Cofre BTC (fichier autonome)","scarica il Cofre BTC (file standalone)","Cofre BTC herunterladen (Standalone-Datei)","Cofre BTC downloaden (standalone bestand)","descarregar el Cofre BTC (fitxer autònom)","descargar o Cofre BTC (ficheiro autónomo)"],
     ["Nada fica guardado: a chave, o saldo, os endereços e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma.","Nothing is kept: the key, the balance, the addresses and the files live only in the tab's memory and disappear when you close or reload the page; the browser stores neither the theme nor the language.","No se guarda nada: la clave, el saldo, las direcciones y los archivos quedan solo en la memoria de la pestaña y desaparecen al cerrar o recargar la página; el navegador no guarda ni el tema ni el idioma.","Rien n'est conservé : la clé, le solde, les adresses et les fichiers restent uniquement dans la mémoire de l'onglet et disparaissent à la fermeture ou au rechargement de la page ; le navigateur ne conserve ni le thème ni la langue.","Nulla viene salvato: la chiave, il saldo, gli indirizzi e i file restano solo nella memoria della scheda e spariscono alla chiusura o al ricaricamento della pagina; il browser non salva né il tema né la lingua.","Nichts wird gespeichert: Schlüssel, Guthaben, Adressen und Dateien liegen nur im Speicher des Tabs und verschwinden beim Schließen oder Neuladen der Seite; der Browser speichert weder Design noch Sprache.","Niets wordt bewaard: de sleutel, het saldo, de adressen en de bestanden staan alleen in het geheugen van het tabblad en verdwijnen bij het sluiten of herladen van de pagina; de browser bewaart noch het thema noch de taal.","No es desa res: la clau, el saldo, les adreces i els fitxers queden només a la memòria de la pestanya i desapareixen en tancar o recarregar la pàgina; el navegador no desa ni el tema ni l'idioma.","Non se garda nada: a clave, o saldo, os enderezos e os ficheiros quedan só na memoria da lapela e desaparecen ao pechar ou recargar a páxina; o navegador non garda nin o tema nin o idioma."],
@@ -449,6 +456,27 @@
      idioma redesenha o mesmo estado no idioma novo (VG-IDI-02). O `raw` é o
      texto que vem do servidor como dado e não tem tradução aqui. */
   function msg(key, vars) { return key ? { key: key, vars: vars || null } : null; }
+
+  /* Credencial das rotas de envio: a sessão guarda o conjunto no Durable
+     Object; sem sessão (dev sem WATCH), o conjunto vai no corpo. A xpub não
+     entra em nenhuma das duas. */
+  function walletAuth(body) {
+    if (state.session) {
+      body.session = state.session;
+      delete body.watch;
+      delete body.watch_add;
+      delete body.wallet_id;
+      delete body.fingerprint;
+      delete body.version_type;
+    } else if (state.watchRows.length) {
+      delete body.session;
+      body.watch = state.watchRows;
+      body.wallet_id = state.walletId;
+      body.fingerprint = state.fingerprint;
+      body.version_type = state.versionType;
+    }
+    return body;
+  }
   function rawMsg(value) { return value == null || value === '' ? null : { raw: String(value) }; }
   function specText(spec) {
     if (!spec) return '';
@@ -795,7 +823,85 @@
     if (s.length !== XPUB_TOTAL || !EXT_PUBLIC_RE.test(s)) {
       return msg('chave inválida: use a xpub, zpub ou ypub da conta.');
     }
+    try {
+      if (window.LocalWallet) window.LocalWallet.parseXpub(s);
+    } catch (e) {
+      return serverSpec(e && e.message ? e.message : String(e)) ||
+        msg('chave inválida: use a xpub, zpub ou ypub da conta.');
+    }
     return null;
+  }
+
+  /* -------------------- derivação local -------------------- */
+  var GAP = 50;
+  var LOCAL_TYPES = ['bip86', 'bip84', 'bip49', 'bip44'];
+
+  function randomWalletId() {
+    var b = new Uint8Array(32);
+    crypto.getRandomValues(b);
+    var s = '';
+    for (var i = 0; i < b.length; i++) s += (b[i] < 16 ? '0' : '') + b[i].toString(16);
+    return s;
+  }
+
+  function localWallet() {
+    if (!window.LocalWallet) throw fail('não foi possível carregar a derivação local; recarregue a página.');
+    return window.LocalWallet;
+  }
+
+  /* Primeira cauda: 0..49 dos oito ramos. A regra de 50 endereços vazios
+     continua no servidor e no cliente; aqui só nasce o ponto de partida. */
+  async function initialWatchRows(account) {
+    var lw = localWallet();
+    var jobs = [];
+    LOCAL_TYPES.forEach(function (type) {
+      [0, 1].forEach(function (chain) {
+        jobs.push(lw.deriveRows(account, type, chain, 0, GAP));
+      });
+    });
+    var parts = await Promise.all(jobs);
+    var out = [];
+    parts.forEach(function (part) { out = out.concat(part); });
+    return out;
+  }
+
+  /* Depois da resposta do servidor, deriva só o que falta para cada ramo
+     voltar a ter 50 endereços vazios depois do último usado. */
+  async function missingWatchRows(account, status) {
+    var lw = localWallet();
+    var jobs = [];
+    Object.keys(status.branches || {}).forEach(function (key) {
+      var branch = status.branches[key];
+      var need = Number(branch.need) || 0;
+      if (need <= 0) return;
+      var sep = key.indexOf(':');
+      var type = key.slice(0, sep);
+      var chain = Number(key.slice(sep + 1));
+      var from = Number(branch.next);
+      var left = need;
+      while (left > 0) {
+        var take = Math.min(left, 500);
+        jobs.push(lw.deriveRows(account, type, chain, from, take));
+        from += take;
+        left -= take;
+      }
+    });
+    var parts = await Promise.all(jobs);
+    var out = [];
+    parts.forEach(function (part) { out = out.concat(part); });
+    return out;
+  }
+
+  function mergeWatchRows(base, extra) {
+    var seen = Object.create(null);
+    var out = [];
+    base.concat(extra).forEach(function (row) {
+      var key = row.account_type + ':' + row.chain + ':' + row.idx;
+      if (seen[key]) return;
+      seen[key] = true;
+      out.push(row);
+    });
+    return out;
   }
 
   function fmtBtc(sats) {
@@ -2032,12 +2138,12 @@
   async function loadLimits(address, rate, amount) {
     var seq = ++state.limitsSeq;
     var xpub = state.xpub;
-    var body = { xpub: xpub, address: address, fee_rate: rate, preview: true };
+    var body = { address: address, fee_rate: rate, preview: true };
     if (amount > 0) body.amount_sats = amount;
     /* A taxa vai também em `quote_rates` para o servidor devolver o custo
        dela em sats para o valor digitado, na mesma seleção de entradas. */
     if (rate > 0) body.quote_rates = [rate];
-    if (state.session) body.session = state.session;
+    walletAuth(body);
     try {
       var res = await fetchJson('/api/psbt', {
         method: 'POST',
@@ -2046,6 +2152,19 @@
       });
       var r = res.r;
       var j = res.j;
+      /* sessão do Durable Object caiu: refaz a consulta e tenta uma vez */
+      if (r.status === 409) {
+        await load(true);
+        if (seq !== state.limitsSeq || state.xpub !== xpub) return;
+        walletAuth(body);
+        res = await fetchJson('/api/psbt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        r = res.r;
+        j = res.j;
+      }
       if (seq !== state.limitsSeq || state.xpub !== xpub) return;
       if (!r.ok || j.error) throw apiFail(r, j);
       if (!Number.isInteger(j.max_send_sats)) throw fail('resposta sem limite de envio');
@@ -2423,8 +2542,8 @@
     if (!hasOld) setSendStatus('', msg('montando o psbt...'));
     try {
       var xpub = state.xpub;
-      var body = { xpub: xpub, address: address, amount_sats: amount, fee_rate: rate };
-      if (state.session) body.session = state.session;
+      var body = { address: address, amount_sats: amount, fee_rate: rate };
+      walletAuth(body);
       var res = await fetchJson('/api/psbt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2432,13 +2551,13 @@
       });
       var r = res.r;
       var j = res.j;
-      // sessão do Durable Object caiu: reenvia a xpub (a tela já tem o dado)
-      // e tenta uma vez com a sessão nova
+      // sessão do Durable Object caiu: refaz a derivação local (a tela já
+      // tem o conjunto) e tenta uma vez com a sessão nova
       if (r.status === 409) {
         await load(true);
         if (state.xpub !== xpub) throw fail('a carteira mudou; tente de novo.');
         if (!state.session) throw fail('sessão expirada; recarregue a carteira.');
-        body.session = state.session;
+        walletAuth(body);
         res = await fetchJson('/api/psbt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2658,8 +2777,8 @@
       if (!state.xpub) throw fail('carregue a carteira antes de escolher o arquivo');
       state.broadcastText = text;
       var xpub = state.xpub;
-      var body = { xpub: xpub, psbt: text, preview: true };
-      if (state.session) body.session = state.session;
+      var body = { psbt: text, preview: true };
+      walletAuth(body);
       var res = await fetchJson('/api/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2667,13 +2786,13 @@
       });
       var r = res.r;
       var j = res.j;
-      /* sessão do Durable Object caiu ou era de outra xpub: reenvia a xpub
-         (a tela já tem o dado) e tenta uma vez com a sessão nova */
+      /* sessão do Durable Object caiu: refaz a derivação local e tenta uma
+         vez com a sessão nova */
       if (r.status === 409) {
         await load(true);
         if (state.xpub !== xpub) throw fail('a carteira mudou; tente de novo.');
         if (!state.session) throw fail('sessão expirada; recarregue a carteira.');
-        body.session = state.session;
+        walletAuth(body);
         res = await fetchJson('/api/broadcast', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2716,8 +2835,8 @@
     state.broadcastBusy = true;
     updateBroadcastActions();
     setBroadcastStatus('', msg('transmitindo...'));
-    var body = { xpub: state.xpub, psbt: state.broadcastText };
-    if (state.session) body.session = state.session;
+    var body = { psbt: state.broadcastText };
+    walletAuth(body);
     try {
       var xpub = state.xpub;
       var res = await fetchJson('/api/broadcast', {
@@ -2727,13 +2846,13 @@
       });
       var r = res.r;
       var j = res.j;
-      /* sessão do Durable Object caiu ou era de outra xpub: reenvia a xpub
-         e tenta uma vez (o resumo já revisado continua válido) */
+      /* sessão do Durable Object caiu: refaz a derivação e tenta uma vez
+         (o resumo já revisado continua válido) */
       if (r.status === 409) {
         await load(true);
         if (state.xpub !== xpub) throw fail('a carteira mudou; tente de novo.');
         if (!state.session) throw fail('sessão expirada; recarregue a carteira.');
-        body.session = state.session;
+        walletAuth(body);
         res = await fetchJson('/api/broadcast', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -3051,8 +3170,8 @@
       }
       if (!feeRateOk(rate)) throw fail('taxa indisponível; tente de novo.');
       var xpub = state.xpub;
-      var body = { xpub: xpub, txid: txid, fee_rate: rate };
-      if (state.session) body.session = state.session;
+      var body = { txid: txid, fee_rate: rate };
+      walletAuth(body);
       var res = await fetchJson('/api/cpfp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3060,12 +3179,12 @@
       });
       var r = res.r;
       var j = res.j;
-      // sessão do Durable Object caiu: reenvia a xpub e tenta uma vez
+      // sessão do Durable Object caiu: refaz a derivação e tenta uma vez
       if (r.status === 409) {
         await load(true);
         if (state.xpub !== xpub) throw fail('a carteira mudou; tente de novo.');
         if (!state.session) throw fail('sessão expirada; recarregue a carteira.');
-        body.session = state.session;
+        walletAuth(body);
         res = await fetchJson('/api/cpfp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -3270,6 +3389,14 @@
     }
     setFieldInvalid($('#xpub'), false);
     if (state.busy) return;
+    var account = state.account;
+    var rows = state.watchRows;
+    var sameWallet = !!(account && state.xpub === xpub && rows.length);
+    if (!sameWallet) {
+      try { account = localWallet().parseXpub(xpub); }
+      catch (e) { setStatus('error', errSpec(e)); return; }
+      rows = [];
+    }
     state.busy = true;
     stopScan();
     closeWatch();
@@ -3279,11 +3406,25 @@
     }
     if (!quiet) setStatus('', scanText());
     try {
-      // A xpub vai no corpo a cada consulta: o servidor não guarda nada,
-      // então ela nunca fica armazenada. O session só reaproveita a conexão
-      // do Durable Object enquanto esta tela estiver aberta.
+      /* A xpub fica só neste objeto e na memória da aba. O corpo leva os
+         endereços derivados, nunca a chave estendida. */
+      if (!sameWallet) {
+        state.account = account;
+        state.walletId = randomWalletId();
+        state.fingerprint = localWallet().fingerprintOf(account);
+        state.versionType = account.versionType;
+        state.watchRows = [];
+        state.session = '';
+        rows = await initialWatchRows(account);
+        if ($('#xpub').value.trim() !== xpub) return;
+      }
       while (true) {
-        var body = { xpub: xpub, scan: 'step' };
+        var body = {
+          watch: rows,
+          wallet_id: state.walletId,
+          fingerprint: state.fingerprint,
+          version_type: state.versionType
+        };
         if (state.session) body.session = state.session;
         var res = await fetchJson('/api/wallet', {
           method: 'POST',
@@ -3304,10 +3445,17 @@
         if ($('#xpub').value.trim() !== xpub) return;
         state.xpub = xpub;
         state.session = j.session || '';
-        if (j.scanning) {
-          showScan(j.progress, keepView, quiet);
+        /* O servidor fecha a margem com as linhas que recebeu. Se o último
+           usado encostou na cauda, deriva o que falta e repete; a regra de
+           50 vazios por ramo não muda. */
+        if (j.watch_status && !j.watch_status.complete) {
+          var extra = await missingWatchRows(account, j.watch_status);
+          if (!extra.length) throw fail('não foi possível fechar a margem de 50 endereços.');
+          rows = mergeWatchRows(rows, extra);
+          state.watchRows = rows;
           continue;
         }
+        state.watchRows = rows;
         stopScan();
         render(j);
         // a tela já mostra o resultado: o recado de "verificando" sai de cena
@@ -3395,13 +3543,13 @@
     var wait = Math.min(30000, 2000 * Math.pow(2, state.watchRetry++));
     setTimeout(function () {
       if (!state.xpub || document.hidden) return;
-      // reenvia a xpub (nada fica guardado no servidor) e reabre o canal
+      // reenvia os endereços (nada fica guardado no servidor) e reabre o canal
       load(true);
     }, wait);
   }
 
   /* O WebSocket só leva o id da sessão (aleatório), nunca a xpub. Se o DO
-     foi despejado, ele responde 409 e a reconexão reenvia a xpub. */
+     foi despejado, ele responde 409 e a reconexão reenvia o conjunto local. */
   function openWatch() {
     if (!state.session || !window.WebSocket) return;
     if (state.watch && (state.watch.readyState === 0 || state.watch.readyState === 1)) return;
@@ -3416,6 +3564,12 @@
       var frame;
       try { frame = JSON.parse(ev.data); } catch (e) { return; }
       if (frame.type === 'payload' && frame.payload) {
+        /* um recebimento no fim da cauda exige mais endereços; o payload
+           incompleto não é desenhado e a tela refaz a varredura local */
+        if (frame.payload.watch_status && !frame.payload.watch_status.complete) {
+          if (!state.busy) load(true);
+          return;
+        }
         render(frame.payload);
       } else if (frame.type === 'error') {
         setStatus('error', msg('tempo real: {message}', {

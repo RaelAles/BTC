@@ -44,7 +44,8 @@
   ],
   // Nada de D1/KV/R2: o projeto não guarda estado. O Durable Object abaixo
   // também não usa storage (sem put/alarm); ele só vive enquanto a tela
-  // estiver aberta, com conexão Electrum e assinaturas em memória.
+  // estiver aberta, com conexão Electrum, assinaturas e o conjunto de
+  // endereços derivado pelo navegador em memória. A xpub não entra nele.
   "durable_objects": {
     "bindings": [
       {

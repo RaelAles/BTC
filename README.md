@@ -6,13 +6,15 @@
 
 <!-- English · [Português (Brasil)](README.pt-BR.md) -->
 
-Watch-only Bitcoin wallet on Cloudflare Workers. You paste an account
-**xpub** (or `zpub`/`ypub`), the Worker derives the public addresses and reads
-the balance, the receive addresses and the transaction history from an
-**Electrum** server. It can also build an unsigned PSBT and broadcast the
-signed transaction that comes back from the offline **Cofre BTC** signer.
+Watch-only Bitcoin wallet on Cloudflare Workers. The browser reads the
+account **xpub** (or `zpub`/`ypub`), derives the addresses locally and sends
+the Worker only the address/scripthash set; the Worker reads the balance, the
+receive addresses and the transaction history from an **Electrum** server. It
+can also build an unsigned PSBT and broadcast the signed transaction that
+comes back from the offline **Cofre BTC** signer.
 
-Nothing is stored: no wallet data in the browser, no database in Cloudflare.
+Nothing is stored: no wallet data in the browser, no database in Cloudflare,
+and the xpub is not sent to the Worker.
 
 ## What it is
 
@@ -73,14 +75,14 @@ background watch with the page closed.
 - `zpub` maps to BIP84 and `ypub` to BIP49. A plain `xpub` scans all four
   account types and marks the first one with history, in the order BIP44,
   BIP86, BIP84, BIP49.
-- The scanner walks both chains (`/0/i` receive, `/1/i` change) of the four
-  types. Each branch stops after **50 consecutive unused addresses**. The
-  next address is always `last used + 1`.
-- The scan runs in steps: each request derives at most **200 new addresses**
-  and returns progress; the screen asks for the next step. Only the last step
-  returns the final payload. If the abuse brake answers **429**, the screen
-  waits for `Retry-After` and repeats the same step, so a very large wallet
-  finishes across several budget windows.
+- The scan walks both chains (`/0/i` receive, `/1/i` change) of the four
+  types, **in the browser**. Each branch stops after **50 consecutive unused
+  addresses**. The next address is always `last used + 1`.
+- The screen derives the 50-address tail of each branch and sends the set to
+  the Worker; the response says how many addresses are missing to close the
+  gap. The screen derives that tail and repeats, without the Worker ever
+  seeing the xpub. If the abuse brake answers **429**, the screen waits for
+  `Retry-After` and repeats the same step.
 
 ### Balance
 
@@ -96,11 +98,11 @@ background watch with the page closed.
 ### Electrum as the only source
 
 `src/electrum.js` speaks the Electrum JSON-RPC protocol over
-`cloudflare:sockets`. The Worker derives each script locally, so it queries by
-`scripthash` (`blockchain.scripthash.get_history`,
-`blockchain.scripthash.get_mempool`, `blockchain.transaction.get`) and does the
-UTXO accounting itself. There is no Esplora, no blockchain.info and no private
-key anywhere.
+`cloudflare:sockets`. Derivation happens in the browser; the Worker receives
+the derived addresses and queries by `scripthash`
+(`blockchain.scripthash.get_history`, `blockchain.scripthash.get_mempool`,
+`blockchain.transaction.get`), doing the UTXO accounting itself. There is no
+Esplora, no blockchain.info and no private key anywhere.
 
 A one-off query opens a connection and closes it at the end. During a live
 session the connection is reused, with pipelining and a per-request timeout.
@@ -117,11 +119,11 @@ configuration.
   the 50-address tail of each branch. When the server notifies a change, it
   re-queries only that scripthash and pushes the new payload over WebSocket.
 - When the last screen closes, the object drops everything: socket,
-  subscriptions, derived addresses, transaction cache, last payload and the
-  xpub. There is no alarm and no storage to restore.
-- Session loss returns **409**; the screen sends the xpub again and reopens
-  the channel. If the session is evicted or the Worker is redeployed, the next
-  request rebuilds the scan.
+  subscriptions, addresses, transaction cache, last payload and the observed
+  set. There is no xpub in the object, no alarm and no storage to restore.
+- Session loss returns **409**; the screen re-derives locally and reopens the
+  channel. If the session is evicted or the Worker is redeployed, the next
+  request rebuilds the query.
 
 ### Fees and PSBT
 
@@ -212,6 +214,7 @@ npm run dev             # wrangler dev, with the real Electrum configuration
 npm test                # all *.test.mjs, no network
 npm run icons           # render the PWA icons from icon.svg (needs Chromium)
 npm run sync:cofre-css  # re-inject the embedded style into the Cofre (maintainer)
+npm run sync:browser-core # generate the local derivation used by the screen (SRI)
 ```
 
 `sync:cofre-css` reads the ascii-ui skill's `estilo.css` by default; pass a
@@ -279,41 +282,53 @@ disabled/misconfigured).
 ### `POST /api/wallet`
 
 ```json
-{ "xpub": "xpub...", "session": "optional", "scan": "step" }
+{ "watch": [{ "account_type": "bip84", "chain": 0, "idx": 0,
+  "address": "bc1...", "path": "m/84'/0'/0'/0/0",
+  "script": "0014...", "pub": "02..." }],
+  "wallet_id": "64 hex chars", "fingerprint": "8 hex chars",
+  "version_type": "xpub", "session": "optional" }
 ```
 
-Without `scan`, it scans everything and returns the final payload. With
-`scan: "step"`, it derives at most 200 new addresses and returns progress
-(`scanning`, `has_more`, `progress`, `watch`, `session`); the screen repeats
-the request until `has_more` is false.
+The body carries the addresses already derived by the browser; the xpub is not
+part of the request. `wallet_id` is the random wallet identity for that
+session and `fingerprint` is the account fingerprint used in the PSBT BIP32
+origin. The Worker queries the scripthashes, closes the **50-unused-address
+gap per branch** and returns `watch_status`:
 
-The final payload contains:
+- `watch_status.gap`: always 50;
+- `watch_status.complete`: the gap is closed;
+- `watch_status.branches["bip84:0"]`: `last_used`, `max_idx`, `next` and
+  `need`. If `need > 0`, the screen derives `next .. next + need - 1` and
+  repeats.
 
-- `detected_type`, `balance` (`detected`, `total`, `pending_in`,
-  `pending_out`), `types`, `addresses`, `transactions`, `warnings` and
-  `updated_at`;
-- `types` always has all four entries in the order BIP86, BIP84, BIP49,
-  BIP44, each with the next receive address, the next change address, the
-  type balance and `detected`;
-- `addresses` contains only used addresses, newest activity first;
-- `transactions` has one entry per `txid`, with `pending`, `height`,
-  `direction`, received/sent/fee values, input/output counts, wallet
-  `addresses` and the CPFP eligibility/output;
-- `session` is the random Durable Object id used by the next requests.
+After the first step, the screen may send only `session` to the send routes;
+the Durable Object keeps the set while the session exists. If the session is
+lost (**409**), the screen re-derives and calls `POST /api/wallet` again.
+
+The final payload contains `detected_type`, `balance`, `types`, `addresses`,
+`transactions`, `warnings`, `updated_at` and `watch_status`. `types` always has
+the four entries in BIP86, BIP84, BIP49, BIP44 order; `addresses` contains only
+used addresses; `transactions` has one entry per `txid` with fee, direction,
+addresses and CPFP eligibility; `session` is the random Durable Object id.
+
+The route still accepts the old `xpub` body for compatibility, but the screen
+does not send it. The documented and tested flow is `watch`.
 
 ### `POST /api/psbt`
 
 ```json
-{ "xpub": "xpub...", "session": "optional", "address": "bc1...",
+{ "session": "optional", "address": "bc1...",
   "amount_sats": 50000, "fee_rate": 6 }
 ```
 
+Without a session (dev without the Durable Object), send `watch`,
+`wallet_id`, `fingerprint` and `version_type` instead of `session`.
 `amount_sats` is an integer; `fee_rate` is in sat/vB and accepts the
 estimator's decimals (from 0.001 to 10000). Values below 546 sats are refused
 as dust. The response carries the base64 `psbt`, `txid`, `vsize`, `fee_sats`,
 `fee_sats_at_rate`, `dust_sats`, `fee_rate`, `total_in`, `total_out`,
 `amount_sats`, `recipient`, `change` and `inputs`/`outputs` with their BIP32
-paths and `own` classification (`externo`, `recebimento` or `troco`).
+paths and `own` classification.
 
 With `preview: true` and no `amount_sats`, it returns the send limit:
 `available_sats`, `min_sats`, `max_send_sats`, `fee_sats_at_max` and
@@ -324,27 +339,27 @@ rate for the same amount.
 ### `POST /api/cpfp`
 
 ```json
-{ "xpub": "xpub...", "session": "optional",
-  "txid": "...", "fee_rate": 11 }
+{ "session": "optional", "txid": "...", "fee_rate": 11 }
 ```
 
 The txid must be a pending transaction with all inputs from this wallet and a
-checkable parent fee. The response includes the child `psbt`, `txid`,
-`vsize`, `fee_sats`, `parent`, `package`, `input` and `output`. The child has
-no external destination; the remainder returns to the next change address.
+checkable parent fee. The body accepts the same `watch` as `/api/wallet` when
+there is no session. The response includes the child `psbt`, `txid`, `vsize`,
+`fee_sats`, `parent`, `package`, `input` and `output`. The child has no
+external destination; the remainder returns to the next change address.
 
 ### `POST /api/broadcast`
 
 ```json
-{ "xpub": "xpub...", "session": "optional",
-  "psbt": "cHNidP8...", "preview": true }
+{ "session": "optional", "psbt": "cHNidP8...", "preview": true }
 ```
 
-The PSBT must be v0 and signed by the Cofre. The response summarizes the final
-transaction (`txid`, real `vsize`, `fee_sats`, `fee_rate`, `total_in`,
-`total_out`, `inputs`, `outputs`, `warnings`, `rbf`, `locktime`). Without
-`preview`, it also returns `broadcast: true` and `server_txid`; the final hex
-never goes back to the browser.
+The PSBT must be v0 and signed by the Cofre. Without a session, send the same
+`watch`. The response summarizes the final transaction (`txid`, real `vsize`,
+`fee_sats`, `fee_rate`, `total_in`, `total_out`, `inputs`, `outputs`,
+`warnings`, `rbf`, `locktime`). Without `preview`, it also returns
+`broadcast: true` and `server_txid`; the final hex never goes back to the
+browser.
 
 ### `GET /api/fees?session=…`
 
@@ -358,7 +373,7 @@ estimated value is used as-is.
 
 WebSocket upgrade. Messages are `{ "type": "payload", ... }`,
 `{ "type": "progress", ... }` while the scan is running, or
-`{ "type": "error", ... }` when Electrum fails. A session without the xpub
+`{ "type": "error", ... }` when Electrum fails. A session without a wallet
 answers 409.
 
 ### `GET /api/health`
@@ -371,9 +386,17 @@ Returns `{ "ok": true, "service": "monitor-btc-electrum", "source":
 
 - The xpub is watch-only. **Never paste an `xprv`/`yprv`/`zprv`.** A leaked
   xpub costs privacy, not funds.
-- The xpub is the credential. It lives only in the tab's memory and in the
-  Durable Object while the session is open. The Worker does not log it, does
-  not put it in a URL and has no database.
+- The xpub lives only in the tab's memory. The Worker receives the derived
+  address set (used addresses plus the 50-address tail), never the extended
+  key; it does not log the set, does not put it in a URL and has no database.
+  A compromised Worker still sees those addresses, the UTXOs and the queried
+  history, but cannot derive future addresses outside the sent gap.
+- **The screen code also comes from the Worker.** A compromised Worker can
+  serve altered `index.html`/`app.js` and capture the xpub before any local
+  derivation; SRI and CSP do not help when the page itself is replaced.
+  Local derivation protects against a server that receives requests, not
+  against a server that controls the delivered code. That guarantee would
+  require a client downloaded and verified outside the Worker.
 - The session id is a temporary capability. Whoever holds it while the screen
   is open can read that wallet's state; it is random and disappears when the
   last screen closes.
@@ -386,7 +409,7 @@ Returns `{ "ok": true, "service": "monitor-btc-electrum", "source":
   `Referrer-Policy`, `Permissions-Policy`, COOP, COEP and CORP. The static
   `public/_headers` and `SECURITY_HEADERS` in `src/config.js` keep those nine
   values identical; a test enforces it.
-- `app.js`, `fontes.css` and `style.css` use SRI. Any edit requires updating
+- `wallet-local.js`, `app.js`, `fontes.css` and `style.css` use SRI. Any edit requires updating
   the hash in `public/index.html`, and `npm test` fails on a stale hash. Keep
   Cloudflare minification and Rocket Loader off for the same reason.
 
@@ -410,6 +433,8 @@ own BTC core:
 | `cofre-ui.test.mjs` | Cofre screens, the nine i18n columns and the embedded CSS hash. |
 | `broadcast.test.mjs` | Signed PSBT checks and broadcast, including the Durable Object path. |
 | `watcher.test.mjs` | Subscriptions, notifications, reconnect, eviction and total discard. |
+| `watch-mode.test.mjs` | Local derivation, 50-address gap, PSBT and Durable Object without xpub. |
+| `browser-core.test.mjs` | `wallet-local.js` up to date and derivation parity with the server. |
 | `hardening.test.mjs` | Input caps, abuse brake and WebSocket Origin. |
 | `security-headers.test.mjs` | Header parity, CSP, SRI hashes and the Cofre hash in this README. |
 | `http-surface.test.mjs` | 404 status for unknown paths and the read-only asset surface. |
@@ -422,7 +447,8 @@ own BTC core:
 .github/assets/          support buttons used by this README
 .github/workflows/       CI and Cofre release automation
 public/
-  app.js                 browser client (xpub, scan, render, WebSocket)
+  app.js                 browser client (local derivation, render, WebSocket)
+  wallet-local.js        generated browser derivation (SRI)
   apple-touch-icon.png   iOS home-screen icon
   cofre-btc.html         standalone offline key generator and PSBT signer
   fontes.css             embedded font
@@ -443,6 +469,7 @@ scripts/
   build-icons.mjs        renders the PWA icons from icon.svg
   sync-cofre-core.mjs    extracts the Cofre core for parity tests
   sync-cofre-css.mjs     reinjects the skill's style.css into the Cofre
+  sync-browser-core.mjs  generates public/wallet-local.js from the core
 src/
   btc-core.js            BTC core (keys, addresses, tx, PSBT, signing helpers)
   derivation.js          CKDpub, xpub parsing and the four address types
@@ -450,7 +477,8 @@ src/
   address-totals.js      UTXO accounting per script
   psbt.js                coin selection, fee, change and send PSBT
   broadcast.js           signed PSBT checks and broadcast
-  wallet-sync.js         gap scan, step scan and wallet payload
+  wallet-sync.js         local-set query, gap and wallet payload
+  watch-set.js           validation of client-derived addresses
   watcher.js             Durable Object: socket, subscriptions, WebSocket
   config.js              environment, security headers and helpers
   worker.js              routes
@@ -469,9 +497,9 @@ package.json
 - **Full scan on every opening.** Without durable storage, each new session
   scans the gap of 50 again and downloads the used transactions. While the
   session is alive, later queries and notifications reuse memory.
-- **CPU and cost.** Opening a screen derives about 400 addresses (8 branches
-  × 50) and is CPU-heavy; run it on a Workers plan whose CPU limit covers the
-  scan. The Durable Object only stays awake while a screen is open.
+- **Browser CPU.** Opening the screen derives about 400 addresses (8 branches
+  × 50) locally and is CPU-heavy on the tab; the Worker only queries the
+  scripthashes. The Durable Object only stays awake while a screen is open.
 - **Gap limit.** Addresses after 50 consecutive unused ones are invisible; an
   interrupted scan shows "incomplete search" instead of a final balance.
 - **Subscriptions cover used addresses and the gap tail**, not the whole
@@ -498,6 +526,10 @@ package.json
   instance.
 - **Electrum sees the queried scripthashes** (TLS hides them from the network
   path, not from the server). The Cofre remains the authoritative signer.
+- **The Worker sees the sent set**: used addresses plus the 50-address tail of
+  each branch, the UTXOs, the txids and the PSBT. The xpub stays in the
+  browser, but a compromised Worker can still lie about balance, fee or
+  censor; the Cofre check is the final defense before signing.
 - **Mainnet only.** The project works with Bitcoin mainnet keys and addresses.
 - **No RBF.** The builder uses final sequence values, so the summary reports
   `rbf: false`; the acceleration path is CPFP.
