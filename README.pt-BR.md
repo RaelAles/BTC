@@ -152,7 +152,7 @@ do próprio PSBT (entradas menos saídas) e só recebe avisos de piso e teto; o
 Cofre não compara com o `estimatefee` nem com uma fonte independente.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
-`cfef5aee33d5a0d2ed48eae015f6da89ddee3d445923193f25ee83a047f9aa79` — rode
+`553d86fe5429e61cfb552036595572e5c82c6dfbc4f106cecd9ed8e6c6d6e2c9` — rode
 `sha256sum cofre-btc.html` no arquivo baixado; o asset do release tem sempre
 esse nome fixo. A tela “sobre” do Cofre
 pede a mesma conferência. Qualquer edição no Cofre exige atualizar este
@@ -506,7 +506,7 @@ package.json
   recusa.
 - **Só rede principal.** O projeto trabalha com chaves e endereços da mainnet
   do Bitcoin.
-- **RBF.** As transações novas sinalizam BIP125 e mostram `rbf: true`. O
+- **RBF.** As transações novas sinalizam BIP125. O
   botão **substituir** só aparece para transação pendente com entradas
   confirmadas e troco não gasto. A substituição mantém as entradas e
   os destinos externos, tira a taxa extra do troco e paga mais taxa absoluta

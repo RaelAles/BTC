@@ -2536,7 +2536,7 @@
             <!-- O resumo usa as mesmas linhas do projeto principal: um par
                  saída/destino por pagamento e um par troco/endereço por
                  troco, na ordem da transação, seguidos da taxa, do txid, do vsize,
-                 do rbf/agendado e do arquivo. Cada valor leva a fatia que
+                 do agendado e do arquivo. Cada valor leva a fatia que
                  representa da soma das
                  entradas. A última linha diz de qual arquivo vêm esses
                  dados: o PSBT importado ou, depois de assinar, o baixado. -->
@@ -2545,7 +2545,6 @@
                 <tr id="review-fee-row"><th scope="row">taxa</th><td id="review-fee">—</td></tr>
                 <tr><th scope="row">txid</th><td id="review-txid">—</td></tr>
                 <tr class="group-end"><th scope="row">vsize</th><td id="review-vsize">—</td></tr>
-                <tr><th scope="row">rbf</th><td id="review-rbf">—</td></tr>
                 <tr class="group-end"><th scope="row">agendado</th><td id="review-scheduled">—</td></tr>
                 <tr><th scope="row">arquivo</th><td id="review-file">—</td></tr>
               </tbody>
@@ -2642,7 +2641,7 @@
             </ul>
             <p><b>Transação.</b></p>
             <ul>
-              <li><b>BIP125</b> — aviso de que a transação pode ser substituída (RBF), mostrado no resumo.</li>
+              <li><b>BIP125</b> — aviso de que a transação pode ser substituída (RBF).</li>
               <li><b>BIP174</b> — formato do arquivo de transação (PSBT).</li>
               <li><b>BIP371</b> — dados do Taproot dentro do arquivo de transação.</li>
             </ul>
@@ -4647,7 +4646,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["taxa","fee","comisión","frais","commissione","Gebühr","kosten","comissió","comisión"],
     ["txid","txid","txid","txid","txid","txid","txid","txid","txid"],
     ["vsize","vsize","vsize","vsize","vsize","vsize","vsize","vsize","vsize"],
-    ["rbf","rbf","rbf","rbf","rbf","rbf","rbf","rbf","rbf"],
     ["agendado","scheduled","programado","programmé","programmato","geplant","gepland","programat","programado"],
     ["arquivo","file","archivo","fichier","file","Datei","bestand","fitxer","ficheiro"],
     ["avisos","warnings","avisos","avertissements","avvisi","Warnungen","waarschuwingen","avisos","avisos"],
@@ -4739,7 +4737,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["<b>BIP341</b> — chave pública do endereço <code>bc1p</code> (Taproot).","<b>BIP341</b> — public key of the <code>bc1p</code> address (Taproot).","<b>BIP341</b> — clave pública de la dirección <code>bc1p</code> (Taproot).","<b>BIP341</b> — clé publique de l'adresse <code>bc1p</code> (Taproot).","<b>BIP341</b> — chiave pubblica dell'indirizzo <code>bc1p</code> (Taproot).","<b>BIP341</b> — öffentlicher Schlüssel der <code>bc1p</code>-Adresse (Taproot).","<b>BIP341</b> — openbare sleutel van het <code>bc1p</code>-adres (Taproot).","<b>BIP341</b> — clau pública de l'adreça <code>bc1p</code> (Taproot).","<b>BIP341</b> — clave pública do enderezo <code>bc1p</code> (Taproot)."],
     ["<b>BIP350</b> — escrita dos endereços <code>bc1p</code>.","<b>BIP350</b> — spelling of <code>bc1p</code> addresses.","<b>BIP350</b> — escritura de las direcciones <code>bc1p</code>.","<b>BIP350</b> — écriture des adresses <code>bc1p</code>.","<b>BIP350</b> — scrittura degli indirizzi <code>bc1p</code>.","<b>BIP350</b> — Schreibweise der <code>bc1p</code>-Adressen.","<b>BIP350</b> — schrijfwijze van <code>bc1p</code>-adressen.","<b>BIP350</b> — escriptura de les adreces <code>bc1p</code>.","<b>BIP350</b> — escrita dos enderezos <code>bc1p</code>."],
     ["<b>Transação.</b>","<b>Transaction.</b>","<b>Transacción.</b>","<b>Transaction.</b>","<b>Transazione.</b>","<b>Transaktion.</b>","<b>Transactie.</b>","<b>Transacció.</b>","<b>Transacción.</b>"],
-    ["<b>BIP125</b> — aviso de que a transação pode ser substituída (RBF), mostrado no resumo.","<b>BIP125</b> — notice that the transaction can be replaced (RBF), shown in the summary.","<b>BIP125</b> — aviso de que la transacción puede ser sustituida (RBF), mostrado en el resumen.","<b>BIP125</b> — indication que la transaction peut être remplacée (RBF), affichée dans le récapitulatif.","<b>BIP125</b> — avviso che la transazione può essere sostituita (RBF), mostrato nel riepilogo.","<b>BIP125</b> — Hinweis, dass die Transaktion ersetzt werden kann (RBF), in der Übersicht angezeigt.","<b>BIP125</b> — melding dat de transactie kan worden vervangen (RBF), getoond in het overzicht.","<b>BIP125</b> — avís que la transacció es pot substituir (RBF), mostrat al resum.","<b>BIP125</b> — aviso de que a transacción pode ser substituída (RBF), mostrado no resumo."],
+    ["<b>BIP125</b> — aviso de que a transação pode ser substituída (RBF).","<b>BIP125</b> — notice that the transaction can be replaced (RBF).","<b>BIP125</b> — aviso de que la transacción puede ser sustituida (RBF).","<b>BIP125</b> — indication que la transaction peut être remplacée (RBF).","<b>BIP125</b> — avviso che la transazione può essere sostituita (RBF).","<b>BIP125</b> — Hinweis, dass die Transaktion ersetzt werden kann (RBF).","<b>BIP125</b> — melding dat de transactie kan worden vervangen (RBF).","<b>BIP125</b> — avís que la transacció es pot substituir (RBF).","<b>BIP125</b> — aviso de que a transacción pode ser substituída (RBF)."],
     ["<b>BIP174</b> — formato do arquivo de transação (PSBT).","<b>BIP174</b> — transaction file format (PSBT).","<b>BIP174</b> — formato del archivo de transacción (PSBT).","<b>BIP174</b> — format du fichier de transaction (PSBT).","<b>BIP174</b> — formato del file di transazione (PSBT).","<b>BIP174</b> — Format der Transaktionsdatei (PSBT).","<b>BIP174</b> — formaat van het transactiebestand (PSBT).","<b>BIP174</b> — format del fitxer de transacció (PSBT).","<b>BIP174</b> — formato do ficheiro de transacción (PSBT)."],
     ["<b>BIP371</b> — dados do Taproot dentro do arquivo de transação.","<b>BIP371</b> — Taproot data inside the transaction file.","<b>BIP371</b> — datos de Taproot dentro del archivo de transacción.","<b>BIP371</b> — données Taproot dans le fichier de transaction.","<b>BIP371</b> — dati Taproot nel file di transazione.","<b>BIP371</b> — Taproot-Daten in der Transaktionsdatei.","<b>BIP371</b> — Taproot-gegevens in het transactiebestand.","<b>BIP371</b> — dades de Taproot dins del fitxer de transacció.","<b>BIP371</b> — datos de Taproot dentro do ficheiro de transacción."],
     ["A assinatura dos endereços <code>1</code>, <code>3</code> e <code>bc1q</code> segue a RFC 6979: o número temporário sai de uma conta, não de um sorteio, então assinar a mesma transação de novo dá exatamente a mesma assinatura. No Taproot (<code>bc1p</code>) entra um sorteio à parte, e a mesma transação pode sair com assinaturas diferentes, todas válidas. A ferramenta trabalha só com a rede principal do Bitcoin.","Signing for <code>1</code>, <code>3</code> and <code>bc1q</code> addresses follows RFC 6979: the temporary number comes from a calculation, not a draw, so signing the same transaction again gives exactly the same signature. Taproot (<code>bc1p</code>) adds a separate draw, and the same transaction can come out with different signatures, all valid. The tool works only with the Bitcoin mainnet.","La firma de las direcciones <code>1</code>, <code>3</code> y <code>bc1q</code> sigue la RFC 6979: el número temporal sale de un cálculo, no de un sorteo, así que firmar la misma transacción de nuevo da exactamente la misma firma. En Taproot (<code>bc1p</code>) entra un sorteo aparte, y la misma transacción puede salir con firmas diferentes, todas válidas. La herramienta trabaja solo con la red principal de Bitcoin.","La signature des adresses <code>1</code>, <code>3</code> et <code>bc1q</code> suit la RFC 6979 : le nombre temporaire vient d'un calcul, pas d'un tirage, donc signer à nouveau la même transaction donne exactement la même signature. Dans Taproot (<code>bc1p</code>), un tirage distinct intervient, et la même transaction peut produire des signatures différentes, toutes valides. L'outil ne travaille qu'avec le réseau principal de Bitcoin.","La firma degli indirizzi <code>1</code>, <code>3</code> e <code>bc1q</code> segue la RFC 6979: il numero temporaneo viene da un calcolo, non da un sorteggio, quindi firmare di nuovo la stessa transazione dà esattamente la stessa firma. In Taproot (<code>bc1p</code>) entra un sorteggio separato, e la stessa transazione può uscire con firme diverse, tutte valide. Lo strumento lavora solo con la rete principale di Bitcoin.","Die Signatur der Adressen <code>1</code>, <code>3</code> und <code>bc1q</code> folgt RFC 6979: Die temporäre Zahl stammt aus einer Berechnung, nicht aus einer Ziehung, daher ergibt das erneute Signieren derselben Transaktion exakt dieselbe Signatur. Bei Taproot (<code>bc1p</code>) kommt eine separate Ziehung hinzu, und dieselbe Transaktion kann mit unterschiedlichen, aber gültigen Signaturen erzeugt werden. Das Werkzeug arbeitet nur mit dem Bitcoin-Hauptnetz.","De handtekening van de adressen <code>1</code>, <code>3</code> en <code>bc1q</code> volgt RFC 6979: het tijdelijke getal komt uit een berekening, niet uit een loting, dus dezelfde transactie opnieuw ondertekenen geeft precies dezelfde handtekening. Bij Taproot (<code>bc1p</code>) komt een aparte loting, en dezelfde transactie kan met verschillende handtekeningen uitkomen, allemaal geldig. De tool werkt alleen met het Bitcoin-hoofdnet.","La signatura de les adreces <code>1</code>, <code>3</code> i <code>bc1q</code> segueix la RFC 6979: el número temporal surt d'un càlcul, no d'un sorteig, així que signar la mateixa transacció de nou dona exactament la mateixa signatura. A Taproot (<code>bc1p</code>) hi entra un sorteig a part, i la mateixa transacció pot sortir amb signatures diferents, totes vàlides. L'eina treballa només amb la xarxa principal de Bitcoin.","A sinatura dos enderezos <code>1</code>, <code>3</code> e <code>bc1q</code> segue a RFC 6979: o número temporal sae dun cálculo, non dun sorteo, así que asinar a mesma transacción de novo dá exactamente a mesma sinatura. No Taproot (<code>bc1p</code>) entra un sorteo á parte, e a mesma transacción pode saír con sinaturas diferentes, todas válidas. A ferramenta traballa só coa rede principal de Bitcoin."],
@@ -5071,7 +5069,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var reviewVsize = $('#review-vsize');
   var reviewTxid = $('#review-txid');
   var reviewScheduled = $('#review-scheduled');
-  var reviewRbf = $('#review-rbf');
   var reviewFile = $('#review-file');
   var reviewWarnings = $('#review-warnings');
   var reviewWarningsList = $('#review-warnings-list');
@@ -6258,9 +6255,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       tbody.insertBefore(address, reviewFeeRow);
     });
   }
-  /* As duas linhas são só informativas: "agendado" é o locktime (0 = não)
-     e "rbf" é a sequence (0xfffffffe ou 0xffffffff em todas as entradas =
-     não, e transação versão 1 nunca sinaliza). */
+  /* A linha é só informativa: "agendado" é o locktime (0 = não). */
   function utcText(date) {
     return date.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
   }
@@ -6280,15 +6275,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       ? t('data estimada indisponível')
       : t('{value} (aprox.)', { value: utcText(estimated) });
   }
-  function rbfText(tx) {
-    if (!tx || !tx.inputs || !tx.inputs.length) return '—';
-    /* RBF (BIP125) é sinalizado por sequence abaixo de 0xfffffffe; a versão
-       da transação não importa. 0xfffffffe só liga o locktime. */
-    var rbf = tx.inputs.some(function (inp) {
-      return (inp.sequence >>> 0) < 0xfffffffe;
-    });
-    return t(rbf ? 'sim' : 'não');
-  }
   /* Só <b> e <code> são marcação: o resto é texto. Mantém o desenho do aviso
      sem abrir a revisão para HTML vindo do arquivo. */
   function warningHtml(html) {
@@ -6304,7 +6290,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     reviewCell(reviewVsize, (signed ? '' : '~') + a.vsize + ' vB');
     reviewCell(reviewTxid, (signed || !a.txidEstimated ? '' : '~') + a.txid);
     reviewCell(reviewScheduled, scheduledText(a.tx));
-    reviewCell(reviewRbf, rbfText(a.tx));
     reviewCell(reviewFile, file);
     if (reviewWarningsList) {
       reviewWarningsList.textContent = '';

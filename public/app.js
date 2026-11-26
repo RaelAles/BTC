@@ -179,7 +179,6 @@
     ["pó","dust","polvo","poussière","polvere","Staub","stof","pols","po"],
     ["txid","txid","txid","txid","txid","txid","txid","txid","txid"],
     ["vsize","vsize","vsize","vsize","vsize","vsize","vsize","vsize","vsize"],
-    ["rbf","rbf","rbf","rbf","rbf","rbf","rbf","rbf","rbf"],
     ["agendado","scheduled","programado","programmé","programmato","geplant","gepland","programat","programado"],
     ["Exportar PSBT","Export PSBT","Exportar PSBT","Exporter le PSBT","Esporta PSBT","PSBT exportieren","PSBT exporteren","Exportar PSBT","Exportar PSBT"],
     ["baixar","download","descargar","télécharger","scarica","herunterladen","downloaden","descarregar","descargar"],
@@ -224,7 +223,7 @@
     ["<b>BIP341</b> — chave pública do endereço <code>bc1p</code> (Taproot).","<b>BIP341</b> — public key of the <code>bc1p</code> address (Taproot).","<b>BIP341</b> — clave pública de la dirección <code>bc1p</code> (Taproot).","<b>BIP341</b> — clé publique de l'adresse <code>bc1p</code> (Taproot).","<b>BIP341</b> — chiave pubblica dell'indirizzo <code>bc1p</code> (Taproot).","<b>BIP341</b> — öffentlicher Schlüssel der <code>bc1p</code>-Adresse (Taproot).","<b>BIP341</b> — openbare sleutel van het <code>bc1p</code>-adres (Taproot).","<b>BIP341</b> — clau pública de l'adreça <code>bc1p</code> (Taproot).","<b>BIP341</b> — clave pública do enderezo <code>bc1p</code> (Taproot)."],
     ["<b>BIP350</b> — escrita dos endereços <code>bc1p</code>.","<b>BIP350</b> — spelling of <code>bc1p</code> addresses.","<b>BIP350</b> — escritura de las direcciones <code>bc1p</code>.","<b>BIP350</b> — écriture des adresses <code>bc1p</code>.","<b>BIP350</b> — scrittura degli indirizzi <code>bc1p</code>.","<b>BIP350</b> — Schreibweise der <code>bc1p</code>-Adressen.","<b>BIP350</b> — schrijfwijze van <code>bc1p</code>-adressen.","<b>BIP350</b> — escriptura de les adreces <code>bc1p</code>.","<b>BIP350</b> — escrita dos enderezos <code>bc1p</code>."],
     ["<b>Transação.</b>","<b>Transaction.</b>","<b>Transacción.</b>","<b>Transaction.</b>","<b>Transazione.</b>","<b>Transaktion.</b>","<b>Transactie.</b>","<b>Transacció.</b>","<b>Transacción.</b>"],
-    ["<b>BIP125</b> — sinalização de substituição (RBF). As transações novas sinalizam; o resumo mostra <code>rbf</code>.","<b>BIP125</b> — replacement signaling (RBF). New transactions signal; the summary shows <code>rbf</code>.","<b>BIP125</b> — señalización de sustitución (RBF). Las transacciones nuevas señalan; el resumen muestra <code>rbf</code>.","<b>BIP125</b> — signalement de remplacement (RBF). Les nouvelles transactions signalent ; le récapitulatif affiche <code>rbf</code>.","<b>BIP125</b> — segnalazione di sostituzione (RBF). Le nuove transazioni segnalano; il riepilogo mostra <code>rbf</code>.","<b>BIP125</b> — Ersetzungssignalisierung (RBF). Neue Transaktionen signalisieren; die Übersicht zeigt <code>rbf</code>.","<b>BIP125</b> — signaal voor vervanging (RBF). Nieuwe transacties signaleren; het overzicht toont <code>rbf</code>.","<b>BIP125</b> — senyalització de substitució (RBF). Les transaccions noves senyalitzen; el resum mostra <code>rbf</code>.","<b>BIP125</b> — sinalización de substitución (RBF). As transaccións novas sinalizan; o resumo mostra <code>rbf</code>."],
+    ["<b>BIP125</b> — sinalização de substituição (RBF). As transações novas sinalizam.","<b>BIP125</b> — replacement signaling (RBF). New transactions signal.","<b>BIP125</b> — señalización de sustitución (RBF). Las transacciones nuevas señalan.","<b>BIP125</b> — signalement de remplacement (RBF). Les nouvelles transactions signalent.","<b>BIP125</b> — segnalazione di sostituzione (RBF). Le nuove transazioni segnalano.","<b>BIP125</b> — Ersetzungssignalisierung (RBF). Neue Transaktionen signalisieren.","<b>BIP125</b> — signaal voor vervanging (RBF). Nieuwe transacties signaleren.","<b>BIP125</b> — senyalització de substitució (RBF). Les transaccions noves senyalitzen.","<b>BIP125</b> — sinalización de substitución (RBF). As transaccións novas sinalizan."],
     ["<b>BIP174</b> — formato do arquivo de transação (PSBT).","<b>BIP174</b> — transaction file format (PSBT).","<b>BIP174</b> — formato del archivo de transacción (PSBT).","<b>BIP174</b> — format du fichier de transaction (PSBT).","<b>BIP174</b> — formato del file di transazione (PSBT).","<b>BIP174</b> — Format der Transaktionsdatei (PSBT).","<b>BIP174</b> — formaat van het transactiebestand (PSBT).","<b>BIP174</b> — format del fitxer de transacció (PSBT).","<b>BIP174</b> — formato do ficheiro de transacción (PSBT)."],
     ["<b>BIP371</b> — dados do Taproot dentro do arquivo de transação.","<b>BIP371</b> — Taproot data inside the transaction file.","<b>BIP371</b> — datos de Taproot dentro del archivo de transacción.","<b>BIP371</b> — données Taproot dans le fichier de transaction.","<b>BIP371</b> — dati Taproot nel file di transazione.","<b>BIP371</b> — Taproot-Daten in der Transaktionsdatei.","<b>BIP371</b> — Taproot-gegevens in het transactiebestand.","<b>BIP371</b> — dades de Taproot dins del fitxer de transacció.","<b>BIP371</b> — datos de Taproot dentro do ficheiro de transacción."],
     ["A ferramenta trabalha só com a rede principal do Bitcoin.","The tool works only with the Bitcoin mainnet.","La herramienta trabaja solo con la red principal de Bitcoin.","L'outil ne travaille qu'avec le réseau principal de Bitcoin.","Lo strumento lavora solo con la rete principale di Bitcoin.","Das Werkzeug arbeitet nur mit dem Bitcoin-Hauptnetz.","De tool werkt alleen met het Bitcoin-hoofdnet.","L'eina treballa només amb la xarxa principal de Bitcoin.","A ferramenta traballa só coa rede principal de Bitcoin."],
@@ -910,7 +909,6 @@
     var stamp = date.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
     return value < 500000000 ? t('{value} (aprox.)', { value: stamp }) : stamp;
   }
-  function rbfText(rbf) { return t(rbf ? 'sim' : 'não'); }
   /* Valor digitado em BTC → sats inteiros. Aceita vírgula ou ponto e até 8
      casas; qualquer outra coisa (ou zero) devolve null. */
   function parseBtcSats(text) {
@@ -2375,7 +2373,6 @@
     var values = {
       '#send-meta-txid': j.txid,
       '#send-meta-vsize': '~' + fmtInt(j.vsize) + ' vB',
-      '#send-meta-rbf': rbfText(j.rbf),
       '#send-meta-scheduled': scheduledText(j.locktime)
     };
     Object.keys(values).forEach(function (sel) {
@@ -2680,7 +2677,6 @@
     broadcastCell('#broadcast-meta-file', state.broadcastName || '—');
     broadcastCell('#broadcast-meta-txid', j.txid);
     broadcastCell('#broadcast-meta-vsize', fmtInt(j.vsize) + ' vB');
-    broadcastCell('#broadcast-meta-rbf', rbfText(j.rbf));
     broadcastCell('#broadcast-meta-scheduled', scheduledText(j.locktime));
     var fee = $('#broadcast-meta-fee');
     if (fee) fee.innerHTML = signedBtcShare(j.fee_sats, 'out');

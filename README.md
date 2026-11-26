@@ -157,7 +157,7 @@ and ceiling warnings; the Cofre does not compare it with `estimatefee` or an
 independent source.
 
 Before opening it, compare the published hash: the sha256 of the published
-file is `cfef5aee33d5a0d2ed48eae015f6da89ddee3d445923193f25ee83a047f9aa79` —
+file is `553d86fe5429e61cfb552036595572e5c82c6dfbc4f106cecd9ed8e6c6d6e2c9` —
 run `sha256sum cofre-btc.html` on the downloaded file; the release asset
 always has this fixed name. The Cofre's about
 screen asks for the same check. Any edit to the Cofre requires updating this
@@ -510,7 +510,7 @@ package.json
   adjusts the balance can still induce an invalid PSBT, which the network
   rejects.
 - **Mainnet only.** The project works with Bitcoin mainnet keys and addresses.
-- **RBF.** New transactions signal BIP125 and show `rbf: true`. The
+- **RBF.** New transactions signal BIP125. The
   **replace** button only appears for a pending transaction with confirmed
   inputs and unspent change. The replacement keeps the inputs
   and external destinations, takes the extra fee from the change and pays a
