@@ -249,8 +249,9 @@ function psbtWithGlobal(global, inputs, outputs) {
   });
   for (const [core, h] of [[BTC, hd], [C, ehd]]) {
     const a = await core.analyzePsbt(twoChange.bytes, h);
-    assert.ok(a.warnings.some(w => /mais de uma saída de troco/.test(w)),
-      'as duas cópias avisam sobre mais de um troco');
+    assert.deepEqual(a.outputs.map(o => o.own), ['externo', 'troco', 'troco']);
+    assert.ok(!a.warnings.some(w => /mais de uma saída de troco/.test(w)),
+      'mais de um troco verificado não gera aviso estrutural');
   }
 
   const noChange = BTC.buildPsbt({

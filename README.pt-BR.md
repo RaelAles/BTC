@@ -135,11 +135,11 @@ dado é só uma sugestão (1–3 = `0`, 4–6 = `1`). Os bits viram uma frase de
 palavras e derivam as quatro contas;
 a tela **chave** também aceita as 24 palavras digitadas à mão. Ao importar um
 PSBT, ele confere a conta, a derivação, a chave pública, o script, as saídas e
-a taxa antes de assinar. Ele recusa mais de um destino externo e avisa quando
-há mais de um troco. A chave privada nunca passa pelo Monitor.
+a taxa antes de assinar. Ele recusa mais de um destino externo. A chave
+privada nunca passa pelo Monitor.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
-`5eb5d6f2ffc4f775994bde08a30408570e95b62a91b818d64b9929b9a4f9b13b` — rode
+`a817012132e2fd93cdc933a148ef4fbaf9d6e54dcc42cd75affbf1eb6667c55d` — rode
 `sha256sum cofre-btc.html` no arquivo baixado; o asset do release tem sempre
 esse nome fixo. A tela “sobre” do Cofre
 pede a mesma conferência. Qualquer edição no Cofre exige atualizar este

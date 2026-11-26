@@ -1769,12 +1769,8 @@ var BTC = (function () {
     var externals = outputs.filter(function (o) {
       return o.own === 'externo' || o.own === 'outro';
     });
-    var changes = outputs.filter(function (o) { return o.own === 'troco'; });
     if (externals.length > 1) {
       throw new Error('uma saída: mais de um destino externo; o cofre só assina um pagamento externo por PSBT.');
-    }
-    if (changes.length > 1) {
-      warnings.push('o troco: mais de uma saída de troco; confira se todas são suas.');
     }
     if (totalIn < totalOut) throw new Error('as saídas somam mais que as entradas');
     var fee = totalIn - totalOut;

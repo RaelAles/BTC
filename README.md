@@ -139,11 +139,10 @@ rolling a die is just one suggestion (1–3 = `0`, 4–6 = `1`). The bits become
 **key** screen also accepts the 24 words typed by hand. When a PSBT is
 imported, it checks the account, the derivation, the public key, the script,
 the outputs and the fee before signing. It rejects more than one external
-destination and warns when there is more than one change output. The private
-key never reaches the Monitor.
+destination. The private key never reaches the Monitor.
 
 Before opening it, compare the published hash: the sha256 of the published
-file is `5eb5d6f2ffc4f775994bde08a30408570e95b62a91b818d64b9929b9a4f9b13b` —
+file is `a817012132e2fd93cdc933a148ef4fbaf9d6e54dcc42cd75affbf1eb6667c55d` —
 run `sha256sum cofre-btc.html` on the downloaded file; the release asset
 always has this fixed name. The Cofre's about
 screen asks for the same check. Any edit to the Cofre requires updating this
