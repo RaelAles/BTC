@@ -193,5 +193,77 @@ function psbtWithGlobal(global, inputs, outputs) {
   console.log('ok   ' + vetores.length + ' mapas malformados recusados pelas duas cópias');
 }
 
+/* ---------------- estrutura das saídas: mesmas regras ---------------- */
+{
+  const bits = '1' + '0'.repeat(255);
+  const hd = await BTC.deriveHD(bits);
+  const ehd = await C.deriveHD(bits);
+  const leaf = await BTC.derivePath(hd.master, "m/84'/0'/0'/0/0");
+  const Q = BTC.pointFromD(leaf.d);
+  const script = BTC.scriptForKind('p2wpkh', Q);
+  const pub = BTC.pubCompressed(Q);
+  const account = await BTC.derivePath(hd.master, "m/84'/0'/0'");
+  const fingerprint = hex(BTC.hash160(BTC.pubCompressed(BTC.pointFromD(account.d)))).slice(0, 8);
+  const prev = {
+    version: 2,
+    inputs: [{ txid: '00'.repeat(32), vout: 0, scriptSig: new Uint8Array(0), sequence: 0xffffffff }],
+    outputs: [{ value: 100000n, script }], witnesses: [], locktime: 0, segwit: false
+  };
+  const input = {
+    txid: BTC.txidOf(prev), vout: 0, value: 100000n, script, kind: 'p2wpkh',
+    pub, path: "m/84'/0'/0'/0/0", fingerprint, rawTx: BTC.writeTx(prev, false)
+  };
+  const external = (n) => BTC.scriptForKind('p2wpkh', BTC.pointFromD(n));
+  const change = async (idx) => {
+    const node = await BTC.derivePath(hd.master, "m/84'/0'/0'/1/" + idx);
+    return {
+      value: 20000n,
+      script: BTC.scriptForKind('p2wpkh', BTC.pointFromD(node.d)),
+      origin: {
+        fingerprint,
+        path: "m/84'/0'/0'/1/" + idx,
+        pub: BTC.pubCompressed(BTC.pointFromD(node.d))
+      }
+    };
+  };
+
+  const twoExternal = BTC.buildPsbt({
+    inputs: [input],
+    outputs: [
+      { value: 40000n, script: external(7n) },
+      { value: 50000n, script: external(8n) }
+    ]
+  });
+  for (const [core, h] of [[BTC, hd], [C, ehd]]) {
+    await assert.rejects(core.analyzePsbt(twoExternal.bytes, h),
+      /mais de um destino externo/);
+  }
+
+  const twoChange = BTC.buildPsbt({
+    inputs: [input],
+    outputs: [
+      { value: 30000n, script: external(7n) },
+      await change(0),
+      await change(1)
+    ]
+  });
+  for (const [core, h] of [[BTC, hd], [C, ehd]]) {
+    const a = await core.analyzePsbt(twoChange.bytes, h);
+    assert.ok(a.warnings.some(w => /mais de uma saída de troco/.test(w)),
+      'as duas cópias avisam sobre mais de um troco');
+  }
+
+  const noChange = BTC.buildPsbt({
+    inputs: [input],
+    outputs: [{ value: 90000n, script: external(7n) }]
+  });
+  for (const [core, h] of [[BTC, hd], [C, ehd]]) {
+    const a = await core.analyzePsbt(noChange.bytes, h);
+    assert.ok(a.warnings.some(w => /não tem saída de troco/.test(w)),
+      'as duas cópias avisam sobre PSBT sem troco');
+  }
+  console.log('ok   estrutura das saídas igual nas duas cópias');
+}
+
 rmSync(dir, { recursive: true, force: true });
 console.log('\ntestes de paridade do núcleo passaram');

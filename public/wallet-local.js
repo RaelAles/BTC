@@ -1766,6 +1766,22 @@ var BTC = (function () {
         path: own ? pathText(own.indices) : ''
       });
     }
+    /* Estrutura das saídas: o Monitor monta um pagamento externo e, no
+       máximo, um troco próprio. Recusar mais de um externo impede que a
+       omissão da origem BIP32 transforme o troco numa segunda saída externa.
+       Saída de script não padronizado (`outro`) também conta como externa. */
+    var externals = outputs.filter(function (o) {
+      return o.own === 'externo' || o.own === 'outro';
+    });
+    var changes = outputs.filter(function (o) { return o.own === 'troco'; });
+    if (externals.length > 1) {
+      throw new Error('uma saída: mais de um destino externo; o cofre só assina um pagamento externo por PSBT.');
+    }
+    if (changes.length > 1) {
+      warnings.push('o troco: mais de uma saída de troco; confira se todas são suas.');
+    } else if (!changes.length && externals.length) {
+      warnings.push('o troco: o PSBT não tem saída de troco; se o valor restante não era taxa, confira o destino.');
+    }
     if (totalIn < totalOut) throw new Error('as saídas somam mais que as entradas');
     var fee = totalIn - totalOut;
     var vsize = estimateVsize(inputs.map(function (x) { return x.kind; }), tx.outputs.map(function (x) { return x.script; }));
