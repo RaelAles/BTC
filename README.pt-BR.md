@@ -136,7 +136,12 @@ palavras e derivam as quatro contas;
 a tela **chave** também aceita as 24 palavras digitadas à mão. Ao importar um
 PSBT, ele confere a conta, a derivação, a chave pública, o script, as saídas e
 a taxa antes de assinar. Ele recusa mais de um destino externo. A chave
-privada nunca passa pelo Monitor.
+privada nunca passa pelo Monitor. Ele exige a transação anterior
+(`non_witness_utxo`) em todas as entradas; um PSBT externo que traga só
+`witness_utxo` é recusado de propósito. Isso ancora o valor ao txid, mas não
+prova que o outpoint existe on-chain. A taxa é calculada a partir dos valores
+do próprio PSBT (entradas menos saídas) e só recebe avisos de piso e teto; o
+Cofre não compara com o `estimatefee` nem com uma fonte independente.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
 `a817012132e2fd93cdc933a148ef4fbaf9d6e54dcc42cd75affbf1eb6667c55d` — rode
@@ -456,7 +461,11 @@ package.json
   configurável); esgotada a margem, o endereço do PSBT baixado mais antigo é
   reutilizado para não abrir um buraco maior. A reserva vive só na memória:
   depois de recarregar a página, um PSBT pendente e um novo podem repetir o
-  endereço. É um limite de privacidade, não de saldo.
+  endereço. Uma prévia ainda na tela ocupa uma dessas reservas; um PSBT
+  baixado e abandonado mantém a reserva até a sessão terminar; no 51º, dois
+  PSBTs pendentes podem compartilhar o mesmo endereço. Se a cauda de troco
+  ainda não foi derivada, o endereço pode ficar indisponível. É um limite de
+  privacidade, não de saldo.
 - **O PSBT é um retrato.** Não há reserva de moeda. Se outra carteira gastar
   uma entrada antes da assinatura/transmissão, a rede recusa a transação e é
   preciso criar outro PSBT.
@@ -477,15 +486,21 @@ package.json
   nem a lista derivada de endereços/pubkeys. Um Worker
   comprometido ainda pode mentir sobre dados, taxa ou censurar; a conferência
   no Cofre é a defesa final antes de assinar.
-- **Disponibilidade dos dados.** O navegador confere os UTXOs a partir das
-  transações cruas que o Worker devolve, mas não tem nó próprio: um Worker que
-  omita uma transação pode fazer o saldo local não fechar; a tela recusa o
-  PSBT nesse caso. Um Worker que omita um gasto e ajuste o saldo ainda pode
-  induzir um PSBT inválido, que a rede recusa.
+- **Disponibilidade dos dados e confirmação.** O navegador confere os UTXOs a
+  partir das transações cruas que o Worker devolve, mas não tem nó próprio. Se
+  o servidor omitir uma transação que a tela já conhece, o saldo local não
+  fecha: o endereço fica marcado como incompleto e o PSBT é recusado. Se
+  omitir o histórico inteiro de um endereço, a omissão pode ser silenciosa.
+  “Confirmado” é só a altura informada pelo Electrum: não há verificação de
+  cabeçalhos, prova Merkle, PoW nem segunda fonte. Um Worker que omita um
+  gasto e ajuste o saldo ainda pode induzir um PSBT inválido, que a rede
+  recusa.
 - **Só rede principal.** O projeto trabalha com chaves e endereços da mainnet
   do Bitcoin.
-- **Sem RBF.** O navegador usa sequence final, então o resumo mostra
-  `rbf: false`; o caminho de aceleração é o CPFP.
+- **Sem RBF, e isso não é proteção sob full RBF.** O navegador usa sequence
+  final, então o resumo mostra `rbf: false`; ainda assim, uma transação com
+  sequence final pode ser substituída sob full RBF. Não há fluxo de aumento de
+  taxa por substituição; o caminho de aceleração é o CPFP.
 
 ## Apoie
 

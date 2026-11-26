@@ -139,7 +139,13 @@ rolling a die is just one suggestion (1–3 = `0`, 4–6 = `1`). The bits become
 **key** screen also accepts the 24 words typed by hand. When a PSBT is
 imported, it checks the account, the derivation, the public key, the script,
 the outputs and the fee before signing. It rejects more than one external
-destination. The private key never reaches the Monitor.
+destination. The private key never reaches the Monitor. It requires the
+previous transaction (`non_witness_utxo`) for every input; an external PSBT
+that carries only `witness_utxo` is rejected on purpose. That anchors the
+value to the txid, but does not prove the outpoint exists on-chain. The fee
+is computed from the PSBT values (inputs minus outputs) and only gets floor
+and ceiling warnings; the Cofre does not compare it with `estimatefee` or an
+independent source.
 
 Before opening it, compare the published hash: the sha256 of the published
 file is `a817012132e2fd93cdc933a148ef4fbaf9d6e54dcc42cd75affbf1eb6667c55d` —
@@ -459,7 +465,11 @@ package.json
   configurable); once that margin is full, the oldest downloaded PSBT's
   address is reused so the gap does not grow. The reservation lives only in
   memory: after reloading the page, a pending PSBT and a new one may reuse
-  the address. This is a privacy limitation, not a balance one.
+  the address. A preview still on screen occupies one of those reservations;
+  a downloaded and abandoned PSBT keeps its reservation until the session
+  ends; at the 51st, two pending PSBTs may share the same address. If the
+  change tail has not been derived yet, the address may be unavailable. This
+  is a privacy limitation, not a balance one.
 - **PSBT is a snapshot.** There is no coin reservation. If another wallet
   spends an input before signing/broadcasting, the network refuses the
   transaction and a new PSBT is needed.
@@ -480,14 +490,20 @@ package.json
   It does not receive the xpub or the derived address/pubkey list. A
   compromised Worker can still lie about data, fee or censor; the
   Cofre check is the final defense before signing.
-- **Data availability.** The browser checks UTXOs from the raw transactions
-  returned by the Worker, but has no node of its own: a Worker that omits a
-  transaction can make the local balance fail to reconcile; the screen then
-  refuses the PSBT. A Worker that omits a spend and adjusts the balance can
-  still induce an invalid PSBT, which the network rejects.
+- **Data availability and confirmation.** The browser checks UTXOs from the
+  raw transactions returned by the Worker, but has no node of its own. If the
+  server omits a transaction the screen already knows, the local balance does
+  not reconcile: the address is marked incomplete and the PSBT is refused.
+  If it omits an address's entire history, the omission can be silent.
+  "Confirmed" is only the height reported by Electrum: there is no header,
+  Merkle proof, PoW or second-source check. A Worker that omits a spend and
+  adjusts the balance can still induce an invalid PSBT, which the network
+  rejects.
 - **Mainnet only.** The project works with Bitcoin mainnet keys and addresses.
-- **No RBF.** The browser uses final sequence values, so the summary reports
-  `rbf: false`; the acceleration path is CPFP.
+- **No RBF, and that is not protection under full RBF.** The browser uses
+  final sequence values, so the summary reports `rbf: false`; even so, a
+  transaction with a final sequence can be replaced under full RBF. There is
+  no fee-bump-by-replacement flow; the acceleration path is CPFP.
 
 ## Support
 
