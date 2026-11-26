@@ -8,7 +8,7 @@ A frase secreta fica vazia.
 
 Todos gastam entradas de teste de 100 000 sats (o `11` gasta 100 000 + 50 000). O valor que não vai para as saídas fica como taxa. Os arquivos são gerados por `scripts/build-psbt-exemplos.mjs`; `01`–`04` são os exemplos originais e ficaram como estavam.
 
-A recusa acontece **na importação**: o arquivo é descartado e o motivo fica no aviso, sem revisão. PSBT fora do padrão não chega a ser carregado — nem quando já vem assinado. Os já assinados (`16` e `17`) só podem ser exibidos, e passam pelas mesmas regras.
+A recusa acontece **na importação**: o arquivo é descartado e o motivo fica no recado, sem revisão. PSBT fora do padrão não chega a ser carregado — nem quando já vem assinado. Os já assinados (`16` e `17`) só podem ser exibidos, e passam pelas mesmas regras.
 
 ## Revisão normal: o Cofre assina
 
@@ -22,7 +22,8 @@ A recusa acontece **na importação**: o arquivo é descartado e o motivo fica n
 | `09-entrada-p2sh-p2wpkh.psbt` | entrada P2SH-P2WPKH + troco | Revisão normal. Assina. |
 | `10-entrada-p2tr.psbt` | entrada P2TR (key path) + troco | Revisão normal. Assina. |
 | `11-duas-entradas.psbt` | 2 entradas (P2WPKH + P2TR) + troco | Revisão normal. Assina. |
-| `12-taxa-alta.psbt` | 1 externo, taxa de 636 sat/vB | Aviso de taxa acima de 500 sat/vB. Assina. |
+| `12-taxa-alta.psbt` | 1 externo, taxa de 636 sat/vB | Marca `[ acima de 500 sat/vB ]` na legenda da taxa. Assina. |
+| `18-taxa-baixa.psbt` | 1 externo + 1 troco, taxa de 0,03 sat/vB | Marca `[ abaixo de 0,1 sat/vB ]` na legenda da taxa. Assina. |
 
 ## Recusados na importação
 
@@ -33,14 +34,14 @@ A recusa acontece **na importação**: o arquivo é descartado e o motivo fica n
 | `14-saida-nao-padronizada.psbt` | saída P2PK + troco | “script não padronizado”. |
 | `15-troco-sem-origem.psbt` | 1 externo + 1 troco sem origem BIP32 | “há saída própria sem origem BIP32; o troco não pode ser identificado”. |
 
-Taxa acima de 500 sat/vB é aceita com aviso, não recusada. Taxa abaixo de 0,1 sat/vB também não é recusada: ela não aparece no Cofre e continua só como aviso no núcleo de `src/btc-core.js`.
+Taxa fora da faixa de 0,1 a 500 sat/vB é aceita, sem lista de avisos: a marca entra na própria legenda da linha “taxa” do resumo (`[ acima de 500 sat/vB ]` ou `[ abaixo de 0,1 sat/vB ]`). Taxa zero é recusa, como já dito.
 
 ## Só exibição: o botão assinar fica escondido
 
 | Arquivo | Cenário | O que o Cofre mostra |
 |---|---|---|
 | `16-assinado.psbt` | todas as entradas assinadas e finalizadas | “este PSBT já tem assinatura; ele só pode ser exibido”. |
-| `17-assinatura-parcial.psbt` | 2 entradas, uma com `partial_sig` | Revisão normal, sem aviso na lista, e o botão assinar escondido (qualquer assinatura conta como “já assinado”). |
+| `17-assinatura-parcial.psbt` | 2 entradas, uma com `partial_sig` | Revisão normal, sem marca na taxa, e o botão assinar escondido (qualquer assinatura conta como “já assinado”). |
 
 As regras de recusa valem também para o PSBT já assinado: dois destinos externos, script não padronizado ou taxa zero o descartam na importação. O que passa nas regras é exibido com o botão assinar escondido, mesmo com taxa alta.
 

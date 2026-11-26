@@ -2047,8 +2047,8 @@
      precisa vencer essa regra para o "cancelar"/"fechar" e os demais controles
      tomarem o lugar dele. */
   .psbt-actions [hidden] { display: none !important; }
-  /* A revisão terminou, mas há avisos: o recado usa o --warning, entre o
-     ok e o erro, para não passar como sucesso nem como falha. */
+  /* Recado de atenção (PSBT só para exibição): usa o --warning, entre o ok e
+     o erro, para não passar como sucesso nem como falha. */
   .status-msg.warning { color: var(--warning); }
   /* Fatia do valor sobre a soma das entradas do PSBT: é metadado da linha,
      então fica no --dim, ao lado do valor, sem competir com o número e sem
@@ -2168,9 +2168,10 @@
      ele aponta. O marcador não quebra entre os colchetes; se não couber
      depois do endereço, desce inteiro. */
   .review-external { color: var(--warning); white-space: nowrap; }
-  /* Aviso é frase curta com endereço comprido: justificar abriria buracos
-     entre as palavras, então esse bloco fica à esquerda. */
-  #review-warnings-list li { text-align: left; }
+  /* Taxa fora da faixa de 0,1 a 500 sat/vB: a marca fica na legenda da linha,
+     no mesmo --warning do marcador "[ externo ]". Sem nowrap: se não couber
+     ao lado de "taxa", desce inteira em vez de abrir rolagem. */
+  .review-fee-note { color: var(--warning); }
   /* Entrada por bits: cada clique em 1 ou 0 preenche a próxima posição da
      entropia, até completar os 256 bits. O contador mostra o progresso. O
      painel inteiro fica numa coluna mais estreita e centrada, na mesma medida
@@ -2542,7 +2543,7 @@
                  dados: o PSBT importado ou, depois de assinar, o baixado. -->
             <table class="data-table key-readout review-readout" id="review-table" aria-label="resumo do psbt">
               <tbody>
-                <tr id="review-fee-row"><th scope="row">taxa</th><td id="review-fee">—</td></tr>
+                <tr id="review-fee-row"><th scope="row" id="review-fee-label">taxa</th><td id="review-fee">—</td></tr>
                 <tr><th scope="row">txid</th><td id="review-txid">—</td></tr>
                 <tr class="group-end"><th scope="row">vsize</th><td id="review-vsize">—</td></tr>
                 <tr><th scope="row">rbf</th><td id="review-rbf">—</td></tr>
@@ -2550,10 +2551,6 @@
                 <tr><th scope="row">arquivo</th><td id="review-file">—</td></tr>
               </tbody>
             </table>
-            <div class="prose app-gap" id="review-warnings" hidden>
-              <h3><span class="prompt" aria-hidden="true">##</span> avisos</h3>
-              <ul id="review-warnings-list"></ul>
-            </div>
           </div>
 
           <div class="psbt-actions reveal-block chips chips-dots" role="group" aria-label="Ações do PSBT">
@@ -4414,7 +4411,10 @@ var BTC = (function () {
     var vsize = estimateVsize(inputs.map(function (x) { return x.kind; }), tx.outputs.map(function (x) { return x.script; }));
     var feerate = vsize > 0 ? Number(fee) / vsize : 0;
     if (fee === 0n) throw new Error('PSBT com taxa zero: a rede pode recusar a transação.');
-    if (feerate > 500) warnings.push('PSBT com taxa acima de 500 sat/vB: confira o valor da taxa.');
+    /* Fora da faixa de 0,1 a 500 sat/vB, a taxa leva uma marca na legenda do
+       resumo em vez de recusa: a transação continua assinável. */
+    var feeNotice = feerate > 500 ? 'acima de 500 sat/vB'
+      : feerate < 0.1 ? 'abaixo de 0,1 sat/vB' : '';
     /* O valor da entrada só pode ser conferido contra a transação anterior.
        Em p2pkh ele não entra no sighash; em segwit entra, mas com só o
        witness_utxo o coordenador pode mentir sobre a taxa exibida. Exigimos
@@ -4432,7 +4432,8 @@ var BTC = (function () {
       inputs: inputs, outputs: outputs,
       totalIn: totalIn, totalOut: totalOut, fee: fee,
       alreadySigned: anySigned,
-      txid: txidOf(tx), vsize: vsize, feerate: feerate, warnings: warnings,
+      txid: txidOf(tx), vsize: vsize, feerate: feerate, feeNotice: feeNotice,
+      warnings: warnings,
       /* Em p2pkh e p2sh-p2wpkh o scriptSig só existe depois da assinatura e
          muda o txid; nas demais entradas o txid já é o final. */
       txidEstimated: inputs.some(function (x) {
@@ -4661,7 +4662,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["rbf","rbf","rbf","rbf","rbf","rbf","rbf","rbf","rbf"],
     ["agendado","scheduled","programado","programmé","programmato","geplant","gepland","programat","programado"],
     ["arquivo","file","archivo","fichier","file","Datei","bestand","fitxer","ficheiro"],
-    ["avisos","warnings","avisos","avertissements","avvisi","Warnungen","waarschuwingen","avisos","avisos"],
     ["Ações do PSBT","PSBT actions","Acciones del PSBT","Actions du PSBT","Azioni del PSBT","PSBT-Aktionen","PSBT-acties","Accions del PSBT","Accións do PSBT"],
     ["importar psbt","import psbt","importar psbt","importer psbt","importa psbt","psbt importieren","psbt importeren","importar psbt","importar psbt"],
     ["cancelar","cancel","cancelar","annuler","annulla","abbrechen","annuleren","cancel·lar","cancelar"],
@@ -4707,7 +4707,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["não foi possível derivar a chave; recarregue a página e tente de novo.","could not derive the key; reload the page and try again.","no se pudo derivar la clave; recarga la página e inténtalo de nuevo.","impossible de dériver la clé ; rechargez la page et réessayez.","impossibile derivare la chiave; ricarica la pagina e riprova.","der Schlüssel konnte nicht abgeleitet werden; lade die Seite neu und versuche es erneut.","de sleutel kon niet worden afgeleid; herlaad de pagina en probeer het opnieuw.","no s'ha pogut derivar la clau; recarrega la pàgina i torna-ho a provar.","non foi posible derivar a clave; recarga a páxina e téntao de novo."],
     ["complete os 256 bits antes de importar ou analisar um PSBT.","complete the 256 bits before importing or analyzing a PSBT.","completa los 256 bits antes de importar o analizar un PSBT.","complétez les 256 bits avant d'importer ou d'analyser un PSBT.","completa i 256 bit prima di importare o analizzare un PSBT.","schließe alle 256 Bit ab, bevor du eine PSBT importierst oder analysierst.","rond alle 256 bits af voordat je een PSBT importeert of analyseert.","completa els 256 bits abans d'importar o analitzar un PSBT.","completa os 256 bits antes de importar ou analizar un PSBT."],
     ["este PSBT já tem assinatura; ele só pode ser exibido.","this PSBT already has a signature; it can only be displayed.","este PSBT ya tiene firma; solo se puede mostrar.","ce PSBT a déjà une signature ; il peut seulement être affiché.","questo PSBT ha già una firma; può solo essere visualizzato.","diese PSBT hat bereits eine Signatur; sie kann nur angezeigt werden.","deze PSBT heeft al een handtekening; hij kan alleen worden weergegeven.","aquest PSBT ja té signatura; només es pot mostrar.","este PSBT xa ten sinatura; só se pode mostrar."],
-    ["PSBT analisado; revise os avisos antes de assinar.","PSBT analyzed; review the warnings before signing.","PSBT analizado; revisa los avisos antes de firmar.","PSBT analysé ; vérifiez les avertissements avant de signer.","PSBT analizzato; controlla gli avvisi prima di firmare.","PSBT analysiert; prüfe die Warnungen vor dem Signieren.","PSBT geanalyseerd; controleer de waarschuwingen voordat je ondertekent.","PSBT analitzat; revisa els avisos abans de signar.","PSBT analizado; revisa os avisos antes de asinar."],
     ["não foi possível analisar o PSBT; recarregue a página e tente de novo.","could not analyze the PSBT; reload the page and try again.","no se pudo analizar el PSBT; recarga la página e inténtalo de nuevo.","impossible d'analyser le PSBT ; rechargez la page et réessayez.","impossibile analizzare il PSBT; ricarica la pagina e riprova.","die PSBT konnte nicht analysiert werden; lade die Seite neu und versuche es erneut.","de PSBT kon niet worden geanalyseerd; herlaad de pagina en probeer het opnieuw.","no s'ha pogut analitzar el PSBT; recarrega la pàgina i torna-ho a provar.","non foi posible analizar o PSBT; recarga a páxina e téntao de novo."],
     ["analisando...","analyzing...","analizando...","analyse…","analisi in corso…","wird analysiert …","analyseren…","analitzant…","analizando..."],
     ["não foi possível ler o arquivo; escolha um .psbt válido.","could not read the file; choose a valid .psbt.","no se pudo leer el archivo; elige un .psbt válido.","impossible de lire le fichier ; choisissez un .psbt valide.","impossibile leggere il file; scegli un .psbt valido.","die Datei konnte nicht gelesen werden; wähle eine gültige .psbt.","het bestand kon niet worden gelezen; kies een geldige .psbt.","no s'ha pogut llegir el fitxer; tria un .psbt vàlid.","non foi posible ler o ficheiro; escolle un .psbt válido."],
@@ -4804,7 +4803,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["uma entrada: vout não existe no non_witness_utxo.","an input: vout does not exist in non_witness_utxo.","una entrada: vout no existe en non_witness_utxo.","une entrée : vout n'existe pas dans non_witness_utxo.","un input: vout non esiste in non_witness_utxo.","ein Eingang: vout existiert nicht im non_witness_utxo.","een invoer: vout bestaat niet in non_witness_utxo.","una entrada: vout no existeix a non_witness_utxo.","unha entrada: vout non existe en non_witness_utxo."],
     ["uma entrada: witness_utxo e non_witness_utxo descrevem UTXOs diferentes.","an input: witness_utxo and non_witness_utxo describe different UTXOs.","una entrada: witness_utxo y non_witness_utxo describen UTXO diferentes.","une entrée : witness_utxo et non_witness_utxo décrivent des UTXO différents.","un input: witness_utxo e non_witness_utxo descrivono UTXO diversi.","ein Eingang: witness_utxo und non_witness_utxo beschreiben unterschiedliche UTXOs.","een invoer: witness_utxo en non_witness_utxo beschrijven verschillende UTXO's.","una entrada: witness_utxo i non_witness_utxo descriuen UTXO diferents.","unha entrada: witness_utxo e non_witness_utxo describen UTXOs diferentes."],
     ["uma entrada: sem UTXO (witness_utxo/non_witness_utxo); não dá para revisar valor, taxa e script.","an input: no UTXO (witness_utxo/non_witness_utxo); the amount, fee and script cannot be reviewed.","una entrada: sin UTXO (witness_utxo/non_witness_utxo); no se puede revisar valor, comisión y script.","une entrée : pas d'UTXO (witness_utxo/non_witness_utxo) ; impossible de vérifier le montant, les frais et le script.","un input: nessun UTXO (witness_utxo/non_witness_utxo); non è possibile verificare importo, commissione e script.","ein Eingang: kein UTXO (witness_utxo/non_witness_utxo); Betrag, Gebühr und Script können nicht geprüft werden.","een invoer: geen UTXO (witness_utxo/non_witness_utxo); bedrag, kosten en script kunnen niet worden gecontroleerd.","una entrada: sense UTXO (witness_utxo/non_witness_utxo); no es pot revisar import, comissió i script.","unha entrada: sen UTXO (witness_utxo/non_witness_utxo); non se pode revisar importe, comisión e script."],
-    ["PSBT com taxa acima de 500 sat/vB: confira o valor da taxa.","PSBT with fee above 500 sat/vB: check the fee amount.","PSBT con comisión por encima de 500 sat/vB: revisa el importe de la comisión.","PSBT avec des frais au-dessus de 500 sat/vB : vérifiez le montant des frais.","PSBT con commissione sopra 500 sat/vB: controlla l'importo della commissione.","PSBT mit Gebühr über 500 sat/vB: prüfe den Gebührenbetrag.","PSBT met kosten boven 500 sat/vB: controleer het bedrag van de kosten.","PSBT amb comissió per sobre de 500 sat/vB: revisa l'import de la comissió.","PSBT con comisión por riba de 500 sat/vB: revisa o importe da comisión."],
+    ["acima de 500 sat/vB","above 500 sat/vB","por encima de 500 sat/vB","au-dessus de 500 sat/vB","sopra 500 sat/vB","über 500 sat/vB","boven 500 sat/vB","per sobre de 500 sat/vB","por riba de 500 sat/vB"],
+    ["abaixo de 0,1 sat/vB","below 0.1 sat/vB","por debajo de 0,1 sat/vB","en dessous de 0,1 sat/vB","sotto 0,1 sat/vB","unter 0,1 sat/vB","onder 0,1 sat/vB","per sota de 0,1 sat/vB","por baixo de 0,1 sat/vB"],
     ["PSBT com taxa zero: a rede pode recusar a transação.","PSBT with zero fee: the network may reject the transaction.","PSBT con comisión cero: la red puede rechazar la transacción.","PSBT avec des frais nuls : le réseau peut refuser la transaction.","PSBT con commissione zero: la rete può rifiutare la transazione.","PSBT mit Gebühr null: das Netzwerk kann die Transaktion ablehnen.","PSBT met kosten nul: het netwerk kan de transactie weigeren.","PSBT amb comissió zero: la xarxa pot rebutjar la transacció.","PSBT con comisión cero: a rede pode rexeitar a transacción."],
     ["uma <b>entrada</b>: segwit sem <code>non_witness_utxo</code>; o valor mostrado vem do <code>witness_utxo</code> e não pode ser conferido.","an <b>input</b>: segwit without <code>non_witness_utxo</code>; the amount shown comes from <code>witness_utxo</code> and cannot be checked.","una <b>entrada</b>: segwit sin <code>non_witness_utxo</code>; el valor mostrado viene de <code>witness_utxo</code> y no se puede comprobar.","une <b>entrée</b> : segwit sans <code>non_witness_utxo</code> ; le montant affiché vient de <code>witness_utxo</code> et ne peut pas être vérifié.","un <b>input</b>: segwit senza <code>non_witness_utxo</code>; l'importo mostrato viene da <code>witness_utxo</code> e non può essere verificato.","ein <b>Eingang</b>: Segwit ohne <code>non_witness_utxo</code>; der angezeigte Betrag stammt aus <code>witness_utxo</code> und kann nicht geprüft werden.","een <b>invoer</b>: segwit zonder <code>non_witness_utxo</code>; het getoonde bedrag komt uit <code>witness_utxo</code> en kan niet worden gecontroleerd.","una <b>entrada</b>: segwit sense <code>non_witness_utxo</code>; l'import mostrat ve de <code>witness_utxo</code> i no es pot comprovar.","unha <b>entrada</b>: segwit sen <code>non_witness_utxo</code>; o importe mostrado vén de <code>witness_utxo</code> e non se pode comprobar."],
     ["uma saída: mais de um destino externo; o cofre só assina um pagamento externo por PSBT.","an output: more than one external destination; the cofre only signs one external payment per PSBT.","una salida: más de un destino externo; el cofre solo firma un pago externo por PSBT.","une sortie : plus d'une destination externe ; le cofre ne signe qu'un paiement externe par PSBT.","un output: più di una destinazione esterna; il cofre firma solo un pagamento esterno per PSBT.","eine Ausgabe: mehr als ein externes Ziel; der Cofre signiert nur eine externe Zahlung pro PSBT.","een uitvoer: meer dan één externe bestemming; de cofre ondertekent slechts één externe betaling per PSBT.","una sortida: més d'una destinació externa; el cofre només signa un pagament extern per PSBT.","unha saída: máis dun destino externo; o cofre só asina un pagamento externo por PSBT."],
@@ -5085,8 +5085,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var reviewScheduled = $('#review-scheduled');
   var reviewRbf = $('#review-rbf');
   var reviewFile = $('#review-file');
-  var reviewWarnings = $('#review-warnings');
-  var reviewWarningsList = $('#review-warnings-list');
+  var reviewFeeLabel = $('#review-fee-label');
   var psbtFileName = '';
   var signedPsbtText = '';
   var signedTxid = '';
@@ -6053,8 +6052,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   function clearSignature() {
     if (signOut) signOut.hidden = true;
-    if (reviewWarningsList) reviewWarningsList.textContent = '';
-    if (reviewWarnings) reviewWarnings.hidden = true;
     if (signBtn) signBtn.hidden = true;
     if (psbtSepSign) psbtSepSign.hidden = true;
     if (downloadBtn) downloadBtn.hidden = true;
@@ -6301,33 +6298,27 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     });
     return t(rbf ? 'sim' : 'não');
   }
-  /* Só <b> e <code> são marcação: o resto é texto. Mantém o desenho do aviso
-     sem abrir a revisão para HTML vindo do arquivo. */
-  function warningHtml(html) {
-    return String(html)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/&lt;(\/?)(b|code)&gt;/g, '<$1$2>');
-  }
   /* `signed` troca o vsize estimado pelo real da transação final, que é o
      que o PSBT assinado carrega. */
   function renderReview(a, file, signed) {
     renderReviewOutputs(a);
+    renderReviewFee(a);
     if (reviewFee) reviewFee.innerHTML = valueLine(a.fee, 'out', a.totalIn);
     reviewCell(reviewVsize, (signed ? '' : '~') + a.vsize + ' vB');
     reviewCell(reviewTxid, (signed || !a.txidEstimated ? '' : '~') + a.txid);
     reviewCell(reviewScheduled, scheduledText(a.tx));
     reviewCell(reviewRbf, rbfText(a.tx));
     reviewCell(reviewFile, file);
-    if (reviewWarningsList) {
-      reviewWarningsList.textContent = '';
-      a.warnings.forEach(function (w) {
-        var li = document.createElement('li');
-        /* O aviso já vem com o negrito e o código da prosa (ver analyzePsbt). */
-        li.innerHTML = warningHtml(t(w));
-        reviewWarningsList.appendChild(li);
-      });
+  }
+  /* Taxa fora da faixa de 0,1 a 500 sat/vB: a marca entra na legenda da linha
+     "taxa", no tom do aviso, em vez de uma lista à parte. */
+  function renderReviewFee(a) {
+    if (!reviewFeeLabel) return;
+    var text = escapeHtml(t('taxa'));
+    if (a && a.feeNotice) {
+      text += ' <span class="review-fee-note">[ ' + escapeHtml(t(a.feeNotice)) + ' ]</span>';
     }
-    if (reviewWarnings) reviewWarnings.hidden = !a.warnings.length;
+    reviewFeeLabel.innerHTML = text;
   }
   function auxRandom() {
     if (typeof crypto === 'undefined' || !crypto.getRandomValues) {
@@ -6382,11 +6373,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         signBtn.disabled = false;
         signBtn.hidden = false;
         psbtSepSign.hidden = false;
-        if (a.warnings.length) {
-          setStatus(signStatus, 'aviso', 'PSBT analisado; revise os avisos antes de assinar.');
-        } else {
-          setStatus(signStatus, 'neutro', '');
-        }
+        setStatus(signStatus, 'neutro', '');
       }
       requestAnimationFrame(updateScrollState);
     } catch (e) {
@@ -6466,7 +6453,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     var a = await BTC.analyzePsbt(BTC.psbtParseInput(base64), hd);
     var fin = BTC.psbtFinalTx(a.psbt);
     return {
-      fee: a.fee, outputs: a.outputs, warnings: a.warnings,
+      fee: a.fee, outputs: a.outputs, warnings: a.warnings, feeNotice: a.feeNotice,
       totalIn: a.totalIn, vsize: fin.vsize, txid: fin.txid, tx: a.tx
     };
   }

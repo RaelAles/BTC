@@ -300,12 +300,23 @@ function psbtWithGlobal(global, inputs, outputs) {
     inputs: [input],
     outputs: [{ value: 40000n, script: external(7n) }]
   });
+  const lowFee = BTC.buildPsbt({
+    inputs: [input],
+    outputs: [
+      { value: 79995n, script: external(7n) },
+      await change(0)
+    ]
+  });
   for (const [core, h] of [[BTC, hd], [C, ehd]]) {
     await assert.rejects(core.analyzePsbt(zeroFee.bytes, h), /taxa zero/);
-    const a = await core.analyzePsbt(highFee.bytes, h);
-    assert.ok(a.warnings.some(w => /acima de 500/.test(w)), 'taxa alta é aceita com aviso');
-    const signed = await core.signPsbt(highFee.bytes, h, new Uint8Array(32));
-    assert.ok(signed.txid, 'taxa alta continua assinável');
+    const alta = await core.analyzePsbt(highFee.bytes, h);
+    assert.equal(alta.feeNotice, 'acima de 500 sat/vB', 'taxa alta é marcada no resumo');
+    assert.ok((await core.signPsbt(highFee.bytes, h, new Uint8Array(32))).txid,
+      'taxa alta continua assinável');
+    const baixa = await core.analyzePsbt(lowFee.bytes, h);
+    assert.equal(baixa.feeNotice, 'abaixo de 0,1 sat/vB', 'taxa baixa é marcada no resumo');
+    assert.ok((await core.signPsbt(lowFee.bytes, h, new Uint8Array(32))).txid,
+      'taxa baixa continua assinável');
   }
 
   const twoChange = BTC.buildPsbt({

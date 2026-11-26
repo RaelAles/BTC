@@ -153,12 +153,12 @@ PSBT externo que traga só
 `witness_utxo` é recusado de propósito. Isso ancora o valor ao txid, mas não
 prova que o outpoint existe on-chain. A taxa é calculada a partir dos valores
 do próprio PSBT (entradas menos saídas); taxa zero recusa o arquivo na
-importação, taxa acima de 500 sat/vB é aceita com aviso, e o piso de
-0,1 sat/vB só gera aviso no núcleo. O Cofre não compara com o `estimatefee`
+importação, e taxa fora da faixa de 0,1 a 500 sat/vB é aceita com a marca na
+legenda da linha “taxa” do resumo. O Cofre não compara com o `estimatefee`
 nem com uma fonte independente.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
-`318e7ca5c581cedf43a51e2a4871df1324672a93d8c3895909cd5138f5009788` — rode
+`48679c050112bd692bdd35404ed89338cd03d0019f1838274290d04efbd46e98` — rode
 `sha256sum cofre-btc.html` no arquivo baixado; o asset do release tem sempre
 esse nome fixo. A tela “sobre” do Cofre
 pede a mesma conferência. Qualquer edição no Cofre exige atualizar este

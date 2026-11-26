@@ -91,10 +91,18 @@ for (const name of [
 }
 {
   const a = await analyze('12-taxa-alta.psbt');
-  assert.ok(a.warnings.some(w => /acima de 500 sat\/vB/.test(w)), 'taxa alta avisa');
+  assert.equal(a.feeNotice, 'acima de 500 sat/vB', 'taxa alta é marcada na legenda');
   const signed = await BTC.signPsbt(bytes('12-taxa-alta.psbt'), hd, new Uint8Array(32));
   assert.ok(signed.txid, 'taxa alta continua assinável');
-  console.log('ok   12: taxa alta aceita com aviso e assina');
+  console.log('ok   12: taxa alta marcada na legenda e assina');
+}
+{
+  const a = await analyze('18-taxa-baixa.psbt');
+  assert.equal(a.feeNotice, 'abaixo de 0,1 sat/vB', 'taxa baixa é marcada na legenda');
+  assert.deepEqual(a.warnings, []);
+  const signed = await BTC.signPsbt(bytes('18-taxa-baixa.psbt'), hd, new Uint8Array(32));
+  assert.ok(signed.txid, 'taxa baixa continua assinável');
+  console.log('ok   18: taxa baixa marcada na legenda e assina');
 }
 {
   await assert.rejects(analyze('13-taxa-zero.psbt'), /taxa zero/);

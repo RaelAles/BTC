@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Gera os PSBTs de exemplo do Cofre em psbt-exemplos/ (casos 07–17 e 30–41).
+/* Gera os PSBTs de exemplo do Cofre em psbt-exemplos/ (casos 07–18 e 30–41).
 
    Todos usam a mesma mnemônica pública de teste do LEIA-ME, uma entrada de
    100 000 sats (50 000 na segunda entrada) e um destino externo fixo; o que
@@ -215,6 +215,16 @@ for (const [name, accountId, accountPath] of [
     value: BTC.concatBytes(sig.der, new Uint8Array([0x01]))
   });
   save('17-assinatura-parcial.psbt', BTC.writePsbt(dois.psbt));
+}
+
+/* 18: taxa abaixo de 0,1 sat/vB: marcada na legenda da taxa, sem recusa. */
+{
+  const u = funding('18', 100000, BTC.scriptForKind(bip84.kind, bip84.Q));
+  const b = BTC.buildPsbt({
+    inputs: [spend(u, bip84)],
+    outputs: [external(79995), own('troco', 20000, bip86Change)]
+  });
+  save('18-taxa-baixa.psbt', b.bytes);
 }
 
 /* ------------------------------------------------ erros de importação */

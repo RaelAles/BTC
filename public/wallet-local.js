@@ -1797,8 +1797,10 @@ var BTC = (function () {
     var vsize = estimateVsize(inputs.map(function (x) { return x.kind; }), tx.outputs.map(function (x) { return x.script; }));
     var feerate = vsize > 0 ? Number(fee) / vsize : 0;
     if (fee === 0n) throw new Error('PSBT com taxa zero: a rede pode recusar a transação');
-    if (feerate > 500) warnings.push('PSBT com taxa acima de 500 sat/vB: confira o valor da taxa');
-    if (feerate > 0 && feerate < 0.1) warnings.push('taxa abaixo de 0,1 sat/vB: a transação pode ser recusada pelo piso de relay padrão');
+    /* Fora da faixa de 0,1 a 500 sat/vB, a taxa leva uma marca no resumo em
+       vez de recusa: a transação continua assinável. */
+    var feeNotice = feerate > 500 ? 'acima de 500 sat/vB'
+      : feerate < 0.1 ? 'abaixo de 0,1 sat/vB' : '';
     /* O valor da entrada só pode ser conferido contra a transação anterior.
        Em p2pkh ele não entra no sighash; em segwit entra, mas com só o
        witness_utxo o coordenador pode mentir sobre a taxa exibida. Exigimos
@@ -1816,7 +1818,8 @@ var BTC = (function () {
       inputs: inputs, outputs: outputs,
       totalIn: totalIn, totalOut: totalOut, fee: fee,
       signedInputs: signedInputs, alreadySigned: anySigned,
-      txid: txidOf(tx), vsize: vsize, feerate: feerate, warnings: warnings,
+      txid: txidOf(tx), vsize: vsize, feerate: feerate, feeNotice: feeNotice,
+      warnings: warnings,
       /* Em p2pkh e p2sh-p2wpkh o scriptSig só existe depois da assinatura e
          muda o txid; nas demais entradas o txid já é o final. */
       txidEstimated: inputs.some(function (x) {
