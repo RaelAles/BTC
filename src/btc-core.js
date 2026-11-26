@@ -1751,6 +1751,10 @@ var BTC = (function () {
       totalOut += out.value;
       var outKind = scriptKind(out.script);
       var own = null;
+      /* A origem declarada no PSBT distingue o troco de um pagamento. Ela é
+         guardada à parte: a saída pode continuar externa (origem de outra
+         carteira) e ainda assim vir com o campo preenchido. */
+      var declaredOrigin = mapFindAll(psbt.outputs[j], outKind === 'p2tr' ? 0x07 : 0x02).length > 0;
       /* Saída: só a origem que o PSBT declara, conferida contra o script.
          Sem origem válida não há varredura; a saída fica externa. */
       try { own = await findKeyForScript(session, out.script, psbt.outputs[j], true); } catch (e) { own = null; }
@@ -1759,18 +1763,32 @@ var BTC = (function () {
         address: addressFromScript(out.script),
         own: (outKind === 'outro' || outKind === 'witness') ? 'outro'
           : own ? (own.chain === 1 ? 'troco' : 'recebimento') : 'externo',
+        declaredOrigin: declaredOrigin,
         path: own ? pathText(own.indices) : ''
       });
     }
     /* Estrutura das saídas: o Monitor monta um pagamento externo e, no
-       máximo, um troco próprio. Recusar mais de um externo impede que a
-       omissão da origem BIP32 transforme o troco numa segunda saída externa.
-       Saída de script não padronizado (`outro`) também conta como externa. */
+       máximo, um troco próprio. A regra impede que a omissão da origem BIP32
+       transforme o troco numa segunda saída externa. Ela é bloqueante só na
+       assinatura (ver signPsbt): um PSBT de terceiro sem a origem do troco
+       ainda pode ser exibido e conferido. Registro de dados (OP_RETURN) e
+       witness desconhecido não são destinos de pagamento e ficam de fora da
+       contagem. */
+    function isDataOutput(o) {
+      return (o.script.length > 0 && o.script[0] === 0x6a) || o.kind === 'witness';
+    }
     var externals = outputs.filter(function (o) {
-      return o.own === 'externo' || o.own === 'outro';
+      return o.own === 'externo' || (o.own === 'outro' && !isDataOutput(o));
     });
+    var structuralError = null;
     if (externals.length > 1) {
-      throw new Error('uma saída: mais de um destino externo; o cofre só assina um pagamento externo por PSBT.');
+      var missingOrigin = externals.some(function (o) {
+        return o.own === 'externo' && !o.declaredOrigin;
+      });
+      structuralError = missingOrigin
+        ? 'uma saída: há saída própria sem origem BIP32; o troco não pode ser identificado; confira no coordenador.'
+        : 'uma saída: mais de um destino externo; o cofre só assina um pagamento externo por PSBT.';
+      warnings.push(structuralError);
     }
     if (totalIn < totalOut) throw new Error('as saídas somam mais que as entradas');
     var fee = totalIn - totalOut;
@@ -1804,6 +1822,7 @@ var BTC = (function () {
       psbt: psbt, tx: tx, session: session,
       inputs: inputs, outputs: outputs,
       totalIn: totalIn, totalOut: totalOut, fee: fee,
+      structuralError: structuralError,
       signedInputs: signedInputs, alreadySigned: signedInputs === tx.inputs.length,
       txid: txidOf(tx), vsize: vsize, feerate: feerate, warnings: warnings,
       /* Em p2pkh e p2sh-p2wpkh o scriptSig só existe depois da assinatura e
@@ -1818,6 +1837,7 @@ var BTC = (function () {
   async function signPsbt(bytes, hd, auxRand) {
     var a = await analyzePsbt(bytes, hd);
     if (a.alreadySigned) throw new Error('este psbt já está assinado');
+    if (a.structuralError) throw new Error(a.structuralError);
     var psbt = a.psbt, tx = a.tx;
     a.inputs.forEach(function (inp) {
       var map = psbt.inputs[inp.index];

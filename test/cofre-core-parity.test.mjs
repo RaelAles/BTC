@@ -235,8 +235,30 @@ function psbtWithGlobal(global, inputs, outputs) {
     ]
   });
   for (const [core, h] of [[BTC, hd], [C, ehd]]) {
-    await assert.rejects(core.analyzePsbt(twoExternal.bytes, h),
-      /mais de um destino externo/);
+    /* A revisão não esconde um PSBT de terceiro: ela avisa. A recusa fica no
+       caminho de assinatura. */
+    const a = await core.analyzePsbt(twoExternal.bytes, h);
+    assert.ok(a.warnings.some(w => /sem origem BIP32|mais de um destino externo/.test(w)),
+      'a revisão avisa a estrutura das saídas');
+    await assert.rejects(core.signPsbt(twoExternal.bytes, h, new Uint8Array(32)),
+      /sem origem BIP32|mais de um destino externo/);
+  }
+
+  /* OP_RETURN não é destino de pagamento: não entra na contagem estrutural. */
+  const withData = BTC.buildPsbt({
+    inputs: [input],
+    outputs: [
+      { value: 40000n, script: external(7n) },
+      { value: 0n, script: new Uint8Array([0x6a, 0x01, 0x00]) }
+    ]
+  });
+  for (const [core, h] of [[BTC, hd], [C, ehd]]) {
+    const a = await core.analyzePsbt(withData.bytes, h);
+    assert.ok(!a.warnings.some(w => /sem origem BIP32|mais de um destino externo/.test(w)),
+      'OP_RETURN não conta como destino externo');
+    assert.deepEqual(a.outputs.map(o => o.own), ['externo', 'outro']);
+    const signed = await core.signPsbt(withData.bytes, h, new Uint8Array(32));
+    assert.equal(signed.outputs.length, 2);
   }
 
   const twoChange = BTC.buildPsbt({

@@ -1943,12 +1943,16 @@
     flex-direction: column;
     align-items: center;
     gap: .2em;
+    /* O contêiner é um span: sem a fonte e a entrelinha aqui, a coluna
+       perde a altura do texto e os botões saem do eixo do [ pendente ]. */
+    font-size: var(--text-sm);
+    line-height: 1.2;
   }
-  .history-actions button { font-size: var(--text-sm); }
+  .history-actions button { font-size: inherit; }
 
-  /* CPFP: o recado da aceleração só ocupa lugar quando há erro para
+  /* CPFP/RBF: o recado da aceleração só ocupa lugar quando há algo para
      mostrar; o PSBT baixa sozinho e o resumo saiu da tela. */
-  #cpfp-status:empty { display: none; }
+  #tx-boost-status:empty { display: none; }
 
   /* O paginador só existe quando há mais de uma página: o hidden tira a
      navegação inteira do fluxo e da leitura, e o show-pager continua

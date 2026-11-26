@@ -2536,7 +2536,7 @@
             <!-- O resumo usa as mesmas linhas do projeto principal: um par
                  saída/destino por pagamento e um par troco/endereço por
                  troco, na ordem da transação, seguidos da taxa, do txid, do vsize,
-                 do agendado e do arquivo. Cada valor leva a fatia que
+                 do rbf/agendado e do arquivo. Cada valor leva a fatia que
                  representa da soma das
                  entradas. A última linha diz de qual arquivo vêm esses
                  dados: o PSBT importado ou, depois de assinar, o baixado. -->
@@ -2545,6 +2545,7 @@
                 <tr id="review-fee-row"><th scope="row">taxa</th><td id="review-fee">—</td></tr>
                 <tr><th scope="row">txid</th><td id="review-txid">—</td></tr>
                 <tr class="group-end"><th scope="row">vsize</th><td id="review-vsize">—</td></tr>
+                <tr><th scope="row">rbf</th><td id="review-rbf">—</td></tr>
                 <tr class="group-end"><th scope="row">agendado</th><td id="review-scheduled">—</td></tr>
                 <tr><th scope="row">arquivo</th><td id="review-file">—</td></tr>
               </tbody>
@@ -4373,6 +4374,10 @@ var BTC = (function () {
       totalOut += out.value;
       var outKind = scriptKind(out.script);
       var own = null;
+      /* A origem declarada no PSBT distingue o troco de um pagamento. Ela é
+         guardada à parte: a saída pode continuar externa (origem de outra
+         carteira) e ainda assim vir com o campo preenchido. */
+      var declaredOrigin = mapFindAll(psbt.outputs[j], outKind === 'p2tr' ? 0x07 : 0x02).length > 0;
       /* Saída: só a origem que o PSBT declara, conferida contra o script.
          Sem origem válida não há varredura; a saída fica externa. */
       try { own = await findKeyForScript(session, out.script, psbt.outputs[j], true); } catch (e) { own = null; }
@@ -4381,18 +4386,32 @@ var BTC = (function () {
         address: addressFromScript(out.script),
         own: (outKind === 'outro' || outKind === 'witness') ? 'outro'
           : own ? (own.chain === 1 ? 'troco' : 'recebimento') : 'externo',
+        declaredOrigin: declaredOrigin,
         path: own ? pathText(own.indices) : ''
       });
     }
     /* Estrutura das saídas: o Monitor monta um pagamento externo e, no
-       máximo, um troco próprio. Recusar mais de um externo impede que a
-       omissão da origem BIP32 transforme o troco numa segunda saída externa.
-       Saída de script não padronizado (`outro`) também conta como externa. */
+       máximo, um troco próprio. A regra impede que a omissão da origem BIP32
+       transforme o troco numa segunda saída externa. Ela é bloqueante só na
+       assinatura (ver signPsbt): um PSBT de terceiro sem a origem do troco
+       ainda pode ser exibido e conferido. Registro de dados (OP_RETURN) e
+       witness desconhecido não são destinos de pagamento e ficam de fora da
+       contagem. */
+    function isDataOutput(o) {
+      return (o.script.length > 0 && o.script[0] === 0x6a) || o.kind === 'witness';
+    }
     var externals = outputs.filter(function (o) {
-      return o.own === 'externo' || o.own === 'outro';
+      return o.own === 'externo' || (o.own === 'outro' && !isDataOutput(o));
     });
+    var structuralError = null;
     if (externals.length > 1) {
-      throw new Error('uma saída: mais de um destino externo; o cofre só assina um pagamento externo por PSBT.');
+      var missingOrigin = externals.some(function (o) {
+        return o.own === 'externo' && !o.declaredOrigin;
+      });
+      structuralError = missingOrigin
+        ? 'uma saída: há saída própria sem origem BIP32; o troco não pode ser identificado; confira no coordenador.'
+        : 'uma saída: mais de um destino externo; o cofre só assina um pagamento externo por PSBT.';
+      warnings.push(structuralError);
     }
     if (totalIn < totalOut) throw new Error('saídas somam mais que as entradas; a taxa seria negativa. PSBT inconsistente.');
     var fee = totalIn - totalOut;
@@ -4419,6 +4438,7 @@ var BTC = (function () {
       psbt: psbt, tx: tx, session: session,
       inputs: inputs, outputs: outputs,
       totalIn: totalIn, totalOut: totalOut, fee: fee,
+      structuralError: structuralError,
       alreadySigned: anySigned,
       txid: txidOf(tx), vsize: vsize, feerate: feerate, warnings: warnings,
       /* Em p2pkh e p2sh-p2wpkh o scriptSig só existe depois da assinatura e
@@ -4433,6 +4453,7 @@ var BTC = (function () {
   async function signPsbt(bytes, hd, auxRand) {
     var a = await analyzePsbt(bytes, hd);
     if (a.alreadySigned) throw new Error('este PSBT já tem assinatura (parcial ou final); o cofre só assina PSBT sem assinatura.');
+    if (a.structuralError) throw new Error(a.structuralError);
     var psbt = a.psbt, tx = a.tx;
     a.inputs.forEach(function (inp) {
       var map = psbt.inputs[inp.index];
@@ -4646,6 +4667,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["taxa","fee","comisión","frais","commissione","Gebühr","kosten","comissió","comisión"],
     ["txid","txid","txid","txid","txid","txid","txid","txid","txid"],
     ["vsize","vsize","vsize","vsize","vsize","vsize","vsize","vsize","vsize"],
+    ["rbf","rbf","rbf","rbf","rbf","rbf","rbf","rbf","rbf"],
     ["agendado","scheduled","programado","programmé","programmato","geplant","gepland","programat","programado"],
     ["arquivo","file","archivo","fichier","file","Datei","bestand","fitxer","ficheiro"],
     ["avisos","warnings","avisos","avertissements","avvisi","Warnungen","waarschuwingen","avisos","avisos"],
@@ -4795,6 +4817,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["a <b>taxa</b> é zero: a rede pode recusar a transação.","the <b>fee</b> is zero: the network may reject the transaction.","la <b>comisión</b> es cero: la red puede rechazar la transacción.","les <b>frais</b> sont nuls : le réseau peut refuser la transaction.","la <b>commissione</b> è zero: la rete può rifiutare la transazione.","die <b>Gebühr</b> ist null: das Netzwerk kann die Transaktion ablehnen.","de <b>kosten</b> zijn nul: het netwerk kan de transactie weigeren.","la <b>comissió</b> és zero: la xarxa pot rebutjar la transacció.","a <b>comisión</b> é cero: a rede pode rexeitar a transacción."],
     ["uma <b>entrada</b>: segwit sem <code>non_witness_utxo</code>; o valor mostrado vem do <code>witness_utxo</code> e não pode ser conferido.","an <b>input</b>: segwit without <code>non_witness_utxo</code>; the amount shown comes from <code>witness_utxo</code> and cannot be checked.","una <b>entrada</b>: segwit sin <code>non_witness_utxo</code>; el valor mostrado viene de <code>witness_utxo</code> y no se puede comprobar.","une <b>entrée</b> : segwit sans <code>non_witness_utxo</code> ; le montant affiché vient de <code>witness_utxo</code> et ne peut pas être vérifié.","un <b>input</b>: segwit senza <code>non_witness_utxo</code>; l'importo mostrato viene da <code>witness_utxo</code> e non può essere verificato.","ein <b>Eingang</b>: Segwit ohne <code>non_witness_utxo</code>; der angezeigte Betrag stammt aus <code>witness_utxo</code> und kann nicht geprüft werden.","een <b>invoer</b>: segwit zonder <code>non_witness_utxo</code>; het getoonde bedrag komt uit <code>witness_utxo</code> en kan niet worden gecontroleerd.","una <b>entrada</b>: segwit sense <code>non_witness_utxo</code>; l'import mostrat ve de <code>witness_utxo</code> i no es pot comprovar.","unha <b>entrada</b>: segwit sen <code>non_witness_utxo</code>; o importe mostrado vén de <code>witness_utxo</code> e non se pode comprobar."],
     ["uma saída: mais de um destino externo; o cofre só assina um pagamento externo por PSBT.","an output: more than one external destination; the cofre only signs one external payment per PSBT.","una salida: más de un destino externo; el cofre solo firma un pago externo por PSBT.","une sortie : plus d'une destination externe ; le cofre ne signe qu'un paiement externe par PSBT.","un output: più di una destinazione esterna; il cofre firma solo un pagamento esterno per PSBT.","eine Ausgabe: mehr als ein externes Ziel; der Cofre signiert nur eine externe Zahlung pro PSBT.","een uitvoer: meer dan één externe bestemming; de cofre ondertekent slechts één externe betaling per PSBT.","una sortida: més d'una destinació externa; el cofre només signa un pagament extern per PSBT.","unha saída: máis dun destino externo; o cofre só asina un pagamento externo por PSBT."],
+    ["uma saída: há saída própria sem origem BIP32; o troco não pode ser identificado; confira no coordenador.","an output: an own output has no BIP32 origin; the change cannot be identified; check it in the coordinator.","una salida: hay una salida propia sin origen BIP32; no se puede identificar el cambio; revísala en el coordinador.","une sortie : une sortie propre sans origine BIP32 ; la monnaie ne peut pas être identifiée ; vérifiez-la dans le coordinateur.","un'uscita: c'è un'uscita propria senza origine BIP32; il resto non può essere identificato; controllala nel coordinatore.","eine Ausgabe: eine eigene Ausgabe ohne BIP32-Herkunft; das Wechselgeld kann nicht erkannt werden; prüfe sie im Koordinator.","een uitvoer: een eigen uitvoer zonder BIP32-oorsprong; het wisselgeld kan niet worden herkend; controleer het in de coördinator.","una sortida: hi ha una sortida pròpia sense origen BIP32; el canvi no es pot identificar; revisa-la al coordinador.","unha saída: hai unha saída propia sen orixe BIP32; o troco non se pode identificar; revísaa no coordinador."],
     ["uma <b>saída</b>: script não padronizado; confira o destino no coordenador.","an <b>output</b>: non-standard script; check the destination in the coordinator.","una <b>salida</b>: script no estandarizado; revisa el destino en el coordinador.","une <b>sortie</b> : script non standard ; vérifiez la destination dans le coordinateur.","un'<b>uscita</b>: script non standard; controlla la destinazione nel coordinatore.","eine <b>Ausgabe</b>: nicht standardisiertes Script; prüfe das Ziel im Koordinator.","een <b>uitgang</b>: niet-standaard script; controleer de bestemming in de coördinator.","una <b>sortida</b>: script no estandarditzat; revisa la destinació al coordinador.","unha <b>saída</b>: script non estandarizado; revisa o destino no coordinador."],
     ["PSBT inválido: {name} com bytes extras na chave.","Invalid PSBT: {name} has extra bytes in the key.","PSBT no válido: {name} tiene bytes extra en la clave.","PSBT invalide : {name} comporte des octets en trop dans la clé.","PSBT non valido: {name} ha byte extra nella chiave.","Ungültige PSBT: {name} hat zusätzliche Bytes im Schlüssel.","Ongeldige PSBT: {name} heeft extra bytes in de sleutel.","PSBT no vàlid: {name} té bytes extra a la clau.","PSBT non válido: {name} ten bytes extra na clave."],
     ["PSBT inválido: {name} com tamanho incorreto.","Invalid PSBT: {name} has the wrong size.","PSBT no válido: {name} tiene un tamaño incorrecto.","PSBT invalide : {name} a une taille incorrecte.","PSBT non valido: {name} ha una dimensione errata.","Ungültige PSBT: {name} hat die falsche Größe.","Ongeldige PSBT: {name} heeft de verkeerde grootte.","PSBT no vàlid: {name} té una mida incorrecta.","PSBT non válido: {name} ten un tamaño incorrecto."],
@@ -5069,6 +5092,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var reviewVsize = $('#review-vsize');
   var reviewTxid = $('#review-txid');
   var reviewScheduled = $('#review-scheduled');
+  var reviewRbf = $('#review-rbf');
   var reviewFile = $('#review-file');
   var reviewWarnings = $('#review-warnings');
   var reviewWarningsList = $('#review-warnings-list');
@@ -6255,7 +6279,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       tbody.insertBefore(address, reviewFeeRow);
     });
   }
-  /* A linha é só informativa: "agendado" é o locktime (0 = não). */
+  /* As duas linhas são só informativas: "agendado" é o locktime (0 = não)
+     e "rbf" é a sequence (0xfffffffe ou 0xffffffff em todas as entradas =
+     não; a versão da transação não importa). */
   function utcText(date) {
     return date.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
   }
@@ -6275,6 +6301,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       ? t('data estimada indisponível')
       : t('{value} (aprox.)', { value: utcText(estimated) });
   }
+  function rbfText(tx) {
+    if (!tx || !tx.inputs || !tx.inputs.length) return '—';
+    /* BIP125: a sequence abaixo de 0xfffffffe sinaliza substituição;
+       0xfffffffe só liga o locktime. */
+    var rbf = tx.inputs.some(function (inp) {
+      return (inp.sequence >>> 0) < 0xfffffffe;
+    });
+    return t(rbf ? 'sim' : 'não');
+  }
   /* Só <b> e <code> são marcação: o resto é texto. Mantém o desenho do aviso
      sem abrir a revisão para HTML vindo do arquivo. */
   function warningHtml(html) {
@@ -6290,6 +6325,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     reviewCell(reviewVsize, (signed ? '' : '~') + a.vsize + ' vB');
     reviewCell(reviewTxid, (signed || !a.txidEstimated ? '' : '~') + a.txid);
     reviewCell(reviewScheduled, scheduledText(a.tx));
+    reviewCell(reviewRbf, rbfText(a.tx));
     reviewCell(reviewFile, file);
     if (reviewWarningsList) {
       reviewWarningsList.textContent = '';

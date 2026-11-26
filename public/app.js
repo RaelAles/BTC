@@ -403,8 +403,12 @@
     ["a transação tem entrada ainda não confirmada; use o CPFP","the transaction has an unconfirmed input; use CPFP","la transacción tiene una entrada aún no confirmada; usa CPFP","la transaction a une entrée encore non confirmée ; utilisez CPFP","la transazione ha un'entrata non ancora confermata; usa CPFP","die Transaktion hat einen noch nicht bestätigten Eingang; verwende CPFP","de transactie heeft een nog niet bevestigde invoer; gebruik CPFP","la transacció té una entrada encara no confirmada; usa CPFP","a transacción ten unha entrada aínda non confirmada; usa CPFP"],
     ["há uma saída própria já gasta; substituir o pai invalidaria a transação filha","an own output is already spent; replacing the parent would invalidate the child transaction","hay una salida propia ya gastada; sustituir el padre invalidaría la transacción hija","une sortie propre est déjà dépensée ; remplacer la parente invaliderait la transaction enfant","c'è un'uscita propria già spesa; sostituire la madre invaliderebbe la transazione figlia","eine eigene Ausgabe ist bereits ausgegeben; das Ersetzen der Eltern-Transaktion würde die Kind-Transaktion ungültig machen","een eigen uitvoer is al uitgegeven; de ouder vervangen maakt de kindtransactie ongeldig","hi ha una sortida pròpia ja gastada; substituir el pare invalidaria la transacció filla","hai unha saída propia xa gasta; substituír o pai invalidaría a transacción filla"],
     ["a transação não tem troco disponível para aumentar a taxa","the transaction has no change available to raise the fee","la transacción no tiene cambio disponible para aumentar la comisión","la transaction n'a pas de monnaie disponible pour augmenter les frais","la transazione non ha resto disponibile per aumentare la commissione","die Transaktion hat kein verfügbares Wechselgeld, um die Gebühr zu erhöhen","de transactie heeft geen beschikbaar wisselgeld om de kosten te verhogen","la transacció no té canvi disponible per augmentar la comissió","a transacción non ten troco dispoñible para aumentar a comisión"],
-    ["o troco não cobre a taxa extra da substituição","the change does not cover the replacement's extra fee","el cambio no cubre la comisión extra de la sustitución","la monnaie ne couvre pas les frais supplémentaires du remplacement","il resto non copre la commissione extra della sostituzione","das Wechselgeld deckt die zusätzliche Gebühr der Ersetzung nicht","het wisselgeld dekt de extra kosten van de vervanging niet","el canvi no cobreix la comissió extra de la substitució","o troco non cobre a comisión extra da substitución"],
     ["a transação já paga a taxa alvo; não há o que acelerar","the transaction already pays the target fee; there is nothing to speed up","la transacción ya paga la comisión objetivo; no hay nada que acelerar","la transaction paie déjà les frais cibles ; il n'y a rien à accélérer","la transazione paga già la commissione obiettivo; non c'è nulla da accelerare","die Transaktion zahlt bereits die Zielgebühr; es gibt nichts zu beschleunigen","de transactie betaalt de doelkosten al; er is niets te versnellen","la transacció ja paga la comissió objectiu; no hi ha res a accelerar","a transacción xa paga a comisión obxectivo; non hai nada que acelerar"],
+    ["a transação já paga a taxa alvo; não há o que substituir","the transaction already pays the target fee; there is nothing to replace","la transacción ya paga la comisión objetivo; no hay nada que sustituir","la transaction paie déjà les frais cibles ; il n'y a rien à remplacer","la transazione paga già la commissione obiettivo; non c'è nulla da sostituire","die Transaktion zahlt bereits die Zielgebühr; es gibt nichts zu ersetzen","de transactie betaalt de doelkosten al; er is niets te vervangen","la transacció ja paga la comissió objectiu; no hi ha res a substituir","a transacción xa paga a comisión obxectivo; non hai nada que substituír"],
+    ["a transação tem mais de um destino externo; não é possível montar a substituição","the transaction has more than one external destination; the replacement cannot be built","la transacción tiene más de un destino externo; no se puede armar la sustitución","la transaction a plus d'une destination externe ; impossible d'assembler le remplacement","la transazione ha più di una destinazione esterna; non è possibile comporre la sostituzione","die Transaktion hat mehr als ein externes Ziel; die Ersetzung kann nicht erstellt werden","de transactie heeft meer dan één externe bestemming; de vervanging kan niet worden opgebouwd","la transacció té més d'una destinació externa; no es pot muntar la substitució","a transacción ten máis dun destino externo; non é posible montar a substitución"],
+    ["o troco não cobre a taxa extra da substituição: faltam {remaining} sats para {target} sats a {rate} sat/vB","the change does not cover the replacement's extra fee: {remaining} sats are missing to reach {target} sats at {rate} sat/vB","el cambio no cubre la comisión extra de la sustitución: faltan {remaining} sats para llegar a {target} sats a {rate} sat/vB","la monnaie ne couvre pas les frais supplémentaires du remplacement : il manque {remaining} sats pour atteindre {target} sats à {rate} sat/vB","il resto non copre la commissione extra della sostituzione: mancano {remaining} sats per arrivare a {target} sats a {rate} sat/vB","das Wechselgeld deckt die zusätzliche Gebühr der Ersetzung nicht: es fehlen {remaining} sats, um {target} sats bei {rate} sat/vB zu erreichen","het wisselgeld dekt de extra kosten van de vervanging niet: er ontbreken {remaining} sats om {target} sats bij {rate} sat/vB te halen","el canvi no cobreix la comissió extra de la substitució: falten {remaining} sats per arribar a {target} sats a {rate} sat/vB","o troco non cobre a comisión extra da substitución: faltan {remaining} sats para chegar a {target} sats a {rate} sat/vB"],
+    ["substituir (sem sinal BIP125; depende de full RBF)","replace (no BIP125 signal; depends on full RBF)","sustituir (sin señal BIP125; depende de full RBF)","remplacer (sans signal BIP125 ; dépend de full RBF)","sostituisci (senza segnale BIP125; dipende da full RBF)","ersetzen (kein BIP125-Signal; hängt von full RBF ab)","vervangen (geen BIP125-signaal; hangt af van full RBF)","substituir (sense senyal BIP125; depèn de full RBF)","substituír (sen sinal BIP125; depende de full RBF)"],
+    ["substituição baixada: taxa {old} → {new} sat/vB; {extra} sats saíram do troco","replacement downloaded: fee {old} → {new} sat/vB; {extra} sats came out of the change","sustitución descargada: comisión {old} → {new} sat/vB; {extra} sats salieron del cambio","remplacement téléchargé : frais {old} → {new} sat/vB ; {extra} sats pris sur la monnaie","sostituzione scaricata: commissione {old} → {new} sat/vB; {extra} sats sono usciti dal resto","Ersetzung heruntergeladen: Gebühr {old} → {new} sat/vB; {extra} sats stammen aus dem Wechselgeld","vervanging gedownload: kosten {old} → {new} sat/vB; {extra} sats kwamen uit het wisselgeld","substitució baixada: comissió {old} → {new} sat/vB; {extra} sats han sortit del canvi","substitución descargada: comisión {old} → {new} sat/vB; {extra} sats saíron do troco"],
     ["taxa inválida: use de 0,001 a 10 000 sat/vB","invalid fee: use 0.001 to 10,000 sat/vB","comisión no válida: usa de 0,001 a 10 000 sat/vB","frais invalides : utilisez de 0,001 à 10 000 sat/vB","commissione non valida: usa da 0,001 a 10 000 sat/vB","ungültige Gebühr: Verwende 0,001 bis 10 000 sat/vB","ongeldige kosten: gebruik 0,001 tot 10 000 sat/vB","comissió no vàlida: fes servir de 0,001 a 10 000 sat/vB","comisión non válida: usa de 0,001 a 10 000 sat/vB"],
     ["entrada sem acesso à transação anterior (non_witness_utxo)","input without access to the previous transaction (non_witness_utxo)","entrada sin acceso a la transacción anterior (non_witness_utxo)","entrée sans accès à la transaction précédente (non_witness_utxo)","input senza accesso alla transazione precedente (non_witness_utxo)","Eingang ohne Zugriff auf die vorherige Transaktion (non_witness_utxo)","invoer zonder toegang tot de vorige transactie (non_witness_utxo)","entrada sense accés a la transacció anterior (non_witness_utxo)","entrada sen acceso á transacción anterior (non_witness_utxo)"],
     ["transação anterior da entrada {txid} não encontrada","previous transaction for input {txid} not found","transacción anterior de la entrada {txid} no encontrada","transaction précédente de l'entrée {txid} introuvable","transazione precedente dell'input {txid} non trovata","vorherige Transaktion des Eingangs {txid} nicht gefunden","vorige transactie van invoer {txid} niet gevonden","transacció anterior de l'entrada {txid} no trobada","transacción anterior da entrada {txid} non atopada"],
@@ -631,6 +635,8 @@
     if (m) return msg('valor abaixo do pó: o mínimo é {n} sats', { n: m[1] });
     m = /^a saída do pai não cobre a taxa necessária \(o retorno ficaria abaixo do pó de (\d+) sats\)$/.exec(value);
     if (m) return msg('a saída do pai não cobre a taxa necessária (o retorno ficaria abaixo do pó de {n} sats)', { n: m[1] });
+    m = /^o troco não cobre a taxa extra da substituição: faltam (\d+) sats para (\d+) sats a ([\d.]+) sat\/vB$/.exec(value);
+    if (m) return msg('o troco não cobre a taxa extra da substituição: faltam {remaining} sats para {target} sats a {rate} sat/vB', { remaining: m[1], target: m[2], rate: dec(m[3]) });
     m = /^psbt grande demais \((\d+) caracteres; o teto é (\d+)\)$/.exec(value);
     if (m) return msg('psbt grande demais ({n} caracteres; o teto é {max})', { n: m[1], max: m[2] });
     m = /^transação com (\d+) vB; acima de (\d+) vB a rede recusa$/.exec(value);
@@ -991,7 +997,7 @@
     if (spec && (spec.kind === 'ok' || spec.kind === 'error')) el.classList.add(spec.kind);
   }
   function paintStatuses() {
-    ['#status', '#send-status', '#broadcast-status', '#cpfp-status'].forEach(function (sel) {
+    ['#status', '#send-status', '#broadcast-status', '#tx-boost-status'].forEach(function (sel) {
       paintStatusTo($(sel));
     });
   }
@@ -3002,8 +3008,15 @@
         esc(t('acelerar')) + '</button>');
     }
     if (rbfEligible) {
-      actions.push('<button type="button" data-rbf="' + esc(tx.txid) + '">' +
-        esc(t('substituir')) + '</button>');
+      /* A troca só é aceita de imediato por nós com full RBF. O botão continua
+         disponível, mas o aviso fica no próprio controle. */
+      var noSignal = tx.rbf && tx.rbf.signals === false;
+      var rbfLabel = noSignal
+        ? t('substituir (sem sinal BIP125; depende de full RBF)')
+        : t('substituir');
+      actions.push('<button type="button" data-rbf="' + esc(tx.txid) + '"' +
+        (noSignal ? ' title="' + esc(rbfLabel) + '" aria-label="' + esc(rbfLabel) + '"' : '') +
+        '>' + esc(t('substituir')) + '</button>');
     }
     var html =
       '<h3><span class="item-title is-static history-txid">' + esc(tx.txid) + '</span></h3>' +
@@ -3093,22 +3106,23 @@
   /* ------------------------------ acelerar (CPFP/RBF) */
   /* O clique em "acelerar" monta a filha; o clique em "substituir" monta a
      transação de substituição. Os dois baixam o PSBT na hora: não há resumo
-     nem segundo clique. Só a falha vira recado na tela. */
-  function setCpfpStatus(kind, spec) {
-    setStatusTo($('#cpfp-status'), kind, spec);
+     nem segundo clique. A falha vira recado; a substituição também deixa um
+     recado com a taxa nova e o que saiu do troco. */
+  function setBoostStatus(kind, spec) {
+    setStatusTo($('#tx-boost-status'), kind, spec);
     updateScroll();
   }
 
   function resetCpfp() {
     state.cpfpSeq++;
-    setCpfpStatus('', null);
+    setBoostStatus('', null);
   }
 
   async function startCpfp(txid) {
     if (!state.xpub) return;
     var seq = ++state.cpfpSeq;
     var xpub = state.xpub;
-    setCpfpStatus('', null);
+    setBoostStatus('', null);
     try {
       var rate = feeRateNow();
       if (!feeRateOk(rate)) {
@@ -3135,7 +3149,7 @@
       state.scanner.commitPreparedChange(j);
     } catch (e) {
       if (seq !== state.cpfpSeq) return;
-      setCpfpStatus('error', errSpec(e));
+      setBoostStatus('error', errSpec(e));
     }
   }
 
@@ -3143,7 +3157,7 @@
     if (!state.xpub) return;
     var seq = ++state.cpfpSeq;
     var xpub = state.xpub;
-    setCpfpStatus('', null);
+    setBoostStatus('', null);
     try {
       var rate = feeRateNow();
       if (!feeRateOk(rate)) {
@@ -3156,9 +3170,20 @@
       if (seq !== state.cpfpSeq || state.xpub !== xpub) return;
       if (!j.psbt) throw fail('não foi possível montar o psbt.');
       downloadPsbtText(j.psbt, 'rbf-' + String(j.txid || txid).slice(0, 8) + '.psbt');
+      /* O arquivo baixa direto; o recado diz o que mudou na taxa e quanto saiu
+         do troco, sem exigir uma segunda tela de conferência. */
+      var oldRate = Number(j.old_fee_rate) || 0;
+      var newRate = Number(j.fee_rate) || 0;
+      var extra = Number(j.fee_sats) - Number(j.old_fee_sats);
+      setBoostStatus('ok', msg(
+        'substituição baixada: taxa {old} → {new} sat/vB; {extra} sats saíram do troco', {
+          old: oldRate > 0 ? dec(oldRate.toFixed(2)) : '—',
+          new: dec(newRate.toFixed(2)),
+          extra: fmtInt(extra)
+        }));
     } catch (e) {
       if (seq !== state.cpfpSeq) return;
-      setCpfpStatus('error', errSpec(e));
+      setBoostStatus('error', errSpec(e));
     }
   }
 

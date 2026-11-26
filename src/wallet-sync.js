@@ -260,7 +260,7 @@ export class WalletScanner {
           const tx = BTC.readTx(BTC.hexToBytes(raw));
           entries.push({
             txid, height: heights.get(txid) || 0, outputs: tx.outputs, inputs: tx.inputs,
-            vsize: BTC.vsizeOf(tx)
+            vsize: BTC.vsizeOf(tx), locktime: tx.locktime
           });
         } catch (e) {
           errors.set(txid, 'transação ilegível');
@@ -413,8 +413,10 @@ export class WalletScanner {
       .filter(o => o.spendable && o.value >= DUST_SATS)
       .sort((a, b) => b.value - a.value);
     const cpfpOutput = candidates[0] || null;
-    /* RBF só é oferecido para transação pendente que sinalizou BIP125, tem
-       todas as entradas confirmadas e ainda tem troco próprio não gasto. */
+    /* RBF é oferecido para qualquer transação pendente desta carteira, com
+       todas as entradas confirmadas e troco próprio não gasto. A substituição
+       sinaliza BIP125; a original sem sinal só é aceita por nós com full RBF
+       (por isso `signals` acompanha a elegibilidade e a tela avisa). */
     const signalsRbf = entry.inputs.some(inp => (inp.sequence >>> 0) < 0xfffffffe);
     const inputsConfirmed = entry.inputs.every(inp => {
       const prev = this.outpointIndex.get(inp.txid + ':' + inp.vout);
@@ -511,22 +513,38 @@ export class WalletScanner {
     return { fee_sats: fee, vsize, count };
   }
 
-  /* CPFP: monta o PSBT da filha que gasta a maior saída própria ainda não
-     gasta do pai e devolve o resto para o próximo endereço de troco. A taxa
-     do filho é a diferença entre a taxa-alvo do pacote e o que o pai (e os
-     ancestrais pendentes) já paga. */
-  async prepareCpfp({ txid, feeRate }) {
+  /* Prólogo comum de CPFP/RBF: a transação precisa ser um envio pendente
+     desta carteira, com todas as entradas conhecidas e taxa apurável. O
+     `action` só muda as mensagens que o usuário lê. */
+  requireOwnPending(txid, action) {
     if (this.errors && this.errors.size) {
       throw new Error('histórico incompleto (faltou transação do servidor); atualize a carteira e tente de novo');
     }
     if (!this.utxos) throw new Error('carteira ainda não sincronizada');
     const entry = this.entryByTxid && this.entryByTxid.get(String(txid || '').toLowerCase());
     if (!entry) throw new Error('transação não encontrada nesta carteira');
-    if (entry.height > 0) throw new Error('a transação já foi confirmada; CPFP só vale para pendente');
+    if (entry.height > 0) {
+      throw new Error('a transação já foi confirmada; ' +
+        (action === 'rbf' ? 'RBF' : 'CPFP') + ' só vale para pendente');
+    }
     const info = this.infoOf(entry);
     if (!info.own_inputs.length) throw new Error('a transação não é um envio desta carteira');
-    if (!info.all_inputs_own) throw new Error('nem todas as entradas da transação são desta carteira; não é possível assinar a filha');
-    if (info.fee_sats == null || info.fee_sats < 0) throw new Error('taxa da transação pai indisponível');
+    if (!info.all_inputs_own) {
+      throw new Error('nem todas as entradas da transação são desta carteira; não é possível assinar ' +
+        (action === 'rbf' ? 'a substituição' : 'a filha'));
+    }
+    if (info.fee_sats == null || info.fee_sats < 0) {
+      throw new Error(action === 'rbf' ? 'taxa da transação original indisponível' : 'taxa da transação pai indisponível');
+    }
+    return { entry, info };
+  }
+
+  /* CPFP: monta o PSBT da filha que gasta a maior saída própria ainda não
+     gasta do pai e devolve o resto para o próximo endereço de troco. A taxa
+     do filho é a diferença entre a taxa-alvo do pacote e o que o pai (e os
+     ancestrais pendentes) já paga. */
+  async prepareCpfp({ txid, feeRate }) {
+    const { entry, info } = this.requireOwnPending(txid, 'cpfp');
     const spend = info.own_outputs
       .filter(o => o.spendable && o.value >= DUST_SATS)
       .sort((a, b) => b.value - a.value)[0];
@@ -581,23 +599,11 @@ export class WalletScanner {
   /* RBF: monta a substituição da transação pendente com as mesmas entradas e
      os mesmos destinos, tirando a taxa extra do troco. A nova transação
      sinaliza BIP125 (sequence 0xfffffffd) e paga mais taxa absoluta e por
-     vbyte que a original. */
+     vbyte que a original. A elegibilidade do payload é conservadora, mas as
+     guardas se repetem aqui: chamada direta ou cache de UI velho não pode
+     montar um PSBT que o Cofre recusaria. */
   async prepareRbf({ txid, feeRate }) {
-    if (this.errors && this.errors.size) {
-      throw new Error('histórico incompleto (faltou transação do servidor); atualize a carteira e tente de novo');
-    }
-    if (!this.utxos) throw new Error('carteira ainda não sincronizada');
-    const entry = this.entryByTxid && this.entryByTxid.get(String(txid || '').toLowerCase());
-    if (!entry) throw new Error('transação não encontrada nesta carteira');
-    if (entry.height > 0) throw new Error('a transação já foi confirmada; RBF só vale para pendente');
-    const info = this.infoOf(entry);
-    if (!info.own_inputs.length) throw new Error('a transação não é um envio desta carteira');
-    if (!info.all_inputs_own) {
-      throw new Error('nem todas as entradas da transação são desta carteira; não é possível assinar a substituição');
-    }
-    if (info.fee_sats == null || info.fee_sats < 0) {
-      throw new Error('taxa da transação original indisponível');
-    }
+    const { entry, info } = this.requireOwnPending(txid, 'rbf');
     for (const input of entry.inputs) {
       const prev = this.outpointIndex.get(input.txid + ':' + input.vout);
       if (!prev || !(Number(prev.height) > 0)) {
@@ -606,6 +612,9 @@ export class WalletScanner {
     }
     if (info.outputs.some(o => o.own && !o.spendable)) {
       throw new Error('há uma saída própria já gasta; substituir o pai invalidaria a transação filha');
+    }
+    if (info.outputs.filter(o => !o.own).length > 1) {
+      throw new Error('a transação tem mais de um destino externo; não é possível montar a substituição');
     }
     const change = info.outputs
       .map((o, i) => ({ o, i }))
@@ -618,6 +627,13 @@ export class WalletScanner {
       info.own_inputs.map(i => i.row.kind),
       info.outputs.map(o => BTC.hexToBytes(o.script))
     );
+    /* Sem troco para pagar a diferença, a substituição tiraria sats do
+       usuário sem ganho nenhum. Espelha a guarda do CPFP. */
+    const oldVsize = Number(entry.vsize) || vsize;
+    const oldRate = oldVsize > 0 ? info.fee_sats / oldVsize : 0;
+    if (oldRate >= feeRate) {
+      throw new Error('a transação já paga a taxa alvo; não há o que substituir');
+    }
     /* Além da taxa-alvo, exige pelo menos 1 sat/vB acima da original: é o
        incremento que a política de substituição espera. */
     const targetFee = Math.max(feeSats(rateKvb, vsize),
@@ -633,15 +649,23 @@ export class WalletScanner {
       remaining -= take;
       if (!remaining) break;
     }
-    if (remaining > 0) throw new Error('o troco não cobre a taxa extra da substituição');
+    if (remaining > 0) {
+      throw new Error('o troco não cobre a taxa extra da substituição: faltam ' +
+        remaining + ' sats para ' + targetFee + ' sats a ' + feeRate + ' sat/vB');
+    }
 
+    /* Uma requisição só para as transações anteriores que faltam no cache,
+       em vez de um round-trip por entrada. */
+    const missing = [...new Set(info.own_inputs
+      .map(input => input.txid)
+      .filter(id => !this.txCache.has(id)))];
+    if (missing.length) {
+      const got = await transactionsMany(this.client, missing, { concurrency: TX_CONCURRENCY });
+      for (const [id, raw] of got.raw) this.txCache.set(id, raw);
+    }
     const rawTxFor = async id => {
       const cached = this.txCache.get(id);
-      if (cached) return BTC.hexToBytes(cached);
-      const got = await transactionsMany(this.client, [id], { concurrency: 1 });
-      const raw = got.raw.get(id);
-      if (raw) this.txCache.set(id, raw);
-      return raw ? BTC.hexToBytes(raw) : null;
+      return cached ? BTC.hexToBytes(cached) : null;
     };
     const inputs = [];
     for (const input of info.own_inputs) {
@@ -665,13 +689,17 @@ export class WalletScanner {
       }
       return out;
     });
-    const built = BTC.buildPsbt({ inputs, outputs, version: 2, locktime: 0 });
+    const locktime = Number(entry.locktime) || 0;
+    const built = BTC.buildPsbt({ inputs, outputs, version: 2, locktime });
+    /* Deriva o campo do que foi montado, como as outras rotas, em vez de
+       afirmar `true` mesmo se a sequence mudar. */
+    const rbf = built.tx.inputs.some(i => (i.sequence >>> 0) < 0xfffffffe);
     return {
       psbt: built.base64,
       txid: built.txid,
       vsize: built.vsize,
-      locktime: 0,
-      rbf: true,
+      locktime,
+      rbf,
       fee_sats: targetFee,
       fee_rate: built.vsize ? targetFee / built.vsize : 0,
       total_in: info.total_in_sats,

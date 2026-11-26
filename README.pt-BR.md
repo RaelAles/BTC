@@ -143,16 +143,18 @@ dado é só uma sugestão (1–3 = `0`, 4–6 = `1`). Os bits viram uma frase de
 palavras e derivam as quatro contas;
 a tela **chave** também aceita as 24 palavras digitadas à mão. Ao importar um
 PSBT, ele confere a conta, a derivação, a chave pública, o script, as saídas e
-a taxa antes de assinar. Ele recusa mais de um destino externo. A chave
-privada nunca passa pelo Monitor. Ele exige a transação anterior
-(`non_witness_utxo`) em todas as entradas; um PSBT externo que traga só
+a taxa antes de assinar. Ele avisa na revisão e recusa assinar quando há
+mais de um destino externo ou uma saída própria sem origem BIP32 (o troco
+não pode ser identificado). A chave privada nunca passa pelo Monitor. Ele
+exige a transação anterior (`non_witness_utxo`) em todas as entradas; um
+PSBT externo que traga só
 `witness_utxo` é recusado de propósito. Isso ancora o valor ao txid, mas não
 prova que o outpoint existe on-chain. A taxa é calculada a partir dos valores
 do próprio PSBT (entradas menos saídas) e só recebe avisos de piso e teto; o
 Cofre não compara com o `estimatefee` nem com uma fonte independente.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
-`553d86fe5429e61cfb552036595572e5c82c6dfbc4f106cecd9ed8e6c6d6e2c9` — rode
+`a4f0375378d017e2e602e7151fd677f415a4c9e2f665ab84ec233a3534bb733c` — rode
 `sha256sum cofre-btc.html` no arquivo baixado; o asset do release tem sempre
 esse nome fixo. A tela “sobre” do Cofre
 pede a mesma conferência. Qualquer edição no Cofre exige atualizar este
