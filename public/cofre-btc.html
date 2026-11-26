@@ -4331,7 +4331,8 @@ var BTC = (function () {
       if (kind === 'p2wsh') throw new Error('uma entrada: P2WSH não suportado; o cofre assina p2pkh, p2sh-p2wpkh, p2wpkh e p2tr key path.');
       if (kind === 'outro' || kind === 'witness') throw new Error('uma entrada: script não suportado; use p2pkh, p2sh-p2wpkh, p2wpkh ou p2tr key path.');
       if (mapFind(map, 0x05)) throw new Error('uma entrada: witness_script (P2WSH/multisig) não suportado.');
-      if (mapFind(map, 0x14) || mapFind(map, 0x15) || mapFind(map, 0x18)) {
+      /* 0x14 e 0x15 têm chave com dado; mapFind só casa chave vazia. */
+      if (mapFindAll(map, 0x14).length || mapFindAll(map, 0x15).length || mapFind(map, 0x18)) {
         throw new Error('uma entrada: Taproot com script path não suportado; o cofre só assina key path.');
       }
       if (mapFind(map, 0x11) || mapFind(map, 0x12)) {
@@ -4391,19 +4392,25 @@ var BTC = (function () {
       });
     }
     /* Estrutura das saídas: o Monitor monta um pagamento externo e, no
-       máximo, um troco próprio. PSBT fora desta régua é recusado na análise,
-       não só na assinatura: um arquivo que o Cofre não assinaria não chega a
-       ser carregado. Script não padronizado (inclusive OP_RETURN) também é
-       recusado, e a taxa zero ou acima de 500 sat/vB idem. */
+       máximo, um troco próprio. PSBT sem assinatura fora desta régua é
+       recusado na análise, não só na assinatura: um arquivo que o Cofre não
+       assinaria não chega a ser carregado. Script não padronizado (inclusive
+       OP_RETURN) também é recusado, e a taxa zero ou acima de 500 sat/vB idem.
+       PSBT já assinado é só exibição: os mesmos problemas viram aviso, para o
+       arquivo ainda poder ser conferido. */
+    function recusa(msg) {
+      if (anySigned) { warnings.push(msg); return; }
+      throw new Error(msg);
+    }
     outputs.forEach(function (out) {
       if (out.own === 'outro') {
-        throw new Error('uma saída: script não padronizado; o cofre só assina PSBT com saídas padronizadas.');
+        recusa('uma saída: script não padronizado; o cofre só assina PSBT com saídas padronizadas.');
       }
     });
     var externals = outputs.filter(function (o) { return o.own === 'externo'; });
     if (externals.length > 1) {
       var missingOrigin = externals.some(function (o) { return !o.declaredOrigin; });
-      throw new Error(missingOrigin
+      recusa(missingOrigin
         ? 'uma saída: há saída própria sem origem BIP32; o troco não pode ser identificado; confira no coordenador.'
         : 'uma saída: mais de um destino externo; o cofre só assina um pagamento externo por PSBT.');
     }
@@ -4411,8 +4418,8 @@ var BTC = (function () {
     var fee = totalIn - totalOut;
     var vsize = estimateVsize(inputs.map(function (x) { return x.kind; }), tx.outputs.map(function (x) { return x.script; }));
     var feerate = vsize > 0 ? Number(fee) / vsize : 0;
-    if (fee === 0n) throw new Error('PSBT com taxa zero: a rede pode recusar a transação.');
-    if (feerate > 500) throw new Error('PSBT com taxa acima de 500 sat/vB: confira o valor da taxa.');
+    if (fee === 0n) recusa('PSBT com taxa zero: a rede pode recusar a transação.');
+    if (feerate > 500) recusa('PSBT com taxa acima de 500 sat/vB: confira o valor da taxa.');
     /* O valor da entrada só pode ser conferido contra a transação anterior.
        Em p2pkh ele não entra no sighash; em segwit entra, mas com só o
        witness_utxo o coordenador pode mentir sobre a taxa exibida. Exigimos

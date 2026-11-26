@@ -110,7 +110,10 @@ for (const name of [
 {
   const a = await analyze('17-assinatura-parcial.psbt');
   assert.equal(a.signedInputs, 1);
+  assert.equal(a.alreadySigned, true);
   assert.equal(a.outputs.length, 2);
+  await assert.rejects(BTC.signPsbt(bytes('17-assinatura-parcial.psbt'), hd, new Uint8Array(32)),
+    /já está assinado/);
   console.log('ok   17: assinatura parcial, carrega para exibição');
 }
 
@@ -126,19 +129,12 @@ const erros = [
   ['37-psbt-sem-transacao.psbt', /PSBT sem transação não assinada/],
   ['38-arquivo-invalido.psbt', /não começa com a marca psbt/],
   ['39-entrada-com-witness-script.psbt', /witness_script, não suportada/],
+  ['40-entrada-taproot-script-path.psbt', /dados de script no Taproot/],
   ['41-entrada-taproot-merkle-root.psbt', /dados de script no Taproot/]
 ];
 for (const [name, motivo] of erros) {
   await assert.rejects(analyze(name), motivo, name + ' é recusado');
 }
 console.log('ok   ' + erros.length + ' erros de importação recusados');
-
-/* 40: tap_script_sig (0x14) tem chave com dado e hoje passa pelo mapFind, que
-   só casa chave vazia. O arquivo é aceito; o LEIA-ME registra o achado. */
-{
-  const a = await analyze('40-entrada-taproot-script-path.psbt');
-  assert.deepEqual(a.outputs.map(o => o.own), ['externo']);
-  console.log('ok   40: tap_script_sig (0x14) ainda passa — achado registrado');
-}
 
 console.log('\ntestes dos PSBTs de exemplo passaram');

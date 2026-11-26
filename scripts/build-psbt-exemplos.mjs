@@ -314,8 +314,7 @@ for (const [name, accountId, accountPath] of [
 }
 
 /* 40: entrada p2tr com tap_script_sig (0x14). O campo tem chave com dado,
-   e o mapFind das duas cópias só casa chave vazia: hoje o Cofre aceita este
-   arquivo em vez de recusar (achado registrado no LEIA-ME). */
+   então a detecção usa mapFindAll (mapFind só casa chave vazia). */
 {
   const u = funding('40', 100000, BTC.scriptForKind(bip86.kind, bip86.Q));
   const b = BTC.buildPsbt({ inputs: [spend(u, bip86)], outputs: [external(90000)] });

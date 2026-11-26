@@ -42,6 +42,8 @@ Taxa abaixo de 0,1 sat/vB não é recusada: ela não aparece no Cofre e continua
 | `16-assinado.psbt` | todas as entradas assinadas e finalizadas | “este PSBT já tem assinatura; ele só pode ser exibido”. |
 | `17-assinatura-parcial.psbt` | 2 entradas, uma com `partial_sig` | Revisão normal, sem aviso na lista, e o botão assinar escondido (qualquer assinatura conta como “já assinado”). |
 
+Se um PSBT já assinado trouxer um problema que seria bloqueante (dois destinos externos, script não padronizado, taxa zero ou acima de 500 sat/vB), ele é **exibido com o aviso** em vez de recusado: não há assinatura a fazer, e a conferência continua valendo.
+
 ## Erros de importação: o arquivo é descartado
 
 | Arquivo | Cenário | Mensagem |
@@ -56,11 +58,10 @@ Taxa abaixo de 0,1 sat/vB não é recusada: ela não aparece no Cofre e continua
 | `37-psbt-sem-transacao.psbt` | marca psbt sem a transação não assinada | “PSBT sem a transação não assinada”. |
 | `38-arquivo-invalido.psbt` | texto que não é PSBT | “o arquivo não começa com a marca PSBT”. |
 | `39-entrada-com-witness-script.psbt` | entrada com campo `witness_script` | “witness_script (P2WSH/multisig) não suportado”. |
+| `40-entrada-taproot-script-path.psbt` | entrada com `tap_script_sig` (0x14) | “Taproot com script path não suportado”. |
 | `41-entrada-taproot-merkle-root.psbt` | entrada P2TR com `tap_merkle_root` | “Taproot com script path não suportado”. |
 
 ## Notas
 
 - Os arquivos `05` e `06` (OP_RETURN) foram removidos: `OP_RETURN` é script não padronizado e agora é recusado, como o `14`. O Monitor nunca monta uma saída dessas.
-- `40-entrada-taproot-script-path.psbt` traz `tap_script_sig` (0x14), que tem chave com 64 bytes de dado. Hoje ele **não** é recusado: o `mapFind` do núcleo só casa chave vazia, então o campo passa e o arquivo entra na revisão normal. As duas cópias do núcleo (Cofre e `src/btc-core.js`) têm o mesmo comportamento.
-- No `17`, o Cofre esconde o botão assinar sem incluir aviso na revisão; o núcleo de `src/btc-core.js` avisa de assinatura parcial e ainda assinaria.
 - Os endereços externos são sintéticos e os UTXOs não existem: os arquivos servem para a revisão, não para transmitir.

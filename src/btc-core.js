@@ -1704,7 +1704,8 @@ var BTC = (function () {
     var inputs = [], warnings = [];
     var totalIn = 0n;
     var signedInputs = 0;
-    var allFinalized = psbt.inputs.length > 0 && psbt.inputs.every(inputSigned);
+    /* Qualquer assinatura já impede assinar de novo: o PSBT só é exibido. */
+    var anySigned = psbt.inputs.some(inputSigned);
     for (var i = 0; i < tx.inputs.length; i++) {
       var map = psbt.inputs[i];
       if (inputSigned(map)) signedInputs++;
@@ -1713,7 +1714,8 @@ var BTC = (function () {
       if (kind === 'p2wsh') throw new Error('entrada ' + i + ' é P2WSH, não suportada');
       if (kind === 'outro' || kind === 'witness') throw new Error('entrada ' + i + ' tem script não suportado');
       if (mapFind(map, 0x05)) throw new Error('entrada ' + i + ' tem witness_script, não suportada');
-      if (mapFind(map, 0x14) || mapFind(map, 0x15) || mapFind(map, 0x18)) {
+      /* 0x14 e 0x15 têm chave com dado; mapFind só casa chave vazia. */
+      if (mapFindAll(map, 0x14).length || mapFindAll(map, 0x15).length || mapFind(map, 0x18)) {
         throw new Error('entrada ' + i + ' tem dados de script no Taproot, não suportados');
       }
       if (mapFind(map, 0x11) || mapFind(map, 0x12)) {
@@ -1721,9 +1723,10 @@ var BTC = (function () {
       }
       var key = await findKeyForScript(session, prev.script, map);
       if (!key) {
-        /* O finalizador do BIP174 limpa a origem do PSBT já finalizado; sem
-           ela, a entrada só pode ser exibida, nunca assinada. */
-        if (!(allFinalized && inputSigned(map))) {
+        /* O finalizador do BIP174 limpa a origem do PSBT já assinado; sem ela,
+           o arquivo só pode ser exibido. Sem assinatura, a entrada precisa
+           pertencer às contas derivadas. */
+        if (!anySigned) {
           throw new Error('entrada ' + i + ' não pertence às contas derivadas dos 256 bits');
         }
       } else if (bytesToHex(scriptForKind(key.kind, key.Q)) !== bytesToHex(prev.script)) {
@@ -1768,19 +1771,25 @@ var BTC = (function () {
       });
     }
     /* Estrutura das saídas: o Monitor monta um pagamento externo e, no
-       máximo, um troco próprio. PSBT fora desta régua é recusado na análise,
-       não só na assinatura: um arquivo que o Cofre não assinaria não chega a
-       ser carregado. Script não padronizado (inclusive OP_RETURN) também é
-       recusado, e a taxa zero ou acima de 500 sat/vB idem. */
+       máximo, um troco próprio. PSBT sem assinatura fora desta régua é
+       recusado na análise, não só na assinatura: um arquivo que o Cofre não
+       assinaria não chega a ser carregado. Script não padronizado (inclusive
+       OP_RETURN) também é recusado, e a taxa zero ou acima de 500 sat/vB idem.
+       PSBT já assinado é só exibição: os mesmos problemas viram aviso, para o
+       arquivo ainda poder ser conferido. */
+    function recusa(msg) {
+      if (anySigned) { warnings.push(msg); return; }
+      throw new Error(msg);
+    }
     outputs.forEach(function (out) {
       if (out.own === 'outro') {
-        throw new Error('saída ' + out.index + ' tem script não padronizado; o cofre só assina PSBT com saídas padronizadas');
+        recusa('saída ' + out.index + ' tem script não padronizado; o cofre só assina PSBT com saídas padronizadas');
       }
     });
     var externals = outputs.filter(function (o) { return o.own === 'externo'; });
     if (externals.length > 1) {
       var missingOrigin = externals.some(function (o) { return !o.declaredOrigin; });
-      throw new Error(missingOrigin
+      recusa(missingOrigin
         ? 'uma saída: há saída própria sem origem BIP32; o troco não pode ser identificado; confira no coordenador.'
         : 'uma saída: mais de um destino externo; o cofre só assina um pagamento externo por PSBT.');
     }
@@ -1788,8 +1797,8 @@ var BTC = (function () {
     var fee = totalIn - totalOut;
     var vsize = estimateVsize(inputs.map(function (x) { return x.kind; }), tx.outputs.map(function (x) { return x.script; }));
     var feerate = vsize > 0 ? Number(fee) / vsize : 0;
-    if (fee === 0n) throw new Error('PSBT com taxa zero: a rede pode recusar a transação');
-    if (feerate > 500) throw new Error('PSBT com taxa acima de 500 sat/vB: confira o valor da taxa');
+    if (fee === 0n) recusa('PSBT com taxa zero: a rede pode recusar a transação');
+    if (feerate > 500) recusa('PSBT com taxa acima de 500 sat/vB: confira o valor da taxa');
     if (feerate > 0 && feerate < 0.1) warnings.push('taxa abaixo de 0,1 sat/vB: a transação pode ser recusada pelo piso de relay padrão');
     /* O valor da entrada só pode ser conferido contra a transação anterior.
        Em p2pkh ele não entra no sighash; em segwit entra, mas com só o
@@ -1803,14 +1812,11 @@ var BTC = (function () {
     });
     if (tx.inputs.length === 0) throw new Error('a transação não tem entradas');
     if (tx.outputs.length === 0) throw new Error('a transação não tem saídas');
-    if (signedInputs > 0 && signedInputs < tx.inputs.length) {
-      warnings.push('algumas entradas já têm assinatura; assinar de novo substitui as assinaturas existentes.');
-    }
     return {
       psbt: psbt, tx: tx, session: session,
       inputs: inputs, outputs: outputs,
       totalIn: totalIn, totalOut: totalOut, fee: fee,
-      signedInputs: signedInputs, alreadySigned: signedInputs === tx.inputs.length,
+      signedInputs: signedInputs, alreadySigned: anySigned,
       txid: txidOf(tx), vsize: vsize, feerate: feerate, warnings: warnings,
       /* Em p2pkh e p2sh-p2wpkh o scriptSig só existe depois da assinatura e
          muda o txid; nas demais entradas o txid já é o final. */

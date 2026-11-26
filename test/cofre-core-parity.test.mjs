@@ -242,6 +242,41 @@ function psbtWithGlobal(global, inputs, outputs) {
       /sem origem BIP32|mais de um destino externo/);
   }
 
+  /* PSBT já assinado é só exibição: os problemas viram aviso, não recusa. */
+  const signedTwo = BTC.buildPsbt({
+    inputs: [input],
+    outputs: [
+      { value: 40000n, script: external(7n) },
+      { value: 50000n, script: external(8n) }
+    ]
+  });
+  signedTwo.psbt.inputs[0].push({
+    key: BTC.concatBytes(new Uint8Array([0x02]), pub),
+    value: new Uint8Array([1])
+  });
+  const signedTwoBytes = BTC.writePsbt(signedTwo.psbt);
+  for (const [core, h] of [[BTC, hd], [C, ehd]]) {
+    const a = await core.analyzePsbt(signedTwoBytes, h);
+    assert.equal(a.alreadySigned, true, 'a assinatura parcial já o torna só exibição');
+    assert.ok(a.warnings.some(w => /sem origem BIP32|mais de um destino externo/.test(w)),
+      'o problema estrutural aparece como aviso no PSBT assinado');
+    await assert.rejects(core.signPsbt(signedTwoBytes, h, new Uint8Array(32)), /já (tem|está)/);
+  }
+
+  /* Taproot com script path: 0x14 e 0x15 têm chave com dado e são recusados. */
+  const tapScript = BTC.buildPsbt({
+    inputs: [input],
+    outputs: [{ value: 90000n, script: external(7n) }]
+  });
+  tapScript.psbt.inputs[0].push({
+    key: BTC.concatBytes(new Uint8Array([0x14]), new Uint8Array(64)),
+    value: new Uint8Array(64)
+  });
+  const tapScriptBytes = BTC.writePsbt(tapScript.psbt);
+  for (const [core, h] of [[BTC, hd], [C, ehd]]) {
+    await assert.rejects(core.analyzePsbt(tapScriptBytes, h), /script path|dados de script/);
+  }
+
   /* OP_RETURN é script não padronizado: também recusado na análise. */
   const withData = BTC.buildPsbt({
     inputs: [input],
