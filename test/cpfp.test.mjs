@@ -100,7 +100,7 @@ const xpub = hd.accounts.bip84.xpub;
   assert.equal(j.package.vsize, j.parent.vsize + j.vsize);
   assert.ok(j.package.fee_rate >= target - 1e-9,
     'a taxa do pacote atinge o alvo: ' + j.package.fee_rate);
-  assert.equal(j.rbf, false, 'a filha não sinaliza RBF');
+  assert.equal(j.rbf, true, 'a filha também sinaliza RBF');
 
   const psbt = BTC.parsePsbt(BTC.psbtParseInput(j.psbt));
   assert.equal(psbt.tx.inputs.length, 1);

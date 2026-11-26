@@ -9,7 +9,7 @@
 Carteira Bitcoin **watch-only** em Cloudflare Workers. O navegador lê a
 **xpub** da conta (ou `zpub`/`ypub`), deriva os endereços e **scripthashes**
 localmente e consulta históricos/transações pelo Worker, que só faz proxy do
-**Electrum**. O navegador calcula saldo, histórico, UTXOs, PSBT e CPFP; o
+**Electrum**. O navegador calcula saldo, histórico, UTXOs, PSBT, CPFP e RBF; o
 Worker só transmite a transação assinada que volta do **Cofre BTC**, o
 assinador offline.
 
@@ -30,7 +30,7 @@ Cloudflare, e a xpub não é enviada ao Worker.
 - Um **visualizador de histórico**: transações agrupadas pelo `txid`, do
   mempool para o bloco mais recente, com direção, valores, taxa e os
   endereços da carteira que participam. Uma transação pendente pode ser
-  acelerada por CPFP.
+  acelerada por CPFP ou substituída por RBF.
 - Um **portão de transmissão**: o PSBT assinado é conferido contra a carteira
   antes de qualquer coisa ir para a rede. A publicação só acontece depois do
   clique explícito em **confirmar**.
@@ -55,7 +55,8 @@ em segundo plano com a tela fechada.
    carteira que participam. A lista é paginada, com o tamanho da página
    ajustado à área visível. A transação pendente que ainda tem uma saída
    própria não gasta ganha o botão **acelerar**, que monta um PSBT filho de
-   CPFP sem assinatura.
+   CPFP sem assinatura. Se tem troco não gasto, ganha também o botão **substituir**,
+   que monta a transação de substituição.
 4. **Enviar BTC**: quantidade, destino e a taxa calculada ao vivo pela fonte
    principal (alvo de 2 blocos), reconsultada a cada 60 segundos. A tela não exibe o host da fonte. Não há escolha de taxa. A quantidade usa máscara de BTC: só
    dígitos, com o ponto entrando da direita para a esquerda. A nota abaixo do
@@ -76,7 +77,7 @@ em segundo plano com a tela fechada.
   **50 endereços vazios por ramo** e próximo endereço `último usado + 1`.
 - O navegador calcula os **scripthashes**, manda só eles ao proxy e recebe
   históricos e transações cruas. Com esses dados ele calcula saldo, histórico,
-  UTXOs, taxa, troco, PSBT e CPFP localmente.
+  UTXOs, taxa, troco, PSBT, CPFP e RBF localmente.
 - O Worker não recebe a xpub nem a lista derivada de endereços/scripts/pubkeys;
   não mantém estado de carteira e não participa da escolha de moedas. As
   transações cruas que ele devolve contêm os scripts públicos das transações.
@@ -112,15 +113,22 @@ relay e `sources` no JSON (sem exibir host na tela), com cache curto para não
 reabrir conexão a cada minuto. A taxa final e o PSBT continuam sendo calculados
 no navegador. O Worker ainda é uma fonte de dados e pode mentir.
 
-### PSBT e CPFP
+### PSBT, CPFP e RBF
 
 - O navegador escolhe UTXOs confirmados e o próprio troco pendente, calcula a
   vsize, a taxa, o troco e o pó, e escreve o PSBT v0.
 - Toda entrada leva `witness_utxo`, origem BIP32 e a transação anterior inteira
   (`non_witness_utxo`); o Cofre exige a transação anterior, confere valor,
   script, destino e taxa e recusa a entrada sem ela.
+- O envio sinaliza RBF (`sequence` 0xfffffffd). Para uma transação pendente
+  com todas as entradas confirmadas e troco não gasto, o histórico oferece
+  **substituir**: a nova transação mantém as entradas e os destinos externos e
+  tira a taxa extra do troco. Ela paga mais taxa absoluta e por vbyte que a
+  original.
 - O CPFP também é montado no navegador: ele soma pai e ancestrais pendentes,
   calcula a taxa do filho e manda o resto para o próximo troco.
+- CPFP e RBF são caminhos alternativos. Transação antiga sem sinal BIP125 só é
+  substituível em nós com full RBF; se o nó recusar, use o CPFP.
 - O arquivo assinado volta para a tela; a conferência de entradas, valores,
   finalização e taxa é feita localmente. Só então o hex final é enviado ao
   proxy para `blockchain.transaction.broadcast`.
@@ -144,7 +152,7 @@ do próprio PSBT (entradas menos saídas) e só recebe avisos de piso e teto; o
 Cofre não compara com o `estimatefee` nem com uma fonte independente.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
-`a817012132e2fd93cdc933a148ef4fbaf9d6e54dcc42cd75affbf1eb6667c55d` — rode
+`cfef5aee33d5a0d2ed48eae015f6da89ddee3d445923193f25ee83a047f9aa79` — rode
 `sha256sum cofre-btc.html` no arquivo baixado; o asset do release tem sempre
 esse nome fixo. A tela “sobre” do Cofre
 pede a mesma conferência. Qualquer edição no Cofre exige atualizar este
@@ -329,7 +337,7 @@ Devolve `{ "ok": true, "service": "monitor-btc-proxy", "source": "electrum",
   deixa de existir quando a última tela fecha.
 - O Monitor nunca vê chave privada. O PSBT sai sem assinatura e o Cofre BTC
   faz a conferência que vale antes de assinar.
-- O PSBT de envio e o filho de CPFP são montados no navegador com as transações
+- O PSBT de envio, o filho de CPFP e a substituição RBF são montados no navegador com as transações
   cruas; o Worker não escolhe moedas nem troco. O Worker ainda fornece as
   transações cruas e a estimativa, e pode omitir dados ou mentir; a soma local
   é conferida contra o saldo e o Cofre confere o PSBT antes de assinar.
@@ -367,6 +375,7 @@ coberta por `proxy.test.mjs`, `proxy-watcher.test.mjs` e
 | `psbt.test.mjs` | Taxa, escolha de entradas, troco, pó, origens BIP32 e assinatura do PSBT. |
 | `coin-selection.test.mjs` | Regra de escolha em carteiras aleatórias. |
 | `cpfp.test.mjs` | Histórico por txid, PSBT filho e taxa do pacote. |
+| `rbf.test.mjs` | Substituição com as mesmas entradas, taxa extra tirada do troco e recusas. |
 | `cofre-ui.test.mjs` | Telas do Cofre, as nove colunas de i18n e o hash do CSS embutido. |
 | `broadcast.test.mjs` | Conferência e transmissão do PSBT assinado, inclusive pelo Durable Object. |
 | `watcher.test.mjs` | Assinaturas, avisos, reconexão, despejo e descarte total. |
@@ -423,7 +432,7 @@ src/
   address-totals.js      conta de UTXO por script
   psbt.js                escolha de entradas, taxa, troco e PSBT (fonte do bundle local)
   broadcast.js           conferência do PSBT assinado e transmissão
-  wallet-sync.js         scanner local: derivação, margem, saldo, PSBT e CPFP
+  wallet-sync.js         scanner local: derivação, margem, saldo, PSBT, CPFP e RBF
   worker-proxy.js        produção: proxy Electrum + sessão + fees + assets
   proxy-watcher.js       produção: Durable Object só de scripthashes
   proxy-rpc.js           validação e execução do lote do proxy (compartilhado)
@@ -497,10 +506,13 @@ package.json
   recusa.
 - **Só rede principal.** O projeto trabalha com chaves e endereços da mainnet
   do Bitcoin.
-- **Sem RBF, e isso não é proteção sob full RBF.** O navegador usa sequence
-  final, então o resumo mostra `rbf: false`; ainda assim, uma transação com
-  sequence final pode ser substituída sob full RBF. Não há fluxo de aumento de
-  taxa por substituição; o caminho de aceleração é o CPFP.
+- **RBF.** As transações novas sinalizam BIP125 e mostram `rbf: true`. O
+  botão **substituir** só aparece para transação pendente com entradas
+  confirmadas e troco não gasto. A substituição mantém as entradas e
+  os destinos externos, tira a taxa extra do troco e paga mais taxa absoluta
+  e por vbyte. Transações antigas sem sinal dependem de full RBF. O Cofre não
+  guarda a transação original: ele confere e assina a substituição. Sinalizar
+  não impede que terceiros substituam sob full RBF.
 
 ## Apoie
 

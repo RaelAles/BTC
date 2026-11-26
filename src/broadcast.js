@@ -175,7 +175,7 @@ export function inspectSignedPsbt({ psbtText, byScript, utxos }) {
   const fee = totalIn - totalOut;
   const feeRate = fin.vsize > 0 ? fee / fin.vsize : 0;
   const locktime = fin.tx.locktime >>> 0;
-  const rbf = (fin.tx.version >>> 0) >= 2 && fin.tx.inputs.some(inp => (inp.sequence >>> 0) < 0xfffffffe);
+  const rbf = fin.tx.inputs.some(inp => (inp.sequence >>> 0) < 0xfffffffe);
   const warnings = [];
   if (!fee) warnings.push('taxa zero: a rede pode recusar a transação');
   if (fee > 0 && feeRate < RELAY_MIN_RATE) {

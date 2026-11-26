@@ -10,7 +10,7 @@ Watch-only Bitcoin wallet on Cloudflare Workers. The browser reads the
 account **xpub** (or `zpub`/`ypub`), derives addresses and **scripthashes**
 locally and queries histories/transactions through the Worker, which only acts
 as an **Electrum** proxy. The browser computes balance, history, UTXOs, PSBT and
-CPFP; the Worker only broadcasts the signed transaction that comes back from
+CPFP and RBF; the Worker only broadcasts the signed transaction that comes back from
 the offline **Cofre BTC** signer.
 
 Nothing is stored: no wallet data in the browser, no database in Cloudflare,
@@ -30,7 +30,7 @@ and the xpub is not sent to the Worker.
   choosing coins.
 - A **history viewer**: transactions grouped by `txid`, from the mempool to
   the most recent block, with direction, values, fee and the wallet addresses
-  involved. A pending transaction can be accelerated with CPFP.
+  involved. A pending transaction can be accelerated with CPFP or replaced with RBF.
 - A **broadcast gate**: the signed PSBT is checked against the wallet before
   anything reaches the network. Publishing only happens after the explicit
   confirmation.
@@ -54,7 +54,8 @@ background watch with the page closed.
    values, fee and the wallet addresses involved; the list is paginated, with
    the page size fitted to the visible area. A pending transaction that still
    has an unspent wallet output gets the **accelerate** button, which builds
-   an unsigned CPFP child PSBT.
+   an unsigned CPFP child PSBT. If it has unspent change, it also gets the
+   **replace** button, which builds the replacement transaction.
 4. **Send BTC**: amount, destination and the fee calculated live from the
    primary source (2-block target), refreshed every 60 seconds. The screen does not show the source host.
    There is no fee picker. The amount uses a BTC mask: digits only, with the
@@ -77,7 +78,7 @@ background watch with the page closed.
   `last used + 1`.
 - The browser computes **scripthashes**, sends only them to the proxy and gets
   histories and raw transactions back. It then computes balance, history,
-  UTXOs, fee, change, PSBT and CPFP locally.
+  UTXOs, fee, change, PSBT, CPFP and RBF locally.
 - The Worker never receives the xpub or the derived address/script/pubkey
   list; it keeps no wallet state and does not choose coins. The raw
   transactions it returns contain their public scripts.
@@ -114,7 +115,7 @@ with a short cache so it does not reopen a connection every minute. The final
 fee and PSBT are still computed in the browser. The Worker remains a data
 source and can lie.
 
-### PSBT and CPFP
+### PSBT, CPFP and RBF
 
 - The browser selects confirmed UTXOs and its own pending change, computes
   vsize, fee, change and dust, and writes the PSBT v0.
@@ -122,8 +123,16 @@ source and can lie.
   transaction (`non_witness_utxo`); the Cofre requires the previous
   transaction, checks value, script, destination and fee, and refuses an
   input without it.
+- Sends signal RBF (`sequence` 0xfffffffd). For a pending transaction with
+  all inputs confirmed and unspent change, the history offers **replace**:
+  the new transaction keeps the inputs and external destinations and takes
+  the extra fee from the change. It pays a higher absolute fee and a higher
+  fee per vbyte than the original.
 - CPFP is also built in the browser: it adds the parent and pending ancestors,
   computes the child fee and sends the remainder to the next change address.
+- CPFP and RBF are alternative paths. An older transaction without BIP125
+  signaling can only be replaced on full-RBF nodes; if the node refuses, use
+  CPFP.
 - The signed file returns to the screen; input, value, finalization and fee
   checks are local. Only then is the final hex sent to the proxy for
   `blockchain.transaction.broadcast`.
@@ -148,7 +157,7 @@ and ceiling warnings; the Cofre does not compare it with `estimatefee` or an
 independent source.
 
 Before opening it, compare the published hash: the sha256 of the published
-file is `a817012132e2fd93cdc933a148ef4fbaf9d6e54dcc42cd75affbf1eb6667c55d` —
+file is `cfef5aee33d5a0d2ed48eae015f6da89ddee3d445923193f25ee83a047f9aa79` —
 run `sha256sum cofre-btc.html` on the downloaded file; the release asset
 always has this fixed name. The Cofre's about
 screen asks for the same check. Any edit to the Cofre requires updating this
@@ -334,7 +343,7 @@ Returns `{ "ok": true, "service": "monitor-btc-proxy", "source": "electrum",
   last screen closes.
 - The Monitor never sees a private key. The PSBT leaves unsigned and the Cofre
   BTC performs the authoritative check before signing.
-- The send PSBT and the CPFP child are built in the browser from the raw
+- The send PSBT, the CPFP child and the RBF replacement are built in the browser from the raw
   transactions; the Worker does not choose coins or change. The Worker
   still supplies the raw transactions and the estimate, and can omit data or
   lie; the local sum is checked against the balance and the Cofre checks the
@@ -373,6 +382,7 @@ production is covered by `proxy.test.mjs`, `proxy-watcher.test.mjs` and
 | `psbt.test.mjs` | Fee, coin selection, change, dust, BIP32 origins and PSBT signing. |
 | `coin-selection.test.mjs` | Selection rule over randomized wallets. |
 | `cpfp.test.mjs` | History grouped by txid, child PSBT and package fee. |
+| `rbf.test.mjs` | Replacement with the same inputs, extra fee from change, and refusals. |
 | `cofre-ui.test.mjs` | Cofre screens, the nine i18n columns and the embedded CSS hash. |
 | `broadcast.test.mjs` | Signed PSBT checks and broadcast, including the Durable Object path. |
 | `watcher.test.mjs` | Subscriptions, notifications, reconnect, eviction and total discard. |
@@ -429,7 +439,7 @@ src/
   address-totals.js      UTXO accounting per script
   psbt.js                coin selection, fee, change and send PSBT (source of the local bundle)
   broadcast.js           signed PSBT checks and broadcast
-  wallet-sync.js         local scanner: derivation, gap, balance, PSBT and CPFP
+  wallet-sync.js         local scanner: derivation, gap, balance, PSBT, CPFP and RBF
   worker-proxy.js        production: Electrum proxy + session + fees + assets
   proxy-watcher.js       production: scripthash-only Durable Object
   proxy-rpc.js           shared proxy batch validation and execution
@@ -500,10 +510,14 @@ package.json
   adjusts the balance can still induce an invalid PSBT, which the network
   rejects.
 - **Mainnet only.** The project works with Bitcoin mainnet keys and addresses.
-- **No RBF, and that is not protection under full RBF.** The browser uses
-  final sequence values, so the summary reports `rbf: false`; even so, a
-  transaction with a final sequence can be replaced under full RBF. There is
-  no fee-bump-by-replacement flow; the acceleration path is CPFP.
+- **RBF.** New transactions signal BIP125 and show `rbf: true`. The
+  **replace** button only appears for a pending transaction with confirmed
+  inputs and unspent change. The replacement keeps the inputs
+  and external destinations, takes the extra fee from the change and pays a
+  higher absolute fee and a higher fee per vbyte. Older transactions without
+  signaling depend on full RBF. The Cofre does not keep the original
+  transaction: it checks and signs the replacement. Signaling does not stop
+  third parties from replacing under full RBF.
 
 ## Support
 

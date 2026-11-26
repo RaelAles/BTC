@@ -72,7 +72,10 @@ function utxoInput(utxo, fingerprint) {
     kind: utxo.row.kind,
     pub: BTC.hexToBytes(utxo.row.pub),
     path: utxo.row.path,
-    fingerprint
+    fingerprint,
+    /* BIP125: sequence abaixo de 0xfffffffe sinaliza que a transação pode
+       ser substituída. É o padrão do montador para o RBF ficar disponível. */
+    sequence: 0xfffffffd
   };
 }
 
@@ -459,7 +462,7 @@ export async function preparePsbt({
   const feeAtRate = feeSats(rateKvb, pick.vsize);
   const tx = built.tx;
   const locktime = tx.locktime >>> 0;
-  const rbf = (tx.version >>> 0) >= 2 && tx.inputs.some(inp => (inp.sequence >>> 0) < 0xfffffffe);
+  const rbf = tx.inputs.some(inp => (inp.sequence >>> 0) < 0xfffffffe);
   return {
     psbt: built.base64,
     txid: built.txid,
@@ -523,7 +526,8 @@ export async function prepareCpfpPsbt({
     pub: BTC.hexToBytes(spend.row.pub),
     path: spend.row.path,
     fingerprint: fp,
-    rawTx
+    rawTx,
+    sequence: 0xfffffffd
   }];
   const outputs = [{
     value,
@@ -540,7 +544,7 @@ export async function prepareCpfpPsbt({
     txid: built.txid,
     vsize: built.vsize,
     locktime: tx.locktime >>> 0,
-    rbf: (tx.version >>> 0) >= 2 && tx.inputs.some(inp => (inp.sequence >>> 0) < 0xfffffffe),
+    rbf: tx.inputs.some(inp => (inp.sequence >>> 0) < 0xfffffffe),
     fee_sats: fee,
     fee_rate: built.vsize ? fee / built.vsize : 0,
     total_in: Number(spend.value),

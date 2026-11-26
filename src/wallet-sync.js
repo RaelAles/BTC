@@ -413,6 +413,18 @@ export class WalletScanner {
       .filter(o => o.spendable && o.value >= DUST_SATS)
       .sort((a, b) => b.value - a.value);
     const cpfpOutput = candidates[0] || null;
+    /* RBF só é oferecido para transação pendente que sinalizou BIP125, tem
+       todas as entradas confirmadas e ainda tem troco próprio não gasto. */
+    const signalsRbf = entry.inputs.some(inp => (inp.sequence >>> 0) < 0xfffffffe);
+    const inputsConfirmed = entry.inputs.every(inp => {
+      const prev = this.outpointIndex.get(inp.txid + ':' + inp.vout);
+      return prev && Number(prev.height) > 0;
+    });
+    const ownOutputsUnspent = outputs.every(o => !o.own || o.spendable);
+    const changeOutputs = ownOutputs.filter(o => o.row.chain === 1 && o.value >= DUST_SATS);
+    const rbfEligible = !entry.height && ownInputs.length > 0 && allInputsOwn &&
+      fee != null && fee >= 0 && inputsConfirmed && ownOutputsUnspent &&
+      changeOutputs.length > 0 && externalOutputs.length <= 1;
 
     return {
       txid: entry.txid,
@@ -430,6 +442,7 @@ export class WalletScanner {
       addresses,
       own_inputs: ownInputs,
       own_outputs: ownOutputs,
+      outputs,
       all_inputs_own: allInputsOwn,
       cpfp: {
         eligible: !entry.height && ownInputs.length > 0 && allInputsOwn &&
@@ -441,6 +454,10 @@ export class WalletScanner {
           path: cpfpOutput.row.path, chain: cpfpOutput.row.chain,
           idx: cpfpOutput.row.idx
         } : null
+      },
+      rbf: {
+        eligible: rbfEligible,
+        signals: signalsRbf
       }
     };
   }
@@ -461,7 +478,8 @@ export class WalletScanner {
       input_count: t.input_count,
       output_count: t.output_count,
       addresses: t.addresses,
-      cpfp: t.cpfp
+      cpfp: t.cpfp,
+      rbf: t.rbf
     };
   }
 
@@ -558,6 +576,110 @@ export class WalletScanner {
       this.releaseChangeRow(type, changeRow);
       throw e;
     }
+  }
+
+  /* RBF: monta a substituição da transação pendente com as mesmas entradas e
+     os mesmos destinos, tirando a taxa extra do troco. A nova transação
+     sinaliza BIP125 (sequence 0xfffffffd) e paga mais taxa absoluta e por
+     vbyte que a original. */
+  async prepareRbf({ txid, feeRate }) {
+    if (this.errors && this.errors.size) {
+      throw new Error('histórico incompleto (faltou transação do servidor); atualize a carteira e tente de novo');
+    }
+    if (!this.utxos) throw new Error('carteira ainda não sincronizada');
+    const entry = this.entryByTxid && this.entryByTxid.get(String(txid || '').toLowerCase());
+    if (!entry) throw new Error('transação não encontrada nesta carteira');
+    if (entry.height > 0) throw new Error('a transação já foi confirmada; RBF só vale para pendente');
+    const info = this.infoOf(entry);
+    if (!info.own_inputs.length) throw new Error('a transação não é um envio desta carteira');
+    if (!info.all_inputs_own) {
+      throw new Error('nem todas as entradas da transação são desta carteira; não é possível assinar a substituição');
+    }
+    if (info.fee_sats == null || info.fee_sats < 0) {
+      throw new Error('taxa da transação original indisponível');
+    }
+    for (const input of entry.inputs) {
+      const prev = this.outpointIndex.get(input.txid + ':' + input.vout);
+      if (!prev || !(Number(prev.height) > 0)) {
+        throw new Error('a transação tem entrada ainda não confirmada; use o CPFP');
+      }
+    }
+    if (info.outputs.some(o => o.own && !o.spendable)) {
+      throw new Error('há uma saída própria já gasta; substituir o pai invalidaria a transação filha');
+    }
+    const change = info.outputs
+      .map((o, i) => ({ o, i }))
+      .filter(({ o }) => o.row && o.row.chain === 1 && o.value >= DUST_SATS && o.spendable)
+      .sort((a, b) => b.o.value - a.o.value);
+    if (!change.length) throw new Error('a transação não tem troco disponível para aumentar a taxa');
+
+    const rateKvb = feeRateKvb(feeRate);
+    const vsize = BTC.estimateVsize(
+      info.own_inputs.map(i => i.row.kind),
+      info.outputs.map(o => BTC.hexToBytes(o.script))
+    );
+    /* Além da taxa-alvo, exige pelo menos 1 sat/vB acima da original: é o
+       incremento que a política de substituição espera. */
+    const targetFee = Math.max(feeSats(rateKvb, vsize),
+      info.fee_sats + Math.ceil(vsize));
+    let remaining = targetFee - info.fee_sats;
+
+    const values = info.outputs.map(o => BigInt(o.value));
+    for (const { i } of change) {
+      const available = Number(values[i]) - DUST_SATS;
+      if (available <= 0) continue;
+      const take = Math.min(available, remaining);
+      values[i] -= BigInt(take);
+      remaining -= take;
+      if (!remaining) break;
+    }
+    if (remaining > 0) throw new Error('o troco não cobre a taxa extra da substituição');
+
+    const rawTxFor = async id => {
+      const cached = this.txCache.get(id);
+      if (cached) return BTC.hexToBytes(cached);
+      const got = await transactionsMany(this.client, [id], { concurrency: 1 });
+      const raw = got.raw.get(id);
+      if (raw) this.txCache.set(id, raw);
+      return raw ? BTC.hexToBytes(raw) : null;
+    };
+    const inputs = [];
+    for (const input of info.own_inputs) {
+      const rawTx = await rawTxFor(input.txid);
+      if (!rawTx) throw new Error('transação anterior da entrada ' + input.txid + ' não encontrada');
+      inputs.push({
+        txid: input.txid, vout: input.vout, value: input.value,
+        script: BTC.hexToBytes(input.script), kind: input.row.kind,
+        pub: BTC.hexToBytes(input.row.pub), path: input.row.path,
+        fingerprint: this.fingerprint, rawTx, sequence: 0xfffffffd
+      });
+    }
+    const outputs = info.outputs.map((o, i) => {
+      const out = { value: values[i], script: BTC.hexToBytes(o.script) };
+      if (o.row) {
+        out.origin = {
+          fingerprint: this.fingerprint,
+          path: o.row.path,
+          pub: BTC.hexToBytes(o.row.pub)
+        };
+      }
+      return out;
+    });
+    const built = BTC.buildPsbt({ inputs, outputs, version: 2, locktime: 0 });
+    return {
+      psbt: built.base64,
+      txid: built.txid,
+      vsize: built.vsize,
+      locktime: 0,
+      rbf: true,
+      fee_sats: targetFee,
+      fee_rate: built.vsize ? targetFee / built.vsize : 0,
+      total_in: info.total_in_sats,
+      total_out: info.total_in_sats - targetFee,
+      old_txid: entry.txid,
+      old_fee_sats: info.fee_sats,
+      old_fee_rate: entry.vsize ? info.fee_sats / entry.vsize : 0
+    };
   }
 
   /* Caminha a varredura em um lote de no máximo SCAN_BATCH endereços novos.

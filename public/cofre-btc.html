@@ -6282,9 +6282,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   function rbfText(tx) {
     if (!tx || !tx.inputs || !tx.inputs.length) return '—';
-    /* RBF (BIP125) é sinalizado por sequence abaixo de 0xfffffffe numa
-       transação versão 2 ou maior; 0xfffffffe só liga o locktime. */
-    var rbf = (tx.version >>> 0) >= 2 && tx.inputs.some(function (inp) {
+    /* RBF (BIP125) é sinalizado por sequence abaixo de 0xfffffffe; a versão
+       da transação não importa. 0xfffffffe só liga o locktime. */
+    var rbf = tx.inputs.some(function (inp) {
       return (inp.sequence >>> 0) < 0xfffffffe;
     });
     return t(rbf ? 'sim' : 'não');

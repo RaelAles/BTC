@@ -161,7 +161,7 @@ function mapFind(map, type) {
   assert.equal(j.inputs.length, 2, 'duas entradas para cobrir 50 000 sats');
   assert.equal(j.total_in, 60000);
   assert.equal(j.locktime, 0, 'o montador usa locktime 0');
-  assert.equal(j.rbf, false, 'o montador usa sequence final');
+  assert.equal(j.rbf, true, 'o montador sinaliza RBF');
   assert.equal(j.change.value, j.total_in - 50000 - j.fee_sats);
   assert.ok(j.fee_sats >= Math.ceil(5 * j.vsize), 'taxa cobre a vsize estimada a 5 sat/vB');
   assert.ok(j.change.value >= 546, 'troco acima do pó');
