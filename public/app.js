@@ -179,7 +179,6 @@
     ["pó","dust","polvo","poussière","polvere","Staub","stof","pols","po"],
     ["txid","txid","txid","txid","txid","txid","txid","txid","txid"],
     ["vsize","vsize","vsize","vsize","vsize","vsize","vsize","vsize","vsize"],
-    ["agendado","scheduled","programado","programmé","programmato","geplant","gepland","programat","programado"],
     ["Exportar PSBT","Export PSBT","Exportar PSBT","Exporter le PSBT","Esporta PSBT","PSBT exportieren","PSBT exporteren","Exportar PSBT","Exportar PSBT"],
     ["baixar","download","descargar","télécharger","scarica","herunterladen","downloaden","descarregar","descargar"],
     ["importar psbt","import psbt","importar psbt","importer psbt","importa psbt","psbt importieren","psbt importeren","importar psbt","importar psbt"],
@@ -250,8 +249,6 @@
     ["chave inválida: use a xpub, zpub ou ypub da conta; endereço, chave privada e outro texto são recusados.","invalid key: use the account's xpub, zpub or ypub; addresses, private keys and other text are refused.","clave no válida: usa la xpub, zpub o ypub de la cuenta; se rechazan direcciones, claves privadas y otro texto.","clé invalide : utilisez la xpub, zpub ou ypub du compte ; les adresses, les clés privées et tout autre texte sont refusés.","chiave non valida: usa la xpub, zpub o ypub del conto; indirizzi, chiavi private e altro testo vengono rifiutati.","ungültiger Schlüssel: Verwende die xpub, zpub oder ypub des Kontos; Adressen, private Schlüssel und anderer Text werden abgelehnt.","ongeldige sleutel: gebruik de xpub, zpub of ypub van de rekening; adressen, privésleutels en andere tekst worden geweigerd.","clau no vàlida: fes servir la xpub, zpub o ypub del compte; s'hi refusen adreces, claus privades i altre text.","clave non válida: usa a xpub, zpub ou ypub da conta; rexéitanse enderezos, claves privadas e outro texto."],
     ["sim","yes","sí","oui","sì","ja","ja","sí","si"],
     ["não","no","no","non","no","nein","nee","no","non"],
-    ["data estimada indisponível","estimated date unavailable","fecha estimada no disponible","date estimée indisponible","data stimata non disponibile","geschätztes Datum nicht verfügbar","geschatte datum niet beschikbaar","data estimada no disponible","data estimada non dispoñible"],
-    ["{value} (aprox.)","{value} (approx.)","{value} (aprox.)","{value} (env.)","{value} (circa)","{value} (ca.)","{value} (ca.)","{value} (aprox.)","{value} (aprox.)"],
     ["[ ok ]","[ ok ]","[ ok ]","[ ok ]","[ ok ]","[ ok ]","[ ok ]","[ ok ]","[ ok ]"],
     ["[ erro ]","[ error ]","[ error ]","[ erreur ]","[ errore ]","[ Fehler ]","[ fout ]","[ error ]","[ erro ]"],
     ["[ atenção ]","[ warning ]","[ atención ]","[ attention ]","[ attenzione ]","[ Achtung ]","[ let op ]","[ atenció ]","[ atención ]"],
@@ -901,19 +898,6 @@
     var s = String(Math.abs(n));
     while (s.length < 9) s = '0' + s;
     return (neg ? '-' : '') + s.slice(0, -8) + '.' + s.slice(-8);
-  }
-  /* Locktime → data estimada; 0 = não. Igual ao cofre: locktime em bloco
-     vira data aproximada (10 min por bloco desde o genesis) e o bloco não
-     aparece, só a data. */
-  function scheduledText(locktime) {
-    var value = Number(locktime) >>> 0;
-    if (!value) return t('não');
-    var date = value >= 500000000
-      ? new Date(value * 1000)
-      : new Date((1231006505 + value * 600) * 1000);
-    if (isNaN(date.getTime())) return t('data estimada indisponível');
-    var stamp = date.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
-    return value < 500000000 ? t('{value} (aprox.)', { value: stamp }) : stamp;
   }
   /* Valor digitado em BTC → sats inteiros. Aceita vírgula ou ponto e até 8
      casas; qualquer outra coisa (ou zero) devolve null. */
@@ -2378,8 +2362,7 @@
   function renderSendMeta(j) {
     var values = {
       '#send-meta-txid': j.txid,
-      '#send-meta-vsize': '~' + fmtInt(j.vsize) + ' vB',
-      '#send-meta-scheduled': scheduledText(j.locktime)
+      '#send-meta-vsize': '~' + fmtInt(j.vsize) + ' vB'
     };
     Object.keys(values).forEach(function (sel) {
       var el = $(sel);
@@ -2683,7 +2666,6 @@
     broadcastCell('#broadcast-meta-file', state.broadcastName || '—');
     broadcastCell('#broadcast-meta-txid', j.txid);
     broadcastCell('#broadcast-meta-vsize', fmtInt(j.vsize) + ' vB');
-    broadcastCell('#broadcast-meta-scheduled', scheduledText(j.locktime));
     var fee = $('#broadcast-meta-fee');
     if (fee) fee.innerHTML = signedBtcShare(j.fee_sats, 'out');
 

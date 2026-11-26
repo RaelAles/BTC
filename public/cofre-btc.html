@@ -2534,20 +2534,18 @@
             <div class="prose">
               <h3><span class="prompt" aria-hidden="true">##</span> revisão</h3>
             </div>
-            <!-- O resumo usa as mesmas linhas do projeto principal: um par
-                 saída/destino por pagamento e um par troco/endereço por
-                 troco, na ordem da transação, seguidos da taxa, do txid, do vsize,
-                 do rbf/agendado e do arquivo. Cada valor leva a fatia que
-                 representa da soma das
-                 entradas. A última linha diz de qual arquivo vêm esses
-                 dados: o PSBT importado ou, depois de assinar, o baixado. -->
+            <!-- O resumo usa as mesmas linhas do projeto principal: o txid
+                 abre a tabela, destacado; depois vêm um par saída/destino por
+                 pagamento e um par troco/endereço por troco, na ordem da
+                 transação, seguidos da taxa, do vsize e do arquivo. Cada valor
+                 leva a fatia que representa da soma das entradas. A última
+                 linha diz de qual arquivo vêm esses dados: o PSBT importado
+                 ou, depois de assinar, o baixado. -->
             <table class="data-table key-readout review-readout" id="review-table" aria-label="resumo do psbt">
               <tbody>
+                <tr class="group-end"><th scope="row">txid</th><td id="review-txid">—</td></tr>
                 <tr id="review-fee-row"><th scope="row">taxa</th><td id="review-fee">—</td></tr>
-                <tr><th scope="row">txid</th><td id="review-txid">—</td></tr>
                 <tr class="group-end"><th scope="row">vsize</th><td id="review-vsize">—</td></tr>
-                <tr><th scope="row">rbf</th><td id="review-rbf">—</td></tr>
-                <tr class="group-end"><th scope="row">agendado</th><td id="review-scheduled">—</td></tr>
                 <tr><th scope="row">arquivo</th><td id="review-file">—</td></tr>
               </tbody>
             </table>
@@ -4659,8 +4657,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["taxa","fee","comisión","frais","commissione","Gebühr","kosten","comissió","comisión"],
     ["txid","txid","txid","txid","txid","txid","txid","txid","txid"],
     ["vsize","vsize","vsize","vsize","vsize","vsize","vsize","vsize","vsize"],
-    ["rbf","rbf","rbf","rbf","rbf","rbf","rbf","rbf","rbf"],
-    ["agendado","scheduled","programado","programmé","programmato","geplant","gepland","programat","programado"],
     ["arquivo","file","archivo","fichier","file","Datei","bestand","fitxer","ficheiro"],
     ["Ações do PSBT","PSBT actions","Acciones del PSBT","Actions du PSBT","Azioni del PSBT","PSBT-Aktionen","PSBT-acties","Accions del PSBT","Accións do PSBT"],
     ["importar psbt","import psbt","importar psbt","importer psbt","importa psbt","psbt importieren","psbt importeren","importar psbt","importar psbt"],
@@ -4688,9 +4684,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["[ externo ]","[ external ]","[ externo ]","[ externe ]","[ esterno ]","[ extern ]","[ extern ]","[ extern ]","[ externo ]"],
     ["sim","yes","sí","oui","sì","ja","ja","sí","si"],
     ["não","no","no","non","no","nein","nee","no","non"],
-    ["data Unix {value}","Unix date {value}","fecha Unix {value}","date Unix {value}","data Unix {value}","Unix-Datum {value}","Unix-datum {value}","data Unix {value}","data Unix {value}"],
-    ["data estimada indisponível","estimated date unavailable","fecha estimada no disponible","date estimée indisponible","data stimata non disponibile","geschätztes Datum nicht verfügbar","geschatte datum niet beschikbaar","data estimada no disponible","data estimada non dispoñible"],
-    ["{value} (aprox.)","{value} (approx.)","{value} (aprox.)","{value} (env.)","{value} (circa)","{value} (ca.)","{value} (ca.)","{value} (aprox.)","{value} (aprox.)"],
     ["copiar","copy","copiar","copier","copia","kopieren","kopiëren","copia","copiar"],
     ["copiado","copied","copiado","copié","copiato","kopiert","gekopieerd","copiat","copiado"],
     ["copiar {id}","copy {id}","copiar {id}","copier {id}","copia {id}","{id} kopieren","{id} kopiëren","copia {id}","copiar {id}"],
@@ -5082,8 +5075,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var reviewFee = $('#review-fee');
   var reviewVsize = $('#review-vsize');
   var reviewTxid = $('#review-txid');
-  var reviewScheduled = $('#review-scheduled');
-  var reviewRbf = $('#review-rbf');
+
   var reviewFile = $('#review-file');
 
   var psbtFileName = '';
@@ -6267,37 +6259,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       tbody.insertBefore(address, reviewFeeRow);
     });
   }
-  /* As duas linhas são só informativas: "agendado" é o locktime (0 = não)
-     e "rbf" é a sequence (0xfffffffe ou 0xffffffff em todas as entradas =
-     não; a versão da transação não importa). */
-  function utcText(date) {
-    return date.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
-  }
-  function scheduledText(tx) {
-    if (!tx) return '—';
-    var value = tx.locktime >>> 0;
-    if (value === 0) return t('não');
-    if (value >= 500000000) {
-      var date = new Date(value * 1000);
-      if (isNaN(date.getTime())) return t('data Unix {value}', { value: value });
-      return utcText(date);
-    }
-    /* Locktime em bloco: a data é aproximada, 10 min por bloco desde o
-       genesis; não há consulta de altura nesta página offline. */
-    var estimated = new Date((1231006505 + value * 600) * 1000);
-    return isNaN(estimated.getTime())
-      ? t('data estimada indisponível')
-      : t('{value} (aprox.)', { value: utcText(estimated) });
-  }
-  function rbfText(tx) {
-    if (!tx || !tx.inputs || !tx.inputs.length) return '—';
-    /* BIP125: a sequence abaixo de 0xfffffffe sinaliza substituição;
-       0xfffffffe só liga o locktime. */
-    var rbf = tx.inputs.some(function (inp) {
-      return (inp.sequence >>> 0) < 0xfffffffe;
-    });
-    return t(rbf ? 'sim' : 'não');
-  }
   /* `signed` troca o vsize estimado pelo real da transação final, que é o
      que o PSBT assinado carrega. */
   function renderReview(a, file, signed) {
@@ -6307,8 +6268,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }
     reviewCell(reviewVsize, (signed ? '' : '~') + a.vsize + ' vB');
     reviewCell(reviewTxid, (signed || !a.txidEstimated ? '' : '~') + a.txid);
-    reviewCell(reviewScheduled, scheduledText(a.tx));
-    reviewCell(reviewRbf, rbfText(a.tx));
     reviewCell(reviewFile, file);
   }
   /* Taxa fora da faixa de 0,1 a 500 sat/vB: a marca entra à direita do valor,

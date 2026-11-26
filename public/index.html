@@ -169,15 +169,14 @@
               </div>
               <table class="data-table key-readout" id="send-meta" aria-labelledby="send-meta-title">
                 <tbody>
+                  <tr class="group-end"><th scope="row">txid</th><td id="send-meta-txid">—</td></tr>
                   <tr><th scope="row">saída</th><td id="send-meta-out-value">—</td></tr>
                   <tr class="group-end"><th scope="row">destino</th><td id="send-meta-out-address">—</td></tr>
                   <tr id="send-meta-change-value-row"><th scope="row">troco</th><td id="send-meta-change-value">—</td></tr>
                   <tr class="group-end" id="send-meta-change-address-row"><th scope="row">endereço</th><td id="send-meta-change-address">—</td></tr>
                   <tr><th scope="row">taxa</th><td id="send-meta-fee">—</td></tr>
                   <tr id="send-meta-dust-row" hidden><th scope="row">pó</th><td id="send-meta-dust">—</td></tr>
-                  <tr><th scope="row">txid</th><td id="send-meta-txid">—</td></tr>
                   <tr class="group-end"><th scope="row">vsize</th><td id="send-meta-vsize">—</td></tr>
-                  <tr class="group-end"><th scope="row">agendado</th><td id="send-meta-scheduled">—</td></tr>
                 </tbody>
               </table>
               <p class="note" id="send-meta-warn"></p>
@@ -212,10 +211,9 @@
                      PSBT assinado não carrega essa conta. -->
                 <table class="data-table key-readout" id="broadcast-meta" aria-label="resumo da transação assinada">
                   <tbody>
+                    <tr class="group-end"><th scope="row">txid</th><td id="broadcast-meta-txid">—</td></tr>
                     <tr id="broadcast-meta-fee-row"><th scope="row">taxa</th><td id="broadcast-meta-fee">—</td></tr>
-                    <tr><th scope="row">txid</th><td id="broadcast-meta-txid">—</td></tr>
                     <tr class="group-end"><th scope="row">vsize</th><td id="broadcast-meta-vsize">—</td></tr>
-                    <tr class="group-end"><th scope="row">agendado</th><td id="broadcast-meta-scheduled">—</td></tr>
                     <tr><th scope="row">arquivo</th><td id="broadcast-meta-file">—</td></tr>
                   </tbody>
                 </table>
@@ -365,6 +363,6 @@
 </div>
 
 <script src="/dist/wallet-local.min.js" defer integrity="sha384-ZurmahlSe2BVR5Ldd1Q3Ho7udSyXIgBA+mCWHKVK5E/p2DyX6UCBS5xkuAChPZQq"></script>
-<script src="/dist/app.min.js" defer integrity="sha384-GG8+Tzo7HpeemYdeRXrLUuqGCCF2tXCNCOrzXcMyFlF30CoKY0I6xm4slpPWJghn"></script>
+<script src="/dist/app.min.js" defer integrity="sha384-WIHidflAU8htxVhpqq5aeEEnF4D+ZeyGmuWy1DWaZXqYNmdzizfG3nDwKJGM2w25"></script>
 </body>
 </html>
