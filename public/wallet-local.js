@@ -1775,25 +1775,20 @@ var BTC = (function () {
       });
     }
     /* Estrutura das saídas: o Monitor monta um pagamento externo e, no
-       máximo, um troco próprio. PSBT sem assinatura fora desta régua é
-       recusado na análise, não só na assinatura: um arquivo que o Cofre não
-       assinaria não chega a ser carregado. Script não padronizado (inclusive
-       OP_RETURN) também é recusado, e a taxa zero ou acima de 500 sat/vB idem.
-       PSBT já assinado é só exibição: os mesmos problemas viram aviso, para o
-       arquivo ainda poder ser conferido. */
-    function recusa(msg) {
-      if (anySigned) { warnings.push(msg); return; }
-      throw new Error(msg);
-    }
+       máximo, um troco próprio. PSBT fora desta régua é recusado na análise,
+       não só na assinatura, inclusive quando já vem assinado: um arquivo que
+       o Cofre não assinaria não chega a ser carregado. Script não padronizado
+       (inclusive OP_RETURN) e taxa zero também são recusados. Taxa acima de
+       500 sat/vB é aceita com aviso. */
     outputs.forEach(function (out) {
       if (out.own === 'outro') {
-        recusa('saída ' + out.index + ' tem script não padronizado; o cofre só assina PSBT com saídas padronizadas');
+        throw new Error('saída ' + out.index + ' tem script não padronizado; o cofre só assina PSBT com saídas padronizadas');
       }
     });
     var externals = outputs.filter(function (o) { return o.own === 'externo'; });
     if (externals.length > 1) {
       var missingOrigin = externals.some(function (o) { return !o.declaredOrigin; });
-      recusa(missingOrigin
+      throw new Error(missingOrigin
         ? 'uma saída: há saída própria sem origem BIP32; o troco não pode ser identificado; confira no coordenador.'
         : 'uma saída: mais de um destino externo; o cofre só assina um pagamento externo por PSBT.');
     }
@@ -1801,8 +1796,8 @@ var BTC = (function () {
     var fee = totalIn - totalOut;
     var vsize = estimateVsize(inputs.map(function (x) { return x.kind; }), tx.outputs.map(function (x) { return x.script; }));
     var feerate = vsize > 0 ? Number(fee) / vsize : 0;
-    if (fee === 0n) recusa('PSBT com taxa zero: a rede pode recusar a transação');
-    if (feerate > 500) recusa('PSBT com taxa acima de 500 sat/vB: confira o valor da taxa');
+    if (fee === 0n) throw new Error('PSBT com taxa zero: a rede pode recusar a transação');
+    if (feerate > 500) warnings.push('PSBT com taxa acima de 500 sat/vB: confira o valor da taxa');
     if (feerate > 0 && feerate < 0.1) warnings.push('taxa abaixo de 0,1 sat/vB: a transação pode ser recusada pelo piso de relay padrão');
     /* O valor da entrada só pode ser conferido contra a transação anterior.
        Em p2pkh ele não entra no sighash; em segwit entra, mas com só o

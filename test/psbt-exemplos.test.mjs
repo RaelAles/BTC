@@ -90,9 +90,15 @@ for (const name of [
   console.log('ok   15: troco sem origem BIP32 recusado na importação');
 }
 {
-  await assert.rejects(analyze('12-taxa-alta.psbt'), /acima de 500 sat\/vB/);
+  const a = await analyze('12-taxa-alta.psbt');
+  assert.ok(a.warnings.some(w => /acima de 500 sat\/vB/.test(w)), 'taxa alta avisa');
+  const signed = await BTC.signPsbt(bytes('12-taxa-alta.psbt'), hd, new Uint8Array(32));
+  assert.ok(signed.txid, 'taxa alta continua assinável');
+  console.log('ok   12: taxa alta aceita com aviso e assina');
+}
+{
   await assert.rejects(analyze('13-taxa-zero.psbt'), /taxa zero/);
-  console.log('ok   12 e 13: taxa alta e taxa zero recusadas na importação');
+  console.log('ok   13: taxa zero recusada na importação');
 }
 {
   await assert.rejects(analyze('14-saida-nao-padronizada.psbt'), /script não padronizado/);

@@ -242,7 +242,7 @@ function psbtWithGlobal(global, inputs, outputs) {
       /sem origem BIP32|mais de um destino externo/);
   }
 
-  /* PSBT já assinado é só exibição: os problemas viram aviso, não recusa. */
+  /* As regras valem também para PSBT já assinado: fora do padrão, recusa. */
   const signedTwo = BTC.buildPsbt({
     inputs: [input],
     outputs: [
@@ -256,11 +256,10 @@ function psbtWithGlobal(global, inputs, outputs) {
   });
   const signedTwoBytes = BTC.writePsbt(signedTwo.psbt);
   for (const [core, h] of [[BTC, hd], [C, ehd]]) {
-    const a = await core.analyzePsbt(signedTwoBytes, h);
-    assert.equal(a.alreadySigned, true, 'a assinatura parcial já o torna só exibição');
-    assert.ok(a.warnings.some(w => /sem origem BIP32|mais de um destino externo/.test(w)),
-      'o problema estrutural aparece como aviso no PSBT assinado');
-    await assert.rejects(core.signPsbt(signedTwoBytes, h, new Uint8Array(32)), /já (tem|está)/);
+    await assert.rejects(core.analyzePsbt(signedTwoBytes, h),
+      /sem origem BIP32|mais de um destino externo/);
+    await assert.rejects(core.signPsbt(signedTwoBytes, h, new Uint8Array(32)),
+      /sem origem BIP32|mais de um destino externo/);
   }
 
   /* Taproot com script path: 0x14 e 0x15 têm chave com dado e são recusados. */
@@ -303,7 +302,10 @@ function psbtWithGlobal(global, inputs, outputs) {
   });
   for (const [core, h] of [[BTC, hd], [C, ehd]]) {
     await assert.rejects(core.analyzePsbt(zeroFee.bytes, h), /taxa zero/);
-    await assert.rejects(core.analyzePsbt(highFee.bytes, h), /acima de 500/);
+    const a = await core.analyzePsbt(highFee.bytes, h);
+    assert.ok(a.warnings.some(w => /acima de 500/.test(w)), 'taxa alta é aceita com aviso');
+    const signed = await core.signPsbt(highFee.bytes, h, new Uint8Array(32));
+    assert.ok(signed.txid, 'taxa alta continua assinável');
   }
 
   const twoChange = BTC.buildPsbt({
