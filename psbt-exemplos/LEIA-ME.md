@@ -6,34 +6,34 @@ Use a mnemônica pública de teste abaixo **somente para conferir a tela**. Não
 
 A frase secreta fica vazia.
 
-Todos gastam entradas de teste de 100 000 sats (o `11` gasta 100 000 + 50 000). O valor que não vai para as saídas fica como taxa. Os arquivos novos são gerados por `scripts/build-psbt-exemplos.mjs`; `01`–`04` são os exemplos originais e ficaram como estavam.
+Todos gastam entradas de teste de 100 000 sats (o `11` gasta 100 000 + 50 000). O valor que não vai para as saídas fica como taxa. Os arquivos são gerados por `scripts/build-psbt-exemplos.mjs`; `01`–`04` são os exemplos originais e ficaram como estavam.
 
-O aviso estrutural aparece na revisão, que continua mostrando o arquivo; a recusa acontece no clique de assinar. Assim um PSBT de terceiro (inclusive já assinado) ainda pode ser conferido.
+A recusa acontece **na importação**: o arquivo é descartado e o motivo fica no aviso, sem revisão. PSBT que o Cofre não assinaria não chega a ser carregado. A exceção são os já assinados (`16` e `17`), que só podem ser exibidos.
 
 ## Revisão normal: o Cofre assina
 
 | Arquivo | Cenário | O que o Cofre mostra |
 |---|---|---|
-| `01-normal-1-externo-1-troco.psbt` | 1 destino externo + 1 troco | Revisão normal, sem aviso estrutural. |
-| `03-dois-trocos.psbt` | 1 externo + 2 trocos | Revisão normal, sem aviso estrutural. |
-| `04-sem-troco.psbt` | 1 externo, sem troco | Revisão normal, sem aviso estrutural. |
-| `05-op-return-sem-troco.psbt` | 1 externo + `OP_RETURN` | `OP_RETURN` não conta como destino externo; ainda assim leva o aviso de script não padronizado. Assina. |
-| `06-op-return-com-troco.psbt` | 1 externo + 1 troco + `OP_RETURN` | Troco reconhecido e `OP_RETURN` fora da contagem; aviso de script não padronizado. Assina. |
-| `07-recebimento-proprio.psbt` | 1 externo + 1 saída própria da cadeia 0 | Saída própria aparece como “saída”, sem o marcador `[ externo ]`, e não bloqueia. Assina. |
+| `01-normal-1-externo-1-troco.psbt` | 1 destino externo + 1 troco | Revisão normal, sem aviso. |
+| `03-dois-trocos.psbt` | 1 externo + 2 trocos | Revisão normal, sem aviso. |
+| `04-sem-troco.psbt` | 1 externo, sem troco | Revisão normal, sem aviso. |
+| `07-recebimento-proprio.psbt` | 1 externo + 1 saída própria da cadeia 0 | Saída própria aparece como “saída”, sem o marcador `[ externo ]`. Assina. |
 | `08-entrada-p2pkh.psbt` | entrada P2PKH + troco | Revisão normal. Assina. |
 | `09-entrada-p2sh-p2wpkh.psbt` | entrada P2SH-P2WPKH + troco | Revisão normal. Assina. |
 | `10-entrada-p2tr.psbt` | entrada P2TR (key path) + troco | Revisão normal. Assina. |
 | `11-duas-entradas.psbt` | 2 entradas (P2WPKH + P2TR) + troco | Revisão normal. Assina. |
-| `12-taxa-alta.psbt` | 1 externo, taxa de 636 sat/vB | Aviso de taxa acima de 500 sat/vB. Assina. |
-| `13-taxa-zero.psbt` | 1 externo + 1 troco, taxa 0 | Aviso de taxa zero. Assina. |
-| `14-saida-nao-padronizada.psbt` | saída P2PK + troco | Aviso de script não padronizado. Assina. |
 
-## Aviso estrutural: a revisão mostra e a assinatura recusa
+## Recusados na importação
 
-| Arquivo | Cenário | O que o Cofre mostra |
+| Arquivo | Cenário | Mensagem |
 |---|---|---|
 | `02-dois-externos.psbt` | 2 destinos externos, os dois com origem declarada | “mais de um destino externo”. |
+| `12-taxa-alta.psbt` | 1 externo, taxa de 636 sat/vB | “taxa acima de 500 sat/vB”. |
+| `13-taxa-zero.psbt` | 1 externo + 1 troco, taxa 0 | “taxa zero”. |
+| `14-saida-nao-padronizada.psbt` | saída P2PK + troco | “script não padronizado”. |
 | `15-troco-sem-origem.psbt` | 1 externo + 1 troco sem origem BIP32 | “há saída própria sem origem BIP32; o troco não pode ser identificado”. |
+
+Taxa abaixo de 0,1 sat/vB não é recusada: ela não aparece no Cofre e continua só como aviso no núcleo de `src/btc-core.js`.
 
 ## Só exibição: o botão assinar fica escondido
 
@@ -60,7 +60,7 @@ O aviso estrutural aparece na revisão, que continua mostrando o arquivo; a recu
 
 ## Notas
 
+- Os arquivos `05` e `06` (OP_RETURN) foram removidos: `OP_RETURN` é script não padronizado e agora é recusado, como o `14`. O Monitor nunca monta uma saída dessas.
 - `40-entrada-taproot-script-path.psbt` traz `tap_script_sig` (0x14), que tem chave com 64 bytes de dado. Hoje ele **não** é recusado: o `mapFind` do núcleo só casa chave vazia, então o campo passa e o arquivo entra na revisão normal. As duas cópias do núcleo (Cofre e `src/btc-core.js`) têm o mesmo comportamento.
-- `OP_RETURN` sai da contagem de destinos externos, mas continua na lista de scripts não padronizados.
 - No `17`, o Cofre esconde o botão assinar sem incluir aviso na revisão; o núcleo de `src/btc-core.js` avisa de assinatura parcial e ainda assinaria.
 - Os endereços externos são sintéticos e os UTXOs não existem: os arquivos servem para a revisão, não para transmitir.

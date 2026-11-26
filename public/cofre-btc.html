@@ -4391,34 +4391,28 @@ var BTC = (function () {
       });
     }
     /* Estrutura das saídas: o Monitor monta um pagamento externo e, no
-       máximo, um troco próprio. A regra impede que a omissão da origem BIP32
-       transforme o troco numa segunda saída externa. Ela é bloqueante só na
-       assinatura (ver signPsbt): um PSBT de terceiro sem a origem do troco
-       ainda pode ser exibido e conferido. Registro de dados (OP_RETURN) e
-       witness desconhecido não são destinos de pagamento e ficam de fora da
-       contagem. */
-    function isDataOutput(o) {
-      return (o.script.length > 0 && o.script[0] === 0x6a) || o.kind === 'witness';
-    }
-    var externals = outputs.filter(function (o) {
-      return o.own === 'externo' || (o.own === 'outro' && !isDataOutput(o));
+       máximo, um troco próprio. PSBT fora desta régua é recusado na análise,
+       não só na assinatura: um arquivo que o Cofre não assinaria não chega a
+       ser carregado. Script não padronizado (inclusive OP_RETURN) também é
+       recusado, e a taxa zero ou acima de 500 sat/vB idem. */
+    outputs.forEach(function (out) {
+      if (out.own === 'outro') {
+        throw new Error('uma saída: script não padronizado; o cofre só assina PSBT com saídas padronizadas.');
+      }
     });
-    var structuralError = null;
+    var externals = outputs.filter(function (o) { return o.own === 'externo'; });
     if (externals.length > 1) {
-      var missingOrigin = externals.some(function (o) {
-        return o.own === 'externo' && !o.declaredOrigin;
-      });
-      structuralError = missingOrigin
+      var missingOrigin = externals.some(function (o) { return !o.declaredOrigin; });
+      throw new Error(missingOrigin
         ? 'uma saída: há saída própria sem origem BIP32; o troco não pode ser identificado; confira no coordenador.'
-        : 'uma saída: mais de um destino externo; o cofre só assina um pagamento externo por PSBT.';
-      warnings.push(structuralError);
+        : 'uma saída: mais de um destino externo; o cofre só assina um pagamento externo por PSBT.');
     }
     if (totalIn < totalOut) throw new Error('saídas somam mais que as entradas; a taxa seria negativa. PSBT inconsistente.');
     var fee = totalIn - totalOut;
     var vsize = estimateVsize(inputs.map(function (x) { return x.kind; }), tx.outputs.map(function (x) { return x.script; }));
     var feerate = vsize > 0 ? Number(fee) / vsize : 0;
-    if (feerate > 500) warnings.push('a <b>taxa</b> está acima de <code>500 sat/vB</code>: confira o valor da taxa.');
-    if (fee === 0n) warnings.push('a <b>taxa</b> é zero: a rede pode recusar a transação.');
+    if (fee === 0n) throw new Error('PSBT com taxa zero: a rede pode recusar a transação.');
+    if (feerate > 500) throw new Error('PSBT com taxa acima de 500 sat/vB: confira o valor da taxa.');
     /* O valor da entrada só pode ser conferido contra a transação anterior.
        Em p2pkh ele não entra no sighash; em segwit entra, mas com só o
        witness_utxo o coordenador pode mentir sobre a taxa exibida. Exigimos
@@ -4429,16 +4423,12 @@ var BTC = (function () {
         throw new Error('uma entrada: sem non_witness_utxo; sem a transação anterior o valor não pode ser conferido.');
       }
     });
-    outputs.forEach(function (out) {
-      if (out.own === 'outro') warnings.push('uma <b>saída</b>: script não padronizado; confira o destino no coordenador.');
-    });
     if (tx.inputs.length === 0) throw new Error('PSBT sem entradas; não há o que assinar.');
     if (tx.outputs.length === 0) throw new Error('PSBT sem saídas; não há para onde enviar.');
     return {
       psbt: psbt, tx: tx, session: session,
       inputs: inputs, outputs: outputs,
       totalIn: totalIn, totalOut: totalOut, fee: fee,
-      structuralError: structuralError,
       alreadySigned: anySigned,
       txid: txidOf(tx), vsize: vsize, feerate: feerate, warnings: warnings,
       /* Em p2pkh e p2sh-p2wpkh o scriptSig só existe depois da assinatura e
@@ -4453,7 +4443,6 @@ var BTC = (function () {
   async function signPsbt(bytes, hd, auxRand) {
     var a = await analyzePsbt(bytes, hd);
     if (a.alreadySigned) throw new Error('este PSBT já tem assinatura (parcial ou final); o cofre só assina PSBT sem assinatura.');
-    if (a.structuralError) throw new Error(a.structuralError);
     var psbt = a.psbt, tx = a.tx;
     a.inputs.forEach(function (inp) {
       var map = psbt.inputs[inp.index];
@@ -4813,12 +4802,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["uma entrada: vout não existe no non_witness_utxo.","an input: vout does not exist in non_witness_utxo.","una entrada: vout no existe en non_witness_utxo.","une entrée : vout n'existe pas dans non_witness_utxo.","un input: vout non esiste in non_witness_utxo.","ein Eingang: vout existiert nicht im non_witness_utxo.","een invoer: vout bestaat niet in non_witness_utxo.","una entrada: vout no existeix a non_witness_utxo.","unha entrada: vout non existe en non_witness_utxo."],
     ["uma entrada: witness_utxo e non_witness_utxo descrevem UTXOs diferentes.","an input: witness_utxo and non_witness_utxo describe different UTXOs.","una entrada: witness_utxo y non_witness_utxo describen UTXO diferentes.","une entrée : witness_utxo et non_witness_utxo décrivent des UTXO différents.","un input: witness_utxo e non_witness_utxo descrivono UTXO diversi.","ein Eingang: witness_utxo und non_witness_utxo beschreiben unterschiedliche UTXOs.","een invoer: witness_utxo en non_witness_utxo beschrijven verschillende UTXO's.","una entrada: witness_utxo i non_witness_utxo descriuen UTXO diferents.","unha entrada: witness_utxo e non_witness_utxo describen UTXOs diferentes."],
     ["uma entrada: sem UTXO (witness_utxo/non_witness_utxo); não dá para revisar valor, taxa e script.","an input: no UTXO (witness_utxo/non_witness_utxo); the amount, fee and script cannot be reviewed.","una entrada: sin UTXO (witness_utxo/non_witness_utxo); no se puede revisar valor, comisión y script.","une entrée : pas d'UTXO (witness_utxo/non_witness_utxo) ; impossible de vérifier le montant, les frais et le script.","un input: nessun UTXO (witness_utxo/non_witness_utxo); non è possibile verificare importo, commissione e script.","ein Eingang: kein UTXO (witness_utxo/non_witness_utxo); Betrag, Gebühr und Script können nicht geprüft werden.","een invoer: geen UTXO (witness_utxo/non_witness_utxo); bedrag, kosten en script kunnen niet worden gecontroleerd.","una entrada: sense UTXO (witness_utxo/non_witness_utxo); no es pot revisar import, comissió i script.","unha entrada: sen UTXO (witness_utxo/non_witness_utxo); non se pode revisar importe, comisión e script."],
-    ["a <b>taxa</b> está acima de <code>500 sat/vB</code>: confira o valor da taxa.","the <b>fee</b> is above <code>500 sat/vB</code>: check the fee amount.","la <b>comisión</b> está por encima de <code>500 sat/vB</code>: revisa el importe de la comisión.","les <b>frais</b> dépassent <code>500 sat/vB</code> : vérifiez le montant des frais.","la <b>commissione</b> è sopra <code>500 sat/vB</code>: controlla l'importo della commissione.","die <b>Gebühr</b> liegt über <code>500 sat/vB</code>: prüfe den Gebührenbetrag.","de <b>kosten</b> liggen boven <code>500 sat/vB</code>: controleer het bedrag van de kosten.","la <b>comissió</b> està per sobre de <code>500 sat/vB</code>: revisa l'import de la comissió.","a <b>comisión</b> está por riba de <code>500 sat/vB</code>: revisa o importe da comisión."],
-    ["a <b>taxa</b> é zero: a rede pode recusar a transação.","the <b>fee</b> is zero: the network may reject the transaction.","la <b>comisión</b> es cero: la red puede rechazar la transacción.","les <b>frais</b> sont nuls : le réseau peut refuser la transaction.","la <b>commissione</b> è zero: la rete può rifiutare la transazione.","die <b>Gebühr</b> ist null: das Netzwerk kann die Transaktion ablehnen.","de <b>kosten</b> zijn nul: het netwerk kan de transactie weigeren.","la <b>comissió</b> és zero: la xarxa pot rebutjar la transacció.","a <b>comisión</b> é cero: a rede pode rexeitar a transacción."],
+    ["PSBT com taxa acima de 500 sat/vB: confira o valor da taxa.","PSBT with fee above 500 sat/vB: check the fee amount.","PSBT con comisión por encima de 500 sat/vB: revisa el importe de la comisión.","PSBT avec des frais au-dessus de 500 sat/vB : vérifiez le montant des frais.","PSBT con commissione sopra 500 sat/vB: controlla l'importo della commissione.","PSBT mit Gebühr über 500 sat/vB: prüfe den Gebührenbetrag.","PSBT met kosten boven 500 sat/vB: controleer het bedrag van de kosten.","PSBT amb comissió per sobre de 500 sat/vB: revisa l'import de la comissió.","PSBT con comisión por riba de 500 sat/vB: revisa o importe da comisión."],
+    ["PSBT com taxa zero: a rede pode recusar a transação.","PSBT with zero fee: the network may reject the transaction.","PSBT con comisión cero: la red puede rechazar la transacción.","PSBT avec des frais nuls : le réseau peut refuser la transaction.","PSBT con commissione zero: la rete può rifiutare la transazione.","PSBT mit Gebühr null: das Netzwerk kann die Transaktion ablehnen.","PSBT met kosten nul: het netwerk kan de transactie weigeren.","PSBT amb comissió zero: la xarxa pot rebutjar la transacció.","PSBT con comisión cero: a rede pode rexeitar a transacción."],
     ["uma <b>entrada</b>: segwit sem <code>non_witness_utxo</code>; o valor mostrado vem do <code>witness_utxo</code> e não pode ser conferido.","an <b>input</b>: segwit without <code>non_witness_utxo</code>; the amount shown comes from <code>witness_utxo</code> and cannot be checked.","una <b>entrada</b>: segwit sin <code>non_witness_utxo</code>; el valor mostrado viene de <code>witness_utxo</code> y no se puede comprobar.","une <b>entrée</b> : segwit sans <code>non_witness_utxo</code> ; le montant affiché vient de <code>witness_utxo</code> et ne peut pas être vérifié.","un <b>input</b>: segwit senza <code>non_witness_utxo</code>; l'importo mostrato viene da <code>witness_utxo</code> e non può essere verificato.","ein <b>Eingang</b>: Segwit ohne <code>non_witness_utxo</code>; der angezeigte Betrag stammt aus <code>witness_utxo</code> und kann nicht geprüft werden.","een <b>invoer</b>: segwit zonder <code>non_witness_utxo</code>; het getoonde bedrag komt uit <code>witness_utxo</code> en kan niet worden gecontroleerd.","una <b>entrada</b>: segwit sense <code>non_witness_utxo</code>; l'import mostrat ve de <code>witness_utxo</code> i no es pot comprovar.","unha <b>entrada</b>: segwit sen <code>non_witness_utxo</code>; o importe mostrado vén de <code>witness_utxo</code> e non se pode comprobar."],
     ["uma saída: mais de um destino externo; o cofre só assina um pagamento externo por PSBT.","an output: more than one external destination; the cofre only signs one external payment per PSBT.","una salida: más de un destino externo; el cofre solo firma un pago externo por PSBT.","une sortie : plus d'une destination externe ; le cofre ne signe qu'un paiement externe par PSBT.","un output: più di una destinazione esterna; il cofre firma solo un pagamento esterno per PSBT.","eine Ausgabe: mehr als ein externes Ziel; der Cofre signiert nur eine externe Zahlung pro PSBT.","een uitvoer: meer dan één externe bestemming; de cofre ondertekent slechts één externe betaling per PSBT.","una sortida: més d'una destinació externa; el cofre només signa un pagament extern per PSBT.","unha saída: máis dun destino externo; o cofre só asina un pagamento externo por PSBT."],
     ["uma saída: há saída própria sem origem BIP32; o troco não pode ser identificado; confira no coordenador.","an output: an own output has no BIP32 origin; the change cannot be identified; check it in the coordinator.","una salida: hay una salida propia sin origen BIP32; no se puede identificar el cambio; revísala en el coordinador.","une sortie : une sortie propre sans origine BIP32 ; la monnaie ne peut pas être identifiée ; vérifiez-la dans le coordinateur.","un'uscita: c'è un'uscita propria senza origine BIP32; il resto non può essere identificato; controllala nel coordinatore.","eine Ausgabe: eine eigene Ausgabe ohne BIP32-Herkunft; das Wechselgeld kann nicht erkannt werden; prüfe sie im Koordinator.","een uitvoer: een eigen uitvoer zonder BIP32-oorsprong; het wisselgeld kan niet worden herkend; controleer het in de coördinator.","una sortida: hi ha una sortida pròpia sense origen BIP32; el canvi no es pot identificar; revisa-la al coordinador.","unha saída: hai unha saída propia sen orixe BIP32; o troco non se pode identificar; revísaa no coordinador."],
-    ["uma <b>saída</b>: script não padronizado; confira o destino no coordenador.","an <b>output</b>: non-standard script; check the destination in the coordinator.","una <b>salida</b>: script no estandarizado; revisa el destino en el coordinador.","une <b>sortie</b> : script non standard ; vérifiez la destination dans le coordinateur.","un'<b>uscita</b>: script non standard; controlla la destinazione nel coordinatore.","eine <b>Ausgabe</b>: nicht standardisiertes Script; prüfe das Ziel im Koordinator.","een <b>uitgang</b>: niet-standaard script; controleer de bestemming in de coördinator.","una <b>sortida</b>: script no estandarditzat; revisa la destinació al coordinador.","unha <b>saída</b>: script non estandarizado; revisa o destino no coordinador."],
+    ["uma saída: script não padronizado; o cofre só assina PSBT com saídas padronizadas.","an output: non-standard script; the cofre only signs PSBTs with standard outputs.","una salida: script no estandarizado; el cofre solo firma PSBT con salidas estandarizadas.","une sortie : script non standard ; le cofre ne signe que des PSBT avec des sorties standard.","un'uscita: script non standard; il cofre firma solo PSBT con uscite standard.","eine Ausgabe: nicht standardisiertes Script; der Cofre signiert nur PSBTs mit standardisierten Ausgaben.","een uitvoer: niet-standaard script; de cofre ondertekent alleen PSBT's met standaard uitvoer.","una sortida: script no estandarditzat; el cofre només signa PSBT amb sortides estandarditzades.","unha saída: script non estandarizado; o cofre só asina PSBT con saídas estandarizadas."],
     ["PSBT inválido: {name} com bytes extras na chave.","Invalid PSBT: {name} has extra bytes in the key.","PSBT no válido: {name} tiene bytes extra en la clave.","PSBT invalide : {name} comporte des octets en trop dans la clé.","PSBT non valido: {name} ha byte extra nella chiave.","Ungültige PSBT: {name} hat zusätzliche Bytes im Schlüssel.","Ongeldige PSBT: {name} heeft extra bytes in de sleutel.","PSBT no vàlid: {name} té bytes extra a la clau.","PSBT non válido: {name} ten bytes extra na clave."],
     ["PSBT inválido: {name} com tamanho incorreto.","Invalid PSBT: {name} has the wrong size.","PSBT no válido: {name} tiene un tamaño incorrecto.","PSBT invalide : {name} a une taille incorrecte.","PSBT non valido: {name} ha una dimensione errata.","Ungültige PSBT: {name} hat die falsche Größe.","Ongeldige PSBT: {name} heeft de verkeerde grootte.","PSBT no vàlid: {name} té una mida incorrecta.","PSBT non válido: {name} ten un tamaño incorrecto."],
     ["PSBT inválido: {name} com caminho de derivação malformado.","Invalid PSBT: {name} has a malformed derivation path.","PSBT no válido: {name} tiene una ruta de derivación malformada.","PSBT invalide : {name} a un chemin de dérivation malformé.","PSBT non valido: {name} ha un percorso di derivazione malformato.","Ungültige PSBT: {name} hat einen fehlerhaften Ableitungspfad.","Ongeldige PSBT: {name} heeft een onjuist afleidingspad.","PSBT no vàlid: {name} té un camí de derivació malformat.","PSBT non válido: {name} ten un camiño de derivación malformado."],

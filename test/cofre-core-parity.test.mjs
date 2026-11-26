@@ -235,16 +235,14 @@ function psbtWithGlobal(global, inputs, outputs) {
     ]
   });
   for (const [core, h] of [[BTC, hd], [C, ehd]]) {
-    /* A revisão não esconde um PSBT de terceiro: ela avisa. A recusa fica no
-       caminho de assinatura. */
-    const a = await core.analyzePsbt(twoExternal.bytes, h);
-    assert.ok(a.warnings.some(w => /sem origem BIP32|mais de um destino externo/.test(w)),
-      'a revisão avisa a estrutura das saídas');
+    /* A recusa é na análise: o arquivo nem é carregado. */
+    await assert.rejects(core.analyzePsbt(twoExternal.bytes, h),
+      /sem origem BIP32|mais de um destino externo/);
     await assert.rejects(core.signPsbt(twoExternal.bytes, h, new Uint8Array(32)),
       /sem origem BIP32|mais de um destino externo/);
   }
 
-  /* OP_RETURN não é destino de pagamento: não entra na contagem estrutural. */
+  /* OP_RETURN é script não padronizado: também recusado na análise. */
   const withData = BTC.buildPsbt({
     inputs: [input],
     outputs: [
@@ -253,12 +251,24 @@ function psbtWithGlobal(global, inputs, outputs) {
     ]
   });
   for (const [core, h] of [[BTC, hd], [C, ehd]]) {
-    const a = await core.analyzePsbt(withData.bytes, h);
-    assert.ok(!a.warnings.some(w => /sem origem BIP32|mais de um destino externo/.test(w)),
-      'OP_RETURN não conta como destino externo');
-    assert.deepEqual(a.outputs.map(o => o.own), ['externo', 'outro']);
-    const signed = await core.signPsbt(withData.bytes, h, new Uint8Array(32));
-    assert.equal(signed.outputs.length, 2);
+    await assert.rejects(core.analyzePsbt(withData.bytes, h), /script não padronizado/);
+  }
+
+  /* Taxa zero e acima de 500 sat/vB: recusa na análise nas duas cópias. */
+  const zeroFee = BTC.buildPsbt({
+    inputs: [input],
+    outputs: [
+      { value: 80000n, script: external(7n) },
+      await change(0)
+    ]
+  });
+  const highFee = BTC.buildPsbt({
+    inputs: [input],
+    outputs: [{ value: 40000n, script: external(7n) }]
+  });
+  for (const [core, h] of [[BTC, hd], [C, ehd]]) {
+    await assert.rejects(core.analyzePsbt(zeroFee.bytes, h), /taxa zero/);
+    await assert.rejects(core.analyzePsbt(highFee.bytes, h), /acima de 500/);
   }
 
   const twoChange = BTC.buildPsbt({

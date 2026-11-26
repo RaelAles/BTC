@@ -147,19 +147,20 @@ rolling a die is just one suggestion (1–3 = `0`, 4–6 = `1`). The bits become
 24-word phrase and derive the four accounts; the
 **key** screen also accepts the 24 words typed by hand. When a PSBT is
 imported, it checks the account, the derivation, the public key, the script,
-the outputs and the fee before signing. It warns in the review and refuses to
-sign when there is more than one external destination or an own output
-without a BIP32 origin (the change cannot be identified). The private key
-never reaches the Monitor. It requires the
+the outputs and the fee before signing. It refuses the file on import when
+there is more than one external destination, an own output without a BIP32
+origin (the change cannot be identified) or an output with a non-standard
+script. The private key never reaches the Monitor. It requires the
 previous transaction (`non_witness_utxo`) for every input; an external PSBT
 that carries only `witness_utxo` is rejected on purpose. That anchors the
 value to the txid, but does not prove the outpoint exists on-chain. The fee
-is computed from the PSBT values (inputs minus outputs) and only gets floor
-and ceiling warnings; the Cofre does not compare it with `estimatefee` or an
+is computed from the PSBT values (inputs minus outputs); zero fee or above
+500 sat/vB refuses the file on import, and the 0.1 sat/vB floor only warns
+in the core. The Cofre does not compare it with `estimatefee` or an
 independent source.
 
 Before opening it, compare the published hash: the sha256 of the published
-file is `a4f0375378d017e2e602e7151fd677f415a4c9e2f665ab84ec233a3534bb733c` —
+file is `bbfbd9411e117268c58adfa8c6fe6fc0003819314be6b2443d14ccd3c85f9de9` —
 run `sha256sum cofre-btc.html` on the downloaded file; the release asset
 always has this fixed name. The Cofre's about
 screen asks for the same check. Any edit to the Cofre requires updating this

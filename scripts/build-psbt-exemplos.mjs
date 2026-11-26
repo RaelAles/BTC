@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Gera os PSBTs de exemplo do Cofre em psbt-exemplos/ (casos 05–17 e 30–40).
+/* Gera os PSBTs de exemplo do Cofre em psbt-exemplos/ (casos 07–17 e 30–41).
 
    Todos usam a mesma mnemônica pública de teste do LEIA-ME, uma entrada de
    100 000 sats (50 000 na segunda entrada) e um destino externo fixo; o que
@@ -13,7 +13,6 @@ import BTC from '../src/btc-core.js';
 const OUT = new URL('../psbt-exemplos/', import.meta.url);
 const MNEMONIC = 'length abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon awesome';
 const AUX = new Uint8Array(32);
-const OP_RETURN = BTC.hexToBytes('6a0b68656c6c6f206d756e646f');
 
 /* ------------------------------------------------ carteira de teste */
 const seed = await BTC.bip39Seed(MNEMONIC, '');
@@ -105,27 +104,6 @@ const bip84b = await keyAt('bip84', 0, 1);
 const bip86 = await keyAt('bip86', 0, 0);
 const bip86Change = await keyAt('bip86', 1, 0);
 const bip86Receive = await keyAt('bip86', 0, 3);
-
-/* 05: externo + OP_RETURN, sem troco (o registro de dados sai da conta de
-   destinos externos; o Cofre ainda avisa do script não padronizado). */
-{
-  const u = funding('05', 100000, BTC.scriptForKind(bip84.kind, bip84.Q));
-  const b = BTC.buildPsbt({
-    inputs: [spend(u, bip84)],
-    outputs: [{ value: 90000, script: BTC.scriptForKind('p2wpkh', foreignKey(7).Q) }, { value: 0, script: OP_RETURN }]
-  });
-  save('05-op-return-sem-troco.psbt', b.bytes);
-}
-
-/* 06: externo + troco + OP_RETURN. */
-{
-  const u = funding('06', 100000, BTC.scriptForKind(bip86Change.kind, bip86Change.Q));
-  const b = BTC.buildPsbt({
-    inputs: [spend(u, bip86Change)],
-    outputs: [external(30000), own('troco', 60000, bip86Change), { value: 0, script: OP_RETURN }]
-  });
-  save('06-op-return-com-troco.psbt', b.bytes);
-}
 
 /* 07: externo + saída de recebimento (cadeia 0, com origem BIP32). */
 {
@@ -291,10 +269,10 @@ for (const [name, accountId, accountPath] of [
   save('33-entrada-com-time-lock.psbt', BTC.writePsbt(b.psbt));
 }
 
-/* 34: entrada sem non_witness_utxo. */
+/* 34: entrada sem non_witness_utxo (taxa normal, para o erro ser só esse). */
 {
   const u = funding('34', 100000, BTC.scriptForKind(bip84.kind, bip84.Q));
-  const b = BTC.buildPsbt({ inputs: [spend(u, bip84)], outputs: [external(30000)] });
+  const b = BTC.buildPsbt({ inputs: [spend(u, bip84)], outputs: [external(90000)] });
   b.psbt.inputs[0] = b.psbt.inputs[0].filter((e) => e.key[0] !== 0x00);
   save('34-entrada-sem-non-witness-utxo.psbt', BTC.writePsbt(b.psbt));
 }

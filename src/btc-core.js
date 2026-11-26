@@ -1768,35 +1768,29 @@ var BTC = (function () {
       });
     }
     /* Estrutura das saídas: o Monitor monta um pagamento externo e, no
-       máximo, um troco próprio. A regra impede que a omissão da origem BIP32
-       transforme o troco numa segunda saída externa. Ela é bloqueante só na
-       assinatura (ver signPsbt): um PSBT de terceiro sem a origem do troco
-       ainda pode ser exibido e conferido. Registro de dados (OP_RETURN) e
-       witness desconhecido não são destinos de pagamento e ficam de fora da
-       contagem. */
-    function isDataOutput(o) {
-      return (o.script.length > 0 && o.script[0] === 0x6a) || o.kind === 'witness';
-    }
-    var externals = outputs.filter(function (o) {
-      return o.own === 'externo' || (o.own === 'outro' && !isDataOutput(o));
+       máximo, um troco próprio. PSBT fora desta régua é recusado na análise,
+       não só na assinatura: um arquivo que o Cofre não assinaria não chega a
+       ser carregado. Script não padronizado (inclusive OP_RETURN) também é
+       recusado, e a taxa zero ou acima de 500 sat/vB idem. */
+    outputs.forEach(function (out) {
+      if (out.own === 'outro') {
+        throw new Error('saída ' + out.index + ' tem script não padronizado; o cofre só assina PSBT com saídas padronizadas');
+      }
     });
-    var structuralError = null;
+    var externals = outputs.filter(function (o) { return o.own === 'externo'; });
     if (externals.length > 1) {
-      var missingOrigin = externals.some(function (o) {
-        return o.own === 'externo' && !o.declaredOrigin;
-      });
-      structuralError = missingOrigin
+      var missingOrigin = externals.some(function (o) { return !o.declaredOrigin; });
+      throw new Error(missingOrigin
         ? 'uma saída: há saída própria sem origem BIP32; o troco não pode ser identificado; confira no coordenador.'
-        : 'uma saída: mais de um destino externo; o cofre só assina um pagamento externo por PSBT.';
-      warnings.push(structuralError);
+        : 'uma saída: mais de um destino externo; o cofre só assina um pagamento externo por PSBT.');
     }
     if (totalIn < totalOut) throw new Error('as saídas somam mais que as entradas');
     var fee = totalIn - totalOut;
     var vsize = estimateVsize(inputs.map(function (x) { return x.kind; }), tx.outputs.map(function (x) { return x.script; }));
     var feerate = vsize > 0 ? Number(fee) / vsize : 0;
+    if (fee === 0n) throw new Error('PSBT com taxa zero: a rede pode recusar a transação');
+    if (feerate > 500) throw new Error('PSBT com taxa acima de 500 sat/vB: confira o valor da taxa');
     if (feerate > 0 && feerate < 0.1) warnings.push('taxa abaixo de 0,1 sat/vB: a transação pode ser recusada pelo piso de relay padrão');
-    if (feerate > 500) warnings.push('taxa acima de 500 sat/vB: confira o valor da taxa');
-    if (fee === 0n) warnings.push('taxa zero: a rede pode recusar a transação');
     /* O valor da entrada só pode ser conferido contra a transação anterior.
        Em p2pkh ele não entra no sighash; em segwit entra, mas com só o
        witness_utxo o coordenador pode mentir sobre a taxa exibida. Exigimos
@@ -1807,12 +1801,6 @@ var BTC = (function () {
         throw new Error('entrada ' + inp.index + ' veio sem non_witness_utxo; o valor da entrada não pode ser conferido');
       }
     });
-    outputs.forEach(function (out) {
-      /* O destino externo não vira aviso: cada saída já traz `own`, e a
-         revisão que o apresenta (Cofre BTC) marca o endereço em vez de
-         repetir a informação na lista. */
-      if (out.own === 'outro') warnings.push('saída ' + out.index + ' tem script não padronizado; confira no coordenador');
-    });
     if (tx.inputs.length === 0) throw new Error('a transação não tem entradas');
     if (tx.outputs.length === 0) throw new Error('a transação não tem saídas');
     if (signedInputs > 0 && signedInputs < tx.inputs.length) {
@@ -1822,7 +1810,6 @@ var BTC = (function () {
       psbt: psbt, tx: tx, session: session,
       inputs: inputs, outputs: outputs,
       totalIn: totalIn, totalOut: totalOut, fee: fee,
-      structuralError: structuralError,
       signedInputs: signedInputs, alreadySigned: signedInputs === tx.inputs.length,
       txid: txidOf(tx), vsize: vsize, feerate: feerate, warnings: warnings,
       /* Em p2pkh e p2sh-p2wpkh o scriptSig só existe depois da assinatura e
@@ -1837,7 +1824,6 @@ var BTC = (function () {
   async function signPsbt(bytes, hd, auxRand) {
     var a = await analyzePsbt(bytes, hd);
     if (a.alreadySigned) throw new Error('este psbt já está assinado');
-    if (a.structuralError) throw new Error(a.structuralError);
     var psbt = a.psbt, tx = a.tx;
     a.inputs.forEach(function (inp) {
       var map = psbt.inputs[inp.index];
