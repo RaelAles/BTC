@@ -2168,9 +2168,9 @@
      ele aponta. O marcador não quebra entre os colchetes; se não couber
      depois do endereço, desce inteiro. */
   .review-external { color: var(--warning); white-space: nowrap; }
-  /* Taxa fora da faixa de 0,1 a 500 sat/vB: a marca fica na legenda da linha,
-     no mesmo --warning do marcador "[ externo ]". Sem nowrap: se não couber
-     ao lado de "taxa", desce inteira em vez de abrir rolagem. */
+  /* Taxa fora da faixa de 0,1 a 500 sat/vB: a marca fica à direita do valor,
+     depois do percentual, no mesmo --warning do marcador "[ externo ]". Sem
+     nowrap: se não couber na linha, desce inteira em vez de abrir rolagem. */
   .review-fee-note { color: var(--warning); }
   /* Entrada por bits: cada clique em 1 ou 0 preenche a próxima posição da
      entropia, até completar os 256 bits. O contador mostra o progresso. O
@@ -2543,7 +2543,7 @@
                  dados: o PSBT importado ou, depois de assinar, o baixado. -->
             <table class="data-table key-readout review-readout" id="review-table" aria-label="resumo do psbt">
               <tbody>
-                <tr id="review-fee-row"><th scope="row" id="review-fee-label">taxa</th><td id="review-fee">—</td></tr>
+                <tr id="review-fee-row"><th scope="row">taxa</th><td id="review-fee">—</td></tr>
                 <tr><th scope="row">txid</th><td id="review-txid">—</td></tr>
                 <tr class="group-end"><th scope="row">vsize</th><td id="review-vsize">—</td></tr>
                 <tr><th scope="row">rbf</th><td id="review-rbf">—</td></tr>
@@ -5085,7 +5085,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var reviewScheduled = $('#review-scheduled');
   var reviewRbf = $('#review-rbf');
   var reviewFile = $('#review-file');
-  var reviewFeeLabel = $('#review-fee-label');
+
   var psbtFileName = '';
   var signedPsbtText = '';
   var signedTxid = '';
@@ -6302,23 +6302,20 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      que o PSBT assinado carrega. */
   function renderReview(a, file, signed) {
     renderReviewOutputs(a);
-    renderReviewFee(a);
-    if (reviewFee) reviewFee.innerHTML = valueLine(a.fee, 'out', a.totalIn);
+    if (reviewFee) {
+      reviewFee.innerHTML = valueLine(a.fee, 'out', a.totalIn) + feeNote(a);
+    }
     reviewCell(reviewVsize, (signed ? '' : '~') + a.vsize + ' vB');
     reviewCell(reviewTxid, (signed || !a.txidEstimated ? '' : '~') + a.txid);
     reviewCell(reviewScheduled, scheduledText(a.tx));
     reviewCell(reviewRbf, rbfText(a.tx));
     reviewCell(reviewFile, file);
   }
-  /* Taxa fora da faixa de 0,1 a 500 sat/vB: a marca entra na legenda da linha
-     "taxa", no tom do aviso, em vez de uma lista à parte. */
-  function renderReviewFee(a) {
-    if (!reviewFeeLabel) return;
-    var text = escapeHtml(t('taxa'));
-    if (a && a.feeNotice) {
-      text += ' <span class="review-fee-note">[ ' + escapeHtml(t(a.feeNotice)) + ' ]</span>';
-    }
-    reviewFeeLabel.innerHTML = text;
+  /* Taxa fora da faixa de 0,1 a 500 sat/vB: a marca entra à direita do valor,
+     depois do percentual, no tom do aviso, em vez de uma lista à parte. */
+  function feeNote(a) {
+    if (!a || !a.feeNotice) return '';
+    return ' <span class="review-fee-note">[ ' + escapeHtml(t(a.feeNotice)) + ' ]</span>';
   }
   function auxRandom() {
     if (typeof crypto === 'undefined' || !crypto.getRandomValues) {
