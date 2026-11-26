@@ -259,8 +259,9 @@ function psbtWithGlobal(global, inputs, outputs) {
   });
   for (const [core, h] of [[BTC, hd], [C, ehd]]) {
     const a = await core.analyzePsbt(noChange.bytes, h);
-    assert.ok(a.warnings.some(w => /não tem saída de troco/.test(w)),
-      'as duas cópias avisam sobre PSBT sem troco');
+    assert.equal(a.outputs[0].own, 'externo');
+    assert.ok(!a.warnings.some(w => /sem saída de troco|não tem saída de troco/.test(w)),
+      'PSBT sem troco não gera aviso estrutural');
   }
   console.log('ok   estrutura das saídas igual nas duas cópias');
 }

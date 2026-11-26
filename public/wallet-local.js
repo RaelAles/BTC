@@ -1779,8 +1779,6 @@ var BTC = (function () {
     }
     if (changes.length > 1) {
       warnings.push('o troco: mais de uma saída de troco; confira se todas são suas.');
-    } else if (!changes.length && externals.length) {
-      warnings.push('o troco: o PSBT não tem saída de troco; se o valor restante não era taxa, confira o destino.');
     }
     if (totalIn < totalOut) throw new Error('as saídas somam mais que as entradas');
     var fee = totalIn - totalOut;
