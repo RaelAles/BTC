@@ -60,6 +60,10 @@ assert.match(html, /id="mnemonic-note" role="status"/, '#mnemonic-note é regiã
 assert.match(html, /aria-describedby="mnemonic-note"/, '#passphrase aponta para #mnemonic-note');
 assert.match(html, /input\.setAttribute\('aria-describedby', 'mnemonic-note'\)/,
   'cada palavra da frase aponta para #mnemonic-note');
+/* A região viva da frase fica só reservada: nenhuma legenda é escrita nela,
+   nem para palavra recusada nem para frase que não fecha a checagem. */
+assert.doesNotMatch(html, /setMnemonicNote/, 'a região viva da frase não recebe legenda');
+assert.doesNotMatch(html, /não fecha a checagem do BIP39/, 'a legenda da checagem foi removida');
 console.log('ok   recado da rodada tem linha e a nota reservada da frase está ligada aos campos');
 
 /* ---------------- 3. menu e seções de tela batem com SCREENS ---------------- */
