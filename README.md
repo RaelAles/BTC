@@ -152,8 +152,9 @@ entropy into the phrase and defines the seed. The Japanese phrase uses an
 ASCII space, which is what the Cofre expects when reimporting the 24 words one
 per field; other wallets may show the ideographic space (U+3000), which gives
 the same seed.
-The **key** screen also accepts the 24 words typed by hand and has the same
-language selector, to restore a phrase from any of the ten lists. When a PSBT is
+The **key** screen also accepts the 24 words typed by hand and infers the
+list from the words themselves, with no language selector, to restore a
+phrase from any of the ten lists. When a PSBT is
 imported, it checks the account, the derivation, the public key, the script,
 the outputs and the fee before signing. It refuses the file on import when
 there is more than one external destination, an own output without a BIP32
@@ -171,7 +172,7 @@ an
 independent source.
 
 Before opening it, compare the published hash: the sha256 of the published
-file is `7a72940e77b8f4bda87cf3bc2370d0dd72faf9fcfca3326633f0cd308eb02ebc` —
+file is `b37b3ac15b8604df7c8f0e2c948e66243e71b19697a8fac0a3456d200f793e43` —
 run `sha256sum cofre-btc.html` on the downloaded file; the release asset
 always has this fixed name. The Cofre's about
 screen asks for the same check. Any edit to the Cofre requires updating this

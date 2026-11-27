@@ -147,8 +147,9 @@ tcheco e português); a lista escolhida é a que codifica a entropia na frase e
 define a seed. A frase japonesa sai com espaço ASCII, que é o que o Cofre
 espera ao reimportar as 24 palavras uma por campo; outras carteiras podem
 exibir o espaço ideográfico (U+3000), que dá a mesma seed.
-A tela **chave** também aceita as 24 palavras digitadas à mão e tem o mesmo
-seletor de idioma, para restaurar uma frase de qualquer uma das dez listas.
+A tela **chave** também aceita as 24 palavras digitadas à mão e deduz a
+lista pelas próprias palavras, sem seletor de idioma, para restaurar uma
+frase de qualquer uma das dez listas.
 Ao importar um
 PSBT, ele confere a conta, a derivação, a chave pública, o script, as saídas e
 a taxa antes de assinar. Ele recusa o arquivo na importação quando há mais
@@ -166,7 +167,7 @@ legenda da linha “taxa” do resumo. O Cofre não compara com o `estimatefee`
 nem com uma fonte independente.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
-`7a72940e77b8f4bda87cf3bc2370d0dd72faf9fcfca3326633f0cd308eb02ebc` — rode
+`b37b3ac15b8604df7c8f0e2c948e66243e71b19697a8fac0a3456d200f793e43` — rode
 `sha256sum cofre-btc.html` no arquivo baixado; o asset do release tem sempre
 esse nome fixo. A tela “sobre” do Cofre
 pede a mesma conferência. Qualquer edição no Cofre exige atualizar este
