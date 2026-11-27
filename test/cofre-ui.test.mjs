@@ -100,28 +100,30 @@ if (fs.existsSync(DEFAULT_SOURCE)) {
   console.log('ok   bloco @copia-estilo.css com sha256 em dia (estilo.css da skill não encontrado)');
 }
 
-/* ---------------- 6. o idioma da frase: controles e listas batem ---------------- */
+/* ---------------- 6. o idioma da frase: controles, listas e detecção batem ---------------- */
 const langCodes = listaDeStrings('MNEMONIC_LANG_CODES');
 assert.equal(langCodes[0], 'english', 'o inglês continua sendo o idioma padrão');
 const controles = [...new Set([...html.matchAll(/data-mnemonic-lang="([^"]+)"/g)].map(m => m[1]))];
 assert.deepEqual([...controles].sort(), [...langCodes].sort(),
-  'os controles de idioma (painel da rodada e tela "chave") cobrem os dez idiomas');
+  'os controles de idioma do painel da rodada cobrem os dez idiomas');
 /* As listas do núcleo: `english` aponta para BIP39_WORDS, as outras nove
-   trazem a lista no próprio mapa. Toda chave do seletor precisa da sua. */
+   trazem a lista no próprio mapa. Toda chave de idioma precisa da sua. */
 const listas = html.match(/var BIP39_LISTS = \{([\s\S]*?)\n  \};/);
 assert.ok(listas, 'BIP39_LISTS está presente no Cofre');
 const listKeys = [...listas[1].matchAll(/^ {4}(\w+):/gm)].map(m => m[1]);
 assert.deepEqual([...listKeys].sort(), [...langCodes].sort(),
-  'cada idioma do seletor tem a sua lista em BIP39_LISTS');
-/* O seletor da tela "chave" é o caminho para restaurar uma frase sem passar
-   pela rodada: precisa estar na seção, com o rótulo traduzível. */
+  'cada idioma tem a sua lista em BIP39_LISTS');
+/* A tela "chave" não tem mais seletor: a lista é deduzida das palavras
+   digitadas. O teste guarda a remoção e as funções que fazem a dedução. */
 const secaoChave = html.slice(html.indexOf('id="screen-chave"'), html.indexOf('id="screen-gerar"'));
-assert.match(secaoChave, /<select id="mnemonic-lang"/,
-  'a tela "chave" tem o seletor de idioma da frase');
-assert.match(secaoChave, /<label class="field-label" for="mnemonic-lang">idioma da frase<\/label>/,
-  'o seletor da tela "chave" tem rótulo "idioma da frase"');
-const opcoes = [...secaoChave.matchAll(/<option value="([^"]+)"/g)].map(m => m[1]);
-assert.deepEqual(opcoes, langCodes, 'as opções do seletor estão na ordem de MNEMONIC_LANG_CODES');
-console.log('ok   seletor de idioma da frase: ' + langCodes.length + ' idiomas com lista e controle');
+assert.doesNotMatch(secaoChave, /id="mnemonic-lang"/,
+  'a tela "chave" não tem o seletor de idioma da frase');
+assert.doesNotMatch(secaoChave, /class="field-row mnemonic-lang"/,
+  'a tela "chave" não tem a linha "idioma da frase"');
+assert.doesNotMatch(secaoChave, /data-mnemonic-lang=/, 'a tela "chave" não tem controle de idioma');
+assert.match(html, /function mnemonicLanguagesForWord\(/, 'a lista é deduzida das palavras preenchidas');
+assert.match(html, /function mnemonicLangCandidates\(/, 'as palavras preenchidas filtram as listas compatíveis');
+assert.doesNotMatch(html, /MNEMONIC_OPTION_LIMIT/, 'a sugestão não tem teto de opções');
+console.log('ok   idioma da frase: ' + langCodes.length + ' listas, detecção pela frase e sem seletor na tela "chave"');
 
 console.log('\ntestes de interface do Cofre passaram');

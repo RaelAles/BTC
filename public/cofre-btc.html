@@ -2333,16 +2333,6 @@
      flutuantes: o bloco das palavras é um dos .reveal-block, que pinta em
      ordem, e sem o z-index a lista ficaria atrás dos blocos seguintes. */
   .entropy-block.has-options { position: relative; z-index: var(--layer-float); }
-  /* O idioma da frase fica acima das 24 posições, na mesma grade: é a lista
-     que valida o que foi digitado à mão e a que reescreve a frase dos bits.
-     O <select> mantém o desenho do formulário (.field-box) e o nome de cada
-     idioma no próprio idioma, sem caixa alta. */
-  .mnemonic-lang {
-    grid-column: 1 / -1;
-    margin: 0 0 var(--space-1);
-  }
-  .mnemonic-lang .field-box { width: 100%; max-width: 15rem; }
-  .mnemonic-lang select { text-transform: none; }
   /* A grade da frase fica no contêiner; as 24 posições formam a lista
      semântica, e a frase secreta mora na linha de baixo, fora do <ol>: o
      leitor de tela anuncia 24 itens, não 25. */
@@ -2417,6 +2407,8 @@
     border: 1px solid var(--field-line);
     font-size: var(--text-sm);
     white-space: nowrap;
+    max-height: 50vh;
+    overflow-y: auto;
   }
   .mnemonic-options[hidden] { display: none; }
   /* Nas últimas linhas não há espaço abaixo do campo: a lista abre para
@@ -2532,30 +2524,6 @@
               <h3><span class="prompt" aria-hidden="true">##</span> mnemonic</h3>
             </div>
             <div class="mnemonic-words">
-              <!-- O idioma da frase é a lista que valida a entrada manual e a
-                   que reescreve a frase dos bits: fica acima das 24 posições
-                   para restaurar uma frase de qualquer uma das dez listas
-                   não depender de fazer 256 lançamentos. -->
-              <div class="field-row mnemonic-lang">
-                <label class="field-label" for="mnemonic-lang">idioma da frase</label>
-                <div class="field-box">
-                  <div class="edge" aria-hidden="true"></div>
-                  <select id="mnemonic-lang">
-                    <option value="english" data-mnemonic-lang="english" lang="en">english</option>
-                    <option value="japanese" data-mnemonic-lang="japanese" lang="ja">日本語</option>
-                    <option value="korean" data-mnemonic-lang="korean" lang="ko">한국어</option>
-                    <option value="spanish" data-mnemonic-lang="spanish" lang="es">español</option>
-                    <option value="chinese_simplified" data-mnemonic-lang="chinese_simplified" lang="zh-Hans">简体中文</option>
-                    <option value="chinese_traditional" data-mnemonic-lang="chinese_traditional" lang="zh-Hant">繁體中文</option>
-                    <option value="french" data-mnemonic-lang="french" lang="fr">français</option>
-                    <option value="italian" data-mnemonic-lang="italian" lang="it">italiano</option>
-                    <option value="czech" data-mnemonic-lang="czech" lang="cs">čeština</option>
-                    <option value="portuguese" data-mnemonic-lang="portuguese" lang="pt">português</option>
-                  </select>
-                  <span class="field-select-mark" aria-hidden="true">[ v ]</span>
-                  <div class="edge" aria-hidden="true"></div>
-                </div>
-              </div>
               <ol class="mnemonic-word-list" id="mnemonic-words" aria-label="frase mnemônica de 24 palavras"></ol>
               <div class="passphrase-word" id="passphrase-word">
                 <label class="mnemonic-word-index" for="passphrase">frase secreta</label>
@@ -5697,16 +5665,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      porque só a frase inteira define os 256 bits. */
   var mnemonicList = $('#mnemonic-words');
   var mnemonicBlock = $('#entropy-block');
-  var mnemonicLangSelect = $('#mnemonic-lang');
   var MNEMONIC_LEN = 24;
-  /* Teto de opções abertas: o prefixo costuma resolver antes disso, e a
-     lista não cobre o resto da tela enquanto se digita. */
-  var MNEMONIC_OPTION_LIMIT = 6;
   /* Idiomas oficiais do BIP39, na ordem do repositório das listas. O
      inglês continua sendo o padrão, que é a frase que o Cofre já gerava;
-     a escolha feita no fim da rodada vale para a frase gerada e para a
-     lista de sugestões da entrada manual. A tela "chave" tem o mesmo
-     seletor, para restaurar uma frase de qualquer uma das dez listas. */
+     a escolha feita no fim da rodada vale para a frase gerada, e a frase
+     digitada à mão define a lista pelas próprias palavras. */
   var MNEMONIC_LANG_CODES = ['english', 'japanese', 'korean', 'spanish',
     'chinese_simplified', 'chinese_traditional', 'french', 'italian',
     'czech', 'portuguese'];
@@ -5722,16 +5685,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function mnemonicFold(text) {
     return mnemonicNorm(text).replace(/[\u0300-\u036f]/g, '');
   }
-  var bip39List = BTC.bip39Words(mnemonicLang);
-  var bip39Fold = bip39List.map(mnemonicFold);
-  function paintMnemonicLang() {
-    if (mnemonicLangSelect) mnemonicLangSelect.value = mnemonicLang;
+  var mnemonicLangLists = {};
+  /* Cache das dez listas: a sugestão precisa consultar mais de uma quando a
+     palavra digitada existe em mais de um idioma. */
+  function mnemonicLangData(lang) {
+    if (!mnemonicLangLists[lang]) {
+      var list = BTC.bip39Words(lang);
+      mnemonicLangLists[lang] = { list: list, fold: list.map(mnemonicFold) };
+    }
+    return mnemonicLangLists[lang];
   }
   function setMnemonicLang(lang) {
     mnemonicLang = MNEMONIC_LANG_CODES.indexOf(lang) >= 0 ? lang : 'english';
-    bip39List = BTC.bip39Words(mnemonicLang);
-    bip39Fold = bip39List.map(mnemonicFold);
-    paintMnemonicLang();
   }
   var mnemonicInputs = [];
   var mnemonicOptions = null;
@@ -5792,14 +5757,20 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }
   }
 
-  /* O campo só aceita o que ainda pode virar palavra da lista: cada tecla é
-     testada como prefixo, então dígito, espaço ou letra que não abre palavra
-     nenhuma nem chegam a aparecer. O prefixo é comparado sem acento, como na
-     palavra inteira. */
+  /* O campo só aceita o que ainda pode virar palavra em uma das listas
+     compatíveis com a frase: cada tecla é testada como prefixo, então
+     dígito, espaço ou letra que não abre palavra nenhuma nem chegam a
+     aparecer. Sem palavra inteira preenchida, as dez listas valem. O
+     prefixo é comparado sem acento, como na palavra inteira. */
   function mnemonicIsPrefix(text) {
     var query = mnemonicFold(text);
-    for (var i = 0; i < bip39Fold.length; i++) {
-      if (bip39Fold[i].indexOf(query) === 0) return true;
+    var candidates = mnemonicLangCandidates();
+    var langs = candidates.length ? candidates : MNEMONIC_LANG_CODES;
+    for (var l = 0; l < langs.length; l++) {
+      var fold = mnemonicLangData(langs[l]).fold;
+      for (var i = 0; i < fold.length; i++) {
+        if (fold[i].indexOf(query) === 0) return true;
+      }
     }
     return false;
   }
@@ -5844,25 +5815,33 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return true;
   }
 
-  /* A posição está pronta quando tem uma palavra inteira da lista ou está
-     vazia; o prefixo pela metade não conta como palavra. */
+  /* A posição está pronta quando tem uma palavra inteira de alguma lista
+     compatível com a frase ou está vazia; o prefixo pela metade não conta
+     como palavra. */
   function mnemonicWordReady(input) {
     var typed = mnemonicFold(input.value.trim().toLowerCase());
-    return !typed || bip39Fold.indexOf(typed) >= 0;
+    return !typed || mnemonicLanguagesForWord(typed).length > 0;
   }
 
-  /* A posição só guarda palavra inteira da lista: o prefixo que não chegou a
-     palavra é descartado ao sair do campo, em vez de ficar no lugar de uma
-     palavra que não existe. A palavra aceita sem acento volta para a forma
-     canônica da lista, que é a que a checagem do BIP39 espera. Devolve o
-     texto recusado (vazio quando a palavra está na lista). */
+  /* A posição só guarda palavra inteira de uma das listas compatíveis: o
+     prefixo que não chegou a palavra é descartado ao sair do campo, em vez
+     de ficar no lugar de uma palavra que não existe. A palavra aceita sem
+     acento volta para a forma canônica da lista, que é a que a checagem do
+     BIP39 espera. Devolve o texto recusado (vazio quando a palavra está na
+     lista). */
   function commitMnemonicWord(input) {
     var typed = input.value.trim().toLowerCase();
-    var index = bip39Fold.indexOf(mnemonicFold(typed));
-    if (index >= 0) {
-      input.removeAttribute('aria-invalid');
-      setMnemonicValue(input, bip39List[index]);
-      return '';
+    var folded = mnemonicFold(typed);
+    var candidates = mnemonicLangCandidates();
+    var langs = candidates.length ? candidates : MNEMONIC_LANG_CODES;
+    for (var l = 0; l < langs.length; l++) {
+      var data = mnemonicLangData(langs[l]);
+      var index = data.fold.indexOf(folded);
+      if (index >= 0) {
+        input.removeAttribute('aria-invalid');
+        setMnemonicValue(input, data.list[index]);
+        return '';
+      }
     }
     if (!typed) {
       input.removeAttribute('aria-invalid');
@@ -5884,16 +5863,61 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }
   }
 
-  /* As opções são as palavras da lista oficial que começam com o que já foi
-     digitado; a lista para no teto e o resto sai digitando mais uma letra.
-     A busca é sem acento, e a opção mostra a palavra canônica da lista. */
+  /* Idiomas em que a palavra inteira aparece. As listas dividem palavras
+     (inglês e francês, sobretudo), então uma palavra sozinha pode apontar
+     mais de uma lista. */
+  function mnemonicLanguagesForWord(word) {
+    var folded = mnemonicFold(word);
+    return MNEMONIC_LANG_CODES.filter(function (lang) {
+      return mnemonicLangData(lang).fold.indexOf(folded) >= 0;
+    });
+  }
+  /* Idiomas compatíveis com todas as palavras inteiras já preenchidas. A
+     interseção é o que respeita a lista da frase: uma palavra ambígua ainda
+     deixa as duas listas, e a palavra seguinte as separa. */
+  function mnemonicLangCandidates() {
+    var candidates = null;
+    mnemonicInputs.forEach(function (input) {
+      var typed = input.value.trim().toLowerCase();
+      if (!typed) return;
+      var langs = mnemonicLanguagesForWord(typed);
+      if (!langs.length) return;
+      candidates = candidates
+        ? candidates.filter(function (lang) { return langs.indexOf(lang) >= 0; })
+        : langs;
+    });
+    return candidates || [];
+  }
+  /* A lista em vigor acompanha a frase digitada: se a palavra já não cabe
+     nela, passa para a primeira lista compatível. */
+  function syncMnemonicLang() {
+    var candidates = mnemonicLangCandidates();
+    if (candidates.length && candidates.indexOf(mnemonicLang) < 0) {
+      setMnemonicLang(candidates[0]);
+    }
+  }
+
+  /* As opções são as palavras que começam com o que já foi digitado. Sem
+     palavra inteira na frase, a busca cobre as dez listas; com uma palavra
+     preenchida, cobre só as listas compatíveis com ela. A lista não tem
+     teto: o que casar com o prefixo aparece, e o campo rola quando não cabe. */
   function mnemonicMatchList(query) {
     var out = [];
+    var seen = Object.create(null);
     if (!query) return out;
     var folded = mnemonicFold(query);
-    for (var i = 0; i < bip39Fold.length && out.length < MNEMONIC_OPTION_LIMIT; i++) {
-      if (bip39Fold[i].indexOf(folded) === 0) out.push(bip39List[i]);
-    }
+    var candidates = mnemonicLangCandidates();
+    var langs = candidates.length ? candidates : MNEMONIC_LANG_CODES;
+    langs.forEach(function (lang) {
+      var data = mnemonicLangData(lang);
+      for (var i = 0; i < data.fold.length; i++) {
+        if (data.fold[i].indexOf(folded) !== 0) continue;
+        var word = data.list[i];
+        if (seen[word]) continue;
+        seen[word] = true;
+        out.push(word);
+      }
+    });
     return out;
   }
 
@@ -5987,27 +6011,43 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      264 — os 256 primeiros são a entropia e os 8 últimos, a checagem. A
      chave só sai da frase inteira e válida, devolvida aqui ou vazia quando
      falta palavra, alguma não é da lista em vigor ou a checagem não fecha. */
-  function mnemonicEntropy() {
+  function mnemonicEntropyForLang(lang) {
+    var data = mnemonicLangData(lang);
     var words = mnemonicInputs.map(function (input) {
       return mnemonicFold(input.value.trim().toLowerCase());
     });
     var bits = '';
     for (var i = 0; i < words.length; i++) {
-      var index = words[i] ? bip39Fold.indexOf(words[i]) : -1;
+      var index = words[i] ? data.fold.indexOf(words[i]) : -1;
       if (index < 0) return '';
       bits += padDigits(index.toString(2), 11);
     }
     var entropy = bits.slice(0, BIT_COUNT);
     if (entropy.length !== BIT_COUNT) return '';
-    var expected = BTC.bip39Mnemonic(entropy, mnemonicLang).split(' ').map(mnemonicFold);
+    var expected = BTC.bip39Mnemonic(entropy, lang).split(' ').map(mnemonicFold);
     var valid = expected.length === words.length && expected.every(function (word, at) {
       return word === words[at];
     });
     return valid ? entropy : '';
   }
+  /* A frase pode caber em mais de uma lista quando as palavras são comuns a
+     elas; a checagem do BIP39 decide qual lista vale. */
+  function mnemonicEntropy() {
+    var candidates = mnemonicLangCandidates();
+    var langs = candidates.length ? candidates : MNEMONIC_LANG_CODES;
+    for (var i = 0; i < langs.length; i++) {
+      var entropy = mnemonicEntropyForLang(langs[i]);
+      if (entropy) {
+        if (langs[i] !== mnemonicLang) setMnemonicLang(langs[i]);
+        return entropy;
+      }
+    }
+    return '';
+  }
 
   /* Lê as 24 posições e deixa a entropia em vigor ser a da frase válida. */
   function syncMnemonic() {
+    syncMnemonicLang();
     /* Posição vazia é válida: o campo vazio não fica marcado como inválido. */
     mnemonicInputs.forEach(function (input) {
       if (!input.value.trim()) input.removeAttribute('aria-invalid');
@@ -6041,39 +6081,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     } finally {
       mnemonicEditing = false;
     }
-  }
-
-  /* Troca a lista da frase digitada. A frase não muda: ela é revalidada
-     contra a lista nova, e a chave em vigor (da lista anterior) cai junto
-     com a derivação em voo. Se as palavras não forem da lista, as 24
-     posições ficam como estão — voltar à lista anterior as revalida —, em
-     vez de sumirem com a troca. */
-  function applyMnemonicLang(lang) {
-    if (lang === mnemonicLang) return;
-    cancelPendingDerivation();
-    setMnemonicLang(lang);
-    /* A entropia em vigor precisa ser revalidada: a frase que a definiu era
-       da lista anterior. */
-    bitsValue = '';
-    if (!mnemonicEntropy()) {
-      if (hasKeyState()) clearKey(true);
-      paintBinary();
-      return;
-    }
-    syncMnemonic();
-  }
-
-  if (mnemonicLangSelect) {
-    mnemonicLangSelect.addEventListener('change', function () {
-      var lang = mnemonicLangSelect.value;
-      /* Rodada completa esperando o idioma: a escolha aqui também fecha a
-         rodada, com a mesma entropia dos 256 bits. */
-      if (mnemonicChoicePending && tosses.length >= BIT_COUNT) {
-        chooseMnemonicLang(lang);
-        return;
-      }
-      applyMnemonicLang(lang);
-    });
   }
 
   if (mnemonicList) {
