@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 /* Gera os assets minificados de public/dist e atualiza o SRI no index.html.
 
-   O index publicado aponta para os arquivos de dist; as fontes em
-   public/fontes.css continuam sendo carregadas depois do load (pelo app.js)
-   para não entrarem no caminho crítico da primeira pintura. O hash do CSS de
-   fontes é injetado no app.js no lugar de __FONTES_SRI__.
+   O index publicado aponta para os arquivos de dist. A folha de fontes é
+   ligada antes da folha de estilo, como no sistema ASCII UI, para a primeira
+   pintura já usar as métricas da fonte embutida.
 
    Uso:
      node scripts/build-assets.mjs
@@ -21,7 +20,7 @@ const distDir = path.join(publicDir, 'dist');
 const indexPath = path.join(publicDir, 'index.html');
 
 const assets = [
-  { source: 'fontes.css', out: 'fontes.min.css', loader: 'css', kind: 'remove' },
+  { source: 'fontes.css', out: 'fontes.min.css', loader: 'css', kind: 'style' },
   { source: 'style.css', out: 'style.min.css', loader: 'css', kind: 'style' },
   { source: 'wallet-local.js', out: 'wallet-local.min.js', loader: 'js', kind: 'script' },
   { source: 'app.js', out: 'app.min.js', loader: 'js', kind: 'script' }
@@ -47,19 +46,7 @@ function read(file) {
 function buildOutputs() {
   const outputs = new Map();
   for (const asset of assets) {
-    if (asset.out === 'fontes.min.css') {
-      outputs.set(asset.out, minify(read(asset.source), asset.loader));
-    }
-  }
-
-  const fontesSri = sriOf(outputs.get('fontes.min.css'));
-  for (const asset of assets) {
-    if (asset.out === 'fontes.min.css') continue;
-    let source = read(asset.source);
-    if (asset.out === 'app.min.js') {
-      source = source.replace('__FONTES_SRI__', fontesSri);
-    }
-    outputs.set(asset.out, minify(source, asset.loader));
+    outputs.set(asset.out, minify(read(asset.source), asset.loader));
   }
   return outputs;
 }
@@ -126,8 +113,6 @@ function attribute(tag, name) {
 }
 
 function buildIndex(html, outputs) {
-  /* A folha de fontes é criada pelo app.js depois do load: sem link no HTML,
-     ela não disputa a primeira pintura. */
   let out = '';
   let at = 0;
   const lower = html.toLowerCase();

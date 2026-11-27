@@ -223,12 +223,12 @@ Chromium installed and the dev server running) and writes a screenshot to
 the SRI in `public/index.html`. The published page points only to the `dist`
 bundles; the sources in `public/` stay versioned.
 
-The `@font-face` CSS is kept out of the critical path: `app.js` loads it
-after `load`, or on the first `pointerdown`/`keydown`/`touchstart`/`wheel`,
-with a 5 s fallback. The first paint uses the system monospace; when the
-embedded font arrives, `font-display: swap` applies it and a `resize` redoes
-the grid and history measurements. Keep Cloudflare minification and Rocket
-Loader off: the SRI is computed over the `dist` bytes.
+The `@font-face` CSS is linked in the `<head>` before the stylesheet, as in
+the ASCII UI system: the first paint already uses the embedded font metrics.
+`font-display: block` hides the text only while the embedded woff2 decodes,
+instead of painting the system monospace and changing the apparent size
+later. Keep Cloudflare minification and Rocket Loader off: the SRI is computed
+over the `dist` bytes.
 
 ## Deploy
 
@@ -361,11 +361,10 @@ Returns `{ "ok": true, "service": "monitor-btc-proxy", "source": "electrum",
   `Referrer-Policy`, `Permissions-Policy`, COOP, COEP and CORP. The static
   `public/_headers` and `SECURITY_HEADERS` in `src/config.js` keep those nine
   values identical; a test enforces it.
-- The `public/dist/app.min.js`, `wallet-local.min.js` and `style.min.css`
-  bundles use SRI in `public/index.html`; `dist/fontes.min.css` is loaded by
-  `app.js` after load and carries the hash injected at build time. Run
-  `npm run build` after editing `app.js`, `style.css` or `fontes.css` (or after
-  running `sync:browser-core`); `npm test` fails on a stale bundle or hash.
+- The `public/dist/app.min.js`, `wallet-local.min.js`, `fontes.min.css` and
+  `style.min.css` bundles use SRI in `public/index.html`. Run `npm run build`
+  after editing `app.js`, `style.css` or `fontes.css` (or after running
+  `sync:browser-core`); `npm test` fails on a stale bundle or hash.
   Keep Cloudflare minification and Rocket Loader off for the same reason.
 
 ## Tests
@@ -413,7 +412,7 @@ public/
   wallet-local.js        generated browser derivation, UTXOs and PSBT (bundle source)
   apple-touch-icon.png   iOS home-screen icon
   cofre-btc.html         standalone offline key generator and PSBT signer
-  fontes.css             embedded @font-face (loaded after load)
+  fontes.css             embedded @font-face (bundle source)
   index.html             published page
   llms.txt               guidance for language models
   manifest.webmanifest   installable PWA metadata
@@ -428,7 +427,7 @@ public/
     app.min.js           minified app.js (SRI)
     wallet-local.min.js  minified wallet-local.js (SRI)
     style.min.css        minified style.css (SRI)
-    fontes.min.css       minified @font-face (loaded after load)
+    fontes.min.css       minified @font-face (SRI, before the stylesheet)
   .well-known/
     ard.json             ARD manifest (empty agent catalog)
     ai-catalog.json      previous name, same manifest

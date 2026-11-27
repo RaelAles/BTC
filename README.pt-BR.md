@@ -218,12 +218,12 @@ instalado e o servidor de desenvolvimento rodando) e grava um screenshot em
 de `public/index.html`. A página publicada aponta só para os bundles de
 `dist`; os arquivos-fonte em `public/` continuam versionados.
 
-O CSS de `@font-face` não entra no caminho crítico: o `app.js` o carrega
-depois do `load` — ou no primeiro `pointerdown`/`keydown`/`touchstart`/`wheel`,
-com fallback de 5 s. A primeira pintura usa a monoespaçada do sistema; quando
-a fonte embutida chega, o `font-display: swap` a aplica e um `resize` refaz as
-medidas da grade e do histórico. Mantenha a minificação e o Rocket Loader da
-Cloudflare desligados: o SRI é calculado sobre os bytes de `dist`.
+O CSS de `@font-face` é ligado no `<head>` antes da folha de estilo, como no
+sistema ASCII UI: a primeira pintura já usa as métricas da fonte embutida. O
+`font-display: block` mantém o texto oculto só enquanto o woff2 embutido é
+decodificado, em vez de pintar a monoespaçada do sistema e trocar o tamanho
+aparente depois. Mantenha a minificação e o Rocket Loader da Cloudflare
+desligados: o SRI é calculado sobre os bytes de `dist`.
 
 ## Publicação
 
@@ -354,9 +354,8 @@ Devolve `{ "ok": true, "service": "monitor-btc-proxy", "source": "electrum",
   `Referrer-Policy`, `Permissions-Policy`, COOP, COEP e CORP. O
   `public/_headers` dos estáticos e o `SECURITY_HEADERS` de `src/config.js`
   mantêm esses nove valores iguais; um teste confere.
-- Os bundles `public/dist/app.min.js`, `wallet-local.min.js` e `style.min.css`
-  usam SRI em `public/index.html`; o `dist/fontes.min.css` é carregado pelo
-  `app.js` depois do load e leva o hash injetado no build. Rode `npm run build`
+- Os bundles `public/dist/app.min.js`, `wallet-local.min.js`, `fontes.min.css`
+  e `style.min.css` usam SRI em `public/index.html`. Rode `npm run build`
   após editar `app.js`, `style.css` ou `fontes.css` (ou depois de rodar
   `sync:browser-core`); o `npm test` acusa bundle ou hash vencido. Mantenha a
   minificação e o Rocket Loader da Cloudflare desligados pelo mesmo motivo.
@@ -406,7 +405,7 @@ public/
   wallet-local.js        derivação, UTXOs e PSBT locais gerados para o navegador (fonte do bundle)
   apple-touch-icon.png   ícone da tela inicial do iOS
   cofre-btc.html         gerador de chave e assinador PSBT standalone e offline
-  fontes.css             @font-face embutido (carregado após o load)
+  fontes.css             @font-face embutido (fonte do bundle)
   index.html             página publicada
   llms.txt               orientação para modelos de linguagem
   manifest.webmanifest   metadados da PWA instalável
@@ -421,7 +420,7 @@ public/
     app.min.js           app.js minificado (SRI)
     wallet-local.min.js  wallet-local.js minificado (SRI)
     style.min.css        style.css minificado (SRI)
-    fontes.min.css       @font-face minificado (carregado após o load)
+    fontes.min.css       @font-face minificado (SRI, antes do estilo)
   .well-known/
     ard.json             manifesto ARD (catálogo de agentes vazio)
     ai-catalog.json      nome anterior, mesmo manifesto
