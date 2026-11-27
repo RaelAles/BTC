@@ -4727,7 +4727,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["palavra {n} da frase mnemônica","word {n} of the mnemonic phrase","palabra {n} de la frase mnemónica","mot {n} de la phrase mnémotechnique","parola {n} della frase mnemonica","Wort {n} der Merkhilfe","woord {n} van de mnemonische zin","paraula {n} de la frase mnemònica","palabra {n} da frase mnemónica"],
     ["frase secreta","secret phrase","frase secreta","phrase secrète","frase segreta","geheime Phrase","geheime zin","frase secreta","frase secreta"],
     ["lista oficial de 2.048 palavras","official list of 2,048 words","lista oficial de 2.048 palabras","liste officielle de 2 048 mots","elenco ufficiale di 2.048 parole","offizielle Liste mit 2.048 Wörtern","officiële lijst van 2.048 woorden","llista oficial de 2.048 paraules","lista oficial de 2.048 palabras"],
-    ["palavra fora das listas da frase.","word outside the phrase's lists.","palabra fuera de las listas de la frase.","mot hors des listes de la phrase.","parola fuori dalle liste della frase.","Wort außerhalb der Listen der Merkhilfe.","woord buiten de lijsten van de zin.","paraula fora de les llistes de la frase.","palabra fóra das listas da frase."],
     ["a frase não fecha a checagem do BIP39.","the phrase does not pass the BIP39 checksum.","la frase no pasa la comprobación del BIP39.","la phrase ne passe pas la somme de contrôle du BIP39.","la frase non supera il controllo del BIP39.","die Merkhilfe besteht die BIP39-Prüfsumme nicht.","de zin slaagt niet voor de BIP39-controle.","la frase no passa la comprovació del BIP39.","a frase non pasa a comprobación do BIP39."],
     ["256 bits de entropia, {n} preenchidos.","256 bits of entropy, {n} filled.","256 bits de entropía, {n} rellenados.","256 bits d'entropie, {n} remplis.","256 bit di entropia, {n} inseriti.","256 Bit Entropie, {n} gesetzt.","256 bits entropie, {n} ingevuld.","256 bits d'entropia, {n} omplerts.","256 bits de entropía, {n} cubertos."],
     ["privadas","private","privadas","privées","private","private","privé","privades","privadas"],
@@ -5844,12 +5843,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return !typed || mnemonicLanguagesForWord(typed).length > 0;
   }
 
-  /* A posição guarda palavra inteira de uma das listas compatíveis. A
-     palavra aceita sem acento volta para a forma canônica: a da lista em
-     vigor quando a palavra é ambígua, ou a da lista que fecha a checagem
-     quando a frase já está completa. O texto recusado fica no campo, para o
-     focusout avisar em vez de apagar; o retorno é esse texto (vazio quando a
-     palavra está na lista). */
+  /* A posição só guarda palavra inteira de uma das listas compatíveis: o
+     texto fora das listas é apagado ao sair do campo. A palavra aceita sem
+     acento volta para a forma canônica: a da lista em vigor quando a palavra
+     é ambígua, ou a da lista que fecha a checagem quando a frase já está
+     completa. O retorno é o texto recusado (vazio quando a palavra está na
+     lista). */
   function commitMnemonicWord(input) {
     var typed = input.value.trim().toLowerCase();
     var folded = mnemonicFold(typed);
@@ -5857,7 +5856,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     var langs;
     if (candidates === null) {
       /* Frase já incompatível: nenhuma lista nova deve ser sugerida nem
-         aceita; a palavra fica no campo para o aviso do focusout. */
+         aceita; a palavra cai na recusa logo abaixo. */
       langs = [];
     } else {
       langs = candidates.length ? candidates : MNEMONIC_LANG_CODES;
@@ -5892,15 +5891,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       setMnemonicValue(input, '');
       return '';
     }
+    /* Palavra ou termo fora das listas: a posição é apagada ao sair do
+       campo, em vez de guardar um texto que não existe em lista nenhuma. */
+    setMnemonicValue(input, '');
+    input.removeAttribute('aria-invalid');
     return typed;
-  }
-
-  /* A palavra recusada fica no campo, marcada, e o aviso vai para a região
-     viva da frase: sumir com ela em silêncio escondia o erro. */
-  function rejectMnemonicWord(input, rejected) {
-    if (!rejected) return;
-    input.setAttribute('aria-invalid', 'true');
-    setMnemonicNote(t('palavra fora das listas da frase.'));
   }
 
   /* Palavra recusada: o campo vazio não fica marcado como inválido (o vazio
@@ -6196,9 +6191,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       if (pointerOut || (next && !nextInBlock)) {
         closeMnemonicOptions();
         acceptMnemonicText(input);
-        var rejectedOut = commitMnemonicWord(input);
+        commitMnemonicWord(input);
         syncMnemonic();
-        rejectMnemonicWord(input, rejectedOut);
         return;
       }
       /* Fora essas saídas, nenhum atalho tira o foco de uma posição com
@@ -6217,9 +6211,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       /* O que ficou no campo passa pelo mesmo filtro ao sair, e só palavra
          inteira permanece na posição. */
       acceptMnemonicText(input);
-      var rejected = commitMnemonicWord(input);
+      commitMnemonicWord(input);
       syncMnemonic();
-      rejectMnemonicWord(input, rejected);
     });
     /* A origem da saída decide se o campo pode ser deixado: clique/toque, sim;
        tecla, não. O registrador fica na captura para valer antes do blur, e

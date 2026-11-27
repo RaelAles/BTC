@@ -226,14 +226,17 @@ console.log('ok   idioma da frase: ' + langCodes.length + ' listas, detecção p
   assert.equal(executar('mnemonicInputs[0].value'), 'area',
     'a grafia canônica inglesa é preservada');
 
-  /* Frase já incompatível: a palavra recusada fica no campo, com o texto
-     devolvido para o focusout avisar em vez de apagar. */
+  /* Palavra ou termo fora das listas: a recusa apaga a posição, em vez de
+     guardar um texto que não existe em lista nenhuma. */
   executar("setWords(['abandon', 'abaco']); setLang('english'); entrada = fakeInput('abaco'); mnemonicInputs[1] = entrada; var recusada = commitMnemonicWord(entrada)");
   assert.equal(executar('recusada'), 'abaco', 'a recusa devolve o texto');
-  assert.equal(executar('mnemonicInputs[1].value'), 'abaco', 'a palavra recusada não é apagada');
+  assert.equal(executar('mnemonicInputs[1].value'), '', 'a palavra recusada é apagada');
+
+  executar("setWords(['']); setLang('english'); entrada = fakeInput('zzz'); mnemonicInputs[0] = entrada; commitMnemonicWord(entrada)");
+  assert.equal(executar('mnemonicInputs[0].value'), '', 'termo fora das listas também é apagado');
 
   fs.rmSync(coreDir, { recursive: true, force: true });
-  console.log('ok   inferência do idioma: ambiguidade, checagem, frase mista e grafia canônica');
+  console.log('ok   inferência do idioma: ambiguidade, checagem, frase mista, grafia canônica e recusa que apaga');
 }
 
 console.log('\ntestes de interface do Cofre passaram');
