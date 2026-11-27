@@ -21,6 +21,41 @@ e o favicon usam o contorno do ♠ num path SVG, com as coordenadas originais
 do contorno. A família embutida se chama "ASCII Mono", porque a
 OFL pede que versões modificadas troquem o nome.
 
+O U+00A0 (espaço não separável) é um glifo simples e vazio, com o mesmo
+avanço da fonte original. No Liberation Mono ele é um glifo composto que
+aponta para o `space`; mantido assim, o sanitizador de fontes do Firefox
+(OTS) registra "empty gid N used as component in glyph M" no console. O aviso
+não rejeita a fonte, mas é ruído; por isso o recorte troca o composto por um
+glifo simples vazio, sem mexer no desenho nem no avanço.
+
+Como conferir o recorte, com fonttools e brotli instalados (python3):
+
+    from fontTools.ttLib import TTFont
+    f = TTFont('fontes.woff2')
+    ordem = f.getGlyphOrder()
+    vazio = {n for n in ordem if f['glyf'][n].compile(f['glyf']) == b''}
+    for n in ordem:
+        g = f['glyf'][n]
+        if g.isComposite():
+            for c in g.components:
+                if c.glyphName in vazio:
+                    print('aviso OTS:', ordem.index(n), n, c.glyphName)
+
+Se aparecer alguma linha, troque o glifo composto por um vazio simples:
+
+    from fontTools.ttLib import TTFont
+    from fontTools.ttLib.tables._g_l_y_f import Glyph
+
+    f = TTFont('entrada.woff2', recalcBBoxes=False, recalcTimestamp=False)
+    nome = f['cmap'].getBestCmap()[0x00A0]
+    f['glyf'][nome] = Glyph()
+    f['glyf'][nome].numberOfContours = 0
+    f.flavor = 'woff2'
+    f.save('saida.woff2')
+
+Não há script de build para a fonte: gere o woff2 com pyftsubset
+(layout-features vazio) e embuta em base64 no fontes.css.
+
 Digitized data copyright (c) 2010 Google Corporation with Reserved Font
 Arimo, Tinos and Cousine.
 Copyright (c) 2012 Red Hat, Inc. with Reserved Font Name Liberation.
