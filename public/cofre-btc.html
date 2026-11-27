@@ -5820,8 +5820,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     var typed = mnemonicNorm(input.value.toLowerCase());
     if (typed && !mnemonicIsPrefix(typed)) {
       setMnemonicValue(input, input._mnValue || '');
-      if (input.value.trim()) input.setAttribute('aria-invalid', 'true');
-      else input.removeAttribute('aria-invalid');
+      input.removeAttribute('aria-invalid');
       return false;
     }
     input.removeAttribute('aria-invalid');
@@ -5829,12 +5828,19 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return true;
   }
 
-  /* A posição está pronta quando tem uma palavra inteira de alguma lista
-     compatível com a frase ou está vazia; o prefixo pela metade não conta
-     como palavra. */
+  /* A posição está pronta quando tem uma palavra inteira de uma lista
+     compatível com a frase ou está vazia; o prefixo pela metade e a palavra
+     que não cabe nas listas em vigor não contam. O critério é o mesmo do
+     `commitMnemonicWord`: sem lista compatível, a posição nunca fica pronta. */
   function mnemonicWordReady(input) {
     var typed = mnemonicFold(input.value.trim().toLowerCase());
-    return !typed || mnemonicLanguagesForWord(typed).length > 0;
+    if (!typed) return true;
+    var candidates = mnemonicLangCandidates();
+    if (candidates === null) return false;
+    var langs = candidates.length ? candidates : MNEMONIC_LANG_CODES;
+    return langs.some(function (lang) {
+      return mnemonicLangData(lang).fold.indexOf(typed) >= 0;
+    });
   }
 
   /* A posição só guarda palavra inteira de uma das listas compatíveis: o
@@ -5842,7 +5848,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      acento volta para a forma canônica: a da lista em vigor quando a palavra
      é ambígua, ou a da lista que fecha a checagem quando a frase já está
      completa. O retorno é o texto recusado (vazio quando a palavra está na
-     lista). */
+     lista); os chamadores de produção usam só o efeito no campo, e o retorno
+     fica para os testes. */
   function commitMnemonicWord(input) {
     var typed = input.value.trim().toLowerCase();
     var folded = mnemonicFold(typed);
@@ -5880,13 +5887,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         return '';
       }
     }
-    if (!typed) {
-      input.removeAttribute('aria-invalid');
-      setMnemonicValue(input, '');
-      return '';
-    }
-    /* Palavra ou termo fora das listas: a posição é apagada ao sair do
-       campo, em vez de guardar um texto que não existe em lista nenhuma. */
+    /* Texto vazio ou palavra ou termo fora das listas: a posição é apagada
+       ao sair do campo, em vez de guardar um texto que não existe em lista
+       nenhuma. O retorno é o texto recusado, vazio quando o campo estava
+       vazio. */
     setMnemonicValue(input, '');
     input.removeAttribute('aria-invalid');
     return typed;
@@ -6157,7 +6161,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
          que está no campo: palavra inteira fica na forma canônica e o resto
          é apagado. Nenhuma saída prende o foco. */
       closeMnemonicOptions();
-      acceptMnemonicText(input);
       commitMnemonicWord(input);
       syncMnemonic();
     });
@@ -6224,10 +6227,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
           ev.preventDefault();
           closeMnemonicOptions();
         }
-      } else if (ev.key === 'Tab') {
-        /* O Tab sai da posição como qualquer outro caminho: o focusout
-           encerra o campo e apaga o que não virou palavra. */
-        closeMnemonicOptions();
       }
     });
   }

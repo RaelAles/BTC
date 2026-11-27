@@ -37,5 +37,18 @@ for (const key of [
   assert.ok(keys.includes(key), 'recado de RBF sem linha em I18N_ROWS: ' + key);
 }
 
+/* A data do "sobre" aparece em dois lugares: o <time> estático de
+   public/index.html e a primeira coluna da linha "Última atualização" de
+   I18N_ROWS. As duas precisam dizer o mesmo dia. */
+const index = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+const dataDoIndice = index.match(/<time datetime="([^"]+)">/);
+assert.ok(dataDoIndice, 'public/index.html tem <time datetime> no sobre');
+const linhaDaData = rows.find(row => row[0].includes('Última atualização:'));
+assert.ok(linhaDaData, 'I18N_ROWS tem a linha da última atualização');
+const dataDaTabela = linhaDaData[0].match(/<time datetime="([^"]+)">/);
+assert.ok(dataDaTabela, 'a linha pt da última atualização tem <time datetime>');
+assert.equal(dataDaTabela[1], dataDoIndice[1],
+  'a data do sobre de index.html confere com a primeira coluna de I18N_ROWS');
+
 console.log('ok   I18N_ROWS do Monitor: ' + rows.length + ' linhas com ' +
   locales.length + ' colunas e chave única');

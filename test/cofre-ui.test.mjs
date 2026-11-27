@@ -62,8 +62,8 @@ assert.match(html, /input\.setAttribute\('aria-describedby', 'mnemonic-note'\)/,
   'cada palavra da frase aponta para #mnemonic-note');
 /* A região viva da frase fica só reservada: nenhuma legenda é escrita nela,
    nem para palavra recusada nem para frase que não fecha a checagem. */
-assert.doesNotMatch(html, /setMnemonicNote/, 'a região viva da frase não recebe legenda');
-assert.doesNotMatch(html, /não fecha a checagem do BIP39/, 'a legenda da checagem foi removida');
+assert.doesNotMatch(html, /function setMnemonicNote\b/, 'a região viva da frase não recebe legenda');
+assert.doesNotMatch(html, /'[^'\n]*não fecha a checagem do BIP39[^'\n]*'/, 'a legenda da checagem foi removida');
 console.log('ok   recado da rodada tem linha e a nota reservada da frase está ligada aos campos');
 
 /* ---------------- 3. menu e seções de tela batem com SCREENS ---------------- */
@@ -142,10 +142,13 @@ const saidaDaPosicao = html.slice(inicioDoFocusout,
   html.indexOf("addEventListener('keydown'", inicioDoFocusout));
 assert.match(saidaDaPosicao, /commitMnemonicWord\(input\)/,
   'o focusout encerra a posição e apaga o que não é palavra');
+assert.doesNotMatch(saidaDaPosicao, /acceptMnemonicText\(input\)/,
+  'o focusout não reverte o campo antes de encerrar a posição');
 assert.doesNotMatch(saidaDaPosicao, /input\.focus\(\)/, 'a saída não devolve o foco ao campo');
-const inicioDoTab = html.indexOf("ev.key === 'Tab'", inicioDoFocusout);
-const ramoDoTab = html.slice(inicioDoTab, html.indexOf('});', inicioDoTab));
-assert.doesNotMatch(ramoDoTab, /preventDefault/, 'o Tab não é travado');
+const inicioDoTeclado = html.indexOf("addEventListener('keydown'", inicioDoFocusout);
+const ramoDoTeclado = html.slice(inicioDoTeclado, html.indexOf('if (mnemonicOptions)', inicioDoTeclado));
+assert.doesNotMatch(ramoDoTeclado, /ev\.key === 'Tab'/,
+  'o Tab não tem ramo próprio: o focusout encerra a posição');
 console.log('ok   idioma da frase: ' + langCodes.length + ' listas, detecção pela frase e sem seletor na tela "chave"');
 
 /* ---------------- 7. comportamento da dedução do idioma, sem DOM ---------------- */
@@ -186,6 +189,14 @@ console.log('ok   idioma da frase: ' + langCodes.length + ' listas, detecção p
     function setLang(lang) { mnemonicLang = lang; }
     function fakeInput(value) { return { value: value, removeAttribute: function () {} }; }
     function setMnemonicValue(input, value) { input.value = value; }
+    function runCommit(value, words, lang) {
+      setWords(words || ['']);
+      setLang(lang || 'english');
+      var entrada = fakeInput(value);
+      mnemonicInputs[0] = entrada;
+      commitMnemonicWord(entrada);
+      return entrada.value;
+    }
     ${fonteDaFuncao('mnemonicNorm')}
     ${fonteDaFuncao('mnemonicFold')}
     ${fonteDaFuncao('mnemonicLangData')}
@@ -194,6 +205,7 @@ console.log('ok   idioma da frase: ' + langCodes.length + ' listas, detecção p
     ${fonteDaFuncao('mnemonicLangCandidates')}
     ${fonteDaFuncao('mnemonicEntropyForLang')}
     ${fonteDaFuncao('mnemonicEntropy')}
+    ${fonteDaFuncao('mnemonicWordReady')}
     ${fonteDaFuncao('commitMnemonicWord')}
     ${fonteDaFuncao('padDigits')}
   `;
@@ -243,8 +255,34 @@ console.log('ok   idioma da frase: ' + langCodes.length + ' listas, detecção p
   assert.equal(executar('mnemonicInputs[0].value'), 'area',
     'a grafia canônica inglesa é preservada');
 
-  /* Palavra ou termo fora das listas: a recusa apaga a posição, em vez de
-     guardar um texto que não existe em lista nenhuma. */
+  /* O caminho destrutivo do focusout: depois de sair da posição o campo só
+     guarda a palavra canônica ou fica vazio. */
+  assert.equal(executar("runCommit('aban', [''])"), '',
+    'o prefixo pela metade é apagado na saída');
+  assert.equal(executar("runCommit('abandon', [''])"), 'abandon',
+    'a palavra válida fica na forma canônica');
+  assert.equal(executar("runCommit('', [''])"), '', 'o campo vazio continua vazio');
+  assert.equal(executar("runCommit('   ', [''])"), '', 'o campo só com espaços fica vazio');
+  assert.equal(executar("runCommit('zzz', [''])"), '',
+    'o termo fora das listas é apagado');
+
+  /* A prontidão do Enter usa as mesmas listas da recusa: prefixo e palavra
+     sem lista comum com a frase não ficam prontos. */
+  executar("setWords(['']); setLang('english'); entrada = fakeInput('aban'); mnemonicInputs[0] = entrada");
+  assert.equal(executar('mnemonicWordReady(entrada)'), false,
+    'o prefixo pela metade não fica pronto');
+  executar("setWords(['']); setLang('english'); entrada = fakeInput('abandon'); mnemonicInputs[0] = entrada");
+  assert.equal(executar('mnemonicWordReady(entrada)'), true,
+    'a palavra inteira de lista compatível fica pronta');
+  executar("setWords(['']); setLang('english'); entrada = fakeInput(''); mnemonicInputs[0] = entrada");
+  assert.equal(executar('mnemonicWordReady(entrada)'), true, 'o campo vazio fica pronto');
+  executar("setWords(['abandon', 'abaco']); setLang('english'); entrada = fakeInput('abaco'); mnemonicInputs[1] = entrada");
+  assert.equal(executar('mnemonicWordReady(entrada)'), false,
+    'a palavra sem lista comum com a frase não fica pronta');
+
+  /* Palavra válida em outra lista, mas sem lista comum com a frase: a regra
+     de apagar também derruba essa posição. É o dano colateral do critério de
+     recusa, não um termo fora das listas. */
   executar("setWords(['abandon', 'abaco']); setLang('english'); entrada = fakeInput('abaco'); mnemonicInputs[1] = entrada; var recusada = commitMnemonicWord(entrada)");
   assert.equal(executar('recusada'), 'abaco', 'a recusa devolve o texto');
   assert.equal(executar('mnemonicInputs[1].value'), '', 'a palavra recusada é apagada');
