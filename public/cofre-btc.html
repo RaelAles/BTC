@@ -2333,6 +2333,16 @@
      flutuantes: o bloco das palavras é um dos .reveal-block, que pinta em
      ordem, e sem o z-index a lista ficaria atrás dos blocos seguintes. */
   .entropy-block.has-options { position: relative; z-index: var(--layer-float); }
+  /* O idioma da frase fica acima das 24 posições, na mesma grade: é a lista
+     que valida o que foi digitado à mão e a que reescreve a frase dos bits.
+     O <select> mantém o desenho do formulário (.field-box) e o nome de cada
+     idioma no próprio idioma, sem caixa alta. */
+  .mnemonic-lang {
+    grid-column: 1 / -1;
+    margin: 0 0 var(--space-1);
+  }
+  .mnemonic-lang .field-box { width: 100%; max-width: 15rem; }
+  .mnemonic-lang select { text-transform: none; }
   /* A grade da frase fica no contêiner; as 24 posições formam a lista
      semântica, e a frase secreta mora na linha de baixo, fora do <ol>: o
      leitor de tela anuncia 24 itens, não 25. */
@@ -2522,6 +2532,30 @@
               <h3><span class="prompt" aria-hidden="true">##</span> mnemonic</h3>
             </div>
             <div class="mnemonic-words">
+              <!-- O idioma da frase é a lista que valida a entrada manual e a
+                   que reescreve a frase dos bits: fica acima das 24 posições
+                   para restaurar uma frase de qualquer uma das dez listas
+                   não depender de fazer 256 lançamentos. -->
+              <div class="field-row mnemonic-lang">
+                <label class="field-label" for="mnemonic-lang">idioma da frase</label>
+                <div class="field-box">
+                  <div class="edge" aria-hidden="true"></div>
+                  <select id="mnemonic-lang">
+                    <option value="english" data-mnemonic-lang="english" lang="en">english</option>
+                    <option value="japanese" data-mnemonic-lang="japanese" lang="ja">日本語</option>
+                    <option value="korean" data-mnemonic-lang="korean" lang="ko">한국어</option>
+                    <option value="spanish" data-mnemonic-lang="spanish" lang="es">español</option>
+                    <option value="chinese_simplified" data-mnemonic-lang="chinese_simplified" lang="zh-Hans">简体中文</option>
+                    <option value="chinese_traditional" data-mnemonic-lang="chinese_traditional" lang="zh-Hant">繁體中文</option>
+                    <option value="french" data-mnemonic-lang="french" lang="fr">français</option>
+                    <option value="italian" data-mnemonic-lang="italian" lang="it">italiano</option>
+                    <option value="czech" data-mnemonic-lang="czech" lang="cs">čeština</option>
+                    <option value="portuguese" data-mnemonic-lang="portuguese" lang="pt">português</option>
+                  </select>
+                  <span class="field-select-mark" aria-hidden="true">[ v ]</span>
+                  <div class="edge" aria-hidden="true"></div>
+                </div>
+              </div>
               <ol class="mnemonic-word-list" id="mnemonic-words" aria-label="frase mnemônica de 24 palavras"></ol>
               <div class="passphrase-word" id="passphrase-word">
                 <label class="mnemonic-word-index" for="passphrase">frase secreta</label>
@@ -2655,7 +2689,7 @@
             <p>Nada fica guardado: os bits, a frase, a frase secreta, as chaves e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma. Quem tiver as 24 palavras e a frase secreta (se usada) tem a chave: guarde essa lista em local seguro e confira o sha256 publicado no repositório antes de abrir.</p>
 
             <h3><span class="prompt" aria-hidden="true">##</span> como usar</h3>
-            <p><b>Gerar.</b> No menu do alto, clique em “gerar” e registre os 256 bits pelo método que você escolher; rolar um dado é uma sugestão: 1, 2 ou 3 valem <code>0</code> e 4, 5 ou 6 valem <code>1</code>. A frase de 24 palavras e as chaves aparecem na tela “chave” quando o último bit entra; as 24 palavras também podem ser digitadas à mão ali. Anote a frase no papel antes de seguir.</p>
+            <p><b>Gerar.</b> No menu do alto, clique em “gerar” e registre os 256 bits pelo método que você escolher; rolar um dado é uma sugestão: 1, 2 ou 3 valem <code>0</code> e 4, 5 ou 6 valem <code>1</code>. No fim dos 256 bits, escolha o idioma da frase entre as dez listas oficiais do BIP39: é a lista escolhida que vira as 24 palavras e define a chave. A frase e as chaves aparecem na tela “chave”, que tem o mesmo seletor de idioma para as 24 palavras digitadas à mão. Anote a frase no papel antes de seguir.</p>
             <p><b>Assinar.</b> Clique em “importar psbt” e escolha o arquivo que veio do Monitor BTC. Confira a revisão: valor, destino, troco, taxa e avisos. Se estiver tudo certo, clique em “assinar” e baixe o arquivo assinado. Transmitir é no Monitor BTC.</p>
             <p><b>Telas.</b> O menu no alto alterna entre “chave”, “gerar” e “sobre”.</p>
 
@@ -3459,12 +3493,21 @@ var BTC = (function () {
 
   /* A lista escolhida só codifica os 256 bits na frase BIP39 usada para
      gerar a seed; o sentido inverso (palavra → 11 bits) e a checagem da
-     frase ficam com quem lê a entrada, a partir desta cópia da lista. */
+     frase ficam com quem lê a entrada, a partir desta cópia da lista.
+     O idioma é procurado só entre as chaves do mapa, nunca no protótipo:
+     `toString` ou `constructor` chegariam a uma função e a frase sairia
+     com palavras vazias, em silêncio. */
+  function bip39LangName(lang) {
+    return Object.prototype.hasOwnProperty.call(BIP39_LISTS, lang) ? lang : 'english';
+  }
+  function bip39ListFor(lang) {
+    return BIP39_LISTS[bip39LangName(lang)];
+  }
   function bip39Words(lang) {
-    return (BIP39_LISTS[lang] || BIP39_WORDS).slice();
+    return bip39ListFor(lang).slice();
   }
   function bip39Mnemonic(bits, lang) {
-    var list = BIP39_LISTS[lang] || BIP39_WORDS;
+    var list = bip39ListFor(lang);
     var entropy = new Uint8Array(32);
     var i;
     for (i = 0; i < 32; i++) entropy[i] = parseInt(bits.substr(i * 8, 8), 2);
@@ -3597,7 +3640,7 @@ var BTC = (function () {
       accounts[acc.id] = acc;
     }
     return {
-      bits: bits, mnemonic: mnemonic, lang: BIP39_LISTS[lang] ? lang : 'english',
+      bits: bits, mnemonic: mnemonic, lang: bip39LangName(lang),
       seed: seed, master: master,
       fingerprint: fingerprint,
       accounts: accounts, primary: accounts.bip86
@@ -4757,7 +4800,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["copiado","copied","copiado","copié","copiato","kopiert","gekopieerd","copiat","copiado"],
     ["copiar {id}","copy {id}","copiar {id}","copier {id}","copia {id}","{id} kopieren","{id} kopiëren","copia {id}","copiar {id}"],
     ["copiado {id}","copied {id}","copiado {id}","copié {id}","copiato {id}","{id} kopiert","{id} gekopieerd","copiat {id}","copiado {id}"],
-    ["256 bits registrados; a entropia está completa.","256 bits recorded; the entropy is complete.","256 bits registrados; la entropía está completa.","256 bits enregistrés ; l'entropie est complète.","256 bit registrati; l'entropia è completa.","256 Bit erfasst; die Entropie ist vollständig.","256 bits vastgelegd; de entropie is compleet.","256 bits registrats; l'entropia està completa.","256 bits rexistrados; a entropía está completa."],
+    ["256 bits registrados; escolha o idioma da frase.","256 bits recorded; choose the language of the phrase.","256 bits registrados; elige el idioma de la frase.","256 bits enregistrés ; choisissez la langue de la phrase.","256 bit registrati; scegli la lingua della frase.","256 Bit erfasst; wähle die Sprache der Merkhilfe.","256 bits vastgelegd; kies de taal van de zin.","256 bits registrats; tria l'idioma de la frase.","256 bits rexistrados; escolle o idioma da frase."],
     ["bit {n} de 256: {bit}.","bit {n} of 256: {bit}.","bit {n} de 256: {bit}.","bit {n} sur 256 : {bit}.","bit {n} di 256: {bit}.","Bit {n} von 256: {bit}.","bit {n} van 256: {bit}.","bit {n} de 256: {bit}.","bit {n} de 256: {bit}."],
     ["1","1","1","1","1","1","1","1","1"],
     ["0","0","0","0","0","0","0","0","0"],
@@ -4789,7 +4832,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["O Cofre BTC transforma 256 bits de entropia em uma chave Bitcoin. Os 256 bits viram a frase de 24 palavras, que também pode ser digitada à mão na tela “chave”. A frase, com a frase secreta opcional, alimenta o PBKDF2 do BIP39 e produz as quatro contas e as chaves que a tela mostra.","Cofre BTC turns 256 bits of entropy into a Bitcoin key. The 256 bits become the 24-word phrase, which can also be typed by hand on the “key” screen. The phrase, with the optional secret phrase, feeds the BIP39 PBKDF2 and produces the four accounts and the keys the screen shows.","Cofre BTC convierte 256 bits de entropía en una clave Bitcoin. Los 256 bits se convierten en la frase de 24 palabras, que también se puede escribir a mano en la pantalla “clave”. La frase, con la frase secreta opcional, alimenta el PBKDF2 de BIP39 y produce las cuatro cuentas y las claves que muestra la pantalla.","Cofre BTC transforme 256 bits d'entropie en une clé Bitcoin. Les 256 bits deviennent la phrase de 24 mots, qui peut aussi être saisie à la main sur l'écran « clé ». La phrase, avec la phrase secrète facultative, alimente le PBKDF2 de BIP39 et produit les quatre comptes et les clés affichés par l'écran.","Cofre BTC trasforma 256 bit di entropia in una chiave Bitcoin. I 256 bit diventano la frase di 24 parole, che può anche essere digitata a mano nella schermata “chiave”. La frase, con la frase segreta opzionale, alimenta il PBKDF2 di BIP39 e produce i quattro conti e le chiavi che la schermata mostra.","Cofre BTC verwandelt 256 Bit Entropie in einen Bitcoin-Schlüssel. Die 256 Bits werden zur Merkhilfe aus 24 Wörtern, die auch von Hand auf dem Bildschirm „schlüssel“ eingegeben werden kann. Die Merkhilfe speist zusammen mit der optionalen geheimen Phrase den PBKDF2 von BIP39 und erzeugt die vier Konten und die Schlüssel, die der Bildschirm zeigt.","Cofre BTC verandert 256 bits entropie in een Bitcoin-sleutel. De 256 bits worden de zin van 24 woorden, die ook met de hand op het scherm “sleutel” kan worden getypt. De zin voedt samen met de optionele geheime zin het PBKDF2 van BIP39 en levert de vier rekeningen en de sleutels die het scherm toont.","Cofre BTC converteix 256 bits d'entropia en una clau Bitcoin. Els 256 bits es converteixen en la frase de 24 paraules, que també es pot escriure a mà a la pantalla “clau”. La frase, amb la frase secreta opcional, alimenta el PBKDF2 de BIP39 i produeix els quatre comptes i les claus que mostra la pantalla.","Cofre BTC converte 256 bits de entropía nunha clave Bitcoin. Os 256 bits convértense na frase de 24 palabras, que tamén se pode escribir a man na pantalla “clave”. A frase, coa frase secreta opcional, alimenta o PBKDF2 de BIP39 e produce as catro contas e as claves que mostra a pantalla."],
     ["Ele também assina. Você abre o arquivo de transação (PSBT v0) montado no Monitor BTC, confere valor, destino, troco, taxa e avisos, e assina com a chave. Quem monta e transmite é o Monitor BTC; aqui a chave privada nunca sai da página, que é um arquivo só, sem servidor e sem internet.","It also signs. You open the transaction file (PSBT v0) built in Monitor BTC, check the amount, destination, change, fee and warnings, and sign it with the key. Monitor BTC builds and broadcasts it; here the private key never leaves the page, which is a single file, with no server and no internet.","También firma. Abres el archivo de transacción (PSBT v0) montado en Monitor BTC, compruebas el importe, el destino, el cambio, la comisión y los avisos, y lo firmas con la clave. Quien monta y transmite es Monitor BTC; aquí la clave privada nunca sale de la página, que es un solo archivo, sin servidor y sin internet.","Il signe aussi. Vous ouvrez le fichier de transaction (PSBT v0) construit dans Monitor BTC, vérifiez le montant, la destination, la monnaie, les frais et les avertissements, puis le signez avec la clé. C'est Monitor BTC qui le construit et le diffuse ; ici, la clé privée ne quitte jamais la page, qui est un seul fichier, sans serveur et sans internet.","Firma anche. Apri il file di transazione (PSBT v0) creato in Monitor BTC, controlli importo, destinazione, resto, commissione e avvisi, e lo firmi con la chiave. Chi lo crea e lo trasmette è Monitor BTC; qui la chiave privata non lascia mai la pagina, che è un solo file, senza server e senza internet.","Es signiert auch. Du öffnest die in Monitor BTC erstellte Transaktionsdatei (PSBT v0), prüfst Betrag, Ziel, Wechselgeld, Gebühr und Warnungen und signierst sie mit dem Schlüssel. Monitor BTC erstellt und überträgt sie; hier verlässt der private Schlüssel nie die Seite, die eine einzige Datei ist, ohne Server und ohne Internet.","Het ondertekent ook. Je opent het transactiebestand (PSBT v0) dat in Monitor BTC is gemaakt, controleert bedrag, bestemming, wisselgeld, kosten en waarschuwingen, en ondertekent het met de sleutel. Monitor BTC maakt en verstuurt het; hier verlaat de privésleutel nooit de pagina, die één bestand is, zonder server en zonder internet.","També signa. Obres el fitxer de transacció (PSBT v0) muntat a Monitor BTC, comproves l'import, la destinació, el canvi, la comissió i els avisos, i el signes amb la clau. Qui el munta i el transmet és Monitor BTC; aquí la clau privada no surt mai de la pàgina, que és un sol fitxer, sense servidor i sense internet.","Tamén asina. Abres o ficheiro de transacción (PSBT v0) montado en Monitor BTC, comprobas o importe, o destino, o troco, a comisión e os avisos, e asínas con a clave. Quen o monta e transmite é Monitor BTC; aquí a clave privada nunca sae da páxina, que é un só ficheiro, sen servidor e sen internet."],
     ["Nada fica guardado: os bits, a frase, a frase secreta, as chaves e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma. Quem tiver as 24 palavras e a frase secreta (se usada) tem a chave: guarde essa lista em local seguro e confira o sha256 publicado no repositório antes de abrir.","Nothing is stored: the bits, the phrase, the secret phrase, the keys and the files live only in the tab's memory and disappear when you close or reload the page; the browser stores neither the theme nor the language. Whoever has the 24 words and the secret phrase (if used) has the key: keep that list somewhere safe and check the sha256 published in the repository before opening.","No se guarda nada: los bits, la frase, la frase secreta, las claves y los archivos solo están en la memoria de la pestaña y desaparecen al cerrar o recargar la página; el navegador no guarda ni el tema ni el idioma. Quien tenga las 24 palabras y la frase secreta (si se usa) tiene la clave: guarda esa lista en un lugar seguro y comprueba el sha256 publicado en el repositorio antes de abrir.","Rien n'est conservé : les bits, la phrase, la phrase secrète, les clés et les fichiers restent uniquement dans la mémoire de l'onglet et disparaissent à la fermeture ou au rechargement de la page ; le navigateur ne garde ni le thème ni la langue. Qui possède les 24 mots et la phrase secrète (si elle est utilisée) possède la clé : conservez cette liste en lieu sûr et vérifiez le sha256 publié dans le dépôt avant d'ouvrir.","Niente viene salvato: i bit, la frase, la frase segreta, le chiavi e i file restano solo nella memoria della scheda e spariscono chiudendo o ricaricando la pagina; il browser non conserva né il tema né la lingua. Chi ha le 24 parole e la frase segreta (se usata) ha la chiave: conserva quell'elenco in un luogo sicuro e controlla lo sha256 pubblicato nel repository prima di aprire.","Nichts wird gespeichert: die Bits, die Merkhilfe, die geheime Phrase, die Schlüssel und die Dateien liegen nur im Speicher des Tabs und verschwinden beim Schließen oder Neuladen der Seite; der Browser speichert weder das Design noch die Sprache. Wer die 24 Wörter und die geheime Phrase (falls verwendet) hat, hat den Schlüssel: bewahre diese Liste an einem sicheren Ort auf und prüfe vor dem Öffnen den im Repository veröffentlichten sha256.","Niets wordt bewaard: de bits, de zin, de geheime zin, de sleutels en de bestanden staan alleen in het geheugen van het tabblad en verdwijnen bij het sluiten of herladen van de pagina; de browser bewaart noch het thema noch de taal. Wie de 24 woorden en de geheime zin (indien gebruikt) heeft, heeft de sleutel: bewaar die lijst op een veilige plek en controleer de sha256 die in de repository is gepubliceerd voordat je opent.","No es guarda res: els bits, la frase, la frase secreta, les claus i els fitxers només són a la memòria de la pestanya i desapareixen en tancar o recarregar la pàgina; el navegador no guarda ni el tema ni l'idioma. Qui tingui les 24 paraules i la frase secreta (si s'usa) té la clau: guarda aquesta llista en un lloc segur i comprova el sha256 publicat al repositori abans d'obrir.","Non se garda nada: os bits, a frase, a frase secreta, as claves e os ficheiros están só na memoria da lapela e desaparecen ao pechar ou recargar a páxina; o navegador non garda nin o tema nin o idioma. Quen teña as 24 palabras e a frase secreta (se se usa) ten a clave: garda esa lista nun lugar seguro e comproba o sha256 publicado no repositorio antes de abrir."],
-    ["<b>Gerar.</b> No menu do alto, clique em “gerar” e registre os 256 bits pelo método que você escolher; rolar um dado é uma sugestão: 1, 2 ou 3 valem <code>0</code> e 4, 5 ou 6 valem <code>1</code>. A frase de 24 palavras e as chaves aparecem na tela “chave” quando o último bit entra; as 24 palavras também podem ser digitadas à mão ali. Anote a frase no papel antes de seguir.","<b>Generate.</b> In the top menu, click “generate” and record the 256 bits using the method you choose; rolling a die is one suggestion: 1, 2 or 3 is <code>0</code> and 4, 5 or 6 is <code>1</code>. The 24-word phrase and the keys appear on the “key” screen when the last bit goes in; the 24 words can also be typed by hand there. Write the phrase on paper before continuing.","<b>Generar.</b> En el menú de arriba, haz clic en “generar” y registra los 256 bits como prefieras; lanzar un dado es una sugerencia: 1, 2 o 3 vale <code>0</code> y 4, 5 o 6 vale <code>1</code>. La frase de 24 palabras y las claves aparecen en la pantalla “clave” cuando entra el último bit; las 24 palabras también se pueden escribir a mano allí. Anota la frase en papel antes de seguir.","<b>Générer.</b> Dans le menu du haut, cliquez sur « générer » et enregistrez les 256 bits comme vous voulez ; lancer un dé n'est qu'une suggestion : 1, 2 ou 3 vaut <code>0</code> et 4, 5 ou 6 vaut <code>1</code>. La phrase de 24 mots et les clés apparaissent sur l'écran « clé » quand le dernier bit entre ; les 24 mots peuvent aussi y être saisis à la main. Notez la phrase sur papier avant de continuer.","<b>Genera.</b> Nel menu in alto, fai clic su “genera” e registra i 256 bit come preferisci; lanciare un dado è un suggerimento: 1, 2 o 3 vale <code>0</code> e 4, 5 o 6 vale <code>1</code>. La frase di 24 parole e le chiavi compaiono nella schermata “chiave” quando entra l'ultimo bit; le 24 parole possono anche essere digitate a mano lì. Annota la frase su carta prima di proseguire.","<b>Erzeugen.</b> Klicke im Menü oben auf „erzeugen“ und erfasse die 256 Bit, wie du willst; ein Würfelwurf ist ein Vorschlag: 1, 2 oder 3 zählt <code>0</code> und 4, 5 oder 6 zählt <code>1</code>. Die Merkhilfe aus 24 Wörtern und die Schlüssel erscheinen auf dem Bildschirm „schlüssel“, wenn das letzte Bit eingeht; die 24 Wörter können dort auch von Hand eingegeben werden. Notiere die Merkhilfe auf Papier, bevor du fortfährst.","<b>Genereren.</b> Klik in het menu bovenaan op “genereren” en leg de 256 bits vast zoals je wilt; een dobbelsteen gooien is een suggestie: 1, 2 of 3 is <code>0</code> en 4, 5 of 6 is <code>1</code>. De zin van 24 woorden en de sleutels verschijnen op het scherm “sleutel” wanneer het laatste bit binnenkomt; de 24 woorden kunnen daar ook met de hand worden getypt. Schrijf de zin op papier voordat je verdergaat.","<b>Genera.</b> Al menú de dalt, fes clic a “genera” i registra els 256 bits com vulguis; llançar un dau és un suggeriment: 1, 2 o 3 val <code>0</code> i 4, 5 o 6 val <code>1</code>. La frase de 24 paraules i les claus apareixen a la pantalla “clau” quan entra l'últim bit; les 24 paraules també es poden escriure a mà allà. Anota la frase en paper abans de continuar.","<b>Xerar.</b> No menú de arriba, fai clic en “xerar” e rexistra os 256 bits como queiras; lanzar un dado é unha suxestión: 1, 2 ou 3 vale <code>0</code> e 4, 5 ou 6 vale <code>1</code>. A frase de 24 palabras e as claves aparecen na pantalla “clave” cando entra o último bit; as 24 palabras tamén se poden escribir a man alí. Anota a frase en papel antes de seguir."],
+    ["<b>Gerar.</b> No menu do alto, clique em “gerar” e registre os 256 bits pelo método que você escolher; rolar um dado é uma sugestão: 1, 2 ou 3 valem <code>0</code> e 4, 5 ou 6 valem <code>1</code>. No fim dos 256 bits, escolha o idioma da frase entre as dez listas oficiais do BIP39: é a lista escolhida que vira as 24 palavras e define a chave. A frase e as chaves aparecem na tela “chave”, que tem o mesmo seletor de idioma para as 24 palavras digitadas à mão. Anote a frase no papel antes de seguir.","<b>Generate.</b> In the top menu, click “generate” and record the 256 bits using the method you choose; rolling a die is one suggestion: 1, 2 or 3 is <code>0</code> and 4, 5 or 6 is <code>1</code>. Once the 256 bits are in, choose the language of the phrase among the ten official BIP39 lists: the chosen list becomes the 24 words and defines the key. The phrase and the keys appear on the “key” screen, which has the same language selector for the 24 words typed by hand. Write the phrase on paper before continuing.","<b>Generar.</b> En el menú de arriba, haz clic en “generar” y registra los 256 bits como prefieras; lanzar un dado es una sugerencia: 1, 2 o 3 vale <code>0</code> y 4, 5 o 6 vale <code>1</code>. Al completar los 256 bits, elige el idioma de la frase entre las diez listas oficiales del BIP39: la lista elegida se convierte en las 24 palabras y define la clave. La frase y las claves aparecen en la pantalla “clave”, que tiene el mismo selector de idioma para las 24 palabras escritas a mano. Anota la frase en papel antes de seguir.","<b>Générer.</b> Dans le menu du haut, cliquez sur « générer » et enregistrez les 256 bits comme vous voulez ; lancer un dé n'est qu'une suggestion : 1, 2 ou 3 vaut <code>0</code> et 4, 5 ou 6 vaut <code>1</code>. Une fois les 256 bits complets, choisissez la langue de la phrase parmi les dix listes officielles du BIP39 : la liste choisie devient les 24 mots et définit la clé. La phrase et les clés apparaissent sur l'écran « clé », qui a le même sélecteur de langue pour les 24 mots saisis à la main. Notez la phrase sur papier avant de continuer.","<b>Genera.</b> Nel menu in alto, fai clic su “genera” e registra i 256 bit come preferisci; lanciare un dado è un suggerimento: 1, 2 o 3 vale <code>0</code> e 4, 5 o 6 vale <code>1</code>. Completati i 256 bit, scegli la lingua della frase tra le dieci liste ufficiali del BIP39: la lista scelta diventa le 24 parole e definisce la chiave. La frase e le chiavi compaiono nella schermata “chiave”, che ha lo stesso selettore di lingua per le 24 parole digitate a mano. Annota la frase su carta prima di proseguire.","<b>Erzeugen.</b> Klicke im Menü oben auf „erzeugen“ und erfasse die 256 Bit, wie du willst; ein Würfelwurf ist ein Vorschlag: 1, 2 oder 3 zählt <code>0</code> und 4, 5 oder 6 zählt <code>1</code>. Sind die 256 Bit voll, wähle die Sprache der Merkhilfe aus den zehn offiziellen BIP39-Listen: Die gewählte Liste wird zu den 24 Wörtern und bestimmt den Schlüssel. Merkhilfe und Schlüssel erscheinen auf dem Bildschirm „schlüssel“, der denselben Sprachwähler für die von Hand eingegebenen 24 Wörter hat. Notiere die Merkhilfe auf Papier, bevor du fortfährst.","<b>Genereren.</b> Klik in het menu bovenaan op “genereren” en leg de 256 bits vast zoals je wilt; een dobbelsteen gooien is een suggestie: 1, 2 of 3 is <code>0</code> en 4, 5 of 6 is <code>1</code>. Zijn de 256 bits vol, kies dan de taal van de zin uit de tien officiële BIP39-lijsten: de gekozen lijst wordt de 24 woorden en bepaalt de sleutel. De zin en de sleutels verschijnen op het scherm “sleutel”, dat dezelfde taalkeuze heeft voor de 24 woorden die met de hand worden getypt. Schrijf de zin op papier voordat je verdergaat.","<b>Genera.</b> Al menú de dalt, fes clic a “genera” i registra els 256 bits com vulguis; llançar un dau és un suggeriment: 1, 2 o 3 val <code>0</code> i 4, 5 o 6 val <code>1</code>. Amb els 256 bits complets, tria l'idioma de la frase entre les deu llistes oficials del BIP39: la llista triada es converteix en les 24 paraules i defineix la clau. La frase i les claus apareixen a la pantalla “clau”, que té el mateix selector d'idioma per a les 24 paraules escrites a mà. Anota la frase en paper abans de continuar.","<b>Xerar.</b> No menú de arriba, fai clic en “xerar” e rexistra os 256 bits como queiras; lanzar un dado é unha suxestión: 1, 2 ou 3 vale <code>0</code> e 4, 5 ou 6 vale <code>1</code>. Cos 256 bits completos, escolle o idioma da frase entre as dez listas oficiais do BIP39: a lista escollida convértese nas 24 palabras e define a clave. A frase e as claves aparecen na pantalla “clave”, que ten o mesmo selector de idioma para as 24 palabras escritas a man. Anota a frase en papel antes de seguir."],
     ["<b>Assinar.</b> Clique em “importar psbt” e escolha o arquivo que veio do Monitor BTC. Confira a revisão: valor, destino, troco, taxa e avisos. Se estiver tudo certo, clique em “assinar” e baixe o arquivo assinado. Transmitir é no Monitor BTC.","<b>Sign.</b> Click “import psbt” and choose the file that came from Monitor BTC. Check the review: amount, destination, change, fee and warnings. If everything is right, click “sign” and download the signed file. Broadcasting is done in Monitor BTC.","<b>Firmar.</b> Haz clic en “importar psbt” y elige el archivo que vino de Monitor BTC. Revisa la revisión: valor, destino, cambio, comisión y avisos. Si todo está bien, haz clic en “firmar” y descarga el archivo firmado. La transmisión se hace en Monitor BTC.","<b>Signer.</b> Cliquez sur « importer psbt » et choisissez le fichier venu de Monitor BTC. Vérifiez la revue : montant, destination, monnaie, frais et avertissements. Si tout est correct, cliquez sur « signer » et téléchargez le fichier signé. La diffusion se fait dans Monitor BTC.","<b>Firma.</b> Fai clic su “importa psbt” e scegli il file che arriva da Monitor BTC. Controlla la revisione: importo, destinazione, resto, commissione e avvisi. Se è tutto corretto, fai clic su “firma” e scarica il file firmato. La trasmissione avviene in Monitor BTC.","<b>Signieren.</b> Klicke auf „psbt importieren“ und wähle die Datei, die aus Monitor BTC kommt. Prüfe die Übersicht: Betrag, Ziel, Wechselgeld, Gebühr und Warnungen. Wenn alles stimmt, klicke auf „signieren“ und lade die signierte Datei herunter. Das Übertragen erfolgt in Monitor BTC.","<b>Ondertekenen.</b> Klik op “psbt importeren” en kies het bestand dat uit Monitor BTC komt. Controleer het overzicht: bedrag, bestemming, wisselgeld, kosten en waarschuwingen. Als alles klopt, klik je op “ondertekenen” en download je het ondertekende bestand. Verzenden gebeurt in Monitor BTC.","<b>Signar.</b> Fes clic a “importar psbt” i tria el fitxer que ve de Monitor BTC. Revisa la revisió: import, destinació, canvi, comissió i avisos. Si tot és correcte, fes clic a “signar” i descarrega el fitxer signat. La transmissió es fa a Monitor BTC.","<b>Asinar.</b> Fai clic en “importar psbt” e escolle o ficheiro que vén de Monitor BTC. Revisa a revisión: importe, destino, troco, comisión e avisos. Se todo está correcto, fai clic en “asinar” e descarga o ficheiro asinado. A transmisión faise en Monitor BTC."],
     ["<b>Telas.</b> O menu no alto alterna entre “chave”, “gerar” e “sobre”.","<b>Screens.</b> The menu at the top switches between “key”, “generate” and “about”.","<b>Pantallas.</b> El menú de arriba alterna entre “clave”, “generar” y “acerca de”.","<b>Écrans.</b> Le menu du haut alterne entre « clé », « générer » et « à propos ».","<b>Schermate.</b> Il menu in alto alterna tra “chiave”, “genera” e “informazioni”.","<b>Bildschirme.</b> Das Menü oben wechselt zwischen „schlüssel“, „erzeugen“ und „über“.","<b>Schermen.</b> Het menu bovenaan wisselt tussen “sleutel”, “genereren” en “over”.","<b>Pantalles.</b> El menú de dalt alterna entre “clau”, “genera” i “sobre”.","<b>Pantallas.</b> O menú de arriba alterna entre “clave”, “xerar” e “sobre”."],
     ["Os BIPs são as regras públicas do Bitcoin que a ferramenta segue. Eles cobrem a chave, os endereços, as assinaturas e o arquivo de transação.","The BIPs are the public Bitcoin rules the tool follows. They cover the key, the addresses, the signatures and the transaction file.","Los BIP son las reglas públicas de Bitcoin que sigue la herramienta. Cubren la clave, las direcciones, las firmas y el archivo de transacción.","Les BIP sont les règles publiques de Bitcoin que suit l'outil. Elles couvrent la clé, les adresses, les signatures et le fichier de transaction.","I BIP sono le regole pubbliche di Bitcoin che lo strumento segue. Coprono la chiave, gli indirizzi, le firme e il file di transazione.","Die BIPs sind die öffentlichen Bitcoin-Regeln, denen das Werkzeug folgt. Sie decken den Schlüssel, die Adressen, die Signaturen und die Transaktionsdatei ab.","De BIP's zijn de openbare Bitcoin-regels die de tool volgt. Ze dekken de sleutel, de adressen, de handtekeningen en het transactiebestand.","Els BIP són les regles públiques de Bitcoin que segueix l'eina. Cobreixen la clau, les adreces, les signatures i el fitxer de transacció.","Os BIP son as regras públicas de Bitcoin que segue a ferramenta. Cobren a clave, os enderezos, as sinaturas e o ficheiro de transacción."],
@@ -5226,8 +5269,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var tosses = [];
   /* Os 256 bits estão completos e o idioma da frase ainda não foi escolhido.
      A rodada fica guardada se o usuário sair da tela, para voltar à escolha
-     sem perder 256 cliques. */
+     sem perder 256 cliques. `choiceBits` é a entropia da própria rodada:
+     a escolha só pode codificar estes bits, mesmo que outra entrada (a frase
+     secreta, a frase digitada) mexa em `bitsValue` no meio. */
   var mnemonicChoicePending = false;
+  var choiceBits = '';
 
   function padDigits(value, size) {
     var text = String(value);
@@ -5301,8 +5347,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       return;
     }
     /* Sem rodada, a entropia em vigor é a que vale — inclusive a que veio
-       das 24 palavras digitadas à mão, que precisa continuar legível. */
-    var bits = bitsValue.length === BIT_COUNT ? bitsValue : '';
+       das 24 palavras digitadas à mão, que precisa continuar legível. Com
+       a escolha pendente, quem manda é a entropia guardada da rodada. */
+    var bits = mnemonicChoicePending
+      ? choiceBits
+      : (bitsValue.length === BIT_COUNT ? bitsValue : '');
     if (!bits) {
       paintBinarySlots();
       binaryBits.classList.remove('is-empty');
@@ -5347,13 +5396,36 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     coinLang.hidden = true;
     return true;
   }
+  /* A escolha fecha a rodada com a entropia dela, e não com o que estiver
+     em `bitsValue` no instante do clique. Depois da escolha a rodada não
+     existe mais: um segundo clique no mesmo lugar não gera outra chave, e a
+     troca de tela espera o próximo quadro para o outro clique de um duplo
+     clique não acertar um controle que passou a ocupar aquelas coordenadas. */
   function chooseMnemonicLang(lang) {
     if (tosses.length < BIT_COUNT) return;
+    var bits = choiceBits || bitsValue;
+    var leaving = state.screen !== 'chave';
     mnemonicChoicePending = false;
+    choiceBits = '';
+    tosses = [];
+    bitsValue = bits;
     setMnemonicLang(lang);
     hideMnemonicChoice();
-    endGeneration();
-    applyBits(bitsValue);
+    paintTosses('');
+    paintBinary();
+    if (leaving) {
+      window.setTimeout(function () {
+        if (state.screen === 'gerar') endGeneration();
+      }, 0);
+    }
+    applyBits(bits);
+  }
+  /* A pendência cai quando outra entrada assume a entropia (frase digitada,
+     rodada nova): o idioma ainda não escolhido não vale mais para ninguém. */
+  function clearMnemonicChoice() {
+    mnemonicChoicePending = false;
+    choiceBits = '';
+    hideMnemonicChoice();
   }
 
   /* Cancela a derivação pedida e ainda não aplicada: nem o timer nem a
@@ -5409,7 +5481,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     }
     if (tosses.length >= BIT_COUNT) {
       mnemonicChoicePending = true;
-      paintTosses('256 bits registrados; a entropia está completa.');
+      choiceBits = bitsValue;
+      paintTosses('256 bits registrados; escolha o idioma da frase.');
       /* A entropia está completa, mas o idioma da frase ainda não: a escolha
          aparece antes de a chave existir. */
       showMnemonicChoice();
@@ -5426,8 +5499,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      meia lista de 256 não vira chave nem deixa a frase anterior no lugar. */
   function resetTossRun() {
     tosses = [];
-    mnemonicChoicePending = false;
-    hideMnemonicChoice();
+    clearMnemonicChoice();
     bitsValue = '';
     paintBinary();
     paintTosses('bits zerados.');
@@ -5441,6 +5513,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (!tosses.length) return;
     var wasChoosing = hideMnemonicChoice();
     mnemonicChoicePending = false;
+    choiceBits = '';
     tosses.pop();
     if (!tosses.length) {
       resetTossRun();
@@ -5491,13 +5564,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      não é ação do usuário: o recado é limpo, não anunciado. */
   function startGeneration() {
     if (mnemonicChoicePending && tosses.length >= BIT_COUNT) {
-      paintTosses('256 bits registrados; a entropia está completa.');
+      paintTosses('256 bits registrados; escolha o idioma da frase.');
       paintBinary();
       showMnemonicChoice();
       return;
     }
     tosses = [];
-    hideMnemonicChoice();
+    clearMnemonicChoice();
     paintTosses('');
     paintBinary();
   }
@@ -5522,7 +5595,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       if (typeof window.confirm === 'function' && !window.confirm(message)) return false;
       resetTossRun();
     }
-    hideMnemonicChoice();
+    clearMnemonicChoice();
     tosses = [];
     return true;
   }
@@ -5628,6 +5701,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      porque só a frase inteira define os 256 bits. */
   var mnemonicList = $('#mnemonic-words');
   var mnemonicBlock = $('#entropy-block');
+  var mnemonicLangSelect = $('#mnemonic-lang');
   var MNEMONIC_LEN = 24;
   /* Teto de opções abertas: o prefixo costuma resolver antes disso, e a
      lista não cobre o resto da tela enquanto se digita. */
@@ -5635,7 +5709,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   /* Idiomas oficiais do BIP39, na ordem do repositório das listas. O
      inglês continua sendo o padrão, que é a frase que o Cofre já gerava;
      a escolha feita no fim da rodada vale para a frase gerada e para a
-     lista de sugestões da entrada manual. */
+     lista de sugestões da entrada manual. A tela "chave" tem o mesmo
+     seletor, para restaurar uma frase de qualquer uma das dez listas. */
   var MNEMONIC_LANG_CODES = ['english', 'japanese', 'korean', 'spanish',
     'chinese_simplified', 'chinese_traditional', 'french', 'italian',
     'czech', 'portuguese'];
@@ -5644,12 +5719,23 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     text = String(text);
     return text.normalize ? text.normalize('NFKD') : text;
   }
+  /* A comparação é feita sem os acentos: quem digita à mão costuma escrever
+     `cafe` para `café`, e a lista só tem a forma com acento. Nenhuma lista
+     tem duas palavras iguais depois de perder as marcas, então a palavra
+     aceita é sempre a canônica da lista. */
+  function mnemonicFold(text) {
+    return mnemonicNorm(text).replace(/[\u0300-\u036f]/g, '');
+  }
   var bip39List = BTC.bip39Words(mnemonicLang);
-  var bip39Norm = bip39List.map(mnemonicNorm);
+  var bip39Fold = bip39List.map(mnemonicFold);
+  function paintMnemonicLang() {
+    if (mnemonicLangSelect) mnemonicLangSelect.value = mnemonicLang;
+  }
   function setMnemonicLang(lang) {
     mnemonicLang = MNEMONIC_LANG_CODES.indexOf(lang) >= 0 ? lang : 'english';
     bip39List = BTC.bip39Words(mnemonicLang);
-    bip39Norm = bip39List.map(mnemonicNorm);
+    bip39Fold = bip39List.map(mnemonicFold);
+    paintMnemonicLang();
   }
   var mnemonicInputs = [];
   var mnemonicOptions = null;
@@ -5711,12 +5797,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* O campo só aceita o que ainda pode virar palavra da lista: cada tecla é
-     testada como prefixo, então dígito, espaço, acento ou letra que não abre
-     palavra nenhuma nem chegam a aparecer. */
+     testada como prefixo, então dígito, espaço ou letra que não abre palavra
+     nenhuma nem chegam a aparecer. O prefixo é comparado sem acento, como na
+     palavra inteira. */
   function mnemonicIsPrefix(text) {
-    var query = mnemonicNorm(text);
-    for (var i = 0; i < bip39Norm.length; i++) {
-      if (bip39Norm[i].indexOf(query) === 0) return true;
+    var query = mnemonicFold(text);
+    for (var i = 0; i < bip39Fold.length; i++) {
+      if (bip39Fold[i].indexOf(query) === 0) return true;
     }
     return false;
   }
@@ -5764,17 +5851,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   /* A posição está pronta quando tem uma palavra inteira da lista ou está
      vazia; o prefixo pela metade não conta como palavra. */
   function mnemonicWordReady(input) {
-    var typed = mnemonicNorm(input.value.trim().toLowerCase());
-    return !typed || bip39Norm.indexOf(typed) >= 0;
+    var typed = mnemonicFold(input.value.trim().toLowerCase());
+    return !typed || bip39Fold.indexOf(typed) >= 0;
   }
 
   /* A posição só guarda palavra inteira da lista: o prefixo que não chegou a
      palavra é descartado ao sair do campo, em vez de ficar no lugar de uma
-     palavra que não existe. Devolve o texto recusado (vazio quando a palavra
-     está na lista). */
+     palavra que não existe. A palavra aceita sem acento volta para a forma
+     canônica da lista, que é a que a checagem do BIP39 espera. Devolve o
+     texto recusado (vazio quando a palavra está na lista). */
   function commitMnemonicWord(input) {
     var typed = input.value.trim().toLowerCase();
-    var index = bip39Norm.indexOf(mnemonicNorm(typed));
+    var index = bip39Fold.indexOf(mnemonicFold(typed));
     if (index >= 0) {
       input.removeAttribute('aria-invalid');
       setMnemonicValue(input, bip39List[index]);
@@ -5801,13 +5889,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* As opções são as palavras da lista oficial que começam com o que já foi
-     digitado; a lista para no teto e o resto sai digitando mais uma letra. */
+     digitado; a lista para no teto e o resto sai digitando mais uma letra.
+     A busca é sem acento, e a opção mostra a palavra canônica da lista. */
   function mnemonicMatchList(query) {
     var out = [];
     if (!query) return out;
-    var normalized = mnemonicNorm(query);
-    for (var i = 0; i < bip39Norm.length && out.length < MNEMONIC_OPTION_LIMIT; i++) {
-      if (bip39Norm[i].indexOf(normalized) === 0) out.push(bip39List[i]);
+    var folded = mnemonicFold(query);
+    for (var i = 0; i < bip39Fold.length && out.length < MNEMONIC_OPTION_LIMIT; i++) {
+      if (bip39Fold[i].indexOf(folded) === 0) out.push(bip39List[i]);
     }
     return out;
   }
@@ -5844,7 +5933,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     /* Palavra completa e sozinha no prefixo: não há o que escolher e o campo
        pode seguir para a próxima posição. */
     if (!matches.length ||
-        (matches.length === 1 && mnemonicNorm(matches[0]) === mnemonicNorm(query))) {
+        (matches.length === 1 && mnemonicFold(matches[0]) === mnemonicFold(query))) {
       closeMnemonicOptions();
       return;
     }
@@ -5900,33 +5989,34 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   /* Lê as 24 posições: cada palavra da lista vale 11 bits e a frase inteira,
      264 — os 256 primeiros são a entropia e os 8 últimos, a checagem. A
-     chave só sai da frase inteira e válida. */
+     chave só sai da frase inteira e válida, devolvida aqui ou vazia quando
+     falta palavra, alguma não é da lista em vigor ou a checagem não fecha. */
+  function mnemonicEntropy() {
+    var words = mnemonicInputs.map(function (input) {
+      return mnemonicFold(input.value.trim().toLowerCase());
+    });
+    var bits = '';
+    for (var i = 0; i < words.length; i++) {
+      var index = words[i] ? bip39Fold.indexOf(words[i]) : -1;
+      if (index < 0) return '';
+      bits += padDigits(index.toString(2), 11);
+    }
+    var entropy = bits.slice(0, BIT_COUNT);
+    if (entropy.length !== BIT_COUNT) return '';
+    var expected = BTC.bip39Mnemonic(entropy, mnemonicLang).split(' ').map(mnemonicFold);
+    var valid = expected.length === words.length && expected.every(function (word, at) {
+      return word === words[at];
+    });
+    return valid ? entropy : '';
+  }
+
+  /* Lê as 24 posições e deixa a entropia em vigor ser a da frase válida. */
   function syncMnemonic() {
     /* Posição vazia é válida: o campo vazio não fica marcado como inválido. */
     mnemonicInputs.forEach(function (input) {
       if (!input.value.trim()) input.removeAttribute('aria-invalid');
     });
-    var words = mnemonicInputs.map(function (input) {
-      return mnemonicNorm(input.value.trim().toLowerCase());
-    });
-    var bits = '';
-    var complete = true;
-    for (var i = 0; i < words.length; i++) {
-      var index = words[i] ? bip39Norm.indexOf(words[i]) : -1;
-      if (index < 0) {
-        complete = false;
-        break;
-      }
-      bits += padDigits(index.toString(2), 11);
-    }
-    var entropy = bits.slice(0, BIT_COUNT);
-    var expected = complete && entropy.length === BIT_COUNT
-      ? BTC.bip39Mnemonic(entropy, mnemonicLang).split(' ').map(mnemonicNorm)
-      : [];
-    var valid = expected.length === words.length && expected.every(function (word, at) {
-      return word === words[at];
-    });
-    var next = valid ? entropy : '';
+    var next = mnemonicEntropy();
     /* A frase em vigor não mudou: entrar e sair de uma posição sem editar
        nada não apaga a chave (PBKDF2 + BIP32) nem descarta a revisão e a
        assinatura de PSBT em andamento — o `focusout` chamava esta função e
@@ -5938,10 +6028,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       ? !!(state.hd || deriveTimer || pendingBits === next)
       : !hasKeyState();
     if (!changed && settled) return;
+    /* Com a escolha do idioma pendente, uma frase vazia ou pela metade não
+       derruba a rodada: os 256 bits da geração continuam guardados. A frase
+       completa e válida assume a entropia, e a pendência cai. */
+    if (mnemonicChoicePending && !next) return;
     mnemonicEditing = true;
     try {
       /* O conjunto de bits em vigor é o da frase válida; o prefixo, sozinho,
          não define os 256 bits. */
+      if (next) clearMnemonicChoice();
       bitsValue = next;
       paintBinary();
       /* Sem a frase completa e válida não há 256 bits: a chave anterior cai
@@ -5950,6 +6045,39 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     } finally {
       mnemonicEditing = false;
     }
+  }
+
+  /* Troca a lista da frase digitada. A frase não muda: ela é revalidada
+     contra a lista nova, e a chave em vigor (da lista anterior) cai junto
+     com a derivação em voo. Se as palavras não forem da lista, as 24
+     posições ficam como estão — voltar à lista anterior as revalida —, em
+     vez de sumirem com a troca. */
+  function applyMnemonicLang(lang) {
+    if (lang === mnemonicLang) return;
+    cancelPendingDerivation();
+    setMnemonicLang(lang);
+    /* A entropia em vigor precisa ser revalidada: a frase que a definiu era
+       da lista anterior. */
+    bitsValue = '';
+    if (!mnemonicEntropy()) {
+      if (hasKeyState()) clearKey(true);
+      paintBinary();
+      return;
+    }
+    syncMnemonic();
+  }
+
+  if (mnemonicLangSelect) {
+    mnemonicLangSelect.addEventListener('change', function () {
+      var lang = mnemonicLangSelect.value;
+      /* Rodada completa esperando o idioma: a escolha aqui também fecha a
+         rodada, com a mesma entropia dos 256 bits. */
+      if (mnemonicChoicePending && tosses.length >= BIT_COUNT) {
+        chooseMnemonicLang(lang);
+        return;
+      }
+      applyMnemonicLang(lang);
+    });
   }
 
   if (mnemonicList) {
@@ -6121,9 +6249,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   /* A frase secreta é opcional: entra no PBKDF2 depois das 24 palavras e não
      muda a frase. Cada edição refaz a chave a partir dos mesmos bits, com o
      atraso e o cancelamento de scheduleBits; sem 256 bits em vigor não há
-     chave para refazer. */
+     chave para refazer. Com a escolha do idioma pendente também não: a
+     rodada ainda não tem frase, e derivar aqui usaria a lista anterior. */
   if (passphraseInput) {
     passphraseInput.addEventListener('input', function () {
+      if (mnemonicChoicePending) return;
       if (bitsValue.length === BIT_COUNT) scheduleBits(bitsValue, true);
     });
   }
@@ -6162,14 +6292,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       }, 1400);
     });
   });
-  function clearKey() {
+  /* `keepEntropy` mantém as 24 posições como o usuário as deixou: a troca da
+     lista da frase derruba a chave, mas não apaga a frase que ele digitou. */
+  function clearKey(keepEntropy) {
     cancelPendingDerivation();
     analyzeSeq++;
     state.hd = null;
     state.values = null;
     state.analysis = null;
     paintValues();
-    paintEntropy(null);
+    if (!keepEntropy) paintEntropy(null);
     setImportEnabled(false);
     /* Sem chave não há revisão: o PSBT importado não sobrevive à chave. */
     discardPsbt();
@@ -6701,7 +6833,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     if (name === 'gerar') {
       startGeneration();
       var head = $('#head-gerar');
-      if (head) head.focus({ preventScroll: true });
+      /* Rodada completa esperando o idioma: o foco fica na escolha, que
+         startGeneration acabou de focar; o título não o rouba. */
+      if (head && !mnemonicChoicePending) head.focus({ preventScroll: true });
     }
     syncMeta();
     try { history.replaceState(null, '', '#' + name); } catch (e) {}

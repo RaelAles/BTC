@@ -9,9 +9,11 @@
 
    A sincronização pelo scripts/sync-cofre-core.mjs NÃO é feita hoje: os dois
    núcleos divergem de propósito no que é próprio de cada consumidor (o Cofre
-   escreve avisos com marcação HTML, tem derive/buildPsbt a menos e mostra
-   PSBT já assinado em vez de recusá-lo). O que precisa ser igual é a
-   validação do arquivo, e é isso que este teste garante.
+   escreve avisos com marcação HTML, tem derive/buildPsbt a menos, mostra
+   PSBT já assinado em vez de recusá-lo e aceita o idioma da frase em
+   bip39Mnemonic/deriveHD, com as dez listas oficiais do BIP39 só no Cofre;
+   o btc-core segue só com o inglês). O que precisa ser igual é a validação
+   do arquivo, e é isso que este teste garante.
 
    node test/cofre-core-parity.test.mjs */
 import assert from 'node:assert/strict';

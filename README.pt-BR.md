@@ -140,8 +140,16 @@ download em `/cofre-btc` (ou `/cofre-btc.html`). Ele funciona offline, no
 navegador, sem servidor. A tela **gerar** registra 256 bits de entropia pelo
 método que você escolher; os dois botões registram `1` e `0` diretamente, e rolar um
 dado é só uma sugestão (1–3 = `0`, 4–6 = `1`). Os bits viram uma frase de 24
-palavras e derivam as quatro contas;
-a tela **chave** também aceita as 24 palavras digitadas à mão. Ao importar um
+palavras e derivam as quatro contas. Ao completar os 256 bits, o Cofre pede o
+idioma da frase e traz as dez listas oficiais do BIP39 (inglês, japonês,
+coreano, espanhol, chinês simplificado e tradicional, francês, italiano,
+tcheco e português); a lista escolhida é a que codifica a entropia na frase e
+define a seed. A frase japonesa sai com espaço ASCII, que é o que o Cofre
+espera ao reimportar as 24 palavras uma por campo; outras carteiras podem
+exibir o espaço ideográfico (U+3000), que dá a mesma seed.
+A tela **chave** também aceita as 24 palavras digitadas à mão e tem o mesmo
+seletor de idioma, para restaurar uma frase de qualquer uma das dez listas.
+Ao importar um
 PSBT, ele confere a conta, a derivação, a chave pública, o script, as saídas e
 a taxa antes de assinar. Ele recusa o arquivo na importação quando há mais
 de um destino externo, uma saída própria sem origem BIP32 (o troco não pode
@@ -158,7 +166,7 @@ legenda da linha “taxa” do resumo. O Cofre não compara com o `estimatefee`
 nem com uma fonte independente.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
-`99381f0802f342ec277c0946a1277a2a5961108ba8e0e18bac448ac6177812b4` — rode
+`cb780abe0128e41767d01b0193eafc769b16eeb2bbdf0eea358be8f50441d3d5` — rode
 `sha256sum cofre-btc.html` no arquivo baixado; o asset do release tem sempre
 esse nome fixo. A tela “sobre” do Cofre
 pede a mesma conferência. Qualquer edição no Cofre exige atualizar este

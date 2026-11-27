@@ -144,8 +144,16 @@ as a download at `/cofre-btc` (or `/cofre-btc.html`). It runs offline, in the
 browser, without a server. The **generate** screen records 256 bits of entropy
 using the method you choose; the two buttons enter `1` and `0` directly, and
 rolling a die is just one suggestion (1–3 = `0`, 4–6 = `1`). The bits become a
-24-word phrase and derive the four accounts; the
-**key** screen also accepts the 24 words typed by hand. When a PSBT is
+24-word phrase and derive the four accounts. Once the 256 bits are in, the
+Cofre asks for the phrase language and offers the ten official BIP39 lists
+(English, Japanese, Korean, Spanish, Chinese simplified and traditional,
+French, Italian, Czech and Portuguese); the chosen list is what encodes the
+entropy into the phrase and defines the seed. The Japanese phrase uses an
+ASCII space, which is what the Cofre expects when reimporting the 24 words one
+per field; other wallets may show the ideographic space (U+3000), which gives
+the same seed.
+The **key** screen also accepts the 24 words typed by hand and has the same
+language selector, to restore a phrase from any of the ten lists. When a PSBT is
 imported, it checks the account, the derivation, the public key, the script,
 the outputs and the fee before signing. It refuses the file on import when
 there is more than one external destination, an own output without a BIP32
@@ -163,7 +171,7 @@ an
 independent source.
 
 Before opening it, compare the published hash: the sha256 of the published
-file is `99381f0802f342ec277c0946a1277a2a5961108ba8e0e18bac448ac6177812b4` —
+file is `cb780abe0128e41767d01b0193eafc769b16eeb2bbdf0eea358be8f50441d3d5` —
 run `sha256sum cofre-btc.html` on the downloaded file; the release asset
 always has this fixed name. The Cofre's about
 screen asks for the same check. Any edit to the Cofre requires updating this
