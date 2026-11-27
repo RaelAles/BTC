@@ -5268,8 +5268,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      bits ou da frase mnemônica. */
   var tosses = [];
   /* Os 256 bits estão completos e o idioma da frase ainda não foi escolhido.
-     A rodada fica guardada se o usuário sair da tela, para voltar à escolha
-     sem perder 256 cliques. `choiceBits` é a entropia da própria rodada:
+     A rodada só sobrevive enquanto a tela "gerar" está aberta: sair dela
+     pede a mesma confirmação dos bits parciais e, confirmada, apaga os 256
+     bits. `choiceBits` é a entropia da própria rodada:
      a escolha só pode codificar estes bits, mesmo que outra entrada (a frase
      secreta, a frase digitada) mexa em `bitsValue` no meio. */
   var mnemonicChoicePending = false;
@@ -5583,20 +5584,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* Sair da página "gerar" no meio dos bits cancela a rodada: meia lista
-     de 256 não vira chave. A rodada parcial só é descartada depois da
-     confirmação; com a rodada completa, a chave recém-gerada fica. */
+     de 256 não vira chave. A rodada completa esperando o idioma também é
+     uma rodada aberta: sair dela pede a mesma confirmação dos bits
+     parciais e, confirmada, apaga os 256 bits. A rodada só é descartada
+     depois da confirmação. */
   function abandonGeneration() {
     if (!tosses.length) return true;
-    /* Rodada completa sem idioma escolhido: guarda os 256 bits e devolve a
-       escolha quando a tela "gerar" voltar. */
-    if (mnemonicChoicePending && tosses.length >= BIT_COUNT) return true;
-    if (tosses.length < BIT_COUNT) {
-      var message = t('descartar os {n} bits registrados? Os bits desta rodada serão apagados.', { n: tosses.length });
-      if (typeof window.confirm === 'function' && !window.confirm(message)) return false;
-      resetTossRun();
-    }
-    clearMnemonicChoice();
-    tosses = [];
+    var message = t('descartar os {n} bits registrados? Os bits desta rodada serão apagados.', { n: tosses.length });
+    if (typeof window.confirm === 'function' && !window.confirm(message)) return false;
+    resetTossRun();
     return true;
   }
 
