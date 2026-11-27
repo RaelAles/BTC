@@ -2527,10 +2527,9 @@
               <ol class="mnemonic-word-list" id="mnemonic-words" aria-label="frase mnemônica de 24 palavras"></ol>
               <div class="passphrase-word" id="passphrase-word">
                 <label class="mnemonic-word-index" for="passphrase">frase secreta</label>
-                <input class="passphrase-input" id="passphrase" type="text" maxlength="256" placeholder="—" autocomplete="off" spellcheck="false" autocapitalize="none" autocorrect="off" aria-describedby="mnemonic-note">
+                <input class="passphrase-input" id="passphrase" type="text" maxlength="256" placeholder="—" autocomplete="off" spellcheck="false" autocapitalize="none" autocorrect="off">
               </div>
             </div>
-            <p class="status-msg is-reserved" id="mnemonic-note" role="status" aria-live="polite"></p>
           </div>
 
           <div class="prose reveal-block app-block">
@@ -5736,7 +5735,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       input.setAttribute('aria-autocomplete', 'list');
       input.setAttribute('aria-expanded', 'false');
       input.setAttribute('aria-controls', 'mnemonic-options');
-      input.setAttribute('aria-describedby', 'mnemonic-note');
       item.appendChild(index);
       item.appendChild(input);
       mnemonicList.appendChild(item);

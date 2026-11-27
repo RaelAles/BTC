@@ -48,7 +48,7 @@ const faltando = [...usadas].filter(key => !keys.includes(key));
 assert.deepEqual(faltando, [], 'chaves de t() sem linha em I18N_ROWS');
 console.log('ok   ' + usadas.size + ' chaves literais de t() existem em I18N_ROWS');
 
-/* ---------------- 2b. recado da rodada tem linha em I18N_ROWS e a nota da frase fica ligada aos campos ---------------- */
+/* ---------------- 2b. recado da rodada tem linha em I18N_ROWS e a nota da frase não volta ---------------- */
 const chavesDeRecado = [
   'último bit desfeito; restam {n} de 256.',
   '256 bits registrados; escolha o idioma da frase.'
@@ -56,15 +56,13 @@ const chavesDeRecado = [
 for (const key of chavesDeRecado) {
   assert.ok(keys.includes(key), 'recado sem linha em I18N_ROWS: ' + key);
 }
-assert.match(html, /id="mnemonic-note" role="status"/, '#mnemonic-note é região viva reservada no bloco da frase');
-assert.match(html, /aria-describedby="mnemonic-note"/, '#passphrase aponta para #mnemonic-note');
-assert.match(html, /input\.setAttribute\('aria-describedby', 'mnemonic-note'\)/,
-  'cada palavra da frase aponta para #mnemonic-note');
-/* A região viva da frase fica só reservada: nenhuma legenda é escrita nela,
-   nem para palavra recusada nem para frase que não fecha a checagem. */
+/* A região viva da frase foi removida junto com a legenda que ela mostrava:
+   nenhuma legenda é escrita nela, nem para palavra recusada nem para frase
+   que não fecha a checagem, e nenhum campo aponta para ela. */
+assert.doesNotMatch(html, /mnemonic-note/, '#mnemonic-note não volta ao bloco da frase');
 assert.doesNotMatch(html, /function setMnemonicNote\b/, 'a região viva da frase não recebe legenda');
 assert.doesNotMatch(html, /'[^'\n]*não fecha a checagem do BIP39[^'\n]*'/, 'a legenda da checagem foi removida');
-console.log('ok   recado da rodada tem linha e a nota reservada da frase está ligada aos campos');
+console.log('ok   recado da rodada tem linha e a nota reservada da frase não existe mais');
 
 /* ---------------- 3. menu e seções de tela batem com SCREENS ---------------- */
 const screens = listaDeStrings('SCREENS');
