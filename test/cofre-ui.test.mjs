@@ -129,6 +129,19 @@ assert.doesNotMatch(secaoChave, /data-mnemonic-lang=/, 'a tela "chave" não tem 
 assert.match(html, /function mnemonicLanguagesForWord\(/, 'a lista é deduzida das palavras preenchidas');
 assert.match(html, /function mnemonicLangCandidates\(/, 'as palavras preenchidas filtram as listas compatíveis');
 assert.doesNotMatch(html, /MNEMONIC_OPTION_LIMIT/, 'a sugestão não tem teto de opções');
+/* Sair da posição apaga o que não virou palavra inteira, sem prender o foco:
+   clique em outro campo, Tab e Enter encerram a posição do mesmo jeito. */
+assert.doesNotMatch(html, /paintMnemonicReject/, 'a posição não fica marcada esperando ser terminada');
+assert.doesNotMatch(html, /mnemonicPointerOut/, 'a saída não depende da origem do clique');
+const inicioDoFocusout = html.indexOf("addEventListener('focusout'");
+const saidaDaPosicao = html.slice(inicioDoFocusout,
+  html.indexOf("addEventListener('keydown'", inicioDoFocusout));
+assert.match(saidaDaPosicao, /commitMnemonicWord\(input\)/,
+  'o focusout encerra a posição e apaga o que não é palavra');
+assert.doesNotMatch(saidaDaPosicao, /input\.focus\(\)/, 'a saída não devolve o foco ao campo');
+const inicioDoTab = html.indexOf("ev.key === 'Tab'", inicioDoFocusout);
+const ramoDoTab = html.slice(inicioDoTab, html.indexOf('});', inicioDoTab));
+assert.doesNotMatch(ramoDoTab, /preventDefault/, 'o Tab não é travado');
 console.log('ok   idioma da frase: ' + langCodes.length + ' listas, detecção pela frase e sem seletor na tela "chave"');
 
 /* ---------------- 7. comportamento da dedução do idioma, sem DOM ---------------- */

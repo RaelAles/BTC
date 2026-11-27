@@ -5714,7 +5714,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   var mnemonicMatches = [];    // palavras que casam com o prefixo digitado
   var mnemonicActive = -1;     // opção em digitação (-1 = nenhuma)
   var mnemonicEditing = false;  // a frase é do usuário: nada a sobrescreve
-  var mnemonicPointerOut = false;  // a saída do campo veio de clique/toque
 
   (function buildMnemonic() {
     if (!mnemonicList) return;
@@ -5896,16 +5895,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     setMnemonicValue(input, '');
     input.removeAttribute('aria-invalid');
     return typed;
-  }
-
-  /* Palavra recusada: o campo vazio não fica marcado como inválido (o vazio
-     é uma posição válida). Quando o prefixo continua no campo, ele leva o
-     aria-invalid; a seção não escreve recado próprio. */
-  function paintMnemonicReject(input) {
-    if (input) {
-      if (input.value.trim()) input.setAttribute('aria-invalid', 'true');
-      else input.removeAttribute('aria-invalid');
-    }
   }
 
   /* Idiomas em que a palavra inteira aparece. As listas dividem palavras
@@ -6177,56 +6166,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     mnemonicList.addEventListener('focusout', function (ev) {
       var input = ev.target;
       if (!input || !input.classList || !input.classList.contains('mnemonic-word-input')) return;
-      /* A saída por ponteiro é lida uma vez e zerada: um clique dentro do
-         próprio campo não contamina a próxima troca de foco. */
-      var pointerOut = mnemonicPointerOut;
-      mnemonicPointerOut = false;
-      var next = ev.relatedTarget;
-      /* A frase secreta mora na mesma lista, mas não é palavra: entrar nela
-         encerra a posição como qualquer saída do bloco das 24. */
-      var nextInBlock = !!(next && mnemonicList.contains(next) &&
-        !(next.closest && next.closest('.passphrase-word')));
-      /* Ponteiro ou um .focus() de propósito para fora do bloco (fim da
-         geração, tela de idiomas): a posição é encerrada, não travada. */
-      if (pointerOut || (next && !nextInBlock)) {
-        closeMnemonicOptions();
-        acceptMnemonicText(input);
-        commitMnemonicWord(input);
-        syncMnemonic();
-        return;
-      }
-      /* Fora essas saídas, nenhum atalho tira o foco de uma posição com
-         prefixo pela metade: o campo volta ao foco, e o texto fica onde
-         está para ser terminado. Escape limpa o campo. */
-      if (!mnemonicWordReady(input)) {
-        closeMnemonicOptions();
-        window.setTimeout(function () {
-          if (document.activeElement && mnemonicList.contains(document.activeElement)) return;
-          input.focus();
-          paintMnemonicReject(input);
-        }, 0);
-        return;
-      }
+      /* Sair da posição, por clique em outro campo, Tab ou Enter, encerra o
+         que está no campo: palavra inteira fica na forma canônica e o resto
+         é apagado. Nenhuma saída prende o foco. */
       closeMnemonicOptions();
-      /* O que ficou no campo passa pelo mesmo filtro ao sair, e só palavra
-         inteira permanece na posição. */
       acceptMnemonicText(input);
       commitMnemonicWord(input);
       syncMnemonic();
     });
-    /* A origem da saída decide se o campo pode ser deixado: clique/toque, sim;
-       tecla, não. O registrador fica na captura para valer antes do blur, e
-       só marca o ponteiro que sai do bloco: clicar no próprio campo é
-       reposicionar o cursor. */
-    ['pointerdown', 'mousedown', 'touchstart'].forEach(function (type) {
-      document.addEventListener(type, function (ev) {
-        var target = ev.target;
-        var inWords = !!(mnemonicList && target && mnemonicList.contains(target) &&
-          !(target.closest && target.closest('.passphrase-word')));
-        mnemonicPointerOut = !inWords;
-      }, true);
-    });
-    document.addEventListener('keydown', function () { mnemonicPointerOut = false; }, true);
     /* Setas percorrem a lista sem tirar o foco do campo; Enter escolhe a
        opção em digitação e Escape fecha a lista ou limpa o prefixo pela
        metade, que é a saída do teclado. */
@@ -6262,9 +6209,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
           chooseMnemonicOption(0);
           focusNextMnemonic(input);
         } else if (!mnemonicWordReady(input)) {
-          /* Prefixo pela metade: o mesmo bloqueio do Tab, sem sair da posição. */
+          /* Texto que não é palavra das listas: o Enter apaga a posição, sem
+             prender o foco nem deixar o resto no campo. */
           ev.preventDefault();
-          paintMnemonicReject(input);
+          closeMnemonicOptions();
+          commitMnemonicWord(input);
+          syncMnemonic();
         } else if (input.value) {
           /* Palavra inteira da lista: o Enter vale como o Tab e leva o foco
              para a próxima posição, sem voltar ao mouse. */
@@ -6274,8 +6224,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
         }
       } else if (ev.key === 'Escape') {
         if (!mnemonicWordReady(input)) {
-          /* Escape é a saída anunciada do prefixo pela metade: limpa o que
-             não virou palavra e deixa o Tab seguir sem o trap. */
+          /* Escape é a saída do teclado para o prefixo pela metade: limpa o
+             que não virou palavra antes de sair da posição. */
           ev.preventDefault();
           closeMnemonicOptions();
           setMnemonicValue(input, '');
@@ -6288,13 +6238,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
           closeMnemonicOptions();
         }
       } else if (ev.key === 'Tab') {
-        /* O prefixo pela metade não abre a porta: a posição só é deixada com
-           palavra inteira (ou vazia), nem com Tab nem com Shift+Tab. */
-        if (!mnemonicWordReady(input)) {
-          ev.preventDefault();
-          paintMnemonicReject(input);
-          return;
-        }
+        /* O Tab sai da posição como qualquer outro caminho: o focusout
+           encerra o campo e apaga o que não virou palavra. */
         closeMnemonicOptions();
       }
     });
