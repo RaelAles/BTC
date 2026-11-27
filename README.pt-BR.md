@@ -149,7 +149,13 @@ espera ao reimportar as 24 palavras uma por campo; outras carteiras podem
 exibir o espaço ideográfico (U+3000), que dá a mesma seed.
 A tela **chave** também aceita as 24 palavras digitadas à mão e deduz a
 lista pelas próprias palavras, sem seletor de idioma, para restaurar uma
-frase de qualquer uma das dez listas.
+frase de qualquer uma das dez listas: cada campo só guarda o que ainda pode
+virar palavra de uma lista compatível com a frase já preenchida, e a lista de
+sugestões mostra todas as palavras que casam com o prefixo, sem teto, com
+rolagem quando não cabe. Enquanto as palavras couberem em mais de uma das dez
+listas, todas continuam valendo; é a checagem do BIP39 que decide a lista
+quando a frase fecha. Uma frase com palavras que não pertencem todas à mesma
+lista não fecha a checagem e não gera chave.
 Ao importar um
 PSBT, ele confere a conta, a derivação, a chave pública, o script, as saídas e
 a taxa antes de assinar. Ele recusa o arquivo na importação quando há mais
@@ -167,7 +173,7 @@ legenda da linha “taxa” do resumo. O Cofre não compara com o `estimatefee`
 nem com uma fonte independente.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
-`b37b3ac15b8604df7c8f0e2c948e66243e71b19697a8fac0a3456d200f793e43` — rode
+`8d505204c0efce3af5493355400ef92df285a0b2e804bed6b8abfffcca4d6d87` — rode
 `sha256sum cofre-btc.html` no arquivo baixado; o asset do release tem sempre
 esse nome fixo. A tela “sobre” do Cofre
 pede a mesma conferência. Qualquer edição no Cofre exige atualizar este
@@ -390,7 +396,7 @@ coberta por `proxy.test.mjs`, `proxy-watcher.test.mjs` e
 | `coin-selection.test.mjs` | Regra de escolha em carteiras aleatórias. |
 | `cpfp.test.mjs` | Histórico por txid, PSBT filho e taxa do pacote. |
 | `rbf.test.mjs` | Substituição com as mesmas entradas, taxa extra tirada do troco e recusas. |
-| `cofre-ui.test.mjs` | Telas do Cofre, as nove colunas de i18n e o hash do CSS embutido. |
+| `cofre-ui.test.mjs` | Telas do Cofre, a dedução do idioma da frase, as nove colunas de i18n e o hash do CSS embutido. |
 | `broadcast.test.mjs` | Conferência e transmissão do PSBT assinado, inclusive pelo Durable Object. |
 | `watcher.test.mjs` | Assinaturas, avisos, reconexão, despejo e descarte total. |
 | `watch-mode.test.mjs` | Scanner local, margem de 50, transações cruas e PSBT; rotas legadas em teste. |

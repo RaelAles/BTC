@@ -154,7 +154,13 @@ per field; other wallets may show the ideographic space (U+3000), which gives
 the same seed.
 The **key** screen also accepts the 24 words typed by hand and infers the
 list from the words themselves, with no language selector, to restore a
-phrase from any of the ten lists. When a PSBT is
+phrase from any of the ten lists: each field only keeps what can still become
+a word of a list compatible with the phrase already filled in, and the
+suggestion list shows every word that matches the prefix, with no cap,
+scrolling when it does not fit. While the words fit more than one of the ten
+lists, all of them stay in play; the BIP39 checksum decides the list when the
+phrase closes. A phrase whose words do not all belong to a single list does
+not close the checksum and produces no key. When a PSBT is
 imported, it checks the account, the derivation, the public key, the script,
 the outputs and the fee before signing. It refuses the file on import when
 there is more than one external destination, an own output without a BIP32
@@ -172,7 +178,7 @@ an
 independent source.
 
 Before opening it, compare the published hash: the sha256 of the published
-file is `b37b3ac15b8604df7c8f0e2c948e66243e71b19697a8fac0a3456d200f793e43` —
+file is `8d505204c0efce3af5493355400ef92df285a0b2e804bed6b8abfffcca4d6d87` —
 run `sha256sum cofre-btc.html` on the downloaded file; the release asset
 always has this fixed name. The Cofre's about
 screen asks for the same check. Any edit to the Cofre requires updating this
@@ -397,7 +403,7 @@ production is covered by `proxy.test.mjs`, `proxy-watcher.test.mjs` and
 | `coin-selection.test.mjs` | Selection rule over randomized wallets. |
 | `cpfp.test.mjs` | History grouped by txid, child PSBT and package fee. |
 | `rbf.test.mjs` | Replacement with the same inputs, extra fee from change, and refusals. |
-| `cofre-ui.test.mjs` | Cofre screens, the nine i18n columns and the embedded CSS hash. |
+| `cofre-ui.test.mjs` | Cofre screens, the inference of the phrase language, the nine i18n columns and the embedded CSS hash. |
 | `broadcast.test.mjs` | Signed PSBT checks and broadcast, including the Durable Object path. |
 | `watcher.test.mjs` | Subscriptions, notifications, reconnect, eviction and total discard. |
 | `watch-mode.test.mjs` | Local scanner, 50-address gap, raw transactions and PSBT; legacy routes under test. |

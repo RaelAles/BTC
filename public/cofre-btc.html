@@ -2657,7 +2657,7 @@
             <p>Nada fica guardado: os bits, a frase, a frase secreta, as chaves e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma. Quem tiver as 24 palavras e a frase secreta (se usada) tem a chave: guarde essa lista em local seguro e confira o sha256 publicado no repositório antes de abrir.</p>
 
             <h3><span class="prompt" aria-hidden="true">##</span> como usar</h3>
-            <p><b>Gerar.</b> No menu do alto, clique em “gerar” e registre os 256 bits pelo método que você escolher; rolar um dado é uma sugestão: 1, 2 ou 3 valem <code>0</code> e 4, 5 ou 6 valem <code>1</code>. No fim dos 256 bits, escolha o idioma da frase entre as dez listas oficiais do BIP39: é a lista escolhida que vira as 24 palavras e define a chave. A frase e as chaves aparecem na tela “chave”, que também aceita as 24 palavras digitadas à mão e deduz a lista pelas próprias palavras, sem seletor de idioma. Anote a frase no papel antes de seguir.</p>
+            <p><b>Gerar.</b> No menu do alto, clique em “gerar” e registre os 256 bits pelo método que você escolher; rolar um dado é uma sugestão: 1, 2 ou 3 valem <code>0</code> e 4, 5 ou 6 valem <code>1</code>. No fim dos 256 bits, escolha o idioma da frase entre as dez listas oficiais do BIP39: é a lista escolhida que vira as 24 palavras e define a chave. A frase e as chaves aparecem na tela “chave”, que também aceita as 24 palavras digitadas à mão e deduz a lista pelas próprias palavras, sem seletor de idioma: quando as palavras cabem em mais de uma lista, é a checagem do BIP39 que decide. Anote a frase no papel antes de seguir.</p>
             <p><b>Assinar.</b> Clique em “importar psbt” e escolha o arquivo que veio do Monitor BTC. Confira a revisão: valor, destino, troco, taxa e avisos. Se estiver tudo certo, clique em “assinar” e baixe o arquivo assinado. Transmitir é no Monitor BTC.</p>
             <p><b>Telas.</b> O menu no alto alterna entre “chave”, “gerar” e “sobre”.</p>
 
@@ -2690,7 +2690,7 @@
               <li><b>BIP174</b> — formato do arquivo de transação (PSBT).</li>
               <li><b>BIP371</b> — dados do Taproot dentro do arquivo de transação.</li>
             </ul>
-            <p><b>Última atualização:</b> <time datetime="2026-11-22">22 de novembro de 2026</time>.</p>
+            <p><b>Última atualização:</b> <time datetime="2026-11-27">27 de novembro de 2026</time>.</p>
           </div>
         </section>
 
@@ -4727,6 +4727,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["palavra {n} da frase mnemônica","word {n} of the mnemonic phrase","palabra {n} de la frase mnemónica","mot {n} de la phrase mnémotechnique","parola {n} della frase mnemonica","Wort {n} der Merkhilfe","woord {n} van de mnemonische zin","paraula {n} de la frase mnemònica","palabra {n} da frase mnemónica"],
     ["frase secreta","secret phrase","frase secreta","phrase secrète","frase segreta","geheime Phrase","geheime zin","frase secreta","frase secreta"],
     ["lista oficial de 2.048 palavras","official list of 2,048 words","lista oficial de 2.048 palabras","liste officielle de 2 048 mots","elenco ufficiale di 2.048 parole","offizielle Liste mit 2.048 Wörtern","officiële lijst van 2.048 woorden","llista oficial de 2.048 paraules","lista oficial de 2.048 palabras"],
+    ["palavra fora das listas da frase.","word outside the phrase's lists.","palabra fuera de las listas de la frase.","mot hors des listes de la phrase.","parola fuori dalle liste della frase.","Wort außerhalb der Listen der Merkhilfe.","woord buiten de lijsten van de zin.","paraula fora de les llistes de la frase.","palabra fóra das listas da frase."],
+    ["a frase não fecha a checagem do BIP39.","the phrase does not pass the BIP39 checksum.","la frase no pasa la comprobación del BIP39.","la phrase ne passe pas la somme de contrôle du BIP39.","la frase non supera il controllo del BIP39.","die Merkhilfe besteht die BIP39-Prüfsumme nicht.","de zin slaagt niet voor de BIP39-controle.","la frase no passa la comprovació del BIP39.","a frase non pasa a comprobación do BIP39."],
     ["256 bits de entropia, {n} preenchidos.","256 bits of entropy, {n} filled.","256 bits de entropía, {n} rellenados.","256 bits d'entropie, {n} remplis.","256 bit di entropia, {n} inseriti.","256 Bit Entropie, {n} gesetzt.","256 bits entropie, {n} ingevuld.","256 bits d'entropia, {n} omplerts.","256 bits de entropía, {n} cubertos."],
     ["privadas","private","privadas","privées","private","private","privé","privades","privadas"],
     ["chaves privadas","private keys","claves privadas","clés privées","chiavi private","private Schlüssel","privésleutels","claus privades","claves privadas"],
@@ -4800,7 +4802,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["O Cofre BTC transforma 256 bits de entropia em uma chave Bitcoin. Os 256 bits viram a frase de 24 palavras, que também pode ser digitada à mão na tela “chave”. A frase, com a frase secreta opcional, alimenta o PBKDF2 do BIP39 e produz as quatro contas e as chaves que a tela mostra.","Cofre BTC turns 256 bits of entropy into a Bitcoin key. The 256 bits become the 24-word phrase, which can also be typed by hand on the “key” screen. The phrase, with the optional secret phrase, feeds the BIP39 PBKDF2 and produces the four accounts and the keys the screen shows.","Cofre BTC convierte 256 bits de entropía en una clave Bitcoin. Los 256 bits se convierten en la frase de 24 palabras, que también se puede escribir a mano en la pantalla “clave”. La frase, con la frase secreta opcional, alimenta el PBKDF2 de BIP39 y produce las cuatro cuentas y las claves que muestra la pantalla.","Cofre BTC transforme 256 bits d'entropie en une clé Bitcoin. Les 256 bits deviennent la phrase de 24 mots, qui peut aussi être saisie à la main sur l'écran « clé ». La phrase, avec la phrase secrète facultative, alimente le PBKDF2 de BIP39 et produit les quatre comptes et les clés affichés par l'écran.","Cofre BTC trasforma 256 bit di entropia in una chiave Bitcoin. I 256 bit diventano la frase di 24 parole, che può anche essere digitata a mano nella schermata “chiave”. La frase, con la frase segreta opzionale, alimenta il PBKDF2 di BIP39 e produce i quattro conti e le chiavi che la schermata mostra.","Cofre BTC verwandelt 256 Bit Entropie in einen Bitcoin-Schlüssel. Die 256 Bits werden zur Merkhilfe aus 24 Wörtern, die auch von Hand auf dem Bildschirm „schlüssel“ eingegeben werden kann. Die Merkhilfe speist zusammen mit der optionalen geheimen Phrase den PBKDF2 von BIP39 und erzeugt die vier Konten und die Schlüssel, die der Bildschirm zeigt.","Cofre BTC verandert 256 bits entropie in een Bitcoin-sleutel. De 256 bits worden de zin van 24 woorden, die ook met de hand op het scherm “sleutel” kan worden getypt. De zin voedt samen met de optionele geheime zin het PBKDF2 van BIP39 en levert de vier rekeningen en de sleutels die het scherm toont.","Cofre BTC converteix 256 bits d'entropia en una clau Bitcoin. Els 256 bits es converteixen en la frase de 24 paraules, que també es pot escriure a mà a la pantalla “clau”. La frase, amb la frase secreta opcional, alimenta el PBKDF2 de BIP39 i produeix els quatre comptes i les claus que mostra la pantalla.","Cofre BTC converte 256 bits de entropía nunha clave Bitcoin. Os 256 bits convértense na frase de 24 palabras, que tamén se pode escribir a man na pantalla “clave”. A frase, coa frase secreta opcional, alimenta o PBKDF2 de BIP39 e produce as catro contas e as claves que mostra a pantalla."],
     ["Ele também assina. Você abre o arquivo de transação (PSBT v0) montado no Monitor BTC, confere valor, destino, troco, taxa e avisos, e assina com a chave. Quem monta e transmite é o Monitor BTC; aqui a chave privada nunca sai da página, que é um arquivo só, sem servidor e sem internet.","It also signs. You open the transaction file (PSBT v0) built in Monitor BTC, check the amount, destination, change, fee and warnings, and sign it with the key. Monitor BTC builds and broadcasts it; here the private key never leaves the page, which is a single file, with no server and no internet.","También firma. Abres el archivo de transacción (PSBT v0) montado en Monitor BTC, compruebas el importe, el destino, el cambio, la comisión y los avisos, y lo firmas con la clave. Quien monta y transmite es Monitor BTC; aquí la clave privada nunca sale de la página, que es un solo archivo, sin servidor y sin internet.","Il signe aussi. Vous ouvrez le fichier de transaction (PSBT v0) construit dans Monitor BTC, vérifiez le montant, la destination, la monnaie, les frais et les avertissements, puis le signez avec la clé. C'est Monitor BTC qui le construit et le diffuse ; ici, la clé privée ne quitte jamais la page, qui est un seul fichier, sans serveur et sans internet.","Firma anche. Apri il file di transazione (PSBT v0) creato in Monitor BTC, controlli importo, destinazione, resto, commissione e avvisi, e lo firmi con la chiave. Chi lo crea e lo trasmette è Monitor BTC; qui la chiave privata non lascia mai la pagina, che è un solo file, senza server e senza internet.","Es signiert auch. Du öffnest die in Monitor BTC erstellte Transaktionsdatei (PSBT v0), prüfst Betrag, Ziel, Wechselgeld, Gebühr und Warnungen und signierst sie mit dem Schlüssel. Monitor BTC erstellt und überträgt sie; hier verlässt der private Schlüssel nie die Seite, die eine einzige Datei ist, ohne Server und ohne Internet.","Het ondertekent ook. Je opent het transactiebestand (PSBT v0) dat in Monitor BTC is gemaakt, controleert bedrag, bestemming, wisselgeld, kosten en waarschuwingen, en ondertekent het met de sleutel. Monitor BTC maakt en verstuurt het; hier verlaat de privésleutel nooit de pagina, die één bestand is, zonder server en zonder internet.","També signa. Obres el fitxer de transacció (PSBT v0) muntat a Monitor BTC, comproves l'import, la destinació, el canvi, la comissió i els avisos, i el signes amb la clau. Qui el munta i el transmet és Monitor BTC; aquí la clau privada no surt mai de la pàgina, que és un sol fitxer, sense servidor i sense internet.","Tamén asina. Abres o ficheiro de transacción (PSBT v0) montado en Monitor BTC, comprobas o importe, o destino, o troco, a comisión e os avisos, e asínas con a clave. Quen o monta e transmite é Monitor BTC; aquí a clave privada nunca sae da páxina, que é un só ficheiro, sen servidor e sen internet."],
     ["Nada fica guardado: os bits, a frase, a frase secreta, as chaves e os arquivos ficam só na memória da aba e somem ao fechar ou recarregar a página; o navegador não guarda nem o tema nem o idioma. Quem tiver as 24 palavras e a frase secreta (se usada) tem a chave: guarde essa lista em local seguro e confira o sha256 publicado no repositório antes de abrir.","Nothing is stored: the bits, the phrase, the secret phrase, the keys and the files live only in the tab's memory and disappear when you close or reload the page; the browser stores neither the theme nor the language. Whoever has the 24 words and the secret phrase (if used) has the key: keep that list somewhere safe and check the sha256 published in the repository before opening.","No se guarda nada: los bits, la frase, la frase secreta, las claves y los archivos solo están en la memoria de la pestaña y desaparecen al cerrar o recargar la página; el navegador no guarda ni el tema ni el idioma. Quien tenga las 24 palabras y la frase secreta (si se usa) tiene la clave: guarda esa lista en un lugar seguro y comprueba el sha256 publicado en el repositorio antes de abrir.","Rien n'est conservé : les bits, la phrase, la phrase secrète, les clés et les fichiers restent uniquement dans la mémoire de l'onglet et disparaissent à la fermeture ou au rechargement de la page ; le navigateur ne garde ni le thème ni la langue. Qui possède les 24 mots et la phrase secrète (si elle est utilisée) possède la clé : conservez cette liste en lieu sûr et vérifiez le sha256 publié dans le dépôt avant d'ouvrir.","Niente viene salvato: i bit, la frase, la frase segreta, le chiavi e i file restano solo nella memoria della scheda e spariscono chiudendo o ricaricando la pagina; il browser non conserva né il tema né la lingua. Chi ha le 24 parole e la frase segreta (se usata) ha la chiave: conserva quell'elenco in un luogo sicuro e controlla lo sha256 pubblicato nel repository prima di aprire.","Nichts wird gespeichert: die Bits, die Merkhilfe, die geheime Phrase, die Schlüssel und die Dateien liegen nur im Speicher des Tabs und verschwinden beim Schließen oder Neuladen der Seite; der Browser speichert weder das Design noch die Sprache. Wer die 24 Wörter und die geheime Phrase (falls verwendet) hat, hat den Schlüssel: bewahre diese Liste an einem sicheren Ort auf und prüfe vor dem Öffnen den im Repository veröffentlichten sha256.","Niets wordt bewaard: de bits, de zin, de geheime zin, de sleutels en de bestanden staan alleen in het geheugen van het tabblad en verdwijnen bij het sluiten of herladen van de pagina; de browser bewaart noch het thema noch de taal. Wie de 24 woorden en de geheime zin (indien gebruikt) heeft, heeft de sleutel: bewaar die lijst op een veilige plek en controleer de sha256 die in de repository is gepubliceerd voordat je opent.","No es guarda res: els bits, la frase, la frase secreta, les claus i els fitxers només són a la memòria de la pestanya i desapareixen en tancar o recarregar la pàgina; el navegador no guarda ni el tema ni l'idioma. Qui tingui les 24 paraules i la frase secreta (si s'usa) té la clau: guarda aquesta llista en un lloc segur i comprova el sha256 publicat al repositori abans d'obrir.","Non se garda nada: os bits, a frase, a frase secreta, as claves e os ficheiros están só na memoria da lapela e desaparecen ao pechar ou recargar a páxina; o navegador non garda nin o tema nin o idioma. Quen teña as 24 palabras e a frase secreta (se se usa) ten a clave: garda esa lista nun lugar seguro e comproba o sha256 publicado no repositorio antes de abrir."],
-    ["<b>Gerar.</b> No menu do alto, clique em “gerar” e registre os 256 bits pelo método que você escolher; rolar um dado é uma sugestão: 1, 2 ou 3 valem <code>0</code> e 4, 5 ou 6 valem <code>1</code>. No fim dos 256 bits, escolha o idioma da frase entre as dez listas oficiais do BIP39: é a lista escolhida que vira as 24 palavras e define a chave. A frase e as chaves aparecem na tela “chave”, que também aceita as 24 palavras digitadas à mão e deduz a lista pelas próprias palavras, sem seletor de idioma. Anote a frase no papel antes de seguir.","<b>Generate.</b> In the top menu, click “generate” and record the 256 bits using the method you choose; rolling a die is one suggestion: 1, 2 or 3 is <code>0</code> and 4, 5 or 6 is <code>1</code>. Once the 256 bits are in, choose the language of the phrase among the ten official BIP39 lists: the chosen list becomes the 24 words and defines the key. The phrase and the keys appear on the “key” screen, which also accepts the 24 words typed by hand and infers the list from the words themselves, with no language selector. Write the phrase on paper before continuing.","<b>Generar.</b> En el menú de arriba, haz clic en “generar” y registra los 256 bits como prefieras; lanzar un dado es una sugerencia: 1, 2 o 3 vale <code>0</code> y 4, 5 o 6 vale <code>1</code>. Al completar los 256 bits, elige el idioma de la frase entre las diez listas oficiales del BIP39: la lista elegida se convierte en las 24 palabras y define la clave. La frase y las claves aparecen en la pantalla “clave”, que también acepta las 24 palabras escritas a mano y deduce la lista de las propias palabras, sin selector de idioma. Anota la frase en papel antes de seguir.","<b>Générer.</b> Dans le menu du haut, cliquez sur « générer » et enregistrez les 256 bits comme vous voulez ; lancer un dé n'est qu'une suggestion : 1, 2 ou 3 vaut <code>0</code> et 4, 5 ou 6 vaut <code>1</code>. Une fois les 256 bits complets, choisissez la langue de la phrase parmi les dix listes officielles du BIP39 : la liste choisie devient les 24 mots et définit la clé. La phrase et les clés apparaissent sur l'écran « clé », qui accepte aussi les 24 mots saisis à la main et déduit la liste des mots eux-mêmes, sans sélecteur de langue. Notez la phrase sur papier avant de continuer.","<b>Genera.</b> Nel menu in alto, fai clic su “genera” e registra i 256 bit come preferisci; lanciare un dado è un suggerimento: 1, 2 o 3 vale <code>0</code> e 4, 5 o 6 vale <code>1</code>. Completati i 256 bit, scegli la lingua della frase tra le dieci liste ufficiali del BIP39: la lista scelta diventa le 24 parole e definisce la chiave. La frase e le chiavi compaiono nella schermata “chiave”, che accetta anche le 24 parole digitate a mano e deduce la lista dalle parole stesse, senza selettore di lingua. Annota la frase su carta prima di proseguire.","<b>Erzeugen.</b> Klicke im Menü oben auf „erzeugen“ und erfasse die 256 Bit, wie du willst; ein Würfelwurf ist ein Vorschlag: 1, 2 oder 3 zählt <code>0</code> und 4, 5 oder 6 zählt <code>1</code>. Sind die 256 Bit voll, wähle die Sprache der Merkhilfe aus den zehn offiziellen BIP39-Listen: Die gewählte Liste wird zu den 24 Wörtern und bestimmt den Schlüssel. Merkhilfe und Schlüssel erscheinen auf dem Bildschirm „schlüssel“, der auch die von Hand eingegebenen 24 Wörter annimmt und die Liste aus den Wörtern selbst ableitet – ohne Sprachwähler. Notiere die Merkhilfe auf Papier, bevor du fortfährst.","<b>Genereren.</b> Klik in het menu bovenaan op “genereren” en leg de 256 bits vast zoals je wilt; een dobbelsteen gooien is een suggestie: 1, 2 of 3 is <code>0</code> en 4, 5 of 6 is <code>1</code>. Zijn de 256 bits vol, kies dan de taal van de zin uit de tien officiële BIP39-lijsten: de gekozen lijst wordt de 24 woorden en bepaalt de sleutel. De zin en de sleutels verschijnen op het scherm “sleutel”, dat ook de 24 met de hand getypte woorden accepteert en de lijst uit de woorden zelf afleidt, zonder taalkeuze. Schrijf de zin op papier voordat je verdergaat.","<b>Genera.</b> Al menú de dalt, fes clic a “genera” i registra els 256 bits com vulguis; llançar un dau és un suggeriment: 1, 2 o 3 val <code>0</code> i 4, 5 o 6 val <code>1</code>. Amb els 256 bits complets, tria l'idioma de la frase entre les deu llistes oficials del BIP39: la llista triada es converteix en les 24 paraules i defineix la clau. La frase i les claus apareixen a la pantalla “clau”, que també accepta les 24 paraules escrites a mà i dedueix la llista de les mateixes paraules, sense selector d'idioma. Anota la frase en paper abans de continuar.","<b>Xerar.</b> No menú de arriba, fai clic en “xerar” e rexistra os 256 bits como queiras; lanzar un dado é unha suxestión: 1, 2 ou 3 vale <code>0</code> e 4, 5 ou 6 vale <code>1</code>. Cos 256 bits completos, escolle o idioma da frase entre as dez listas oficiais do BIP39: a lista escollida convértese nas 24 palabras e define a clave. A frase e as claves aparecen na pantalla “clave”, que tamén acepta as 24 palabras escritas a man e deduce a lista das propias palabras, sen selector de idioma. Anota a frase en papel antes de seguir."],
+    ["<b>Gerar.</b> No menu do alto, clique em “gerar” e registre os 256 bits pelo método que você escolher; rolar um dado é uma sugestão: 1, 2 ou 3 valem <code>0</code> e 4, 5 ou 6 valem <code>1</code>. No fim dos 256 bits, escolha o idioma da frase entre as dez listas oficiais do BIP39: é a lista escolhida que vira as 24 palavras e define a chave. A frase e as chaves aparecem na tela “chave”, que também aceita as 24 palavras digitadas à mão e deduz a lista pelas próprias palavras, sem seletor de idioma: quando as palavras cabem em mais de uma lista, é a checagem do BIP39 que decide. Anote a frase no papel antes de seguir.","<b>Generate.</b> In the top menu, click “generate” and record the 256 bits using the method you choose; rolling a die is one suggestion: 1, 2 or 3 is <code>0</code> and 4, 5 or 6 is <code>1</code>. Once the 256 bits are in, choose the language of the phrase among the ten official BIP39 lists: the chosen list becomes the 24 words and defines the key. The phrase and the keys appear on the “key” screen, which also accepts the 24 words typed by hand and infers the list from the words themselves, with no language selector: when the words fit more than one list, the BIP39 checksum decides. Write the phrase on paper before continuing.","<b>Generar.</b> En el menú de arriba, haz clic en “generar” y registra los 256 bits como prefieras; lanzar un dado es una sugerencia: 1, 2 o 3 vale <code>0</code> y 4, 5 o 6 vale <code>1</code>. Al completar los 256 bits, elige el idioma de la frase entre las diez listas oficiales del BIP39: la lista elegida se convierte en las 24 palabras y define la clave. La frase y las claves aparecen en la pantalla “clave”, que también acepta las 24 palabras escritas a mano y deduce la lista de las propias palabras, sin selector de idioma: cuando las palabras caben en más de una lista, la suma de comprobación del BIP39 decide. Anota la frase en papel antes de seguir.","<b>Générer.</b> Dans le menu du haut, cliquez sur « générer » et enregistrez les 256 bits comme vous voulez ; lancer un dé n'est qu'une suggestion : 1, 2 ou 3 vaut <code>0</code> et 4, 5 ou 6 vaut <code>1</code>. Une fois les 256 bits complets, choisissez la langue de la phrase parmi les dix listes officielles du BIP39 : la liste choisie devient les 24 mots et définit la clé. La phrase et les clés apparaissent sur l'écran « clé », qui accepte aussi les 24 mots saisis à la main et déduit la liste des mots eux-mêmes, sans sélecteur de langue : quand les mots tiennent dans plus d'une liste, c'est la somme de contrôle du BIP39 qui décide. Notez la phrase sur papier avant de continuer.","<b>Genera.</b> Nel menu in alto, fai clic su “genera” e registra i 256 bit come preferisci; lanciare un dado è un suggerimento: 1, 2 o 3 vale <code>0</code> e 4, 5 o 6 vale <code>1</code>. Completati i 256 bit, scegli la lingua della frase tra le dieci liste ufficiali del BIP39: la lista scelta diventa le 24 parole e definisce la chiave. La frase e le chiavi compaiono nella schermata “chiave”, che accetta anche le 24 parole digitate a mano e deduce la lista dalle parole stesse, senza selettore di lingua: quando le parole stanno in più di una lista, decide il checksum del BIP39. Annota la frase su carta prima di proseguire.","<b>Erzeugen.</b> Klicke im Menü oben auf „erzeugen“ und erfasse die 256 Bit, wie du willst; ein Würfelwurf ist ein Vorschlag: 1, 2 oder 3 zählt <code>0</code> und 4, 5 oder 6 zählt <code>1</code>. Sind die 256 Bit voll, wähle die Sprache der Merkhilfe aus den zehn offiziellen BIP39-Listen: Die gewählte Liste wird zu den 24 Wörtern und bestimmt den Schlüssel. Merkhilfe und Schlüssel erscheinen auf dem Bildschirm „schlüssel“, der auch die von Hand eingegebenen 24 Wörter annimmt und die Liste aus den Wörtern selbst ableitet – ohne Sprachwähler: Passen die Wörter in mehr als eine Liste, entscheidet die BIP39-Prüfsumme. Notiere die Merkhilfe auf Papier, bevor du fortfährst.","<b>Genereren.</b> Klik in het menu bovenaan op “genereren” en leg de 256 bits vast zoals je wilt; een dobbelsteen gooien is een suggestie: 1, 2 of 3 is <code>0</code> en 4, 5 of 6 is <code>1</code>. Zijn de 256 bits vol, kies dan de taal van de zin uit de tien officiële BIP39-lijsten: de gekozen lijst wordt de 24 woorden en bepaalt de sleutel. De zin en de sleutels verschijnen op het scherm “sleutel”, dat ook de 24 met de hand getypte woorden accepteert en de lijst uit de woorden zelf afleidt, zonder taalkeuze: passen de woorden in meer dan één lijst, dan beslist de BIP39-controlesom. Schrijf de zin op papier voordat je verdergaat.","<b>Genera.</b> Al menú de dalt, fes clic a “genera” i registra els 256 bits com vulguis; llançar un dau és un suggeriment: 1, 2 o 3 val <code>0</code> i 4, 5 o 6 val <code>1</code>. Amb els 256 bits complets, tria l'idioma de la frase entre les deu llistes oficials del BIP39: la llista triada es converteix en les 24 paraules i defineix la clau. La frase i les claus apareixen a la pantalla “clau”, que també accepta les 24 paraules escrites a mà i dedueix la llista de les mateixes paraules, sense selector d'idioma: quan les paraules caben en més d'una llista, decideix la suma de verificació del BIP39. Anota la frase en paper abans de continuar.","<b>Xerar.</b> No menú de arriba, fai clic en “xerar” e rexistra os 256 bits como queiras; lanzar un dado é unha suxestión: 1, 2 ou 3 vale <code>0</code> e 4, 5 ou 6 vale <code>1</code>. Cos 256 bits completos, escolle o idioma da frase entre as dez listas oficiais do BIP39: a lista escollida convértese nas 24 palabras e define a clave. A frase e as claves aparecen na pantalla “clave”, que tamén acepta as 24 palabras escritas a man e deduce a lista das propias palabras, sen selector de idioma: cando as palabras caben en máis dunha lista, decide a comprobación do BIP39. Anota a frase en papel antes de seguir."],
     ["<b>Assinar.</b> Clique em “importar psbt” e escolha o arquivo que veio do Monitor BTC. Confira a revisão: valor, destino, troco, taxa e avisos. Se estiver tudo certo, clique em “assinar” e baixe o arquivo assinado. Transmitir é no Monitor BTC.","<b>Sign.</b> Click “import psbt” and choose the file that came from Monitor BTC. Check the review: amount, destination, change, fee and warnings. If everything is right, click “sign” and download the signed file. Broadcasting is done in Monitor BTC.","<b>Firmar.</b> Haz clic en “importar psbt” y elige el archivo que vino de Monitor BTC. Revisa la revisión: valor, destino, cambio, comisión y avisos. Si todo está bien, haz clic en “firmar” y descarga el archivo firmado. La transmisión se hace en Monitor BTC.","<b>Signer.</b> Cliquez sur « importer psbt » et choisissez le fichier venu de Monitor BTC. Vérifiez la revue : montant, destination, monnaie, frais et avertissements. Si tout est correct, cliquez sur « signer » et téléchargez le fichier signé. La diffusion se fait dans Monitor BTC.","<b>Firma.</b> Fai clic su “importa psbt” e scegli il file che arriva da Monitor BTC. Controlla la revisione: importo, destinazione, resto, commissione e avvisi. Se è tutto corretto, fai clic su “firma” e scarica il file firmato. La trasmissione avviene in Monitor BTC.","<b>Signieren.</b> Klicke auf „psbt importieren“ und wähle die Datei, die aus Monitor BTC kommt. Prüfe die Übersicht: Betrag, Ziel, Wechselgeld, Gebühr und Warnungen. Wenn alles stimmt, klicke auf „signieren“ und lade die signierte Datei herunter. Das Übertragen erfolgt in Monitor BTC.","<b>Ondertekenen.</b> Klik op “psbt importeren” en kies het bestand dat uit Monitor BTC komt. Controleer het overzicht: bedrag, bestemming, wisselgeld, kosten en waarschuwingen. Als alles klopt, klik je op “ondertekenen” en download je het ondertekende bestand. Verzenden gebeurt in Monitor BTC.","<b>Signar.</b> Fes clic a “importar psbt” i tria el fitxer que ve de Monitor BTC. Revisa la revisió: import, destinació, canvi, comissió i avisos. Si tot és correcte, fes clic a “signar” i descarrega el fitxer signat. La transmissió es fa a Monitor BTC.","<b>Asinar.</b> Fai clic en “importar psbt” e escolle o ficheiro que vén de Monitor BTC. Revisa a revisión: importe, destino, troco, comisión e avisos. Se todo está correcto, fai clic en “asinar” e descarga o ficheiro asinado. A transmisión faise en Monitor BTC."],
     ["<b>Telas.</b> O menu no alto alterna entre “chave”, “gerar” e “sobre”.","<b>Screens.</b> The menu at the top switches between “key”, “generate” and “about”.","<b>Pantallas.</b> El menú de arriba alterna entre “clave”, “generar” y “acerca de”.","<b>Écrans.</b> Le menu du haut alterne entre « clé », « générer » et « à propos ».","<b>Schermate.</b> Il menu in alto alterna tra “chiave”, “genera” e “informazioni”.","<b>Bildschirme.</b> Das Menü oben wechselt zwischen „schlüssel“, „erzeugen“ und „über“.","<b>Schermen.</b> Het menu bovenaan wisselt tussen “sleutel”, “genereren” en “over”.","<b>Pantalles.</b> El menú de dalt alterna entre “clau”, “genera” i “sobre”.","<b>Pantallas.</b> O menú de arriba alterna entre “clave”, “xerar” e “sobre”."],
     ["Os BIPs são as regras públicas do Bitcoin que a ferramenta segue. Eles cobrem a chave, os endereços, as assinaturas e o arquivo de transação.","The BIPs are the public Bitcoin rules the tool follows. They cover the key, the addresses, the signatures and the transaction file.","Los BIP son las reglas públicas de Bitcoin que sigue la herramienta. Cubren la clave, las direcciones, las firmas y el archivo de transacción.","Les BIP sont les règles publiques de Bitcoin que suit l'outil. Elles couvrent la clé, les adresses, les signatures et le fichier de transaction.","I BIP sono le regole pubbliche di Bitcoin che lo strumento segue. Coprono la chiave, gli indirizzi, le firme e il file di transazione.","Die BIPs sind die öffentlichen Bitcoin-Regeln, denen das Werkzeug folgt. Sie decken den Schlüssel, die Adressen, die Signaturen und die Transaktionsdatei ab.","De BIP's zijn de openbare Bitcoin-regels die de tool volgt. Ze dekken de sleutel, de adressen, de handtekeningen en het transactiebestand.","Els BIP són les regles públiques de Bitcoin que segueix l'eina. Cobreixen la clau, les adreces, les signatures i el fitxer de transacció.","Os BIP son as regras públicas de Bitcoin que segue a ferramenta. Cobren a clave, os enderezos, as sinaturas e o ficheiro de transacción."],
@@ -4826,7 +4828,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     ["<b>BIP174</b> — formato do arquivo de transação (PSBT).","<b>BIP174</b> — transaction file format (PSBT).","<b>BIP174</b> — formato del archivo de transacción (PSBT).","<b>BIP174</b> — format du fichier de transaction (PSBT).","<b>BIP174</b> — formato del file di transazione (PSBT).","<b>BIP174</b> — Format der Transaktionsdatei (PSBT).","<b>BIP174</b> — formaat van het transactiebestand (PSBT).","<b>BIP174</b> — format del fitxer de transacció (PSBT).","<b>BIP174</b> — formato do ficheiro de transacción (PSBT)."],
     ["<b>BIP371</b> — dados do Taproot dentro do arquivo de transação.","<b>BIP371</b> — Taproot data inside the transaction file.","<b>BIP371</b> — datos de Taproot dentro del archivo de transacción.","<b>BIP371</b> — données Taproot dans le fichier de transaction.","<b>BIP371</b> — dati Taproot nel file di transazione.","<b>BIP371</b> — Taproot-Daten in der Transaktionsdatei.","<b>BIP371</b> — Taproot-gegevens in het transactiebestand.","<b>BIP371</b> — dades de Taproot dins del fitxer de transacció.","<b>BIP371</b> — datos de Taproot dentro do ficheiro de transacción."],
     ["A assinatura dos endereços <code>1</code>, <code>3</code> e <code>bc1q</code> segue a RFC 6979: o número temporário sai de uma conta, não de um sorteio, então assinar a mesma transação de novo dá exatamente a mesma assinatura. No Taproot (<code>bc1p</code>) entra um sorteio à parte, e a mesma transação pode sair com assinaturas diferentes, todas válidas. A ferramenta trabalha só com a rede principal do Bitcoin.","Signing for <code>1</code>, <code>3</code> and <code>bc1q</code> addresses follows RFC 6979: the temporary number comes from a calculation, not a draw, so signing the same transaction again gives exactly the same signature. Taproot (<code>bc1p</code>) adds a separate draw, and the same transaction can come out with different signatures, all valid. The tool works only with the Bitcoin mainnet.","La firma de las direcciones <code>1</code>, <code>3</code> y <code>bc1q</code> sigue la RFC 6979: el número temporal sale de un cálculo, no de un sorteo, así que firmar la misma transacción de nuevo da exactamente la misma firma. En Taproot (<code>bc1p</code>) entra un sorteo aparte, y la misma transacción puede salir con firmas diferentes, todas válidas. La herramienta trabaja solo con la red principal de Bitcoin.","La signature des adresses <code>1</code>, <code>3</code> et <code>bc1q</code> suit la RFC 6979 : le nombre temporaire vient d'un calcul, pas d'un tirage, donc signer à nouveau la même transaction donne exactement la même signature. Dans Taproot (<code>bc1p</code>), un tirage distinct intervient, et la même transaction peut produire des signatures différentes, toutes valides. L'outil ne travaille qu'avec le réseau principal de Bitcoin.","La firma degli indirizzi <code>1</code>, <code>3</code> e <code>bc1q</code> segue la RFC 6979: il numero temporaneo viene da un calcolo, non da un sorteggio, quindi firmare di nuovo la stessa transazione dà esattamente la stessa firma. In Taproot (<code>bc1p</code>) entra un sorteggio separato, e la stessa transazione può uscire con firme diverse, tutte valide. Lo strumento lavora solo con la rete principale di Bitcoin.","Die Signatur der Adressen <code>1</code>, <code>3</code> und <code>bc1q</code> folgt RFC 6979: Die temporäre Zahl stammt aus einer Berechnung, nicht aus einer Ziehung, daher ergibt das erneute Signieren derselben Transaktion exakt dieselbe Signatur. Bei Taproot (<code>bc1p</code>) kommt eine separate Ziehung hinzu, und dieselbe Transaktion kann mit unterschiedlichen, aber gültigen Signaturen erzeugt werden. Das Werkzeug arbeitet nur mit dem Bitcoin-Hauptnetz.","De handtekening van de adressen <code>1</code>, <code>3</code> en <code>bc1q</code> volgt RFC 6979: het tijdelijke getal komt uit een berekening, niet uit een loting, dus dezelfde transactie opnieuw ondertekenen geeft precies dezelfde handtekening. Bij Taproot (<code>bc1p</code>) komt een aparte loting, en dezelfde transactie kan met verschillende handtekeningen uitkomen, allemaal geldig. De tool werkt alleen met het Bitcoin-hoofdnet.","La signatura de les adreces <code>1</code>, <code>3</code> i <code>bc1q</code> segueix la RFC 6979: el número temporal surt d'un càlcul, no d'un sorteig, així que signar la mateixa transacció de nou dona exactament la mateixa signatura. A Taproot (<code>bc1p</code>) hi entra un sorteig a part, i la mateixa transacció pot sortir amb signatures diferents, totes vàlides. L'eina treballa només amb la xarxa principal de Bitcoin.","A sinatura dos enderezos <code>1</code>, <code>3</code> e <code>bc1q</code> segue a RFC 6979: o número temporal sae dun cálculo, non dun sorteo, así que asinar a mesma transacción de novo dá exactamente a mesma sinatura. No Taproot (<code>bc1p</code>) entra un sorteo á parte, e a mesma transacción pode saír con sinaturas diferentes, todas válidas. A ferramenta traballa só coa rede principal de Bitcoin."],
-    ["<b>Última atualização:</b> <time datetime=\"2026-11-22\">22 de novembro de 2026</time>.","<b>Last updated:</b> <time datetime=\"2026-11-22\">November 22, 2026</time>.","<b>Última actualización:</b> <time datetime=\"2026-11-22\">22 de noviembre de 2026</time>.","<b>Dernière mise à jour :</b> <time datetime=\"2026-11-22\">22 novembre 2026</time>.","<b>Ultimo aggiornamento:</b> <time datetime=\"2026-11-22\">22 novembre 2026</time>.","<b>Letzte Aktualisierung:</b> <time datetime=\"2026-11-22\">22. November 2026</time>.","<b>Laatst bijgewerkt:</b> <time datetime=\"2026-11-22\">22 november 2026</time>.","<b>Última actualització:</b> <time datetime=\"2026-11-22\">22 de novembre de 2026</time>.","<b>Última actualización:</b> <time datetime=\"2026-11-22\">22 de novembro de 2026</time>."],
+    ["<b>Última atualização:</b> <time datetime=\"2026-11-27\">27 de novembro de 2026</time>.","<b>Last updated:</b> <time datetime=\"2026-11-27\">November 27, 2026</time>.","<b>Última actualización:</b> <time datetime=\"2026-11-27\">27 de noviembre de 2026</time>.","<b>Dernière mise à jour :</b> <time datetime=\"2026-11-27\">27 novembre 2026</time>.","<b>Ultimo aggiornamento:</b> <time datetime=\"2026-11-27\">27 novembre 2026</time>.","<b>Letzte Aktualisierung:</b> <time datetime=\"2026-11-27\">27. November 2026</time>.","<b>Laatst bijgewerkt:</b> <time datetime=\"2026-11-27\">27 november 2026</time>.","<b>Última actualització:</b> <time datetime=\"2026-11-27\">27 de novembre de 2026</time>.","<b>Última actualización:</b> <time datetime=\"2026-11-27\">27 de novembro de 2026</time>."],
     ["PSBT inválido: varint inválido ou truncado.","Invalid PSBT: invalid or truncated varint.","PSBT no válido: varint no válido o truncado.","PSBT invalide : varint invalide ou tronqué.","PSBT non valido: varint non valido o troncato.","Ungültige PSBT: ungültiger oder abgeschnittener Varint.","Ongeldige PSBT: ongeldige of afgekapte varint.","PSBT no vàlid: varint no vàlid o truncat.","PSBT non válido: varint non válido ou truncado."],
     ["a transação interna do PSBT está truncada ou inconsistente.","the PSBT's inner transaction is truncated or inconsistent.","la transacción interna del PSBT está truncada o es inconsistente.","la transaction interne du PSBT est tronquée ou incohérente.","la transazione interna del PSBT è troncata o incoerente.","die innere Transaktion der PSBT ist abgeschnitten oder inkonsistent.","de interne transactie van de PSBT is afgekapt of inconsistent.","la transacció interna del PSBT està truncada o és inconsistent.","a transacción interna do PSBT está truncada ou inconsistente."],
     ["PSBT inválido: caminho de derivação inválido.","Invalid PSBT: invalid derivation path.","PSBT no válido: ruta de derivación no válida.","PSBT invalide : chemin de dérivation invalide.","PSBT non valido: percorso di derivazione non valido.","Ungültige PSBT: ungültiger Ableitungspfad.","Ongeldige PSBT: ongeldig afleidingspad.","PSBT no vàlid: camí de derivació no vàlid.","PSBT non válido: camiño de derivación non válido."],
@@ -5665,6 +5667,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      porque só a frase inteira define os 256 bits. */
   var mnemonicList = $('#mnemonic-words');
   var mnemonicBlock = $('#entropy-block');
+  var mnemonicNote = $('#mnemonic-note');
   var MNEMONIC_LEN = 24;
   /* Idiomas oficiais do BIP39, na ordem do repositório das listas. O
      inglês continua sendo o padrão, que é a frase que o Cofre já gerava;
@@ -5694,6 +5697,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       mnemonicLangLists[lang] = { list: list, fold: list.map(mnemonicFold) };
     }
     return mnemonicLangLists[lang];
+  }
+  /* Aquece o cache fora da primeira tecla: a sugestão consulta mais de uma
+     lista e carregar as dez no meio da digitação trava o primeiro prefixo. */
+  function warmMnemonicLangLists() {
+    MNEMONIC_LANG_CODES.forEach(function (lang) { mnemonicLangData(lang); });
+  }
+  function setMnemonicNote(text) {
+    if (mnemonicNote) mnemonicNote.textContent = text || '';
   }
   function setMnemonicLang(lang) {
     mnemonicLang = MNEMONIC_LANG_CODES.indexOf(lang) >= 0 ? lang : 'english';
@@ -5748,6 +5759,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     paintMnemonicLabels();
   })();
 
+  if (mnemonicList) {
+    if (window.requestIdleCallback) {
+      window.requestIdleCallback(warmMnemonicLangLists, { timeout: 2000 });
+    } else {
+      window.setTimeout(warmMnemonicLangLists, 0);
+    }
+  }
+
   function paintMnemonicLabels() {
     mnemonicInputs.forEach(function (input, i) {
       input.setAttribute('aria-label', t('palavra {n} da frase mnemônica', { n: i + 1 }));
@@ -5760,11 +5779,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   /* O campo só aceita o que ainda pode virar palavra em uma das listas
      compatíveis com a frase: cada tecla é testada como prefixo, então
      dígito, espaço ou letra que não abre palavra nenhuma nem chegam a
-     aparecer. Sem palavra inteira preenchida, as dez listas valem. O
-     prefixo é comparado sem acento, como na palavra inteira. */
+     aparecer. Sem palavra inteira preenchida, as dez listas valem; quando
+     as palavras já não cabem numa lista só, nenhuma tecla entra. O prefixo
+     é comparado sem acento, como na palavra inteira. */
   function mnemonicIsPrefix(text) {
     var query = mnemonicFold(text);
     var candidates = mnemonicLangCandidates();
+    if (candidates === null) return false;
     var langs = candidates.length ? candidates : MNEMONIC_LANG_CODES;
     for (var l = 0; l < langs.length; l++) {
       var fold = mnemonicLangData(langs[l]).fold;
@@ -5823,17 +5844,40 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     return !typed || mnemonicLanguagesForWord(typed).length > 0;
   }
 
-  /* A posição só guarda palavra inteira de uma das listas compatíveis: o
-     prefixo que não chegou a palavra é descartado ao sair do campo, em vez
-     de ficar no lugar de uma palavra que não existe. A palavra aceita sem
-     acento volta para a forma canônica da lista, que é a que a checagem do
-     BIP39 espera. Devolve o texto recusado (vazio quando a palavra está na
-     lista). */
+  /* A posição guarda palavra inteira de uma das listas compatíveis. A
+     palavra aceita sem acento volta para a forma canônica: a da lista em
+     vigor quando a palavra é ambígua, ou a da lista que fecha a checagem
+     quando a frase já está completa. O texto recusado fica no campo, para o
+     focusout avisar em vez de apagar; o retorno é esse texto (vazio quando a
+     palavra está na lista). */
   function commitMnemonicWord(input) {
     var typed = input.value.trim().toLowerCase();
     var folded = mnemonicFold(typed);
     var candidates = mnemonicLangCandidates();
-    var langs = candidates.length ? candidates : MNEMONIC_LANG_CODES;
+    var langs;
+    if (candidates === null) {
+      /* Frase já incompatível: nenhuma lista nova deve ser sugerida nem
+         aceita; a palavra fica no campo para o aviso do focusout. */
+      langs = [];
+    } else {
+      langs = candidates.length ? candidates : MNEMONIC_LANG_CODES;
+      /* A lista em vigor vem primeiro: é ela que decide a grafia de uma
+         palavra ambígua, como `area`/`área`. */
+      langs = [mnemonicLang].concat(langs.filter(function (lang) {
+        return lang !== mnemonicLang;
+      }));
+      /* Frase completa: quando uma das candidatas fecha a checagem, é ela
+         que manda, e a palavra volta para a grafia dessa lista. */
+      for (var v = 0; v < langs.length; v++) {
+        if (mnemonicEntropyForLang(langs[v])) {
+          var winner = langs[v];
+          langs = [winner].concat(langs.filter(function (lang) {
+            return lang !== winner;
+          }));
+          break;
+        }
+      }
+    }
     for (var l = 0; l < langs.length; l++) {
       var data = mnemonicLangData(langs[l]);
       var index = data.fold.indexOf(folded);
@@ -5848,9 +5892,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       setMnemonicValue(input, '');
       return '';
     }
-    setMnemonicValue(input, '');
-    input.removeAttribute('aria-invalid');
     return typed;
+  }
+
+  /* A palavra recusada fica no campo, marcada, e o aviso vai para a região
+     viva da frase: sumir com ela em silêncio escondia o erro. */
+  function rejectMnemonicWord(input, rejected) {
+    if (!rejected) return;
+    input.setAttribute('aria-invalid', 'true');
+    setMnemonicNote(t('palavra fora das listas da frase.'));
   }
 
   /* Palavra recusada: o campo vazio não fica marcado como inválido (o vazio
@@ -5874,39 +5924,48 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   /* Idiomas compatíveis com todas as palavras inteiras já preenchidas. A
      interseção é o que respeita a lista da frase: uma palavra ambígua ainda
-     deixa as duas listas, e a palavra seguinte as separa. */
+     deixa as duas listas, e a palavra seguinte as separa. Devolve [] quando
+     ainda não há palavra inteira e null quando as palavras preenchidas não
+     cabem em nenhuma lista em comum. */
   function mnemonicLangCandidates() {
     var candidates = null;
+    var seen = false;
     mnemonicInputs.forEach(function (input) {
       var typed = input.value.trim().toLowerCase();
       if (!typed) return;
       var langs = mnemonicLanguagesForWord(typed);
+      /* O prefixo pela metade ainda não escolhe lista; a palavra inteira que
+         não cabe na interseção torna a frase incompatível. */
       if (!langs.length) return;
+      seen = true;
       candidates = candidates
         ? candidates.filter(function (lang) { return langs.indexOf(lang) >= 0; })
         : langs;
     });
-    return candidates || [];
+    if (!seen) return [];
+    return candidates.length ? candidates : null;
   }
   /* A lista em vigor acompanha a frase digitada: se a palavra já não cabe
      nela, passa para a primeira lista compatível. */
   function syncMnemonicLang() {
     var candidates = mnemonicLangCandidates();
-    if (candidates.length && candidates.indexOf(mnemonicLang) < 0) {
+    if (candidates && candidates.length && candidates.indexOf(mnemonicLang) < 0) {
       setMnemonicLang(candidates[0]);
     }
   }
 
   /* As opções são as palavras que começam com o que já foi digitado. Sem
      palavra inteira na frase, a busca cobre as dez listas; com uma palavra
-     preenchida, cobre só as listas compatíveis com ela. A lista não tem
-     teto: o que casar com o prefixo aparece, e o campo rola quando não cabe. */
+     preenchida, cobre só as listas compatíveis com ela; frase já
+     incompatível não sugere nada. A lista não tem teto: o que casar com o
+     prefixo aparece, e o campo rola quando não cabe. */
   function mnemonicMatchList(query) {
     var out = [];
     var seen = Object.create(null);
     if (!query) return out;
     var folded = mnemonicFold(query);
     var candidates = mnemonicLangCandidates();
+    if (candidates === null) return out;
     var langs = candidates.length ? candidates : MNEMONIC_LANG_CODES;
     langs.forEach(function (lang) {
       var data = mnemonicLangData(lang);
@@ -5941,7 +6000,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
     var count = mnemonicMatches.length;
     mnemonicActive = ((index % count) + count) % count;
     $$('.mnemonic-option', mnemonicOptions).forEach(function (option, i) {
-      option.setAttribute('aria-selected', i === mnemonicActive ? 'true' : 'false');
+      var selected = i === mnemonicActive;
+      option.setAttribute('aria-selected', selected ? 'true' : 'false');
+      /* A lista pode rolar: a opção em digitação precisa continuar à vista. */
+      if (selected) option.scrollIntoView({ block: 'nearest' });
     });
     mnemonicOpen.setAttribute('aria-activedescendant', 'mnemonic-option-' + mnemonicActive);
   }
@@ -6034,7 +6096,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      elas; a checagem do BIP39 decide qual lista vale. */
   function mnemonicEntropy() {
     var candidates = mnemonicLangCandidates();
-    var langs = candidates.length ? candidates : MNEMONIC_LANG_CODES;
+    var langs = candidates === null ? [] :
+      (candidates.length ? candidates : MNEMONIC_LANG_CODES);
     for (var i = 0; i < langs.length; i++) {
       var entropy = mnemonicEntropyForLang(langs[i]);
       if (entropy) {
@@ -6053,6 +6116,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       if (!input.value.trim()) input.removeAttribute('aria-invalid');
     });
     var next = mnemonicEntropy();
+    /* Frase completa que não fecha a checagem não gera chave: a região viva
+       da frase explica por quê. */
+    var complete = mnemonicInputs.every(function (input) {
+      return !!input.value.trim();
+    });
+    setMnemonicNote(complete && !next
+      ? t('a frase não fecha a checagem do BIP39.')
+      : '');
     /* A frase em vigor não mudou: entrar e sair de uma posição sem editar
        nada não apaga a chave (PBKDF2 + BIP32) nem descarta a revisão e a
        assinatura de PSBT em andamento — o `focusout` chamava esta função e
@@ -6125,8 +6196,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       if (pointerOut || (next && !nextInBlock)) {
         closeMnemonicOptions();
         acceptMnemonicText(input);
-        commitMnemonicWord(input);
+        var rejectedOut = commitMnemonicWord(input);
         syncMnemonic();
+        rejectMnemonicWord(input, rejectedOut);
         return;
       }
       /* Fora essas saídas, nenhum atalho tira o foco de uma posição com
@@ -6145,8 +6217,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       /* O que ficou no campo passa pelo mesmo filtro ao sair, e só palavra
          inteira permanece na posição. */
       acceptMnemonicText(input);
-      commitMnemonicWord(input);
+      var rejected = commitMnemonicWord(input);
       syncMnemonic();
+      rejectMnemonicWord(input, rejected);
     });
     /* A origem da saída decide se o campo pode ser deixado: clique/toque, sim;
        tecla, não. O registrador fica na captura para valer antes do blur, e
@@ -6266,6 +6339,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      escreveu. */
   function paintEntropy(hd) {
     if (!mnemonicList || mnemonicEditing) return;
+    setMnemonicNote('');
     var words = hd ? hd.mnemonic.split(' ') : [];
     mnemonicInputs.forEach(function (input, i) {
       input.removeAttribute('aria-invalid');

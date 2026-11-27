@@ -4,6 +4,11 @@
    node test/cofre-ui.test.mjs */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import vm from 'node:vm';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createRequire } from 'node:module';
+import { embeddedCore } from '../scripts/sync-cofre-core.mjs';
 import {
   DEFAULT_SOURCE,
   cssHash,
@@ -125,5 +130,110 @@ assert.match(html, /function mnemonicLanguagesForWord\(/, 'a lista é deduzida d
 assert.match(html, /function mnemonicLangCandidates\(/, 'as palavras preenchidas filtram as listas compatíveis');
 assert.doesNotMatch(html, /MNEMONIC_OPTION_LIMIT/, 'a sugestão não tem teto de opções');
 console.log('ok   idioma da frase: ' + langCodes.length + ' listas, detecção pela frase e sem seletor na tela "chave"');
+
+/* ---------------- 7. comportamento da dedução do idioma, sem DOM ---------------- */
+/* As funções da tela "chave" rodam sobre `mnemonicInputs`; aqui elas são
+   extraídas do HTML e executadas com as listas reais do núcleo embutido, sem
+   browser. Cobre ambiguidade, checagem decidindo a lista, frase mista e a
+   grafia canônica da palavra ambígua. */
+{
+  const coreDir = fs.mkdtempSync(join(tmpdir(), 'cofre-infer-'));
+  const coreFile = join(coreDir, 'core.cjs');
+  fs.writeFileSync(coreFile, embeddedCore(html));
+  const C = createRequire(import.meta.url)(coreFile);
+
+  const fonteDaFuncao = (nome) => {
+    const inicio = html.indexOf('function ' + nome + '(');
+    assert.ok(inicio >= 0, 'função ' + nome + ' está no Cofre');
+    let profundidade = 0;
+    let abriu = false;
+    for (let i = inicio; i < html.length; i += 1) {
+      if (html[i] === '{') { profundidade += 1; abriu = true; }
+      else if (html[i] === '}') {
+        profundidade -= 1;
+        if (abriu && profundidade === 0) return html.slice(inicio, i + 1);
+      }
+    }
+    throw new Error('função ' + nome + ' sem fechamento');
+  };
+
+  const fonte = `
+    var MNEMONIC_LANG_CODES = ${JSON.stringify(langCodes)};
+    var BIT_COUNT = 256;
+    var mnemonicLang = 'english';
+    var mnemonicInputs = [];
+    var mnemonicLangLists = {};
+    function setWords(words) {
+      mnemonicInputs = words.map(function (value) { return { value: value || '' }; });
+    }
+    function setLang(lang) { mnemonicLang = lang; }
+    function fakeInput(value) { return { value: value, removeAttribute: function () {} }; }
+    function setMnemonicValue(input, value) { input.value = value; }
+    ${fonteDaFuncao('mnemonicNorm')}
+    ${fonteDaFuncao('mnemonicFold')}
+    ${fonteDaFuncao('mnemonicLangData')}
+    ${fonteDaFuncao('setMnemonicLang')}
+    ${fonteDaFuncao('mnemonicLanguagesForWord')}
+    ${fonteDaFuncao('mnemonicLangCandidates')}
+    ${fonteDaFuncao('mnemonicEntropyForLang')}
+    ${fonteDaFuncao('mnemonicEntropy')}
+    ${fonteDaFuncao('commitMnemonicWord')}
+    ${fonteDaFuncao('padDigits')}
+  `;
+  const contexto = vm.createContext({
+    BTC: {
+      bip39Words: (lang) => C.bip39Words(lang),
+      bip39Mnemonic: (bits, lang) => C.bip39Mnemonic(bits, lang)
+    }
+  });
+  vm.runInContext(fonte, contexto);
+  const executar = (codigo) => vm.runInContext(codigo, contexto);
+  const comoJson = (codigo) => JSON.parse(executar('JSON.stringify(' + codigo + ')'));
+
+  executar("setWords(['abandon'])");
+  assert.deepEqual(comoJson("mnemonicLanguagesForWord('abandon')"), ['english', 'french'],
+    'abandon é ambígua entre inglês e francês');
+  executar("setWords(['abaco'])");
+  assert.deepEqual(comoJson("mnemonicLanguagesForWord('abaco')"), ['spanish', 'italian'],
+    'abaco é ambígua entre espanhol e italiano');
+
+  /* Frase válida em inglês cujas 24 palavras também existem na lista
+     francesa: as duas listas ficam em jogo e a checagem escolhe a inglesa. */
+  const fraseAmbigua = 'abandon amateur angle animal aspect badge bicycle bonus brave camera canal capable caution civil client concert correct coyote crucial cruel cycle danger depart digital'.split(' ');
+  executar('setWords(' + JSON.stringify(fraseAmbigua) + ')');
+  assert.deepEqual(comoJson('mnemonicLangCandidates()'), ['english', 'french'],
+    'a frase inteira mantém as duas listas compatíveis');
+  assert.equal(executar("mnemonicEntropyForLang('english').length"), 256,
+    'a checagem fecha na lista inglesa');
+  assert.equal(executar("mnemonicEntropyForLang('french')"), '',
+    'a mesma sequência não fecha na lista francesa');
+  assert.equal(executar('mnemonicEntropy().length'), 256,
+    'a entropia sai da lista que fecha a checagem');
+
+  const fraseMista = fraseAmbigua.slice();
+  fraseMista[23] = 'abaco';
+  executar('setWords(' + JSON.stringify(fraseMista) + ')');
+  assert.equal(executar('mnemonicLangCandidates()'), null,
+    'palavras de listas diferentes não têm lista em comum');
+  assert.equal(executar('mnemonicEntropy()'), '', 'frase mista não gera entrada');
+
+  /* A palavra ambígua volta para a grafia da lista em vigor: `area` em
+     espanhol é `área`, e não a forma inglesa. */
+  executar("setWords(['']); setLang('spanish'); var entrada = fakeInput('area'); mnemonicInputs[0] = entrada; commitMnemonicWord(entrada)");
+  assert.equal(executar('mnemonicInputs[0].value'), 'área'.normalize('NFKD'),
+    'a grafia canônica segue a lista em vigor');
+  executar("setWords(['']); setLang('english'); entrada = fakeInput('area'); mnemonicInputs[0] = entrada; commitMnemonicWord(entrada)");
+  assert.equal(executar('mnemonicInputs[0].value'), 'area',
+    'a grafia canônica inglesa é preservada');
+
+  /* Frase já incompatível: a palavra recusada fica no campo, com o texto
+     devolvido para o focusout avisar em vez de apagar. */
+  executar("setWords(['abandon', 'abaco']); setLang('english'); entrada = fakeInput('abaco'); mnemonicInputs[1] = entrada; var recusada = commitMnemonicWord(entrada)");
+  assert.equal(executar('recusada'), 'abaco', 'a recusa devolve o texto');
+  assert.equal(executar('mnemonicInputs[1].value'), 'abaco', 'a palavra recusada não é apagada');
+
+  fs.rmSync(coreDir, { recursive: true, force: true });
+  console.log('ok   inferência do idioma: ambiguidade, checagem, frase mista e grafia canônica');
+}
 
 console.log('\ntestes de interface do Cofre passaram');
