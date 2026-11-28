@@ -5352,12 +5352,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   /* Os 256 bits estão completos, mas a frase ainda não nasceu: o idioma
      escolhe a lista de 2.048 palavras e muda a frase (e a seed). A escolha
-     fica no painel da rodada e o foco vai para a primeira opção. */
+     fica no painel da rodada e não recebe foco: nenhuma opção pode ser
+     acionada pelo Enter que o usuário ainda estiver segurando. */
   function showMnemonicChoice() {
     if (!coinLang || tosses.length < BIT_COUNT) return;
     coinLang.hidden = false;
-    var first = coinLang.querySelector('button[data-mnemonic-lang]');
-    if (first) first.focus();
   }
   function hideMnemonicChoice() {
     if (!coinLang || coinLang.hidden) return false;
