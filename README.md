@@ -181,7 +181,7 @@ an
 independent source.
 
 Before opening it, compare the published hash: the sha256 of the published
-file is `cf68d7e8ed7506eecf9045f054d93a95f5d2df17789e26df1d05d1e4d0b52458` —
+file is `11efb9e720c838e7a45e4517f8d3625d57c937836219d0a9b8c63bb50b0d09a5` —
 run `sha256sum cofre-btc.html` on the downloaded file; the release asset
 always has this fixed name. The Cofre's about
 screen asks for the same check. Any edit to the Cofre requires updating this

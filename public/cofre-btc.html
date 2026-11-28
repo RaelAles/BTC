@@ -2623,7 +2623,7 @@
                 </button>
               </div>
               <p class="coin-last" id="coin-last"></p>
-              <div class="coin-lang" id="coin-lang" tabindex="-1" hidden>
+              <div class="coin-lang" id="coin-lang" hidden>
                 <span class="coin-lang-label" id="coin-lang-label">idioma da frase</span>
                 <div class="coin-lang-list" role="group" aria-labelledby="coin-lang-label">
                   <button type="button" class="coin-lang-item" data-mnemonic-lang="english" lang="en">english</button>
@@ -5356,13 +5356,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
 
   /* Os 256 bits estão completos, mas a frase ainda não nasceu: o idioma
      escolhe a lista de 2.048 palavras e muda a frase (e a seed). A escolha
-     fica no painel da rodada: o foco vai para o contêiner, não para uma
-     opção, e nenhuma opção pode ser acionada pelo Space que o usuário ainda
-     estiver segurando (em <button>, o Space dispara click no keyup). */
+     fica no painel da rodada e não recebe foco: nenhuma opção pode ser
+     acionada pelo Enter que o usuário ainda estiver segurando. */
   function showMnemonicChoice() {
     if (!coinLang || tosses.length < BIT_COUNT) return;
     coinLang.hidden = false;
-    coinLang.focus({ preventScroll: true });
   }
   function hideMnemonicChoice() {
     if (!coinLang || coinLang.hidden) return false;

@@ -187,14 +187,6 @@ console.log('ok   idioma da frase: ' + langCodes.length + ' listas, detecção p
     throw new Error('função ' + nome + ' sem fechamento');
   };
 
-  const corpoDaEscolha = fonteDaFuncao('showMnemonicChoice');
-  assert.match(html, /id="coin-lang"[^>]*tabindex="-1"/,
-    'o painel de idioma pode receber foco sem entrar na ordem do Tab');
-  assert.match(corpoDaEscolha, /coinLang\.focus\(\{ preventScroll: true \}\)/,
-    'o foco vai para o contêiner do painel, não para uma opção');
-  assert.doesNotMatch(corpoDaEscolha, /(?:button|coinCara|coinCoroa|mnemonicInputs)[^\n]*\.focus\(/,
-    'nenhuma opção de idioma recebe foco automático');
-
   const fonte = `
     var MNEMONIC_LANG_CODES = ${JSON.stringify(langCodes)};
     var BIT_COUNT = 256;

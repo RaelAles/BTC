@@ -176,7 +176,7 @@ legenda da linha “taxa” do resumo. O Cofre não compara com o `estimatefee`
 nem com uma fonte independente.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
-`cf68d7e8ed7506eecf9045f054d93a95f5d2df17789e26df1d05d1e4d0b52458` — rode
+`11efb9e720c838e7a45e4517f8d3625d57c937836219d0a9b8c63bb50b0d09a5` — rode
 `sha256sum cofre-btc.html` no arquivo baixado; o asset do release tem sempre
 esse nome fixo. A tela “sobre” do Cofre
 pede a mesma conferência. Qualquer edição no Cofre exige atualizar este
