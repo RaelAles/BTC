@@ -5772,10 +5772,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      dígito, espaço ou letra que não abre palavra nenhuma nem chegam a
      aparecer. Sem palavra inteira preenchida, as dez listas valem; quando
      as palavras já não cabem numa lista só, nenhuma tecla entra. O prefixo
-     é comparado sem acento, como na palavra inteira. */
-  function mnemonicIsPrefix(text) {
+     é comparado sem acento, como na palavra inteira. O campo em edição fica
+     fora da escolha da lista: enquanto a palavra não fecha, ele é prefixo. */
+  function mnemonicIsPrefix(text, editing) {
     var query = mnemonicFold(text);
-    var candidates = mnemonicLangCandidates();
+    var candidates = mnemonicLangCandidates(editing);
     if (candidates === null) return false;
     var langs = candidates.length ? candidates : MNEMONIC_LANG_CODES;
     for (var l = 0; l < langs.length; l++) {
@@ -5816,7 +5817,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      chega a existir. Devolve false quando houve essa devolução. */
   function acceptMnemonicText(input) {
     var typed = mnemonicNorm(input.value.toLowerCase());
-    if (typed && !mnemonicIsPrefix(typed)) {
+    if (typed && !mnemonicIsPrefix(typed, input)) {
       setMnemonicValue(input, input._mnValue || '');
       input.removeAttribute('aria-invalid');
       return false;
@@ -5833,7 +5834,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function mnemonicWordReady(input) {
     var typed = mnemonicFold(input.value.trim().toLowerCase());
     if (!typed) return true;
-    var candidates = mnemonicLangCandidates();
+    var candidates = mnemonicLangCandidates(input);
     if (candidates === null) return false;
     var langs = candidates.length ? candidates : MNEMONIC_LANG_CODES;
     return langs.some(function (lang) {
@@ -5907,11 +5908,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
      interseção é o que respeita a lista da frase: uma palavra ambígua ainda
      deixa as duas listas, e a palavra seguinte as separa. Devolve [] quando
      ainda não há palavra inteira e null quando as palavras preenchidas não
-     cabem em nenhuma lista em comum. */
-  function mnemonicLangCandidates() {
+     cabem em nenhuma lista em comum. O campo em digitação pode ser ignorado
+     (`editing`): o prefixo dele não escolhe a lista antes de fechar palavra. */
+  function mnemonicLangCandidates(editing) {
     var candidates = null;
     var seen = false;
     mnemonicInputs.forEach(function (input) {
+      /* O campo em digitação guarda um prefixo, não uma palavra inteira:
+         enquanto ele não é encerrado, não pode escolher a lista. Sem isso,
+         `nu` + `t` vira a palavra inglesa `nut` e derruba a lista portuguesa
+         da frase, recusando a tecla. */
+      if (input === editing) return;
       var typed = input.value.trim().toLowerCase();
       if (!typed) return;
       var langs = mnemonicLanguagesForWord(typed);
@@ -5928,8 +5935,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   /* A lista em vigor acompanha a frase digitada: se a palavra já não cabe
      nela, passa para a primeira lista compatível. */
-  function syncMnemonicLang() {
-    var candidates = mnemonicLangCandidates();
+  function syncMnemonicLang(editing) {
+    var candidates = mnemonicLangCandidates(editing);
     if (candidates && candidates.length && candidates.indexOf(mnemonicLang) < 0) {
       setMnemonicLang(candidates[0]);
     }
@@ -5938,14 +5945,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   /* As opções são as palavras que começam com o que já foi digitado. Sem
      palavra inteira na frase, a busca cobre as dez listas; com uma palavra
      preenchida, cobre só as listas compatíveis com ela; frase já
-     incompatível não sugere nada. A lista não tem teto: o que casar com o
-     prefixo aparece, e o campo rola quando não cabe. */
-  function mnemonicMatchList(query) {
+     incompatível não sugere nada. O campo em edição (`editing`) não conta
+     para a escolha da lista, pelo mesmo motivo do prefixo. A lista não tem
+     teto: o que casar com o prefixo aparece, e o campo rola quando não cabe. */
+  function mnemonicMatchList(query, editing) {
     var out = [];
     var seen = Object.create(null);
     if (!query) return out;
     var folded = mnemonicFold(query);
-    var candidates = mnemonicLangCandidates();
+    var candidates = mnemonicLangCandidates(editing);
     if (candidates === null) return out;
     var langs = candidates.length ? candidates : MNEMONIC_LANG_CODES;
     langs.forEach(function (lang) {
@@ -5992,7 +6000,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   function openMnemonicOptions(input) {
     if (!mnemonicOptions) return;
     var query = input.value.trim().toLowerCase();
-    var matches = mnemonicMatchList(query);
+    var matches = mnemonicMatchList(query, input);
     /* Palavra completa e sozinha no prefixo: não há o que escolher e o campo
        pode seguir para a próxima posição. */
     if (!matches.length ||
@@ -6075,8 +6083,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
   /* A frase pode caber em mais de uma lista quando as palavras são comuns a
      elas; a checagem do BIP39 decide qual lista vale. */
-  function mnemonicEntropy() {
-    var candidates = mnemonicLangCandidates();
+  function mnemonicEntropy(editing) {
+    var candidates = mnemonicLangCandidates(editing);
     var langs = candidates === null ? [] :
       (candidates.length ? candidates : MNEMONIC_LANG_CODES);
     for (var i = 0; i < langs.length; i++) {
@@ -6090,13 +6098,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
   }
 
   /* Lê as 24 posições e deixa a entropia em vigor ser a da frase válida. */
-  function syncMnemonic() {
-    syncMnemonicLang();
+  function syncMnemonic(editing) {
+    syncMnemonicLang(editing);
     /* Posição vazia é válida: o campo vazio não fica marcado como inválido. */
     mnemonicInputs.forEach(function (input) {
       if (!input.value.trim()) input.removeAttribute('aria-invalid');
     });
-    var next = mnemonicEntropy();
+    var next = mnemonicEntropy(editing);
     /* A frase em vigor não mudou: entrar e sair de uma posição sem editar
        nada não apaga a chave (PBKDF2 + BIP32) nem descarta a revisão e a
        assinatura de PSBT em andamento — o `focusout` chamava esta função e
@@ -6140,7 +6148,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
       var end = input.selectionEnd;
       if (start === null || end === null) return;
       var next = (input.value.slice(0, start) + ev.data + input.value.slice(end)).toLowerCase();
-      if (next && !mnemonicIsPrefix(next)) ev.preventDefault();
+      if (next && !mnemonicIsPrefix(next, input)) ev.preventDefault();
     });
     mnemonicList.addEventListener('input', function (ev) {
       var input = ev.target;
@@ -6149,7 +6157,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = BTC;
          evento que fecha a composição. */
       if (ev.isComposing) return;
       if (!acceptMnemonicText(input)) return;
-      syncMnemonic();
+      syncMnemonic(input);
       openMnemonicOptions(input);
     });
     mnemonicList.addEventListener('focusout', function (ev) {

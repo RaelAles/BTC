@@ -201,6 +201,8 @@ console.log('ok   idioma da frase: ' + langCodes.length + ' listas, detecção p
     ${fonteDaFuncao('setMnemonicLang')}
     ${fonteDaFuncao('mnemonicLanguagesForWord')}
     ${fonteDaFuncao('mnemonicLangCandidates')}
+    ${fonteDaFuncao('mnemonicIsPrefix')}
+    ${fonteDaFuncao('mnemonicMatchList')}
     ${fonteDaFuncao('mnemonicEntropyForLang')}
     ${fonteDaFuncao('mnemonicEntropy')}
     ${fonteDaFuncao('mnemonicWordReady')}
@@ -287,6 +289,21 @@ console.log('ok   idioma da frase: ' + langCodes.length + ' listas, detecção p
 
   executar("setWords(['']); setLang('english'); entrada = fakeInput('zzz'); mnemonicInputs[0] = entrada; commitMnemonicWord(entrada)");
   assert.equal(executar('mnemonicInputs[0].value'), '', 'termo fora das listas também é apagado');
+
+  /* O campo em digitação é prefixo, não palavra: `nut` é palavra inglesa,
+     mas o `t` de `nutrir` não pode ser recusado numa frase portuguesa, nem a
+     sugestão pode cair para a lista inglesa no meio da tecla. */
+  executar("setWords(['abacate', 'nu']); setLang('portuguese'); entrada = mnemonicInputs[1]");
+  assert.deepEqual(comoJson("mnemonicMatchList('nu', entrada)").slice(0, 6),
+    ['nublado', 'nudez', 'numeral', 'nupcial', 'nutrir', 'nuvem'],
+    'a lista do campo em edição segue a frase portuguesa');
+  assert.equal(executar("mnemonicIsPrefix('nut', entrada)"), true,
+    'o `t` de `nutrir` é aceito com o campo em edição fora da escolha da lista');
+  executar("setWords(['abacate', 'nut']); setLang('portuguese'); entrada = mnemonicInputs[1]");
+  assert.equal(executar("mnemonicIsPrefix('nut', entrada)"), true,
+    'a palavra inglesa `nut`, sozinha no campo, não derruba a lista da frase');
+  assert.equal(executar('mnemonicIsPrefix(\'nut\')'), false,
+    'sem o campo em edição, `nut` continua sendo a palavra inglesa');
 
   fs.rmSync(coreDir, { recursive: true, force: true });
   console.log('ok   inferência do idioma: ambiguidade, checagem, frase mista, grafia canônica e recusa que apaga');
