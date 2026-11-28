@@ -309,6 +309,96 @@ function mapFind(map, type) {
   await fake.close();
 }
 
+/* ---------------- 2c. recusas de importação do analyzePsbt ---------------- */
+/* As guardas de `analyzePsbt` continuam vivas sem os PSBTs de exemplo: cada
+   arquivo é montado em código e alterado só no ponto que a guarda cobre. */
+{
+  const account = parseXpub(hd.accounts.bip84.xpub);
+  const own = await deriveAddress('bip84', account, 0, 0);
+  const fingerprint = BTC.bytesToHex(BTC.hash160(account.pub)).slice(0, 8);
+  const destination = BTC.scriptFromAddress(
+    BTC.derive('10' + '0'.repeat(254)).addresses.p2wpkh);
+  const inputOf = (script, prev) => ({
+    txid: prev.txid, vout: 0, value: 100000, script,
+    kind: BTC.scriptKind(script), pub: own.pub, path: own.path,
+    fingerprint, rawTx: BTC.hexToBytes(prev.raw)
+  });
+  const prev = makeTx([{ txid: 'aa'.repeat(32), vout: 0 }],
+    [{ value: 100000, script: own.script }]);
+  const base = BTC.buildPsbt({
+    inputs: [inputOf(own.script, prev)],
+    outputs: [{ value: 90000, script: destination }]
+  });
+  const mutated = (fn) => {
+    const psbt = BTC.parsePsbt(base.bytes);
+    fn(psbt);
+    return BTC.writePsbt(psbt);
+  };
+  const analyze = (bytes, motivo, nome) =>
+    assert.rejects(BTC.analyzePsbt(bytes, hd), motivo, nome + ' é recusado');
+
+  await analyze(mutated((psbt) => {
+    psbt.inputs[0] = psbt.inputs[0].filter((e) => e.key[0] !== 0x06 && e.key[0] !== 0x16);
+  }), /não pertence às contas derivadas/, '30 entrada de terceiro');
+
+  const p2wshScript = BTC.concatBytes(new Uint8Array([0x00, 0x20]), new Uint8Array(32).fill(1));
+  const p2wshPrev = makeTx([{ txid: 'aa'.repeat(32), vout: 0 }],
+    [{ value: 100000, script: p2wshScript }]);
+  await analyze(BTC.buildPsbt({
+    inputs: [inputOf(p2wshScript, p2wshPrev)],
+    outputs: [{ value: 90000, script: destination }]
+  }).bytes, /P2WSH, não suportada/, '31 entrada p2wsh');
+
+  const witnessScript = new Uint8Array([0x51, 0x02, 0x00, 0x00]);
+  const witnessPrev = makeTx([{ txid: 'aa'.repeat(32), vout: 0 }],
+    [{ value: 100000, script: witnessScript }]);
+  await analyze(BTC.buildPsbt({
+    inputs: [inputOf(witnessScript, witnessPrev)],
+    outputs: [{ value: 90000, script: destination }]
+  }).bytes, /tem script não suportado/, '32 entrada witness desconhecida');
+
+  await analyze(mutated((psbt) => {
+    psbt.inputs[0].push({ key: new Uint8Array([0x11]), value: new Uint8Array([1, 0, 0, 0]) });
+  }), /exige time lock/, '33 entrada com time lock');
+
+  await analyze(mutated((psbt) => {
+    psbt.inputs[0] = psbt.inputs[0].filter((e) => !(e.key.length === 1 && e.key[0] === 0x00));
+  }), /veio sem non_witness_utxo/, '34 entrada sem non-witness utxo');
+
+  await analyze(BTC.buildPsbt({
+    inputs: [inputOf(own.script, prev)],
+    outputs: [{ value: 120000, script: destination }]
+  }).bytes, /as saídas somam mais que as entradas/, '35 saídas maiores que as entradas');
+
+  await analyze(mutated((psbt) => {
+    psbt.global.push({ key: new Uint8Array([0xfb]), value: new Uint8Array([2, 0, 0, 0]) });
+  }), /PSBT v2 não é suportado/, '36 psbt v2');
+
+  await analyze(mutated((psbt) => {
+    psbt.global = psbt.global.filter((e) => !(e.key.length === 1 && e.key[0] === 0x00));
+  }), /PSBT sem transação não assinada/, '37 psbt sem transação');
+
+  await analyze(new TextEncoder().encode('isto não é um PSBT\n'),
+    /não começa com a marca psbt/, '38 arquivo inválido');
+
+  await analyze(mutated((psbt) => {
+    psbt.inputs[0].push({ key: new Uint8Array([0x05]), value: new Uint8Array([0x51]) });
+  }), /witness_script, não suportada/, '39 entrada com witness script');
+
+  await analyze(mutated((psbt) => {
+    psbt.inputs[0].push({
+      key: BTC.concatBytes(new Uint8Array([0x14]), new Uint8Array(64).fill(2)),
+      value: new Uint8Array(64).fill(3)
+    });
+  }), /dados de script no Taproot/, '40 entrada taproot script path');
+
+  await analyze(mutated((psbt) => {
+    psbt.inputs[0].push({ key: new Uint8Array([0x18]), value: new Uint8Array(32).fill(4) });
+  }), /dados de script no Taproot/, '41 entrada taproot merkle root');
+
+  console.log('ok   12 recusas de importação do analyzePsbt');
+}
+
 /* ---------------- 3. p2pkh com non_witness_utxo ---------------- */
 {
   const account = parseXpub(hd.accounts.bip44.xpub);

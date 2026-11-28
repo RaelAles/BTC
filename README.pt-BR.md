@@ -154,8 +154,11 @@ virar palavra de uma lista compatível com a frase já preenchida, e a lista de
 sugestões mostra todas as palavras que casam com o prefixo, sem teto, com
 rolagem quando não cabe. Enquanto as palavras couberem em mais de uma das dez
 listas, todas continuam valendo; é a checagem do BIP39 que decide a lista
-quando a frase fecha. Uma frase com palavras que não pertencem todas à mesma
-lista não fecha a checagem e não gera chave.
+quando a frase fecha. Enquanto o campo está em edição, a palavra é só prefixo
+e não escolhe a lista; ela passa a contar quando a posição é encerrada
+(Enter, Tab ou saída do campo), que é quando a sugestão e a derivação usam a
+lista da frase. Uma frase com palavras que não pertencem todas à mesma lista
+não fecha a checagem e não gera chave.
 Ao importar um
 PSBT, ele confere a conta, a derivação, a chave pública, o script, as saídas e
 a taxa antes de assinar. Ele recusa o arquivo na importação quando há mais
@@ -173,7 +176,7 @@ legenda da linha “taxa” do resumo. O Cofre não compara com o `estimatefee`
 nem com uma fonte independente.
 
 Antes de abrir, confira o hash publicado: sha256 do arquivo publicado é
-`fbe00c1359bc36e1015d287c0fe37d30565ca49ff7538ee8acae9054aa68b4a4` — rode
+`cf68d7e8ed7506eecf9045f054d93a95f5d2df17789e26df1d05d1e4d0b52458` — rode
 `sha256sum cofre-btc.html` no arquivo baixado; o asset do release tem sempre
 esse nome fixo. A tela “sobre” do Cofre
 pede a mesma conferência. Qualquer edição no Cofre exige atualizar este

@@ -107,6 +107,18 @@ if (fs.existsSync(DEFAULT_SOURCE)) {
   console.log('ok   bloco @copia-estilo.css com sha256 em dia (estilo.css da skill não encontrado)');
 }
 
+/* ---------------- 5b. as três faces do Cofre são as mesmas de fontes.css ---------------- */
+/* O Cofre é standalone e mantém cópia própria das fontes embutidas: sem
+   esta trava, um recorte novo em fontes.css não chega ao arquivo publicado. */
+const facesDe = (texto) => [...texto.matchAll(/^  src: url\(data:font\/woff2;base64,([^\n]+)\) format\("woff2"\);$/gm)]
+  .map(match => match[1]);
+const facesCofre = facesDe(html);
+const facesFontes = facesDe(fs.readFileSync(new URL('../public/fontes.css', import.meta.url), 'utf8'));
+assert.equal(facesCofre.length, 3, 'o Cofre embute as três faces');
+assert.deepEqual(facesCofre, facesFontes,
+  'as três faces do Cofre são as mesmas de public/fontes.css');
+console.log('ok   as três faces do Cofre batem com public/fontes.css');
+
 /* ---------------- 6. o idioma da frase: controles, listas e detecção batem ---------------- */
 const langCodes = listaDeStrings('MNEMONIC_LANG_CODES');
 assert.equal(langCodes[0], 'english', 'o inglês continua sendo o idioma padrão');
@@ -175,6 +187,14 @@ console.log('ok   idioma da frase: ' + langCodes.length + ' listas, detecção p
     throw new Error('função ' + nome + ' sem fechamento');
   };
 
+  const corpoDaEscolha = fonteDaFuncao('showMnemonicChoice');
+  assert.match(html, /id="coin-lang"[^>]*tabindex="-1"/,
+    'o painel de idioma pode receber foco sem entrar na ordem do Tab');
+  assert.match(corpoDaEscolha, /coinLang\.focus\(\{ preventScroll: true \}\)/,
+    'o foco vai para o contêiner do painel, não para uma opção');
+  assert.doesNotMatch(corpoDaEscolha, /(?:button|coinCara|coinCoroa|mnemonicInputs)[^\n]*\.focus\(/,
+    'nenhuma opção de idioma recebe foco automático');
+
   const fonte = `
     var MNEMONIC_LANG_CODES = ${JSON.stringify(langCodes)};
     var BIT_COUNT = 256;
@@ -239,6 +259,16 @@ console.log('ok   idioma da frase: ' + langCodes.length + ' listas, detecção p
   assert.equal(executar('mnemonicEntropy().length'), 256,
     'a entropia sai da lista que fecha a checagem');
 
+  /* A lista em vigor vem primeiro, sem reordenação local no commit: numa
+     frase ambígua a checagem ainda decide, mas a preferência é a da frase. */
+  executar("setLang('french')");
+  assert.deepEqual(comoJson('mnemonicLangCandidates()'), ['french', 'english'],
+    'a lista em vigor fica na frente das demais compatíveis');
+  assert.equal(executar('mnemonicEntropy().length'), 256,
+    'a checagem segue decidindo quando a frase fecha');
+  assert.equal(executar('mnemonicLang'), 'english',
+    'a lista que fecha a checagem assume a frase');
+
   const fraseMista = fraseAmbigua.slice();
   fraseMista[23] = 'abaco';
   executar('setWords(' + JSON.stringify(fraseMista) + ')');
@@ -299,11 +329,20 @@ console.log('ok   idioma da frase: ' + langCodes.length + ' listas, detecção p
     'a lista do campo em edição segue a frase portuguesa');
   assert.equal(executar("mnemonicIsPrefix('nut', entrada)"), true,
     'o `t` de `nutrir` é aceito com o campo em edição fora da escolha da lista');
-  executar("setWords(['abacate', 'nut']); setLang('portuguese'); entrada = mnemonicInputs[1]");
+  executar("setWords(['abacate', 'nut']); setLang('portuguese'); entrada = fakeInput('nut'); mnemonicInputs[1] = entrada");
   assert.equal(executar("mnemonicIsPrefix('nut', entrada)"), true,
     'a palavra inglesa `nut`, sozinha no campo, não derruba a lista da frase');
   assert.equal(executar('mnemonicIsPrefix(\'nut\')'), false,
-    'sem o campo em edição, `nut` continua sendo a palavra inglesa');
+    'sem o campo em edição, a palavra já conta e a frase mista recusa a tecla');
+
+  /* O caminho de commit é o outro lado da regra: no `focusout` a palavra já
+     conta, então a frase portuguesa + `nut` fica sem lista comum e o campo
+     é apagado. */
+  assert.equal(executar('mnemonicWordReady(entrada)'), false,
+    'enquanto está em edição, `nut` não fica pronto na frase portuguesa');
+  executar('commitMnemonicWord(entrada)');
+  assert.equal(executar('mnemonicInputs[1].value'), '',
+    'no commit a palavra conta e a frase mista apaga `nut`');
 
   fs.rmSync(coreDir, { recursive: true, force: true });
   console.log('ok   inferência do idioma: ambiguidade, checagem, frase mista, grafia canônica e recusa que apaga');

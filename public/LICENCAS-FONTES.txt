@@ -26,7 +26,9 @@ avanço da fonte original. No Liberation Mono ele é um glifo composto que
 aponta para o `space`; mantido assim, o sanitizador de fontes do Firefox
 (OTS) registra "empty gid N used as component in glyph M" no console. O aviso
 não rejeita a fonte, mas é ruído; por isso o recorte troca o composto por um
-glifo simples vazio, sem mexer no desenho nem no avanço.
+glifo simples vazio, sem mexer no desenho nem no avanço. O avanço não muda
+porque ele vive na tabela `hmtx`, não no `glyf`: trocar o contorno composto
+por um vazio simples não altera a largura.
 
 Como conferir o recorte, com fonttools e brotli instalados (python3):
 
@@ -54,7 +56,10 @@ Se aparecer alguma linha, troque o glifo composto por um vazio simples:
     f.save('saida.woff2')
 
 Não há script de build para a fonte: gere o woff2 com pyftsubset
-(layout-features vazio) e embuta em base64 no fontes.css.
+(layout-features vazio) e embuta em base64 no fontes.css. As três faces
+precisam ser recortadas de novo e reembutidas também em public/cofre-btc.html,
+que mantém cópia própria do base64 para ser standalone; o `npm test` compara
+as duas cópias e acusa a divergência.
 
 Digitized data copyright (c) 2010 Google Corporation with Reserved Font
 Arimo, Tinos and Cousine.

@@ -159,8 +159,11 @@ a word of a list compatible with the phrase already filled in, and the
 suggestion list shows every word that matches the prefix, with no cap,
 scrolling when it does not fit. While the words fit more than one of the ten
 lists, all of them stay in play; the BIP39 checksum decides the list when the
-phrase closes. A phrase whose words do not all belong to a single list does
-not close the checksum and produces no key. When a PSBT is
+phrase closes. While a field is being edited, its word is only a prefix and
+does not choose the list; it starts to count when the field is committed
+(Enter, Tab or leaving the field), which is when the suggestion and the
+derivation use the phrase's list. A phrase whose words do not all belong to a
+single list does not close the checksum and produces no key. When a PSBT is
 imported, it checks the account, the derivation, the public key, the script,
 the outputs and the fee before signing. It refuses the file on import when
 there is more than one external destination, an own output without a BIP32
@@ -178,7 +181,7 @@ an
 independent source.
 
 Before opening it, compare the published hash: the sha256 of the published
-file is `fbe00c1359bc36e1015d287c0fe37d30565ca49ff7538ee8acae9054aa68b4a4` —
+file is `cf68d7e8ed7506eecf9045f054d93a95f5d2df17789e26df1d05d1e4d0b52458` —
 run `sha256sum cofre-btc.html` on the downloaded file; the release asset
 always has this fixed name. The Cofre's about
 screen asks for the same check. Any edit to the Cofre requires updating this
